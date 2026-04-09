@@ -14,11 +14,29 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: pip install ruff mypy pandas-stubs
-      - run: ruff check src/ tests/ scripts/
-      - run: ruff format --check src/ tests/ scripts/
+      - run: pip install ruff mypy pandas-stubs pydantic pydantic-settings numpy torch types-PyYAML
+      - run: ruff check src/ tests/
+      - run: ruff format --check src/ tests/
+      - run: mypy --strict src/ tests/
 
-  build-and-test:
+  cpp-build-and-test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure C++
+        run: cmake -B cpp/build -S cpp -DCMAKE_BUILD_TYPE=Debug
+
+      - name: Build C++
+        run: cmake --build cpp/build -j$(nproc 2>/dev/null || sysctl -n hw.ncpu)
+
+      - name: Run C++ tests
+        run: cd cpp/build && ctest --output-on-failure
+
+  python-test:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -28,49 +46,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-
-      - name: Install build deps (Ubuntu)
-        if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y cmake ninja-build
-
-      - name: Install build deps (macOS)
-        if: runner.os == 'macOS'
-        run: brew install cmake ninja
-
-      - name: Install Python package
-        run: pip install -e ".[dev]"
-
-      - name: Run C++ tests
-        run: |
-          cd cpp/build
-          ctest --output-on-failure
-
+      - name: Install Python dependencies
+        run: pip install pytest pytest-cov pandas numpy pydantic pydantic-settings pyyaml torch xgboost arch statsmodels scikit-learn optuna matplotlib yfinance click mypy pandas-stubs types-PyYAML
       - name: Run Python tests
-        run: pytest tests/ -v --tb=short --junitxml=test-results.xml
-
-      - name: mypy strict
-        run: mypy --strict src/
-
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: test-results-${{ matrix.os }}
-          path: test-results.xml
-
-  benchmark:
-    runs-on: macos-latest
-    if: github.ref == 'refs/heads/main'
-    needs: build-and-test
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-      - run: brew install cmake ninja
-      - run: pip install -e ".[dev]"
-      - name: Run benchmarks
-        run: python scripts/benchmark.py run --tag "ci-${{ github.sha }}"
-      - uses: actions/upload-artifact@v4
-        with:
-          name: benchmark-results
-          path: benchmark_results/
+        run: python -m pytest tests/ -v --tb=short
