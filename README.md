@@ -5,7 +5,7 @@ A high-performance, bifurcated C++/Python quantitative trading framework built f
 ## Architecture
 
 ```
-Python (25%)                          C++ (75%)
+Python (~40%)                         C++ (~60%)
 Orchestration, I/O, ML bindings      Pure computation, hot loops
                                       
   Data loading (yfinance, CSV)          Indicators (RSI, MACD, Bollinger, GK, Parkinson)
