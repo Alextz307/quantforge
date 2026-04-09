@@ -5,6 +5,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 
 import numpy as np
+import numpy.typing as npt
 import pandas as pd
 
 from src.core.temporal import WalkForwardValidator
@@ -18,8 +19,8 @@ class IBacktestEngine(ABC):
     @abstractmethod
     def run_backtest(
         self,
-        prices: np.ndarray,  # type: ignore[type-arg]
-        signals: np.ndarray,  # type: ignore[type-arg]
+        prices: npt.NDArray[np.float64],
+        signals: npt.NDArray[np.float64],
         transaction_fee: float,
         initial_capital: float,
     ) -> BacktestResult:

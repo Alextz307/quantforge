@@ -14,7 +14,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: pip install ruff mypy pandas-stubs pydantic pydantic-settings numpy torch types-PyYAML
+      - run: pip install ruff mypy pandas-stubs pydantic pydantic-settings numpy torch types-PyYAML pytest pyarrow
       - run: ruff check src/ tests/
       - run: ruff format --check src/ tests/
       - run: mypy --strict src/ tests/
@@ -47,6 +47,6 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install Python dependencies
-        run: pip install pytest pytest-cov pandas numpy pydantic pydantic-settings pyyaml torch xgboost arch statsmodels scikit-learn optuna matplotlib yfinance click mypy pandas-stubs types-PyYAML
+        run: pip install pytest pytest-cov pandas numpy pydantic pydantic-settings pyyaml torch xgboost arch statsmodels scikit-learn optuna matplotlib yfinance click pyarrow
       - name: Run Python tests
         run: python -m pytest tests/ -v --tb=short
