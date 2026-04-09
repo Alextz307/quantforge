@@ -1,0 +1,49 @@
+[build-system]
+requires = ["scikit-build-core>=0.8", "pybind11>=2.12"]
+build-backend = "scikit_build_core.build"
+
+[project]
+name = "quant-engine"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    "pandas>=2.2",
+    "numpy>=1.26",
+    "pydantic>=2.6",
+    "pydantic-settings>=2.1",
+    "pyyaml>=6.0",
+    "torch>=2.2",
+    "xgboost>=2.0",
+    "arch>=7.0",
+    "statsmodels>=0.14",
+    "scikit-learn>=1.4",
+    "optuna>=3.5",
+    "matplotlib>=3.8",
+    "yfinance>=0.2",
+    "click>=8.1",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=4.0",
+    "mypy>=1.8",
+    "pandas-stubs",
+    "types-PyYAML",
+    "pybind11-stubgen",
+    "ruff>=0.3",
+]
+
+[tool.scikit-build]
+cmake.build-type = "Release"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-v --tb=short"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP"]

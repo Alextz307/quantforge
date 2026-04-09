@@ -1,0 +1,75 @@
+cmake_minimum_required(VERSION 3.20)
+project(quant_engine CXX)
+
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
+# ── Release optimizations ──
+set(CMAKE_CXX_FLAGS_RELEASE "-O3 -DNDEBUG -march=native -flto")
+
+# ── Debug with sanitizers ──
+set(CMAKE_CXX_FLAGS_DEBUG "-g -O0 -fsanitize=address,undefined -fno-omit-frame-pointer")
+
+# ── Profile-Guided Optimization (PGO) support ──
+if(CMAKE_BUILD_TYPE STREQUAL "PGO_INSTRUMENT")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fprofile-instr-generate")
+elseif(CMAKE_BUILD_TYPE STREQUAL "PGO_OPTIMIZE")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fprofile-instr-use=default.profdata")
+endif()
+
+# ── Compiler warnings as errors ──
+add_compile_options(-Wall -Wextra -Wpedantic -Werror -Wshadow -Wnon-virtual-dtor)
+
+# ── Include paths ──
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
+
+# ── Dependencies via FetchContent ──
+include(FetchContent)
+
+# Google Test
+FetchContent_Declare(
+    googletest
+    GIT_REPOSITORY https://github.com/google/googletest.git
+    GIT_TAG        v1.14.0
+)
+
+# Google Benchmark
+FetchContent_Declare(
+    googlebenchmark
+    GIT_REPOSITORY https://github.com/google/benchmark.git
+    GIT_TAG        v1.8.3
+)
+set(BENCHMARK_ENABLE_TESTING OFF CACHE BOOL "" FORCE)
+
+# pybind11
+FetchContent_Declare(
+    pybind11
+    GIT_REPOSITORY https://github.com/pybind/pybind11.git
+    GIT_TAG        v2.12.0
+)
+
+FetchContent_MakeAvailable(googletest googlebenchmark pybind11)
+
+# ── Core static library ──
+add_library(quant_core STATIC
+    src/core/types.cpp
+    src/indicators/rsi.cpp
+    src/indicators/macd.cpp
+    src/indicators/bollinger_bands.cpp
+    src/indicators/garman_klass.cpp
+    src/indicators/parkinson.cpp
+)
+target_include_directories(quant_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
+
+# ── pybind11 module ──
+# Will be populated in Phase 4 when bindings are written.
+# pybind11_add_module(quant_engine bindings/python_module.cpp)
+# target_link_libraries(quant_engine PRIVATE quant_core)
+
+# ── Tests ──
+enable_testing()
+add_subdirectory(tests)
+
+# ── Benchmarks ──
+add_subdirectory(benchmarks)

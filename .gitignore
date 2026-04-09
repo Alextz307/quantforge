@@ -1,0 +1,63 @@
+# ── Python ──
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+*.egg
+dist/
+build/
+*.so
+*.pyd
+
+# ── Virtual environments ──
+.venv/
+venv/
+env/
+
+# ── C++ build artifacts ──
+cpp/build/
+*.o
+*.a
+*.dylib
+*.dll
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+compile_commands.json
+Makefile.cmake
+
+# ── IDE ──
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# ── Testing / Linting ──
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+*.gcda
+*.gcno
+
+# ── Benchmark results (tracked selectively) ──
+# benchmark_results/ is tracked, but large run files may be gitignored
+benchmark_results/runs/*.jsonl
+
+# ── Secrets / local config ──
+.env
+*.local
+
+# ── scikit-build-core ──
+_skbuild/
+
+# ── Profiling ──
+*.profdata
+*.profraw
+
+# ── Data cache ──
+*.parquet
+data_cache/
