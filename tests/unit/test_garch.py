@@ -12,6 +12,21 @@ from src.core.utils import compute_log_returns
 from src.models.garch import GARCHPredictor
 from tests.conftest import make_synthetic_close_df
 
+# Compact GARCH search space (small for fast CI)
+COMPACT_P_MAX = 2
+COMPACT_Q_MAX = 2
+
+# Minimal returns sample for "before fit" guard test
+SAMPLE_RETURNS = [0.01, -0.02, 0.015]
+
+# Out-of-sample data for params-frozen test
+OOS_ROW_COUNT = 50
+OOS_START_DATE = "2021-01-02"
+OOS_FIXTURE_SEED = 99
+
+# Determinism seed
+NUMPY_SEED = 42
+
 
 @pytest.fixture
 def garch_df() -> pd.DataFrame:
@@ -21,7 +36,7 @@ def garch_df() -> pd.DataFrame:
 @pytest.fixture
 def fitted_garch(garch_df: pd.DataFrame) -> GARCHPredictor:
     """GARCHPredictor already fitted on garch_df returns."""
-    g = GARCHPredictor(p_max=2, q_max=2)
+    g = GARCHPredictor(p_max=COMPACT_P_MAX, q_max=COMPACT_Q_MAX)
     target = compute_log_returns(garch_df["close"]).dropna()
     g.fit(garch_df.iloc[1:], target)
     return g
@@ -35,7 +50,7 @@ class TestGARCHPredictor:
 
     def test_generate_vol_before_fit_raises(self) -> None:
         g = GARCHPredictor()
-        s = pd.Series([0.01, -0.02, 0.015])
+        s = pd.Series(SAMPLE_RETURNS)
         with pytest.raises(RuntimeError, match="before fit"):
             g.generate_vol_series(s)
 
@@ -43,11 +58,11 @@ class TestGARCHPredictor:
         assert fitted_garch._fitted
 
     def test_tune_returns_valid_order(self, garch_df: pd.DataFrame) -> None:
-        g = GARCHPredictor(p_max=2, q_max=2)
+        g = GARCHPredictor(p_max=COMPACT_P_MAX, q_max=COMPACT_Q_MAX)
         returns = compute_log_returns(garch_df["close"]).dropna()
         p, q = g.tune(returns)
-        assert 1 <= p <= 2
-        assert 1 <= q <= 2
+        assert 1 <= p <= COMPACT_P_MAX
+        assert 1 <= q <= COMPACT_Q_MAX
 
     def test_predict_output_shape(
         self, fitted_garch: GARCHPredictor, garch_df: pd.DataFrame
@@ -72,7 +87,9 @@ class TestGARCHPredictor:
         alpha = fitted_garch._alpha.copy()
         beta = fitted_garch._beta.copy()
 
-        new_df = make_synthetic_close_df(n_rows=50, start="2021-01-02", seed=99)
+        new_df = make_synthetic_close_df(
+            n_rows=OOS_ROW_COUNT, start=OOS_START_DATE, seed=OOS_FIXTURE_SEED
+        )
         fitted_garch.predict(new_df)
 
         assert fitted_garch._omega == omega
@@ -109,14 +126,14 @@ class TestGARCHPredictor:
         assert "garch" in model_registry
 
     def test_deterministic_with_seed(self, garch_df: pd.DataFrame) -> None:
-        np.random.seed(42)
-        g1 = GARCHPredictor(p_max=2, q_max=2)
+        np.random.seed(NUMPY_SEED)
+        g1 = GARCHPredictor(p_max=COMPACT_P_MAX, q_max=COMPACT_Q_MAX)
         target = compute_log_returns(garch_df["close"]).dropna()
         g1.fit(garch_df.iloc[1:], target)
         r1 = g1.predict(garch_df)
 
-        np.random.seed(42)
-        g2 = GARCHPredictor(p_max=2, q_max=2)
+        np.random.seed(NUMPY_SEED)
+        g2 = GARCHPredictor(p_max=COMPACT_P_MAX, q_max=COMPACT_Q_MAX)
         g2.fit(garch_df.iloc[1:], target)
         r2 = g2.predict(garch_df)
 

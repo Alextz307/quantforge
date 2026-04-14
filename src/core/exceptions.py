@@ -16,3 +16,16 @@ class DataQualityError(ValueError):
 
     Examples: OHLCV ordering violations, excessive gaps, price outliers.
     """
+
+
+def guard_scaler_fit_once(scaler: object | None, component: str) -> None:
+    """Raise ``LeakageError`` if ``scaler`` has already been fitted.
+
+    Centralizes the fit-once guard pattern shared by feature pipelines and
+    composite models so a second ``fit()`` call on training data is caught
+    instead of silently re-fitting on (potentially) test data.
+    """
+    if scaler is not None:
+        raise LeakageError(
+            f"{component}.fit() called twice. Scaler must only be fit on training data."
+        )

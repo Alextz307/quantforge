@@ -67,6 +67,7 @@ class LSTMPredictor(IPredictor):
 
     def __init__(
         self,
+        feature_columns: list[str],
         hidden_dim: int = 64,
         num_layers: int = 2,
         dropout: float = 0.2,
@@ -78,6 +79,8 @@ class LSTMPredictor(IPredictor):
         batch_size: int = 32,
         interval: Interval = Interval.DAILY,
     ) -> None:
+        if not feature_columns:
+            raise ValueError("LSTMPredictor requires a non-empty feature_columns list")
         try:
             loss_fn = LossFunction(loss_fn)
         except ValueError:
@@ -98,7 +101,7 @@ class LSTMPredictor(IPredictor):
 
         self._fitted = False
         self._model: MarketLSTM | None = None
-        self._feature_columns: list[str] = []
+        self._feature_columns: list[str] = list(feature_columns)
         self._train_losses: list[float] = []
         self._val_losses: list[float] = []
         self._training_metadata: TrainingMetadata | None = None
@@ -118,14 +121,10 @@ class LSTMPredictor(IPredictor):
         """
         trial: optuna.Trial | None = kwargs.get("trial", None)  # type: ignore[assignment]
 
-        # Merge target into data for TemporalDataset
         df = train_data.copy()
         target_col = "_target"
         df[target_col] = target.values
 
-        self._feature_columns = [c for c in train_data.columns]
-
-        # 80/20 temporal split for early stopping
         split_idx = int(len(df) * 0.8)
         train_df = df.iloc[:split_idx]
         val_df = df.iloc[split_idx:]

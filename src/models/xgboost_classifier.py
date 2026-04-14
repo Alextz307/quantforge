@@ -29,6 +29,7 @@ class DirectionalClassifier(IClassifier):
 
     def __init__(
         self,
+        feature_columns: list[str],
         n_estimators: int = 100,
         learning_rate: float = 0.05,
         max_depth: int = 5,
@@ -38,6 +39,8 @@ class DirectionalClassifier(IClassifier):
         colsample_bytree: float = 0.8,
         interval: Interval = Interval.DAILY,
     ) -> None:
+        if not feature_columns:
+            raise ValueError("DirectionalClassifier requires a non-empty feature_columns list")
         self._n_estimators = n_estimators
         self._learning_rate = learning_rate
         self._max_depth = max_depth
@@ -49,7 +52,7 @@ class DirectionalClassifier(IClassifier):
 
         self._fitted = False
         self._model: xgb.XGBClassifier | None = None
-        self._feature_columns: list[str] = []
+        self._feature_columns: list[str] = list(feature_columns)
         self._best_iteration: int = 0
         self._eval_results: dict[str, dict[str, list[float]]] = {}
         self._training_metadata: TrainingMetadata | None = None
@@ -67,8 +70,6 @@ class DirectionalClassifier(IClassifier):
             target: Binary target (1 = up, 0 = down).
             **kwargs: Unused (reserved for Optuna Trial passthrough).
         """
-        self._feature_columns = list(train_data.columns)
-
         self._model = xgb.XGBClassifier(
             n_estimators=self._n_estimators,
             learning_rate=self._learning_rate,
@@ -81,16 +82,17 @@ class DirectionalClassifier(IClassifier):
             verbosity=0,
         )
 
-        # 80/20 temporal split for early stopping
-        split_idx = int(len(train_data) * 0.8)
-        x_train = train_data.iloc[:split_idx]
+        features = train_data[self._feature_columns]
+
+        split_idx = int(len(features) * 0.8)
+        x_train = features.iloc[:split_idx]
         y_train = target.iloc[:split_idx]
-        x_val = train_data.iloc[split_idx:]
+        x_val = features.iloc[split_idx:]
         y_val = target.iloc[split_idx:]
 
         if len(x_val) < 2:
             # Not enough data for validation — train on all data without early stopping
-            self._model.fit(train_data, target, verbose=False)
+            self._model.fit(features, target, verbose=False)
         else:
             self._model.set_params(early_stopping_rounds=self._early_stopping_rounds)
             self._model.fit(
@@ -124,7 +126,6 @@ class DirectionalClassifier(IClassifier):
             raise RuntimeError("DirectionalClassifier.predict_proba() called before fit()")
 
         proba = self._model.predict_proba(data[self._feature_columns])
-        # Column 1 is the probability of class 1 (up)
         return pd.Series(proba[:, 1], index=data.index, name="up_prob")
 
     def predict(self, data: pd.DataFrame) -> pd.Series:

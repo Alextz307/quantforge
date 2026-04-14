@@ -8,82 +8,131 @@
 namespace quant {
 namespace {
 
+// ───── Reference OHLCV ladder used across BarTest/TimeSeriesTest fixtures ─────
+constexpr int64_t kSampleTimestampS = 1000;
+constexpr double kValidOpen = 100.0;
+constexpr double kValidHigh = 105.0;
+constexpr double kValidLow = 95.0;
+constexpr double kValidClose = 102.0;
+constexpr double kSampleVolume = 1000.0;
+
+// Invalid-OHLCV mutations
+constexpr double kInvalidHighBelowLow = 90.0;          // < kValidLow
+constexpr double kInvalidHighBelowClose = 101.0;       // < kValidClose
+constexpr double kInvalidLowAboveOpen = 101.0;         // > kValidOpen
+constexpr double kInvalidLowBelowClose = 92.0;         // close used in invalid bars
+constexpr double kInvalidLowZero = 0.0;
+constexpr double kInvalidNegativePrice = -1.0;
+constexpr double kInvalidNegativeVolume = -10.0;
+
+// ───── Annualization factor expectations ─────
+// Hardcoded here (rather than imported) because these tests verify
+// annualization_factor() returns those exact numbers.
+constexpr int kExpectedDailyFactor = 252;
+constexpr int kExpectedMinutesPerTradingDay = 390;
+constexpr int kExpectedSecondsPerTradingDay = 23400;
+constexpr int kExpectedFiveMinPerTradingDay = 78;
+constexpr int kExpectedFifteenMinPerTradingDay = 26;
+constexpr int kExpectedHoursPerTradingDay = 7;
+constexpr int kExpectedWeeklyFactor = 52;
+constexpr int kExpectedSecondsPerYear = 5896800;
+constexpr int kExpectedMinutesPerYear = 98280;
+constexpr int kExpectedFiveMinPerYear = 19656;
+constexpr int kExpectedFifteenMinPerYear = 6552;
+constexpr int kExpectedHoursPerYear = 1764;
+
+// ───── BarSoA reservation test ─────
+constexpr size_t kReserveCapacity = 1000;
+
+// ───── TimeSeries fixture parameters ─────
+constexpr int kSecondsPerDay = 86400;          // bars in make_sorted_bars are 1 day apart
+constexpr int kSmallSeriesLen = 5;
+constexpr int kTinySeriesLen = 3;
+constexpr int kMediumSeriesLen = 10;
+constexpr int kSliceStartIdx = 2;
+constexpr int kSliceEndIdx = 5;
+constexpr size_t kSliceExpectedLen = 4;        // [2..5] inclusive
+constexpr int64_t kFarFutureTimestamp = 999999;
+
 // ═══════════════════════════════════════════════════════════════
 // Bar::is_valid()
 // ═══════════════════════════════════════════════════════════════
 
 TEST(BarTest, ValidBar) {
-    Bar bar{.timestamp_epoch_s = 1000, .open = 100.0, .high = 105.0,
-            .low = 95.0, .close = 102.0, .volume = 1000.0};
+    Bar bar{.timestamp_epoch_s = kSampleTimestampS, .open = kValidOpen, .high = kValidHigh,
+            .low = kValidLow, .close = kValidClose, .volume = kSampleVolume};
     EXPECT_TRUE(bar.is_valid());
 }
 
 TEST(BarTest, InvalidHighLessThanLow) {
-    Bar bar{.timestamp_epoch_s = 1000, .open = 100.0, .high = 90.0,
-            .low = 95.0, .close = 92.0, .volume = 1000.0};
+    Bar bar{.timestamp_epoch_s = kSampleTimestampS, .open = kValidOpen,
+            .high = kInvalidHighBelowLow, .low = kValidLow,
+            .close = kInvalidLowBelowClose, .volume = kSampleVolume};
     EXPECT_FALSE(bar.is_valid());
 }
 
 TEST(BarTest, InvalidHighLessThanClose) {
-    Bar bar{.timestamp_epoch_s = 1000, .open = 100.0, .high = 101.0,
-            .low = 95.0, .close = 102.0, .volume = 1000.0};
+    Bar bar{.timestamp_epoch_s = kSampleTimestampS, .open = kValidOpen,
+            .high = kInvalidHighBelowClose, .low = kValidLow,
+            .close = kValidClose, .volume = kSampleVolume};
     EXPECT_FALSE(bar.is_valid());
 }
 
 TEST(BarTest, InvalidLowGreaterThanOpen) {
-    Bar bar{.timestamp_epoch_s = 1000, .open = 100.0, .high = 105.0,
-            .low = 101.0, .close = 103.0, .volume = 1000.0};
+    Bar bar{.timestamp_epoch_s = kSampleTimestampS, .open = kValidOpen, .high = kValidHigh,
+            .low = kInvalidLowAboveOpen, .close = 103.0, .volume = kSampleVolume};
     EXPECT_FALSE(bar.is_valid());
 }
 
 TEST(BarTest, InvalidNegativeOpen) {
-    Bar bar{.timestamp_epoch_s = 1000, .open = -1.0, .high = 105.0,
-            .low = -1.0, .close = 102.0, .volume = 1000.0};
+    Bar bar{.timestamp_epoch_s = kSampleTimestampS, .open = kInvalidNegativePrice,
+            .high = kValidHigh, .low = kInvalidNegativePrice,
+            .close = kValidClose, .volume = kSampleVolume};
     EXPECT_FALSE(bar.is_valid());
 }
 
 TEST(BarTest, InvalidNegativeVolume) {
-    Bar bar{.timestamp_epoch_s = 1000, .open = 100.0, .high = 105.0,
-            .low = 95.0, .close = 102.0, .volume = -10.0};
+    Bar bar{.timestamp_epoch_s = kSampleTimestampS, .open = kValidOpen, .high = kValidHigh,
+            .low = kValidLow, .close = kValidClose, .volume = kInvalidNegativeVolume};
     EXPECT_FALSE(bar.is_valid());
 }
 
 TEST(BarTest, DegenerateBarAllEqual) {
-    Bar bar{.timestamp_epoch_s = 1000, .open = 100.0, .high = 100.0,
-            .low = 100.0, .close = 100.0, .volume = 0.0};
+    Bar bar{.timestamp_epoch_s = kSampleTimestampS, .open = kValidOpen, .high = kValidOpen,
+            .low = kValidOpen, .close = kValidOpen, .volume = 0.0};
     EXPECT_TRUE(bar.is_valid());
 }
 
 TEST(BarTest, ZeroLowIsInvalid) {
-    Bar bar{.timestamp_epoch_s = 1000, .open = 100.0, .high = 105.0,
-            .low = 0.0, .close = 102.0, .volume = 1000.0};
+    Bar bar{.timestamp_epoch_s = kSampleTimestampS, .open = kValidOpen, .high = kValidHigh,
+            .low = kInvalidLowZero, .close = kValidClose, .volume = kSampleVolume};
     EXPECT_FALSE(bar.is_valid());
 }
 
 TEST(BarTest, ZeroOpenIsInvalid) {
-    Bar bar{.timestamp_epoch_s = 1000, .open = 0.0, .high = 105.0,
-            .low = 0.0, .close = 102.0, .volume = 1000.0};
+    Bar bar{.timestamp_epoch_s = kSampleTimestampS, .open = 0.0, .high = kValidHigh,
+            .low = kInvalidLowZero, .close = kValidClose, .volume = kSampleVolume};
     EXPECT_FALSE(bar.is_valid());
 }
 
 TEST(BarTest, InfinityIsInvalid) {
     constexpr double inf = std::numeric_limits<double>::infinity();
-    Bar bar{.timestamp_epoch_s = 1000, .open = inf, .high = inf,
-            .low = 95.0, .close = 102.0, .volume = 1000.0};
+    Bar bar{.timestamp_epoch_s = kSampleTimestampS, .open = inf, .high = inf,
+            .low = kValidLow, .close = kValidClose, .volume = kSampleVolume};
     EXPECT_FALSE(bar.is_valid());
 }
 
 TEST(BarTest, NegativeInfinityIsInvalid) {
     constexpr double neg_inf = -std::numeric_limits<double>::infinity();
-    Bar bar{.timestamp_epoch_s = 1000, .open = 100.0, .high = 105.0,
-            .low = neg_inf, .close = 102.0, .volume = 1000.0};
+    Bar bar{.timestamp_epoch_s = kSampleTimestampS, .open = kValidOpen, .high = kValidHigh,
+            .low = neg_inf, .close = kValidClose, .volume = kSampleVolume};
     EXPECT_FALSE(bar.is_valid());
 }
 
 TEST(BarTest, NaNIsInvalid) {
     constexpr double nan = std::numeric_limits<double>::quiet_NaN();
-    Bar bar{.timestamp_epoch_s = 1000, .open = 100.0, .high = 105.0,
-            .low = 95.0, .close = nan, .volume = 1000.0};
+    Bar bar{.timestamp_epoch_s = kSampleTimestampS, .open = kValidOpen, .high = kValidHigh,
+            .low = kValidLow, .close = nan, .volume = kSampleVolume};
     EXPECT_FALSE(bar.is_valid());
 }
 
@@ -92,42 +141,47 @@ TEST(BarTest, NaNIsInvalid) {
 // ═══════════════════════════════════════════════════════════════
 
 TEST(IntervalTest, DailyFactor) {
-    EXPECT_EQ(annualization_factor(Interval::Daily), 252);
+    EXPECT_EQ(annualization_factor(Interval::Daily), kExpectedDailyFactor);
 }
 
 TEST(IntervalTest, MinuteFactor) {
-    EXPECT_EQ(annualization_factor(Interval::Minute), 252 * 390);
+    EXPECT_EQ(annualization_factor(Interval::Minute),
+              kExpectedDailyFactor * kExpectedMinutesPerTradingDay);
 }
 
 TEST(IntervalTest, SecondFactor) {
-    EXPECT_EQ(annualization_factor(Interval::Second), 252 * 23400);
+    EXPECT_EQ(annualization_factor(Interval::Second),
+              kExpectedDailyFactor * kExpectedSecondsPerTradingDay);
 }
 
 TEST(IntervalTest, FiveMinuteFactor) {
-    EXPECT_EQ(annualization_factor(Interval::FiveMinute), 252 * 78);
+    EXPECT_EQ(annualization_factor(Interval::FiveMinute),
+              kExpectedDailyFactor * kExpectedFiveMinPerTradingDay);
 }
 
 TEST(IntervalTest, FifteenMinuteFactor) {
-    EXPECT_EQ(annualization_factor(Interval::FifteenMinute), 252 * 26);
+    EXPECT_EQ(annualization_factor(Interval::FifteenMinute),
+              kExpectedDailyFactor * kExpectedFifteenMinPerTradingDay);
 }
 
 TEST(IntervalTest, HourFactor) {
-    EXPECT_EQ(annualization_factor(Interval::Hour), 252 * 7);
+    EXPECT_EQ(annualization_factor(Interval::Hour),
+              kExpectedDailyFactor * kExpectedHoursPerTradingDay);
 }
 
 TEST(IntervalTest, WeeklyFactor) {
-    EXPECT_EQ(annualization_factor(Interval::Weekly), 52);
+    EXPECT_EQ(annualization_factor(Interval::Weekly), kExpectedWeeklyFactor);
 }
 
 TEST(IntervalTest, FactorsMatchPythonConstants) {
     // Cross-validate against Python _ANNUALIZATION_FACTORS
-    EXPECT_EQ(annualization_factor(Interval::Second), 5896800);
-    EXPECT_EQ(annualization_factor(Interval::Minute), 98280);
-    EXPECT_EQ(annualization_factor(Interval::FiveMinute), 19656);
-    EXPECT_EQ(annualization_factor(Interval::FifteenMinute), 6552);
-    EXPECT_EQ(annualization_factor(Interval::Hour), 1764);
-    EXPECT_EQ(annualization_factor(Interval::Daily), 252);
-    EXPECT_EQ(annualization_factor(Interval::Weekly), 52);
+    EXPECT_EQ(annualization_factor(Interval::Second), kExpectedSecondsPerYear);
+    EXPECT_EQ(annualization_factor(Interval::Minute), kExpectedMinutesPerYear);
+    EXPECT_EQ(annualization_factor(Interval::FiveMinute), kExpectedFiveMinPerYear);
+    EXPECT_EQ(annualization_factor(Interval::FifteenMinute), kExpectedFifteenMinPerYear);
+    EXPECT_EQ(annualization_factor(Interval::Hour), kExpectedHoursPerYear);
+    EXPECT_EQ(annualization_factor(Interval::Daily), kExpectedDailyFactor);
+    EXPECT_EQ(annualization_factor(Interval::Weekly), kExpectedWeeklyFactor);
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -139,12 +193,12 @@ TEST(BarSoATest, SizeAndEmpty) {
     EXPECT_EQ(soa.size(), 0u);
     EXPECT_TRUE(soa.empty());
 
-    soa.timestamps.push_back(1000);
-    soa.open.push_back(100.0);
-    soa.high.push_back(105.0);
-    soa.low.push_back(95.0);
-    soa.close.push_back(102.0);
-    soa.volume.push_back(1000.0);
+    soa.timestamps.push_back(kSampleTimestampS);
+    soa.open.push_back(kValidOpen);
+    soa.high.push_back(kValidHigh);
+    soa.low.push_back(kValidLow);
+    soa.close.push_back(kValidClose);
+    soa.volume.push_back(kSampleVolume);
 
     EXPECT_EQ(soa.size(), 1u);
     EXPECT_FALSE(soa.empty());
@@ -152,35 +206,35 @@ TEST(BarSoATest, SizeAndEmpty) {
 
 TEST(BarSoATest, Reserve) {
     BarSoA soa;
-    soa.reserve(1000);
-    EXPECT_GE(soa.timestamps.capacity(), 1000u);
-    EXPECT_GE(soa.close.capacity(), 1000u);
+    soa.reserve(kReserveCapacity);
+    EXPECT_GE(soa.timestamps.capacity(), kReserveCapacity);
+    EXPECT_GE(soa.close.capacity(), kReserveCapacity);
 }
 
 // ═══════════════════════════════════════════════════════════════
 // TimeSeries<Bar>
 // ═══════════════════════════════════════════════════════════════
 
-static std::vector<Bar> make_sorted_bars(int n, int64_t start_ts = 1000) {
+static std::vector<Bar> make_sorted_bars(int n, int64_t start_ts = kSampleTimestampS) {
     std::vector<Bar> bars;
     bars.reserve(static_cast<size_t>(n));
     for (int i = 0; i < n; ++i) {
         bars.push_back(Bar{
-            .timestamp_epoch_s = start_ts + i * 86400,
-            .open = 100.0 + i,
-            .high = 105.0 + i,
-            .low = 95.0 + i,
-            .close = 102.0 + i,
-            .volume = 1000.0
+            .timestamp_epoch_s = start_ts + i * kSecondsPerDay,
+            .open = kValidOpen + i,
+            .high = kValidHigh + i,
+            .low = kValidLow + i,
+            .close = kValidClose + i,
+            .volume = kSampleVolume
         });
     }
     return bars;
 }
 
 TEST(TimeSeriesTest, ValidConstruction) {
-    auto bars = make_sorted_bars(5);
+    auto bars = make_sorted_bars(kSmallSeriesLen);
     TimeSeries<Bar> ts(bars);
-    EXPECT_EQ(ts.size(), 5u);
+    EXPECT_EQ(ts.size(), static_cast<size_t>(kSmallSeriesLen));
     EXPECT_FALSE(ts.empty());
 }
 
@@ -190,50 +244,50 @@ TEST(TimeSeriesTest, ThrowsOnEmpty) {
 }
 
 TEST(TimeSeriesTest, ThrowsOnUnsorted) {
-    auto bars = make_sorted_bars(5);
+    auto bars = make_sorted_bars(kSmallSeriesLen);
     std::swap(bars[1], bars[3]);  // break ordering
     EXPECT_THROW(auto ts = TimeSeries<Bar>(bars), std::invalid_argument);
 }
 
 TEST(TimeSeriesTest, ThrowsOnDuplicateTimestamps) {
-    auto bars = make_sorted_bars(5);
+    auto bars = make_sorted_bars(kSmallSeriesLen);
     bars[2].timestamp_epoch_s = bars[1].timestamp_epoch_s;  // duplicate
     EXPECT_THROW(auto ts = TimeSeries<Bar>(bars), std::invalid_argument);
 }
 
 TEST(TimeSeriesTest, ViewReturnsCorrectSpan) {
-    auto bars = make_sorted_bars(5);
+    auto bars = make_sorted_bars(kSmallSeriesLen);
     TimeSeries<Bar> ts(bars);
     auto view = ts.view();
-    EXPECT_EQ(view.size(), 5u);
-    EXPECT_DOUBLE_EQ(view[0].open, 100.0);
-    EXPECT_DOUBLE_EQ(view[4].open, 104.0);
+    EXPECT_EQ(view.size(), static_cast<size_t>(kSmallSeriesLen));
+    EXPECT_DOUBLE_EQ(view[0].open, kValidOpen);
+    EXPECT_DOUBLE_EQ(view[kSmallSeriesLen - 1].open, kValidOpen + (kSmallSeriesLen - 1));
 }
 
 TEST(TimeSeriesTest, IndexOperator) {
-    auto bars = make_sorted_bars(3);
+    auto bars = make_sorted_bars(kTinySeriesLen);
     TimeSeries<Bar> ts(bars);
-    EXPECT_DOUBLE_EQ(ts[0].close, 102.0);
-    EXPECT_DOUBLE_EQ(ts[2].close, 104.0);
+    EXPECT_DOUBLE_EQ(ts[0].close, kValidClose);
+    EXPECT_DOUBLE_EQ(ts[kTinySeriesLen - 1].close, kValidClose + (kTinySeriesLen - 1));
 }
 
 TEST(TimeSeriesTest, SliceSubset) {
-    auto bars = make_sorted_bars(10);
+    auto bars = make_sorted_bars(kMediumSeriesLen);
     TimeSeries<Bar> ts(bars);
 
-    // Slice bars 2-5 (timestamps 1000+2*86400 to 1000+5*86400)
-    int64_t start = 1000 + 2 * 86400;
-    int64_t end = 1000 + 5 * 86400;
+    int64_t start = kSampleTimestampS + kSliceStartIdx * kSecondsPerDay;
+    int64_t end = kSampleTimestampS + kSliceEndIdx * kSecondsPerDay;
     auto sliced = ts.slice(start, end);
-    EXPECT_EQ(sliced.size(), 4u);  // indices 2, 3, 4, 5
+    EXPECT_EQ(sliced.size(), kSliceExpectedLen);
     EXPECT_EQ(sliced[0].timestamp_epoch_s, start);
 }
 
 TEST(TimeSeriesTest, SliceEmptyThrows) {
-    auto bars = make_sorted_bars(5);
+    auto bars = make_sorted_bars(kSmallSeriesLen);
     TimeSeries<Bar> ts(bars);
     // Range that doesn't include any bars
-    EXPECT_THROW(auto sliced = ts.slice(999999, 999999), std::invalid_argument);
+    EXPECT_THROW(auto sliced = ts.slice(kFarFutureTimestamp, kFarFutureTimestamp),
+                 std::invalid_argument);
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -241,26 +295,26 @@ TEST(TimeSeriesTest, SliceEmptyThrows) {
 // ═══════════════════════════════════════════════════════════════
 
 TEST(TaggedSeriesTest, TrainTagCompiles) {
-    auto bars = make_sorted_bars(5);
+    auto bars = make_sorted_bars(kSmallSeriesLen);
     auto ts = TimeSeries<Bar>(bars);
     TaggedSeries<TrainTag> train{std::move(ts)};
-    EXPECT_EQ(train.size(), 5u);
-    EXPECT_DOUBLE_EQ(train[0].open, 100.0);
+    EXPECT_EQ(train.size(), static_cast<size_t>(kSmallSeriesLen));
+    EXPECT_DOUBLE_EQ(train[0].open, kValidOpen);
 }
 
 TEST(TaggedSeriesTest, TestTagCompiles) {
-    auto bars = make_sorted_bars(3);
+    auto bars = make_sorted_bars(kTinySeriesLen);
     auto ts = TimeSeries<Bar>(bars);
     TaggedSeries<TestTag> test_series{std::move(ts)};
-    EXPECT_EQ(test_series.size(), 3u);
+    EXPECT_EQ(test_series.size(), static_cast<size_t>(kTinySeriesLen));
 }
 
 TEST(TaggedSeriesTest, ViewWorks) {
-    auto bars = make_sorted_bars(5);
+    auto bars = make_sorted_bars(kSmallSeriesLen);
     auto ts = TimeSeries<Bar>(bars);
     TaggedSeries<TrainTag> train{std::move(ts)};
     auto view = train.view();
-    EXPECT_EQ(view.size(), 5u);
+    EXPECT_EQ(view.size(), static_cast<size_t>(kSmallSeriesLen));
 }
 
 }  // namespace

@@ -10,81 +10,136 @@ from src.core.temporal import TemporalTripleSplit, TrainingMetadata
 from src.core.types import Interval
 from tests.conftest import make_daily_df
 
+# TripleSplit common parameters
+TRIPLE_SMALL_DF_ROWS = 100
+TRIPLE_DEFAULT_DF_ROWS = 200
+TRIPLE_LARGE_DF_ROWS = 500
+TRIPLE_TINY_DF_ROWS = 10
+DEFAULT_VAL_PCT = 0.15
+DEFAULT_HOLDOUT_PCT = 0.15
+DEFAULT_GAP = 5
+INVALID_PCT_TOO_LARGE_VAL = 0.6
+INVALID_PCT_TOO_LARGE_HOLDOUT = 0.5
+
+# TripleSplit overlap construction (raw indices)
+OVERLAP_TRAIN_TO_VAL_TRAIN_END = 60  # > validation_start to overlap train-val
+OVERLAP_TRAIN_TO_VAL_VAL_START = 50
+OVERLAP_TRAIN_TO_VAL_VAL_END = 80
+OVERLAP_TRAIN_TO_VAL_HOLDOUT_START = 85
+
+OVERLAP_VAL_TO_HOLDOUT_TRAIN_END = 30
+OVERLAP_VAL_TO_HOLDOUT_VAL_START = 40
+OVERLAP_VAL_TO_HOLDOUT_VAL_END = 70
+OVERLAP_VAL_TO_HOLDOUT_HOLDOUT_START = 65  # < val_end to overlap val-holdout
+
+EMPTY_TRAIN_VAL_START = 40
+EMPTY_TRAIN_VAL_END = 60
+EMPTY_TRAIN_HOLDOUT_START = 70
+
+NON_DATETIME_PLAIN_ROWS = 50
+NON_DATETIME_VAL_START = 20
+NON_DATETIME_VAL_END = 35
+NON_DATETIME_HOLDOUT_START = 40
+
+# TrainingMetadata sample
+META_TRAIN_START = "2020-01-02"
+META_TRAIN_END = "2023-06-30"
+META_FIT_TIMESTAMP = "2024-01-01 12:00:00"
+META_N_SAMPLES = 900
+META_FEATURE_COLUMNS = ("close", "volume", "return_1d")
+META_OVERLAP_DF_ROWS = 50
+META_OVERLAP_START = "2023-06-01"  # ends inside training window
+META_FUTURE_START = "2023-07-02"  # strictly after train_end
+META_BOUNDARY_DF_ROWS = 10
+META_BOUNDARY_START = META_TRAIN_END  # exact boundary should still be rejected
+META_PLAIN_ROWS = 10
+
 
 class TestTemporalTripleSplit:
     def test_valid_split(self) -> None:
-        df = make_daily_df(200)
-        split = TemporalTripleSplit.from_dataframe(df, val_pct=0.15, holdout_pct=0.15, gap=5)
+        df = make_daily_df(TRIPLE_DEFAULT_DF_ROWS)
+        split = TemporalTripleSplit.from_dataframe(
+            df, val_pct=DEFAULT_VAL_PCT, holdout_pct=DEFAULT_HOLDOUT_PCT, gap=DEFAULT_GAP
+        )
         assert len(split.train) > 0
         assert len(split.validation) > 0
         assert len(split.holdout) > 0
 
     def test_temporal_ordering(self) -> None:
-        df = make_daily_df(200)
-        split = TemporalTripleSplit.from_dataframe(df, val_pct=0.15, holdout_pct=0.15, gap=5)
+        df = make_daily_df(TRIPLE_DEFAULT_DF_ROWS)
+        split = TemporalTripleSplit.from_dataframe(
+            df, val_pct=DEFAULT_VAL_PCT, holdout_pct=DEFAULT_HOLDOUT_PCT, gap=DEFAULT_GAP
+        )
         assert split.train.index.max() < split.validation.index.min()
         assert split.validation.index.max() < split.holdout.index.min()
 
     def test_gaps_respected(self) -> None:
-        df = make_daily_df(200)
-        gap = 5
-        split = TemporalTripleSplit.from_dataframe(df, gap=gap)
+        df = make_daily_df(TRIPLE_DEFAULT_DF_ROWS)
+        split = TemporalTripleSplit.from_dataframe(df, gap=DEFAULT_GAP)
         train_end_loc = df.index.get_loc(split.train.index[-1])
         val_start_loc = df.index.get_loc(split.validation.index[0])
         val_end_loc = df.index.get_loc(split.validation.index[-1])
         holdout_start_loc = df.index.get_loc(split.holdout.index[0])
-        assert val_start_loc - train_end_loc > gap  # type: ignore[operator]
-        assert holdout_start_loc - val_end_loc > gap  # type: ignore[operator]
+        assert val_start_loc - train_end_loc > DEFAULT_GAP  # type: ignore[operator]
+        assert holdout_start_loc - val_end_loc > DEFAULT_GAP  # type: ignore[operator]
 
     def test_proportions_approximate(self) -> None:
-        df = make_daily_df(500)
-        split = TemporalTripleSplit.from_dataframe(df, val_pct=0.15, holdout_pct=0.15, gap=5)
+        df = make_daily_df(TRIPLE_LARGE_DF_ROWS)
+        split = TemporalTripleSplit.from_dataframe(
+            df, val_pct=DEFAULT_VAL_PCT, holdout_pct=DEFAULT_HOLDOUT_PCT, gap=DEFAULT_GAP
+        )
         total = len(split.train) + len(split.validation) + len(split.holdout)
         # Proportions are approximate due to gaps
-        assert len(split.holdout) == int(500 * 0.15)
-        assert len(split.validation) == int(500 * 0.15)
-        assert total < 500  # gaps eat some rows
+        assert len(split.holdout) == int(TRIPLE_LARGE_DF_ROWS * DEFAULT_HOLDOUT_PCT)
+        assert len(split.validation) == int(TRIPLE_LARGE_DF_ROWS * DEFAULT_VAL_PCT)
+        assert total < TRIPLE_LARGE_DF_ROWS  # gaps eat some rows
 
     def test_overlap_train_val_raises(self) -> None:
-        df = make_daily_df(100)
+        df = make_daily_df(TRIPLE_SMALL_DF_ROWS)
         with pytest.raises(LeakageError, match="overlaps"):
             TemporalTripleSplit(
-                train=df.iloc[:60],
-                validation=df.iloc[50:80],
-                holdout=df.iloc[85:],
+                train=df.iloc[:OVERLAP_TRAIN_TO_VAL_TRAIN_END],
+                validation=df.iloc[OVERLAP_TRAIN_TO_VAL_VAL_START:OVERLAP_TRAIN_TO_VAL_VAL_END],
+                holdout=df.iloc[OVERLAP_TRAIN_TO_VAL_HOLDOUT_START:],
             )
 
     def test_overlap_val_holdout_raises(self) -> None:
-        df = make_daily_df(100)
+        df = make_daily_df(TRIPLE_SMALL_DF_ROWS)
         with pytest.raises(LeakageError, match="overlaps"):
             TemporalTripleSplit(
-                train=df.iloc[:30],
-                validation=df.iloc[40:70],
-                holdout=df.iloc[65:],
+                train=df.iloc[:OVERLAP_VAL_TO_HOLDOUT_TRAIN_END],
+                validation=df.iloc[OVERLAP_VAL_TO_HOLDOUT_VAL_START:OVERLAP_VAL_TO_HOLDOUT_VAL_END],
+                holdout=df.iloc[OVERLAP_VAL_TO_HOLDOUT_HOLDOUT_START:],
             )
 
     def test_empty_region_raises(self) -> None:
-        df = make_daily_df(100)
+        df = make_daily_df(TRIPLE_SMALL_DF_ROWS)
         with pytest.raises(ValueError, match="non-empty"):
             TemporalTripleSplit(
                 train=df.iloc[:0],
-                validation=df.iloc[40:60],
-                holdout=df.iloc[70:],
+                validation=df.iloc[EMPTY_TRAIN_VAL_START:EMPTY_TRAIN_VAL_END],
+                holdout=df.iloc[EMPTY_TRAIN_HOLDOUT_START:],
             )
 
     def test_non_datetime_index_raises(self) -> None:
-        plain = pd.DataFrame({"v": range(50)})
-        df = make_daily_df(50)
+        plain = pd.DataFrame({"v": range(NON_DATETIME_PLAIN_ROWS)})
+        df = make_daily_df(NON_DATETIME_PLAIN_ROWS)
         with pytest.raises(TypeError, match="DatetimeIndex"):
-            TemporalTripleSplit(train=plain, validation=df.iloc[20:35], holdout=df.iloc[40:])
+            TemporalTripleSplit(
+                train=plain,
+                validation=df.iloc[NON_DATETIME_VAL_START:NON_DATETIME_VAL_END],
+                holdout=df.iloc[NON_DATETIME_HOLDOUT_START:],
+            )
 
     def test_from_dataframe_too_short_raises(self) -> None:
-        df = make_daily_df(10)
+        df = make_daily_df(TRIPLE_TINY_DF_ROWS)
         with pytest.raises(ValueError, match="required"):
-            TemporalTripleSplit.from_dataframe(df, val_pct=0.15, holdout_pct=0.15, gap=5)
+            TemporalTripleSplit.from_dataframe(
+                df, val_pct=DEFAULT_VAL_PCT, holdout_pct=DEFAULT_HOLDOUT_PCT, gap=DEFAULT_GAP
+            )
 
     def test_from_dataframe_gap_zero(self) -> None:
-        df = make_daily_df(200)
+        df = make_daily_df(TRIPLE_DEFAULT_DF_ROWS)
         split = TemporalTripleSplit.from_dataframe(df, gap=0)
         assert len(split.train) > 0
         assert len(split.validation) > 0
@@ -93,24 +148,28 @@ class TestTemporalTripleSplit:
         assert split.train.index.max() < split.validation.index.min()
 
     def test_from_dataframe_invalid_val_pct(self) -> None:
-        df = make_daily_df(200)
+        df = make_daily_df(TRIPLE_DEFAULT_DF_ROWS)
         with pytest.raises(ValueError, match="val_pct"):
             TemporalTripleSplit.from_dataframe(df, val_pct=0.0)
         with pytest.raises(ValueError, match="val_pct"):
             TemporalTripleSplit.from_dataframe(df, val_pct=1.0)
 
     def test_from_dataframe_invalid_holdout_pct(self) -> None:
-        df = make_daily_df(200)
+        df = make_daily_df(TRIPLE_DEFAULT_DF_ROWS)
         with pytest.raises(ValueError, match="holdout_pct"):
             TemporalTripleSplit.from_dataframe(df, holdout_pct=-0.1)
 
     def test_from_dataframe_pct_sum_too_large(self) -> None:
-        df = make_daily_df(200)
+        df = make_daily_df(TRIPLE_DEFAULT_DF_ROWS)
         with pytest.raises(ValueError, match="val_pct \\+ holdout_pct"):
-            TemporalTripleSplit.from_dataframe(df, val_pct=0.6, holdout_pct=0.5)
+            TemporalTripleSplit.from_dataframe(
+                df,
+                val_pct=INVALID_PCT_TOO_LARGE_VAL,
+                holdout_pct=INVALID_PCT_TOO_LARGE_HOLDOUT,
+            )
 
     def test_frozen(self) -> None:
-        df = make_daily_df(200)
+        df = make_daily_df(TRIPLE_DEFAULT_DF_ROWS)
         split = TemporalTripleSplit.from_dataframe(df)
         with pytest.raises(AttributeError):
             split.train = df  # type: ignore[misc]
@@ -120,35 +179,35 @@ class TestTrainingMetadata:
     @pytest.fixture()
     def sample_metadata(self) -> TrainingMetadata:
         return TrainingMetadata(
-            train_start=pd.Timestamp("2020-01-02"),
-            train_end=pd.Timestamp("2023-06-30"),
-            n_train_samples=900,
-            fit_timestamp=pd.Timestamp("2024-01-01 12:00:00"),
+            train_start=pd.Timestamp(META_TRAIN_START),
+            train_end=pd.Timestamp(META_TRAIN_END),
+            n_train_samples=META_N_SAMPLES,
+            fit_timestamp=pd.Timestamp(META_FIT_TIMESTAMP),
             interval=Interval.DAILY,
-            feature_columns=("close", "volume", "return_1d"),
+            feature_columns=META_FEATURE_COLUMNS,
         )
 
     def test_validate_no_overlap_raises_on_overlap(self, sample_metadata: TrainingMetadata) -> None:
-        overlapping = make_daily_df(50, start="2023-06-01")
+        overlapping = make_daily_df(META_OVERLAP_DF_ROWS, start=META_OVERLAP_START)
         with pytest.raises(LeakageError, match="data leakage"):
             sample_metadata.validate_no_overlap(overlapping)
 
     def test_validate_no_overlap_passes_on_future_data(
         self, sample_metadata: TrainingMetadata
     ) -> None:
-        future = make_daily_df(50, start="2023-07-02")
+        future = make_daily_df(META_OVERLAP_DF_ROWS, start=META_FUTURE_START)
         sample_metadata.validate_no_overlap(future)  # should not raise
 
     def test_validate_no_overlap_boundary(self, sample_metadata: TrainingMetadata) -> None:
         """Eval data starting exactly at train_end should be rejected."""
-        boundary = make_daily_df(10, start="2023-06-30")
+        boundary = make_daily_df(META_BOUNDARY_DF_ROWS, start=META_BOUNDARY_START)
         with pytest.raises(LeakageError):
             sample_metadata.validate_no_overlap(boundary)
 
     def test_validate_no_overlap_non_datetime_index(
         self, sample_metadata: TrainingMetadata
     ) -> None:
-        plain = pd.DataFrame({"v": range(10)})
+        plain = pd.DataFrame({"v": range(META_PLAIN_ROWS)})
         with pytest.raises(TypeError, match="DatetimeIndex"):
             sample_metadata.validate_no_overlap(plain)
 

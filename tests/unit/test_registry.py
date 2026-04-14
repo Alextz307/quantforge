@@ -6,6 +6,10 @@ import pytest
 
 from src.core.registry import ComponentRegistry
 
+# Sentinel values used to confirm constructor args propagate through .create()
+SAMPLE_VALUE = 42
+DIRECT_INIT_VALUE = 10
+
 
 class DummyBase:
     def __init__(self, value: int = 0) -> None:
@@ -29,9 +33,9 @@ class TestComponentRegistry:
         class TestComponent(DummyBase):
             pass
 
-        instance = registry.create("test_component", value=42)
+        instance = registry.create("test_component", value=SAMPLE_VALUE)
         assert isinstance(instance, TestComponent)
-        assert instance.value == 42
+        assert instance.value == SAMPLE_VALUE
 
     def test_list_all(self) -> None:
         registry: ComponentRegistry[DummyBase] = ComponentRegistry()
@@ -105,5 +109,5 @@ class TestComponentRegistry:
 
         # The decorator should return the class unchanged
         assert Original.__name__ == "Original"
-        direct = Original(value=10)
-        assert direct.value == 10
+        direct = Original(value=DIRECT_INIT_VALUE)
+        assert direct.value == DIRECT_INIT_VALUE

@@ -130,13 +130,9 @@ class ARMAPredictor(IPredictor):
         returns = compute_log_returns(data["close"]).dropna()
         values = returns.values
 
-        # One-step-ahead forecasts using fixed params
-        # We use predict_in_sample for the fitted period,
-        # and forecast for out-of-sample steps
         n = len(values)
         predictions = np.empty(n)
 
-        # Get fitted values (in-sample one-step-ahead)
         fitted_vals = self._model.predict_in_sample()
         n_fitted = len(fitted_vals)
 
@@ -144,12 +140,12 @@ class ARMAPredictor(IPredictor):
             predictions[:n] = fitted_vals[:n]
         else:
             predictions[:n_fitted] = fitted_vals
-            # Out-of-sample: forecast remaining steps
             n_oos = n - n_fitted
             oos_forecasts = self._model.predict(n_periods=n_oos)
             predictions[n_fitted:] = oos_forecasts
 
-        # Align with original index: first row has NaN return
+        # Offset by 1: the first row of `data` has no log return (it's NaN), so
+        # `predictions` starts at data.index[1], not data.index[0].
         result = pd.Series(np.nan, index=data.index, name="arma_forecast")
         result.iloc[1 : 1 + len(predictions)] = predictions.tolist()
         return result.ffill()

@@ -7,7 +7,7 @@ import logging
 import pandas as pd
 from sklearn.preprocessing import StandardScaler
 
-from src.core.exceptions import LeakageError
+from src.core.exceptions import guard_scaler_fit_once
 from src.core.registry import feature_registry
 from src.features.interface import IFeaturePipeline
 
@@ -107,17 +107,17 @@ class FeatureEngineeringPipeline(IFeaturePipeline):
         Raises:
             LeakageError: If called more than once.
         """
-        if self._scaler is not None:
-            raise LeakageError(
-                "FeatureEngineeringPipeline.fit() called twice. "
-                "Scaler must only be fit on training data."
-            )
+        guard_scaler_fit_once(self._scaler, "FeatureEngineeringPipeline")
 
         features = self._compute_raw_features(train_data)
         self._fit_scaler(features)
 
     def _fit_scaler(self, features: pd.DataFrame) -> None:
-        """Fit StandardScaler on non-NaN rows of pre-computed features."""
+        """Fit StandardScaler on non-NaN rows of pre-computed features.
+
+        Precondition: callers must invoke ``guard_scaler_fit_once`` first.
+        """
+        guard_scaler_fit_once(self._scaler, "FeatureEngineeringPipeline")
         self._scaler = StandardScaler()
         valid_mask = features.notna().all(axis=1)
         if valid_mask.any():
@@ -127,11 +127,7 @@ class FeatureEngineeringPipeline(IFeaturePipeline):
 
     def fit_transform(self, train_data: pd.DataFrame) -> pd.DataFrame:
         """Fit scaler and transform in one pass (avoids double feature computation)."""
-        if self._scaler is not None:
-            raise LeakageError(
-                "FeatureEngineeringPipeline.fit() called twice. "
-                "Scaler must only be fit on training data."
-            )
+        guard_scaler_fit_once(self._scaler, "FeatureEngineeringPipeline")
 
         features = self._compute_raw_features(train_data)
         self._fit_scaler(features)
