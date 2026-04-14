@@ -3,8 +3,12 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from typing import TYPE_CHECKING
 
 import pandas as pd
+
+if TYPE_CHECKING:
+    from src.core.temporal import TrainingMetadata
 
 
 class IStrategy(ABC):
@@ -37,3 +41,12 @@ class IStrategy(ABC):
     @abstractmethod
     def required_warmup_bars(self) -> int:
         """Number of initial bars needed before signals are valid."""
+
+    @property
+    def training_metadata(self) -> TrainingMetadata | None:
+        """Training period metadata, populated after train()."""
+        return getattr(self, "_training_metadata", None)
+
+    def update(self, new_data: pd.DataFrame, **kwargs: object) -> None:
+        """Incrementally update strategy models with new data. Default: full retrain."""
+        self.train(new_data, **kwargs)

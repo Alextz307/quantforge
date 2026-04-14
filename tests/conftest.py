@@ -84,6 +84,19 @@ def sample_bar_data() -> list[BarData]:
     ]
 
 
+def make_daily_df(n_rows: int, start: str = "2020-01-01") -> pd.DataFrame:
+    """Create a simple DataFrame with DatetimeIndex for testing.
+
+    Not a fixture — call directly with parameters. For minimal test DataFrames
+    that only need 'close' and 'volume' columns.
+    """
+    idx = pd.bdate_range(start=start, periods=n_rows, freq="B")
+    return pd.DataFrame(
+        {"close": range(n_rows), "volume": [1000] * n_rows},
+        index=idx,
+    )
+
+
 @pytest.fixture
 def large_daily_df() -> pd.DataFrame:
     """Large DataFrame (~2000 rows) for walk-forward validation testing.

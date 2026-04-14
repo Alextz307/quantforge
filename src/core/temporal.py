@@ -1,6 +1,8 @@
 """Anti-leakage temporal boundaries and walk-forward validation.
 
 Provides TemporalSplit (frozen dataclass with overlap validation),
+TemporalTripleSplit (train/validation/holdout with embargo gaps),
+TrainingMetadata (immutable record of model training period),
 WalkForwardValidator (expanding/sliding window splits), and
 PurgedGroupTimeSeriesSplit (embargo-based purged CV).
 """
@@ -10,10 +12,14 @@ from __future__ import annotations
 import warnings
 from collections.abc import Iterator
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 import pandas as pd
 
 from src.core.exceptions import LeakageError
+
+if TYPE_CHECKING:
+    from src.core.types import Interval
 
 
 @dataclass(frozen=True)
@@ -45,6 +51,154 @@ class TemporalSplit:
                 f"Train end {train_max} overlaps with test start {test_min}. "
                 f"Training data must strictly precede test data."
             )
+
+
+@dataclass(frozen=True)
+class TemporalTripleSplit:
+    """Three-way temporal split: train -> validation -> holdout.
+
+    Provides anti-leakage guarantees across three temporal regions:
+    - train: Model fitting and walk-forward development
+    - validation: Hyperparameter tuning, overfitting checks, model comparison
+    - holdout: Final evaluation ONLY — never touched during development
+    """
+
+    train: pd.DataFrame
+    validation: pd.DataFrame
+    holdout: pd.DataFrame
+
+    def __post_init__(self) -> None:
+        for name, part in [
+            ("train", self.train),
+            ("validation", self.validation),
+            ("holdout", self.holdout),
+        ]:
+            if not isinstance(part.index, pd.DatetimeIndex):
+                raise TypeError(f"{name} DataFrame must have a DatetimeIndex")
+            if len(part) == 0:
+                raise ValueError(f"{name} DataFrame must be non-empty")
+
+        train_max = self.train.index.max()
+        val_min = self.validation.index.min()
+        if train_max >= val_min:
+            raise LeakageError(
+                f"Train end {train_max} overlaps with validation start {val_min}. "
+                f"Training data must strictly precede validation data."
+            )
+
+        val_max = self.validation.index.max()
+        holdout_min = self.holdout.index.min()
+        if val_max >= holdout_min:
+            raise LeakageError(
+                f"Validation end {val_max} overlaps with holdout start {holdout_min}. "
+                f"Validation data must strictly precede holdout data."
+            )
+
+    @staticmethod
+    def from_dataframe(
+        df: pd.DataFrame,
+        val_pct: float = 0.15,
+        holdout_pct: float = 0.15,
+        gap: int = 5,
+    ) -> TemporalTripleSplit:
+        """Split a DataFrame into train/validation/holdout with embargo gaps.
+
+        Args:
+            df: Full dataset with DatetimeIndex, sorted chronologically.
+            val_pct: Fraction of data for validation (default 15%).
+            holdout_pct: Fraction of data for holdout (default 15%).
+            gap: Embargo bars between each region (default 5).
+        """
+        if not isinstance(df.index, pd.DatetimeIndex):
+            raise TypeError("DataFrame must have a DatetimeIndex")
+        if not 0.0 < val_pct < 1.0:
+            raise ValueError(f"val_pct must be in (0, 1), got {val_pct}")
+        if not 0.0 < holdout_pct < 1.0:
+            raise ValueError(f"holdout_pct must be in (0, 1), got {holdout_pct}")
+        if val_pct + holdout_pct >= 1.0:
+            raise ValueError(f"val_pct + holdout_pct must be < 1.0, got {val_pct + holdout_pct}")
+
+        n = len(df)
+        holdout_size = max(1, int(n * holdout_pct))
+        val_size = max(1, int(n * val_pct))
+        min_required = val_size + holdout_size + 2 * gap + 1
+        if n < min_required:
+            raise ValueError(
+                f"DataFrame has {n} rows but at least {min_required} are required "
+                f"for val_pct={val_pct}, holdout_pct={holdout_pct}, gap={gap}"
+            )
+
+        holdout_start = n - holdout_size
+        val_end = holdout_start - gap
+        val_start = val_end - val_size
+        train_end = val_start - gap
+
+        train = df.iloc[:train_end]
+        validation = df.iloc[val_start:val_end]
+        holdout = df.iloc[holdout_start:]
+
+        return TemporalTripleSplit(train=train, validation=validation, holdout=holdout)
+
+
+@dataclass(frozen=True)
+class TrainingMetadata:
+    """Immutable record of what a model saw during training.
+
+    Stored by every model/strategy after fit()/train(). Used at evaluation
+    time to verify eval data doesn't overlap with the training period.
+    Serializable via to_dict()/from_dict() for model persistence.
+    """
+
+    train_start: pd.Timestamp
+    train_end: pd.Timestamp
+    n_train_samples: int
+    fit_timestamp: pd.Timestamp
+    interval: Interval
+    feature_columns: tuple[str, ...]
+
+    def validate_no_overlap(self, eval_data: pd.DataFrame) -> None:
+        """Raise LeakageError if eval data overlaps training period.
+
+        Assumes eval_data has a chronologically sorted DatetimeIndex
+        (enforced throughout the framework).
+        """
+        if not isinstance(eval_data.index, pd.DatetimeIndex):
+            raise TypeError("eval_data must have a DatetimeIndex")
+        eval_start: pd.Timestamp = eval_data.index[0]
+        if eval_start <= self.train_end:
+            raise LeakageError(
+                f"Evaluation data starts at {eval_start} but model "
+                f"was trained through {self.train_end}. "
+                f"This would constitute data leakage."
+            )
+
+    def to_dict(self) -> dict[str, object]:
+        """Serialize to JSON-friendly dict. Timestamps become ISO strings."""
+        return {
+            "train_start": self.train_start.isoformat(),
+            "train_end": self.train_end.isoformat(),
+            "n_train_samples": self.n_train_samples,
+            "fit_timestamp": self.fit_timestamp.isoformat(),
+            "interval": self.interval.value,
+            "feature_columns": list(self.feature_columns),
+        }
+
+    @staticmethod
+    def from_dict(d: dict[str, object]) -> TrainingMetadata:
+        """Deserialize from dict. Used when loading a saved model."""
+        from src.core.types import Interval
+
+        raw_cols = d["feature_columns"]
+        if not isinstance(raw_cols, list):
+            raise TypeError(f"feature_columns must be a list, got {type(raw_cols).__name__}")
+        return TrainingMetadata(
+            train_start=pd.Timestamp(str(d["train_start"])),
+            train_end=pd.Timestamp(str(d["train_end"])),
+            n_train_samples=int(str(d["n_train_samples"])),
+            fit_timestamp=pd.Timestamp(str(d["fit_timestamp"])),
+            interval=Interval(str(d["interval"])),
+            feature_columns=tuple(raw_cols),
+        )
 
 
 class WalkForwardValidator:

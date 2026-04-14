@@ -18,6 +18,7 @@ dependencies = [
     "statsmodels>=0.14",
     "scikit-learn>=1.4",
     "optuna>=3.5",
+    "pmdarima>=2.0",
     "matplotlib>=3.8",
     "yfinance>=0.2",
     "click>=8.1",

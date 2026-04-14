@@ -3,8 +3,12 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from typing import TYPE_CHECKING
 
 import pandas as pd
+
+if TYPE_CHECKING:
+    from src.core.temporal import TrainingMetadata
 
 
 class IPredictor(ABC):
@@ -15,7 +19,7 @@ class IPredictor(ABC):
     """
 
     @abstractmethod
-    def fit(self, train_data: pd.DataFrame, target: pd.Series) -> None:
+    def fit(self, train_data: pd.DataFrame, target: pd.Series, **kwargs: object) -> None:
         """Train the model on training data only."""
 
     @abstractmethod
@@ -30,10 +34,20 @@ class IPredictor(ABC):
         self,
         train_data: pd.DataFrame,
         target: pd.Series,
+        **kwargs: object,
     ) -> pd.Series:
         """Convenience: fit + predict on training data."""
-        self.fit(train_data, target)
+        self.fit(train_data, target, **kwargs)
         return self.predict(train_data)
+
+    @property
+    def training_metadata(self) -> TrainingMetadata | None:
+        """Training period metadata, populated after fit()."""
+        return getattr(self, "_training_metadata", None)
+
+    def update(self, new_data: pd.DataFrame, target: pd.Series, **kwargs: object) -> None:
+        """Incrementally update model with new data. Default: full refit."""
+        self.fit(new_data, target, **kwargs)
 
 
 class IClassifier(ABC):
@@ -44,7 +58,7 @@ class IClassifier(ABC):
     """
 
     @abstractmethod
-    def fit(self, train_data: pd.DataFrame, target: pd.Series) -> None:
+    def fit(self, train_data: pd.DataFrame, target: pd.Series, **kwargs: object) -> None:
         """Train the classifier on training data only."""
 
     @abstractmethod
@@ -59,7 +73,17 @@ class IClassifier(ABC):
         self,
         train_data: pd.DataFrame,
         target: pd.Series,
+        **kwargs: object,
     ) -> pd.Series:
         """Convenience: fit + predict on training data."""
-        self.fit(train_data, target)
+        self.fit(train_data, target, **kwargs)
         return self.predict(train_data)
+
+    @property
+    def training_metadata(self) -> TrainingMetadata | None:
+        """Training period metadata, populated after fit()."""
+        return getattr(self, "_training_metadata", None)
+
+    def update(self, new_data: pd.DataFrame, target: pd.Series, **kwargs: object) -> None:
+        """Incrementally update classifier with new data. Default: full refit."""
+        self.fit(new_data, target, **kwargs)
