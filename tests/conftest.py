@@ -84,6 +84,24 @@ def sample_bar_data() -> list[BarData]:
     ]
 
 
+def make_synthetic_close_df(
+    n_rows: int = 200,
+    start: str = "2020-01-02",
+    seed: int = 42,
+    base_price: float = 100.0,
+) -> pd.DataFrame:
+    """Create a DataFrame with realistic close prices and volume.
+
+    Not a fixture — call directly with parameters. Uses random-walk
+    returns with ~0.03% mean and ~1.2% daily volatility.
+    """
+    np.random.seed(seed)
+    idx = pd.bdate_range(start=start, periods=n_rows, freq="B")
+    returns = np.random.normal(0.0003, 0.012, n_rows)
+    close = base_price * np.cumprod(1 + returns)
+    return pd.DataFrame({"close": close, "volume": [1e6] * n_rows}, index=idx)
+
+
 def make_daily_df(n_rows: int, start: str = "2020-01-01") -> pd.DataFrame:
     """Create a simple DataFrame with DatetimeIndex for testing.
 

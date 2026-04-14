@@ -184,6 +184,22 @@ class TrainingMetadata:
         }
 
     @staticmethod
+    def from_fit(
+        train_data: pd.DataFrame,
+        interval: Interval,
+        feature_columns: tuple[str, ...],
+    ) -> TrainingMetadata:
+        """Create metadata from a completed fit() call."""
+        return TrainingMetadata(
+            train_start=pd.Timestamp(train_data.index[0]),
+            train_end=pd.Timestamp(train_data.index[-1]),
+            n_train_samples=len(train_data),
+            fit_timestamp=pd.Timestamp.now(),
+            interval=interval,
+            feature_columns=feature_columns,
+        )
+
+    @staticmethod
     def from_dict(d: dict[str, object]) -> TrainingMetadata:
         """Deserialize from dict. Used when loading a saved model."""
         from src.core.types import Interval

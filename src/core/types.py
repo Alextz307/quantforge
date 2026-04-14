@@ -38,6 +38,21 @@ class Interval(StrEnum):
         return _ANNUALIZATION_FACTORS[self]
 
 
+class LossFunction(StrEnum):
+    """Loss functions for neural network training."""
+
+    MSE = "mse"
+    MAE = "mae"
+    HUBER = "huber"
+
+
+class InformationCriterion(StrEnum):
+    """Model selection criteria for statistical models."""
+
+    AIC = "aic"
+    BIC = "bic"
+
+
 _ANNUALIZATION_FACTORS: dict[Interval, int] = {
     Interval.SECOND: TRADING_DAYS_PER_YEAR * US_TRADING_SECONDS_PER_DAY,
     Interval.MINUTE: TRADING_DAYS_PER_YEAR * US_TRADING_MINUTES_PER_DAY,
