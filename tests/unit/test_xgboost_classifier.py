@@ -10,21 +10,41 @@ from src.core.exceptions import LeakageError
 from src.core.types import Interval
 from src.models.xgboost_classifier import DirectionalClassifier
 
+# Synthetic fixture data
+SYNTH_ROW_COUNT = 200
+SYNTH_START_DATE = "2020-01-02"
+SYNTH_BASE_PRICE = 100.0
+SYNTH_RETURN_MEAN = 0.0003
+SYNTH_RETURN_STD = 0.01
+RETURN_1D_STD = 0.01
+RETURN_5D_STD = 0.02
+VOL_MEAN = 0.15
+VOL_STD = 0.03
+RSI_LOW = 20.0
+RSI_HIGH = 80.0
+SYNTH_FIXTURE_SEED = 42
+
+# Compact XGBoost parameters (small for fast CI)
+COMPACT_N_ESTIMATORS = 10
+EARLY_STOP_N_ESTIMATORS = 100
+EARLY_STOP_ROUNDS = 5
+
 
 @pytest.fixture
 def xgb_data() -> tuple[pd.DataFrame, pd.Series]:
     """Feature DataFrame and binary target for XGBoost testing."""
-    np.random.seed(42)
-    n = 200
-    idx = pd.bdate_range(start="2020-01-02", periods=n, freq="B")
-    close = 100.0 * np.cumprod(1 + np.random.normal(0.0003, 0.01, n))
+    np.random.seed(SYNTH_FIXTURE_SEED)
+    idx = pd.bdate_range(start=SYNTH_START_DATE, periods=SYNTH_ROW_COUNT, freq="B")
+    close = SYNTH_BASE_PRICE * np.cumprod(
+        1 + np.random.normal(SYNTH_RETURN_MEAN, SYNTH_RETURN_STD, SYNTH_ROW_COUNT)
+    )
 
     features = pd.DataFrame(
         {
-            "return_1d": np.random.normal(0, 0.01, n),
-            "return_5d": np.random.normal(0, 0.02, n),
-            "vol_20": np.abs(np.random.normal(0.15, 0.03, n)),
-            "rsi_14": np.random.uniform(20, 80, n),
+            "return_1d": np.random.normal(0, RETURN_1D_STD, SYNTH_ROW_COUNT),
+            "return_5d": np.random.normal(0, RETURN_5D_STD, SYNTH_ROW_COUNT),
+            "vol_20": np.abs(np.random.normal(VOL_MEAN, VOL_STD, SYNTH_ROW_COUNT)),
+            "rsi_14": np.random.uniform(RSI_LOW, RSI_HIGH, SYNTH_ROW_COUNT),
         },
         index=idx,
     )
@@ -36,28 +56,40 @@ def xgb_data() -> tuple[pd.DataFrame, pd.Series]:
     return features.iloc[:-1], target
 
 
+@pytest.fixture
+def xgb_features() -> list[str]:
+    """Feature column list matching xgb_data."""
+    return ["return_1d", "return_5d", "vol_20", "rsi_14"]
+
+
 class TestDirectionalClassifier:
-    def test_predict_before_fit_raises(self, xgb_data: tuple[pd.DataFrame, pd.Series]) -> None:
-        c = DirectionalClassifier()
+    def test_predict_before_fit_raises(
+        self, xgb_data: tuple[pd.DataFrame, pd.Series], xgb_features: list[str]
+    ) -> None:
+        c = DirectionalClassifier(xgb_features)
         with pytest.raises(RuntimeError, match="before fit"):
             c.predict(xgb_data[0])
 
     def test_predict_proba_before_fit_raises(
-        self, xgb_data: tuple[pd.DataFrame, pd.Series]
+        self, xgb_data: tuple[pd.DataFrame, pd.Series], xgb_features: list[str]
     ) -> None:
-        c = DirectionalClassifier()
+        c = DirectionalClassifier(xgb_features)
         with pytest.raises(RuntimeError, match="before fit"):
             c.predict_proba(xgb_data[0])
 
-    def test_fit_sets_fitted(self, xgb_data: tuple[pd.DataFrame, pd.Series]) -> None:
+    def test_fit_sets_fitted(
+        self, xgb_data: tuple[pd.DataFrame, pd.Series], xgb_features: list[str]
+    ) -> None:
         features, target = xgb_data
-        c = DirectionalClassifier(n_estimators=10)
+        c = DirectionalClassifier(xgb_features, n_estimators=COMPACT_N_ESTIMATORS)
         c.fit(features, target)
         assert c._fitted
 
-    def test_predict_proba_in_range(self, xgb_data: tuple[pd.DataFrame, pd.Series]) -> None:
+    def test_predict_proba_in_range(
+        self, xgb_data: tuple[pd.DataFrame, pd.Series], xgb_features: list[str]
+    ) -> None:
         features, target = xgb_data
-        c = DirectionalClassifier(n_estimators=10)
+        c = DirectionalClassifier(xgb_features, n_estimators=COMPACT_N_ESTIMATORS)
         c.fit(features, target)
 
         proba = c.predict_proba(features)
@@ -65,18 +97,22 @@ class TestDirectionalClassifier:
         assert (proba >= 0).all()
         assert (proba <= 1).all()
 
-    def test_predict_binary(self, xgb_data: tuple[pd.DataFrame, pd.Series]) -> None:
+    def test_predict_binary(
+        self, xgb_data: tuple[pd.DataFrame, pd.Series], xgb_features: list[str]
+    ) -> None:
         features, target = xgb_data
-        c = DirectionalClassifier(n_estimators=10)
+        c = DirectionalClassifier(xgb_features, n_estimators=COMPACT_N_ESTIMATORS)
         c.fit(features, target)
 
         preds = c.predict(features)
         assert isinstance(preds, pd.Series)
         assert set(preds.unique()).issubset({0, 1})
 
-    def test_output_length(self, xgb_data: tuple[pd.DataFrame, pd.Series]) -> None:
+    def test_output_length(
+        self, xgb_data: tuple[pd.DataFrame, pd.Series], xgb_features: list[str]
+    ) -> None:
         features, target = xgb_data
-        c = DirectionalClassifier(n_estimators=10)
+        c = DirectionalClassifier(xgb_features, n_estimators=COMPACT_N_ESTIMATORS)
         c.fit(features, target)
 
         proba = c.predict_proba(features)
@@ -84,35 +120,58 @@ class TestDirectionalClassifier:
         assert len(proba) == len(features)
         assert len(preds) == len(features)
 
-    def test_early_stopping_records(self, xgb_data: tuple[pd.DataFrame, pd.Series]) -> None:
+    def test_early_stopping_records(
+        self, xgb_data: tuple[pd.DataFrame, pd.Series], xgb_features: list[str]
+    ) -> None:
         features, target = xgb_data
-        c = DirectionalClassifier(n_estimators=100, early_stopping_rounds=5)
+        c = DirectionalClassifier(
+            xgb_features,
+            n_estimators=EARLY_STOP_N_ESTIMATORS,
+            early_stopping_rounds=EARLY_STOP_ROUNDS,
+        )
         c.fit(features, target)
         # eval_results should be populated from the validation split
         assert len(c._eval_results) > 0
 
-    def test_training_metadata_populated(self, xgb_data: tuple[pd.DataFrame, pd.Series]) -> None:
+    def test_training_metadata_populated(
+        self, xgb_data: tuple[pd.DataFrame, pd.Series], xgb_features: list[str]
+    ) -> None:
         features, target = xgb_data
-        c = DirectionalClassifier(n_estimators=10)
+        c = DirectionalClassifier(xgb_features, n_estimators=COMPACT_N_ESTIMATORS)
         c.fit(features, target)
 
         meta = c.training_metadata
         assert meta is not None
         assert meta.n_train_samples == len(features)
         assert meta.interval == Interval.DAILY
-        assert set(meta.feature_columns) == set(features.columns)
+        assert set(meta.feature_columns) == set(xgb_features)
 
     def test_training_metadata_validates_overlap(
-        self, xgb_data: tuple[pd.DataFrame, pd.Series]
+        self, xgb_data: tuple[pd.DataFrame, pd.Series], xgb_features: list[str]
     ) -> None:
         features, target = xgb_data
-        c = DirectionalClassifier(n_estimators=10)
+        c = DirectionalClassifier(xgb_features, n_estimators=COMPACT_N_ESTIMATORS)
         c.fit(features, target)
 
         meta = c.training_metadata
         assert meta is not None
         with pytest.raises(LeakageError):
             meta.validate_no_overlap(features)
+
+    def test_empty_feature_columns_raises(self) -> None:
+        with pytest.raises(ValueError, match="feature_columns"):
+            DirectionalClassifier([])
+
+    def test_feature_columns_honored(self, xgb_data: tuple[pd.DataFrame, pd.Series]) -> None:
+        """Explicit feature_columns restricts which columns XGBoost trains on."""
+        features, target = xgb_data
+        subset = ["return_1d", "vol_20"]
+        c = DirectionalClassifier(subset, n_estimators=COMPACT_N_ESTIMATORS)
+        c.fit(features, target)
+        assert c._feature_columns == subset
+        # rsi_14 and return_5d are ignored
+        proba = c.predict_proba(features)
+        assert isinstance(proba, pd.Series)
 
     def test_registry_registration(self) -> None:
         from src.core.registry import classifier_registry
