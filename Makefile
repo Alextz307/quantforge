@@ -12,7 +12,7 @@ test-python:
 	pytest tests/ -v --tb=short
 
 typecheck:
-	mypy --strict src/ tests/
+	mypy --strict src/ tests/ scripts/
 
 lint:
 	ruff check src/ tests/ scripts/
