@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 import math
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 import numpy as np
 import pandas as pd
@@ -115,10 +115,8 @@ class GARCHPredictor(IPredictor):
         )
         self._beta = np.array([float(result.params[f"beta[{i + 1}]"]) for i in range(self._best_q)])
         self._train_mu = float(scaled.mean())
-        cond_vol = result.conditional_volatility
-        self._train_backcast = float(
-            cond_vol.iloc[0] ** 2  # type: ignore[union-attr]
-        )
+        cond_vol = cast(pd.Series, result.conditional_volatility)
+        self._train_backcast = float(cond_vol.iloc[0] ** 2)
         self._fitted = True
 
         self._training_metadata = TrainingMetadata.from_fit(

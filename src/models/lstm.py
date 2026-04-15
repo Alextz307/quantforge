@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 import numpy as np
 import pandas as pd
@@ -121,7 +121,7 @@ class LSTMPredictor(IPredictor):
             target: Target series aligned with train_data.
             **kwargs: If 'trial' key present, used for Optuna pruning.
         """
-        trial: optuna.Trial | None = kwargs.get("trial", None)  # type: ignore[assignment]
+        trial = cast("optuna.Trial | None", kwargs.get("trial"))
 
         df = train_data.copy()
         target_col = "_target"
