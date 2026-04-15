@@ -53,6 +53,15 @@ class InformationCriterion(StrEnum):
     BIC = "bic"
 
 
+class Device(StrEnum):
+    """Compute backends for ML model training."""
+
+    AUTO = "auto"
+    CUDA = "cuda"
+    MPS = "mps"
+    CPU = "cpu"
+
+
 _ANNUALIZATION_FACTORS: dict[Interval, int] = {
     Interval.SECOND: TRADING_DAYS_PER_YEAR * US_TRADING_SECONDS_PER_DAY,
     Interval.MINUTE: TRADING_DAYS_PER_YEAR * US_TRADING_MINUTES_PER_DAY,

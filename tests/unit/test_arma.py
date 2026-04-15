@@ -99,10 +99,6 @@ class TestARMAPredictor:
         with pytest.raises(LeakageError):
             meta.validate_no_overlap(arma_df)
 
-    def test_invalid_information_criterion(self) -> None:
-        with pytest.raises(ValueError, match="information_criterion"):
-            ARMAPredictor(information_criterion="invalid")
-
     def test_registry_registration(self) -> None:
         from src.core.registry import model_registry
 

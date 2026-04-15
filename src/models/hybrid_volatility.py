@@ -10,7 +10,7 @@ from sklearn.preprocessing import StandardScaler
 from src.core.exceptions import guard_scaler_fit_once
 from src.core.registry import model_registry
 from src.core.temporal import TrainingMetadata
-from src.core.types import Interval, LossFunction
+from src.core.types import Device, Interval, LossFunction
 from src.core.utils import compute_log_returns
 from src.models.garch import GARCHPredictor
 from src.models.interface import IPredictor
@@ -40,9 +40,11 @@ class HybridVolatilityModel(IPredictor):
         lstm_lookback: int = 30,
         lstm_lr: float = 1e-3,
         lstm_epochs: int = 100,
-        lstm_loss_fn: LossFunction | str = LossFunction.MSE,
+        lstm_loss_fn: LossFunction = LossFunction.MSE,
         lstm_patience: int = 10,
         lstm_batch_size: int = 32,
+        lstm_val_split_ratio: float = 0.2,
+        lstm_device: Device | None = None,
         min_vol: float = 1e-3,
         interval: Interval = Interval.DAILY,
     ) -> None:
@@ -69,6 +71,8 @@ class HybridVolatilityModel(IPredictor):
             loss_fn=lstm_loss_fn,
             patience=lstm_patience,
             batch_size=lstm_batch_size,
+            val_split_ratio=lstm_val_split_ratio,
+            device=lstm_device,
             interval=interval,
         )
 
@@ -165,7 +169,9 @@ class HybridVolatilityModel(IPredictor):
             "lstm_dropout": trial.suggest_float("hybrid_vol_lstm_dropout", 0.0, 0.5),
             "lstm_lookback": trial.suggest_int("hybrid_vol_lstm_lookback", 10, 60),
             "lstm_lr": trial.suggest_float("hybrid_vol_lstm_lr", 1e-4, 1e-2, log=True),
-            "lstm_loss_fn": trial.suggest_categorical(
-                "hybrid_vol_lstm_loss_fn", [e.value for e in LossFunction]
+            "lstm_loss_fn": LossFunction(
+                trial.suggest_categorical(
+                    "hybrid_vol_lstm_loss_fn", [e.value for e in LossFunction]
+                )
             ),
         }

@@ -18,7 +18,7 @@ COMPACT_MAX_DEPTH = 3
 # Strategy defaults for tests
 MA_WINDOW = 20
 PROB_THRESHOLD = 0.55
-FEATURE_PIPELINE_WARMUP = 21  # return_21d (pct_change 21) is the hard-NaN warmup
+FEATURE_PIPELINE_WARMUP = 21  # long_return_period default = 21 dominates other hard-NaN horizons
 
 # Out-of-sample eval fixture
 EVAL_ROW_COUNT = 80
@@ -114,6 +114,14 @@ class TestMomentumGatekeeperStrategy:
         assert set(params.keys()) == {
             "ma_window",
             "prob_threshold",
+            "rsi_period",
+            "macd_fast",
+            "macd_slow",
+            "macd_signal",
+            "vol_window",
+            "ma_ratio_window",
+            "short_return_period",
+            "long_return_period",
             "n_estimators",
             "learning_rate",
             "max_depth",

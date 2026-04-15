@@ -10,7 +10,7 @@ from sklearn.preprocessing import StandardScaler
 from src.core.exceptions import guard_scaler_fit_once
 from src.core.registry import model_registry
 from src.core.temporal import TrainingMetadata
-from src.core.types import InformationCriterion, Interval, LossFunction
+from src.core.types import Device, InformationCriterion, Interval, LossFunction
 from src.models.arma import ARMAPredictor
 from src.models.interface import IPredictor
 from src.models.lstm import LSTMPredictor
@@ -33,16 +33,18 @@ class HybridReturnModel(IPredictor):
         feature_columns: list[str],
         arma_p_max: int = 5,
         arma_q_max: int = 5,
-        arma_information_criterion: InformationCriterion | str = InformationCriterion.AIC,
+        arma_information_criterion: InformationCriterion = InformationCriterion.AIC,
         lstm_hidden_dim: int = 64,
         lstm_num_layers: int = 2,
         lstm_dropout: float = 0.2,
         lstm_lookback: int = 30,
         lstm_lr: float = 1e-3,
         lstm_epochs: int = 100,
-        lstm_loss_fn: LossFunction | str = LossFunction.MSE,
+        lstm_loss_fn: LossFunction = LossFunction.MSE,
         lstm_patience: int = 10,
         lstm_batch_size: int = 32,
+        lstm_val_split_ratio: float = 0.2,
+        lstm_device: Device | None = None,
         interval: Interval = Interval.DAILY,
     ) -> None:
         if not feature_columns:
@@ -68,6 +70,8 @@ class HybridReturnModel(IPredictor):
             loss_fn=lstm_loss_fn,
             patience=lstm_patience,
             batch_size=lstm_batch_size,
+            val_split_ratio=lstm_val_split_ratio,
+            device=lstm_device,
             interval=interval,
         )
 
@@ -157,15 +161,19 @@ class HybridReturnModel(IPredictor):
         return {
             "arma_p_max": trial.suggest_int("hybrid_ret_arma_p_max", 1, 5),
             "arma_q_max": trial.suggest_int("hybrid_ret_arma_q_max", 1, 5),
-            "arma_information_criterion": trial.suggest_categorical(
-                "hybrid_ret_arma_ic", [e.value for e in InformationCriterion]
+            "arma_information_criterion": InformationCriterion(
+                trial.suggest_categorical(
+                    "hybrid_ret_arma_ic", [e.value for e in InformationCriterion]
+                )
             ),
             "lstm_hidden_dim": trial.suggest_int("hybrid_ret_lstm_hidden_dim", 32, 128),
             "lstm_num_layers": trial.suggest_int("hybrid_ret_lstm_num_layers", 1, 3),
             "lstm_dropout": trial.suggest_float("hybrid_ret_lstm_dropout", 0.0, 0.5),
             "lstm_lookback": trial.suggest_int("hybrid_ret_lstm_lookback", 10, 60),
             "lstm_lr": trial.suggest_float("hybrid_ret_lstm_lr", 1e-4, 1e-2, log=True),
-            "lstm_loss_fn": trial.suggest_categorical(
-                "hybrid_ret_lstm_loss_fn", [e.value for e in LossFunction]
+            "lstm_loss_fn": LossFunction(
+                trial.suggest_categorical(
+                    "hybrid_ret_lstm_loss_fn", [e.value for e in LossFunction]
+                )
             ),
         }

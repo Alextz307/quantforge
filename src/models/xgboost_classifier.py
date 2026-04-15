@@ -8,9 +8,11 @@ from typing import TYPE_CHECKING
 import pandas as pd
 import xgboost as xgb
 
+from src.core.device import select_xgboost_device
 from src.core.registry import classifier_registry
 from src.core.temporal import TrainingMetadata
-from src.core.types import Interval
+from src.core.types import Device, Interval
+from src.core.utils import validate_open_unit_interval
 from src.models.interface import IClassifier
 
 if TYPE_CHECKING:
@@ -23,8 +25,8 @@ logger = logging.getLogger(__name__)
 class DirectionalClassifier(IClassifier):
     """XGBoost classifier for predicting next-bar price direction.
 
-    Uses early stopping on a temporal validation split (last 20% of
-    training data) to prevent overfitting.
+    Uses early stopping on a temporal validation split (trailing
+    ``val_split_ratio`` fraction of training data, default 20%).
     """
 
     def __init__(
@@ -37,10 +39,13 @@ class DirectionalClassifier(IClassifier):
         objective: str = "binary:logistic",
         subsample: float = 0.8,
         colsample_bytree: float = 0.8,
+        val_split_ratio: float = 0.2,
+        device: Device | None = None,
         interval: Interval = Interval.DAILY,
     ) -> None:
         if not feature_columns:
             raise ValueError("DirectionalClassifier requires a non-empty feature_columns list")
+        validate_open_unit_interval(val_split_ratio, "val_split_ratio")
         self._n_estimators = n_estimators
         self._learning_rate = learning_rate
         self._max_depth = max_depth
@@ -48,6 +53,8 @@ class DirectionalClassifier(IClassifier):
         self._objective = objective
         self._subsample = subsample
         self._colsample_bytree = colsample_bytree
+        self._val_split_ratio = val_split_ratio
+        self._device = select_xgboost_device(device)
         self._interval = interval
 
         self._fitted = False
@@ -80,11 +87,14 @@ class DirectionalClassifier(IClassifier):
             eval_metric="logloss",
             random_state=42,
             verbosity=0,
+            # `hist` is required on CUDA and is also the recommended CPU backend.
+            tree_method="hist",
+            device=self._device,
         )
 
         features = train_data[self._feature_columns]
 
-        split_idx = int(len(features) * 0.8)
+        split_idx = int(len(features) * (1.0 - self._val_split_ratio))
         x_train = features.iloc[:split_idx]
         y_train = target.iloc[:split_idx]
         x_val = features.iloc[split_idx:]

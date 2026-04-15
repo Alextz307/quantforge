@@ -14,3 +14,9 @@ def compute_log_returns(close: pd.Series[float]) -> pd.Series[float]:
     """
     result: pd.Series[float] = np.log1p(close.pct_change())  # type: ignore[assignment]
     return result
+
+
+def validate_open_unit_interval(value: float, name: str) -> None:
+    """Ensure ``value`` lies in the open interval ``(0, 1)``; raise ``ValueError`` otherwise."""
+    if not (0.0 < value < 1.0):
+        raise ValueError(f"{name} must be in (0, 1), got {value}")

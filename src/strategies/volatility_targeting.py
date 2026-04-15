@@ -11,7 +11,7 @@ import pandas as pd
 
 from src.core.registry import strategy_registry
 from src.core.temporal import TrainingMetadata
-from src.core.types import Interval, LossFunction
+from src.core.types import Device, Interval, LossFunction
 from src.core.utils import compute_log_returns
 from src.models.hybrid_volatility import HybridVolatilityModel
 from src.strategies.interface import IStrategy
@@ -42,9 +42,11 @@ class _HybridVolParams:
     lstm_lookback: int
     lstm_lr: float
     lstm_epochs: int
-    lstm_loss_fn: LossFunction | str
+    lstm_loss_fn: LossFunction
     lstm_patience: int
     lstm_batch_size: int
+    lstm_val_split_ratio: float
+    lstm_device: Device | None
     min_vol: float
     interval: Interval
 
@@ -78,9 +80,11 @@ class VolatilityTargetingStrategy(IStrategy):
         lstm_lookback: int = 30,
         lstm_lr: float = 1e-3,
         lstm_epochs: int = 100,
-        lstm_loss_fn: LossFunction | str = LossFunction.MSE,
+        lstm_loss_fn: LossFunction = LossFunction.MSE,
         lstm_patience: int = 10,
         lstm_batch_size: int = 32,
+        lstm_val_split_ratio: float = 0.2,
+        lstm_device: Device | None = None,
         min_vol: float = 1e-3,
         interval: Interval = Interval.DAILY,
     ) -> None:
@@ -116,6 +120,8 @@ class VolatilityTargetingStrategy(IStrategy):
             lstm_loss_fn=lstm_loss_fn,
             lstm_patience=lstm_patience,
             lstm_batch_size=lstm_batch_size,
+            lstm_val_split_ratio=lstm_val_split_ratio,
+            lstm_device=lstm_device,
             min_vol=min_vol,
             interval=interval,
         )

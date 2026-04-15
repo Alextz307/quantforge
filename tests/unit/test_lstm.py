@@ -7,7 +7,7 @@ import pandas as pd
 import pytest
 import torch
 
-from src.core.types import Interval
+from src.core.types import Device, Interval, LossFunction
 from src.models.lstm import LSTMPredictor, MarketLSTM
 
 # Synthetic data
@@ -240,7 +240,7 @@ class TestLSTMPredictor:
     def test_configurable_loss_fn(
         self, lstm_df: pd.DataFrame, lstm_target: pd.Series, lstm_features: list[str]
     ) -> None:
-        for loss_fn in ["mse", "mae", "huber"]:
+        for loss_fn in LossFunction:
             torch.manual_seed(TORCH_SEED)
             train = lstm_df.iloc[:-1]
             p = LSTMPredictor(
@@ -254,13 +254,38 @@ class TestLSTMPredictor:
             p.fit(train, lstm_target)
             assert p._fitted
 
-    def test_invalid_loss_fn_raises(self, lstm_features: list[str]) -> None:
-        with pytest.raises(ValueError, match="loss_fn"):
-            LSTMPredictor(lstm_features, loss_fn="invalid")
-
     def test_empty_feature_columns_raises(self) -> None:
         with pytest.raises(ValueError, match="feature_columns"):
             LSTMPredictor([])
+
+    @pytest.mark.parametrize("ratio", [0.0, 1.0, -0.1, 1.5])
+    def test_invalid_val_split_ratio_raises(self, lstm_features: list[str], ratio: float) -> None:
+        with pytest.raises(ValueError, match="val_split_ratio"):
+            LSTMPredictor(lstm_features, val_split_ratio=ratio)
+
+    def test_explicit_cpu_device_trains_and_predicts(
+        self,
+        lstm_df: pd.DataFrame,
+        lstm_target: pd.Series,
+        lstm_features: list[str],
+    ) -> None:
+        """End-to-end fit → predict on an explicitly-pinned CPU device (portable on CI)."""
+        torch.manual_seed(TORCH_SEED)
+        train = lstm_df.iloc[:-1]  # target is already 1 shorter
+        p = LSTMPredictor(
+            lstm_features,
+            lookback=COMPACT_LOOKBACK,
+            epochs=SHORT_EPOCHS,
+            hidden_dim=COMPACT_HIDDEN_DIM,
+            device=Device.CPU,
+        )
+        p.fit(train, lstm_target)
+        assert p._device.type == "cpu"
+        assert p._model is not None
+        # Every model parameter must live on the pinned device
+        assert all(param.device.type == "cpu" for param in p._model.parameters())
+        signal = p.predict(train)
+        assert isinstance(signal, pd.Series)
 
     def test_feature_columns_honored(self, lstm_df: pd.DataFrame, lstm_target: pd.Series) -> None:
         """Explicit feature_columns restricts which columns LSTM trains on."""

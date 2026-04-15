@@ -11,9 +11,11 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
 
+from src.core.device import select_device
 from src.core.registry import model_registry
 from src.core.temporal import TrainingMetadata
-from src.core.types import Interval, LossFunction
+from src.core.types import Device, Interval, LossFunction
+from src.core.utils import validate_open_unit_interval
 from src.models.dataset import TemporalDataset
 from src.models.interface import IPredictor
 
@@ -61,7 +63,8 @@ class MarketLSTM(nn.Module):
 class LSTMPredictor(IPredictor):
     """LSTM-based predictor with early stopping and configurable loss.
 
-    Splits training data 80/20 temporally for validation-based early stopping.
+    Splits training data temporally for validation-based early stopping;
+    the split fraction is controlled by ``val_split_ratio`` (default 20%).
     Tracks train and validation losses for learning curve analysis.
     """
 
@@ -74,19 +77,16 @@ class LSTMPredictor(IPredictor):
         lookback: int = 30,
         lr: float = 1e-3,
         epochs: int = 100,
-        loss_fn: LossFunction | str = LossFunction.MSE,
+        loss_fn: LossFunction = LossFunction.MSE,
         patience: int = 10,
         batch_size: int = 32,
+        val_split_ratio: float = 0.2,
+        device: Device | None = None,
         interval: Interval = Interval.DAILY,
     ) -> None:
         if not feature_columns:
             raise ValueError("LSTMPredictor requires a non-empty feature_columns list")
-        try:
-            loss_fn = LossFunction(loss_fn)
-        except ValueError:
-            raise ValueError(
-                f"loss_fn must be one of {[e.value for e in LossFunction]}, got '{loss_fn}'"
-            ) from None
+        validate_open_unit_interval(val_split_ratio, "val_split_ratio")
 
         self._hidden_dim = hidden_dim
         self._num_layers = num_layers
@@ -97,6 +97,8 @@ class LSTMPredictor(IPredictor):
         self._loss_fn = loss_fn
         self._patience = patience
         self._batch_size = batch_size
+        self._val_split_ratio = val_split_ratio
+        self._device = select_device(device)
         self._interval = interval
 
         self._fitted = False
@@ -125,7 +127,7 @@ class LSTMPredictor(IPredictor):
         target_col = "_target"
         df[target_col] = target.values
 
-        split_idx = int(len(df) * 0.8)
+        split_idx = int(len(df) * (1.0 - self._val_split_ratio))
         train_df = df.iloc[:split_idx]
         val_df = df.iloc[split_idx:]
 
@@ -145,7 +147,7 @@ class LSTMPredictor(IPredictor):
             hidden_dim=self._hidden_dim,
             num_layers=self._num_layers,
             dropout=self._dropout,
-        )
+        ).to(self._device)
 
         criterion = _LOSS_FUNCTIONS[self._loss_fn]()
         optimizer = torch.optim.Adam(self._model.parameters(), lr=self._lr)
@@ -161,6 +163,8 @@ class LSTMPredictor(IPredictor):
             epoch_loss = 0.0
             n_batches = 0
             for features, targets in train_loader:
+                features = features.to(self._device)
+                targets = targets.to(self._device)
                 optimizer.zero_grad()
                 preds = self._model(features).squeeze(-1)
                 loss = criterion(preds, targets)
@@ -179,6 +183,8 @@ class LSTMPredictor(IPredictor):
                 val_batches = 0
                 with torch.no_grad():
                     for features, targets in val_loader:
+                        features = features.to(self._device)
+                        targets = targets.to(self._device)
                         preds = self._model(features).squeeze(-1)
                         val_loss += criterion(preds, targets).item()
                         val_batches += 1
@@ -225,7 +231,9 @@ class LSTMPredictor(IPredictor):
             raise RuntimeError("LSTMPredictor.predict() called before fit()")
 
         self._model.eval()
-        features = torch.from_numpy(data[self._feature_columns].to_numpy(dtype=np.float32))
+        features = torch.from_numpy(data[self._feature_columns].to_numpy(dtype=np.float32)).to(
+            self._device
+        )
 
         predictions = np.full(len(data), np.nan)
         n_windows = len(data) - self._lookback
@@ -253,7 +261,7 @@ class LSTMPredictor(IPredictor):
         self._model.eval()
         features = torch.from_numpy(
             recent_window[self._feature_columns].iloc[-self._lookback :].to_numpy(dtype=np.float32)
-        )
+        ).to(self._device)
 
         with torch.no_grad():
             pred = self._model(features.unsqueeze(0)).item()
@@ -269,6 +277,8 @@ class LSTMPredictor(IPredictor):
             "dropout": trial.suggest_float("lstm_dropout", 0.0, 0.5),
             "lookback": trial.suggest_int("lstm_lookback", 10, 60),
             "lr": trial.suggest_float("lstm_lr", 1e-4, 1e-2, log=True),
-            "loss_fn": trial.suggest_categorical("lstm_loss_fn", [e.value for e in LossFunction]),
+            "loss_fn": LossFunction(
+                trial.suggest_categorical("lstm_loss_fn", [e.value for e in LossFunction])
+            ),
             "batch_size": trial.suggest_categorical("lstm_batch_size", [16, 32, 64]),
         }

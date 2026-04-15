@@ -10,7 +10,7 @@ import pandas as pd
 
 from src.core.registry import strategy_registry
 from src.core.temporal import TrainingMetadata
-from src.core.types import InformationCriterion, Interval, LossFunction
+from src.core.types import Device, InformationCriterion, Interval, LossFunction
 from src.core.utils import compute_log_returns
 from src.models.hybrid_return import HybridReturnModel
 from src.strategies.interface import IStrategy
@@ -35,16 +35,18 @@ class _HybridReturnParams:
     feature_columns: tuple[str, ...]
     arma_p_max: int
     arma_q_max: int
-    arma_information_criterion: InformationCriterion | str
+    arma_information_criterion: InformationCriterion
     lstm_hidden_dim: int
     lstm_num_layers: int
     lstm_dropout: float
     lstm_lookback: int
     lstm_lr: float
     lstm_epochs: int
-    lstm_loss_fn: LossFunction | str
+    lstm_loss_fn: LossFunction
     lstm_patience: int
     lstm_batch_size: int
+    lstm_val_split_ratio: float
+    lstm_device: Device | None
     interval: Interval
 
 
@@ -65,16 +67,18 @@ class ReturnForecastStrategy(IStrategy):
         max_leverage: float = 1.5,
         arma_p_max: int = 5,
         arma_q_max: int = 5,
-        arma_information_criterion: InformationCriterion | str = InformationCriterion.AIC,
+        arma_information_criterion: InformationCriterion = InformationCriterion.AIC,
         lstm_hidden_dim: int = 64,
         lstm_num_layers: int = 2,
         lstm_dropout: float = 0.2,
         lstm_lookback: int = 30,
         lstm_lr: float = 1e-3,
         lstm_epochs: int = 100,
-        lstm_loss_fn: LossFunction | str = LossFunction.MSE,
+        lstm_loss_fn: LossFunction = LossFunction.MSE,
         lstm_patience: int = 10,
         lstm_batch_size: int = 32,
+        lstm_val_split_ratio: float = 0.2,
+        lstm_device: Device | None = None,
         interval: Interval = Interval.DAILY,
     ) -> None:
         if position_scale <= 0:
@@ -101,6 +105,8 @@ class ReturnForecastStrategy(IStrategy):
             lstm_loss_fn=lstm_loss_fn,
             lstm_patience=lstm_patience,
             lstm_batch_size=lstm_batch_size,
+            lstm_val_split_ratio=lstm_val_split_ratio,
+            lstm_device=lstm_device,
             interval=interval,
         )
 

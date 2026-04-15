@@ -35,16 +35,9 @@ class ARMAPredictor(IPredictor):
         p_max: int = 5,
         q_max: int = 5,
         d: int = 0,
-        information_criterion: InformationCriterion | str = InformationCriterion.AIC,
+        information_criterion: InformationCriterion = InformationCriterion.AIC,
         interval: Interval = Interval.DAILY,
     ) -> None:
-        try:
-            information_criterion = InformationCriterion(information_criterion)
-        except ValueError:
-            raise ValueError(
-                f"information_criterion must be one of "
-                f"{[e.value for e in InformationCriterion]}, got '{information_criterion}'"
-            ) from None
         self._p_max = p_max
         self._q_max = q_max
         self._d = d
@@ -164,7 +157,7 @@ class ARMAPredictor(IPredictor):
         return {
             "p_max": trial.suggest_int("arma_p_max", 1, 5),
             "q_max": trial.suggest_int("arma_q_max", 1, 5),
-            "information_criterion": trial.suggest_categorical(
-                "arma_ic", [e.value for e in InformationCriterion]
+            "information_criterion": InformationCriterion(
+                trial.suggest_categorical("arma_ic", [e.value for e in InformationCriterion])
             ),
         }

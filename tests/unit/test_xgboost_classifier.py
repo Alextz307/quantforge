@@ -7,7 +7,7 @@ import pandas as pd
 import pytest
 
 from src.core.exceptions import LeakageError
-from src.core.types import Interval
+from src.core.types import Device, Interval
 from src.models.xgboost_classifier import DirectionalClassifier
 
 # Synthetic fixture data
@@ -161,6 +161,28 @@ class TestDirectionalClassifier:
     def test_empty_feature_columns_raises(self) -> None:
         with pytest.raises(ValueError, match="feature_columns"):
             DirectionalClassifier([])
+
+    @pytest.mark.parametrize("ratio", [0.0, 1.0, -0.1, 1.5])
+    def test_invalid_val_split_ratio_raises(self, xgb_features: list[str], ratio: float) -> None:
+        with pytest.raises(ValueError, match="val_split_ratio"):
+            DirectionalClassifier(xgb_features, val_split_ratio=ratio)
+
+    def test_explicit_cpu_device_trains_and_predicts(
+        self, xgb_data: tuple[pd.DataFrame, pd.Series], xgb_features: list[str]
+    ) -> None:
+        """End-to-end fit → predict with device='cpu' pinned (portable on CI)."""
+        features, target = xgb_data
+        c = DirectionalClassifier(
+            xgb_features, n_estimators=COMPACT_N_ESTIMATORS, device=Device.CPU
+        )
+        c.fit(features, target)
+        assert c._device == "cpu"
+        proba = c.predict_proba(features)
+        assert isinstance(proba, pd.Series)
+
+    def test_mps_device_rejected(self, xgb_features: list[str]) -> None:
+        with pytest.raises(ValueError, match="no MPS backend"):
+            DirectionalClassifier(xgb_features, device=Device.MPS)
 
     def test_feature_columns_honored(self, xgb_data: tuple[pd.DataFrame, pd.Series]) -> None:
         """Explicit feature_columns restricts which columns XGBoost trains on."""

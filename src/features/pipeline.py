@@ -67,14 +67,36 @@ class FeatureEngineeringPipeline(IFeaturePipeline):
         macd_slow: int = 26,
         macd_signal: int = 9,
         vol_window: int = 20,
+        ma_ratio_window: int = 20,
+        short_return_period: int = 5,
+        long_return_period: int = 21,
     ) -> None:
+        if short_return_period < 2 or long_return_period <= short_return_period:
+            raise ValueError(
+                f"require 2 <= short_return_period < long_return_period, "
+                f"got short={short_return_period}, long={long_return_period}"
+            )
+
         self._rsi_period = rsi_period
         self._macd_fast = macd_fast
         self._macd_slow = macd_slow
         self._macd_signal = macd_signal
         self._vol_window = vol_window
+        self._ma_ratio_window = ma_ratio_window
+        self._short_return_period = short_return_period
+        self._long_return_period = long_return_period
 
         self._scaler: StandardScaler | None = None
+
+    @property
+    def hard_nan_warmup_bars(self) -> int:
+        """Longest leading-NaN horizon across all features (MACD EMAs are not hard-NaN)."""
+        return max(
+            self._long_return_period,
+            self._vol_window,
+            self._ma_ratio_window,
+            self._rsi_period,
+        )
 
     def _compute_raw_features(self, data: pd.DataFrame) -> pd.DataFrame:
         """Compute all raw features before scaling."""
@@ -83,11 +105,13 @@ class FeatureEngineeringPipeline(IFeaturePipeline):
         features = pd.DataFrame(index=data.index)
 
         features["return_1d"] = close.pct_change(1)
-        features["return_5d"] = close.pct_change(5)
-        features["return_21d"] = close.pct_change(21)
+        features[f"return_{self._short_return_period}d"] = close.pct_change(
+            self._short_return_period
+        )
+        features[f"return_{self._long_return_period}d"] = close.pct_change(self._long_return_period)
         features[f"vol_{self._vol_window}"] = features["return_1d"].rolling(self._vol_window).std()
 
-        sma: pd.Series[float] = close.rolling(self._vol_window).mean()
+        sma: pd.Series[float] = close.rolling(self._ma_ratio_window).mean()
         features["ma_ratio"] = close / sma
 
         features[f"rsi_{self._rsi_period}"] = _compute_rsi(close, self._rsi_period)
