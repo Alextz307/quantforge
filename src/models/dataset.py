@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import numpy as np
 import pandas as pd
 import torch
 from torch.utils.data import Dataset
@@ -39,8 +40,8 @@ class TemporalDataset(Dataset[tuple[torch.Tensor, torch.Tensor]]):
         if feature_columns is None:
             feature_columns = [c for c in df.columns if c != target_column]
 
-        self._features = torch.tensor(df[feature_columns].values, dtype=torch.float32)
-        self._targets = torch.tensor(df[target_column].values, dtype=torch.float32)
+        self._features = torch.from_numpy(df[feature_columns].to_numpy(dtype=np.float32))
+        self._targets = torch.from_numpy(df[target_column].to_numpy(dtype=np.float32))
         self._lookback = lookback_window
 
     def __len__(self) -> int:

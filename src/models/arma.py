@@ -146,9 +146,9 @@ class ARMAPredictor(IPredictor):
 
         # Offset by 1: the first row of `data` has no log return (it's NaN), so
         # `predictions` starts at data.index[1], not data.index[0].
-        result = pd.Series(np.nan, index=data.index, name="arma_forecast")
-        result.iloc[1 : 1 + len(predictions)] = predictions.tolist()
-        return result.ffill()
+        arr = np.full(len(data), np.nan)
+        arr[1 : 1 + len(predictions)] = predictions
+        return pd.Series(arr, index=data.index, name="arma_forecast").ffill()
 
     def predict_single(self, recent_window: pd.DataFrame) -> float:
         """Predict single one-step-ahead return forecast."""

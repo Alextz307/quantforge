@@ -225,15 +225,20 @@ class LSTMPredictor(IPredictor):
             raise RuntimeError("LSTMPredictor.predict() called before fit()")
 
         self._model.eval()
-        features = torch.tensor(data[self._feature_columns].values, dtype=torch.float32)
+        features = torch.from_numpy(data[self._feature_columns].to_numpy(dtype=np.float32))
 
         predictions = np.full(len(data), np.nan)
+        n_windows = len(data) - self._lookback
 
-        with torch.no_grad():
-            for i in range(self._lookback, len(data)):
-                window = features[i - self._lookback : i].unsqueeze(0)
-                pred = self._model(window).item()
-                predictions[i] = pred
+        if n_windows > 0:
+            # Batch every lookback window into one forward pass — avoids
+            # Python-per-bar overhead. The unfold view is non-contiguous, so
+            # call .contiguous() explicitly to make the unavoidable copy
+            # visible (nn.LSTM would do it implicitly otherwise).
+            with torch.no_grad():
+                windows = features[:-1].unfold(0, self._lookback, 1).transpose(1, 2).contiguous()
+                preds = self._model(windows).squeeze(-1).cpu().numpy()
+            predictions[self._lookback : self._lookback + n_windows] = preds
 
         return pd.Series(predictions, index=data.index, name="lstm_pred")
 
@@ -246,9 +251,8 @@ class LSTMPredictor(IPredictor):
             raise ValueError(f"Need at least {self._lookback} rows, got {len(recent_window)}")
 
         self._model.eval()
-        features = torch.tensor(
-            recent_window[self._feature_columns].values[-self._lookback :],
-            dtype=torch.float32,
+        features = torch.from_numpy(
+            recent_window[self._feature_columns].iloc[-self._lookback :].to_numpy(dtype=np.float32)
         )
 
         with torch.no_grad():

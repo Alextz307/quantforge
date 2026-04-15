@@ -33,6 +33,7 @@ Makefile.cmake
 *.swo
 *~
 .DS_Store
+cpp/.cache/
 
 # ── Testing / Linting ──
 .mypy_cache/

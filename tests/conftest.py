@@ -156,6 +156,67 @@ def make_synthetic_close_df(
     return pd.DataFrame({"close": close, "volume": [SYNTH_FIXED_VOLUME] * n_rows}, index=idx)
 
 
+def assert_params_match_constructor(
+    dataclass_type: type,
+    constructor_owner: type,
+) -> None:
+    """Assert a dataclass mirrors a class's constructor kwargs.
+
+    Used by composite strategies to detect drift between their internal
+    params dataclass and the leaf model's constructor — mypy can't enforce
+    this when the dataclass is spread via ``**asdict(...)``.
+    """
+    import dataclasses
+    import inspect
+
+    dc_fields = {f.name for f in dataclasses.fields(dataclass_type)}
+    ctor_params = set(inspect.signature(constructor_owner).parameters)
+    assert dc_fields == ctor_params, (
+        f"{dataclass_type.__name__} drifted from {constructor_owner.__name__}: "
+        f"symmetric diff = {dc_fields ^ ctor_params}"
+    )
+
+
+def make_declining_close_df(
+    n_rows: int = 120,
+    start: str = "2022-01-03",
+    start_price: float = 200.0,
+    end_price: float = 100.0,
+) -> pd.DataFrame:
+    """Monotone-declining close series for bearish-regime tests.
+
+    Every bar sits below its own SMA(50) / SMA(100), guaranteeing
+    ``close > trend_ma`` is False throughout — useful for asserting
+    that trend filters suppress long entries in strict bearish windows.
+    """
+    idx = pd.bdate_range(start=start, periods=n_rows, freq="B")
+    close = np.linspace(start_price, end_price, n_rows)
+    return pd.DataFrame({"close": close, "volume": [1e6] * n_rows}, index=idx)
+
+
+def make_pair_close_df(
+    n_rows: int = SYNTH_DEFAULT_ROW_COUNT,
+    start: str = SYNTH_DEFAULT_START_DATE,
+    seed: int = SYNTH_DEFAULT_SEED,
+    base_price: float = SYNTH_DEFAULT_BASE_PRICE,
+    scale: float = 1.2,
+    noise_std: float = 0.5,
+) -> pd.DataFrame:
+    """Create a DataFrame with two cointegrated close-price series (close_a, close_b).
+
+    ``close_b`` is constructed as ``close_a * scale + stationary_noise``. The
+    resulting spread ``close_a - (1/scale) * close_b`` is stationary — a
+    cointegrated pair that passes the Engle-Granger ADF test.
+    """
+    np.random.seed(seed)
+    idx = pd.bdate_range(start=start, periods=n_rows, freq="B")
+    returns = np.random.normal(SYNTH_RETURN_MEAN, SYNTH_RETURN_STD, n_rows)
+    close_a = base_price * np.cumprod(1 + returns)
+    noise = np.random.normal(0.0, noise_std, n_rows)
+    close_b = close_a * scale + noise
+    return pd.DataFrame({"close_a": close_a, "close_b": close_b}, index=idx)
+
+
 def make_daily_df(n_rows: int, start: str = DAILY_DEFAULT_START_DATE) -> pd.DataFrame:
     """Create a simple DataFrame with DatetimeIndex for testing.
 

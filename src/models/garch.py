@@ -151,9 +151,9 @@ class GARCHPredictor(IPredictor):
         cond_vol_annual = cond_vol_daily * ann_factor
 
         # Align with original index: first row has NaN return, use ffill
-        result = pd.Series(np.nan, index=data.index, name="garch_vol")
-        result.iloc[1 : 1 + len(cond_vol_annual)] = cond_vol_annual.tolist()
-        return result.ffill()
+        arr = np.full(len(data), np.nan)
+        arr[1 : 1 + len(cond_vol_annual)] = cond_vol_annual
+        return pd.Series(arr, index=data.index, name="garch_vol").ffill()
 
     def predict_single(self, recent_window: pd.DataFrame) -> float:
         """Predict a single annualized volatility value from recent data."""
