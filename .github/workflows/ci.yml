@@ -18,6 +18,10 @@ jobs:
       - run: python scripts/check_ci_deps.py
       - run: ruff check src/ tests/ scripts/
       - run: ruff format --check src/ tests/ scripts/
+      # Build + install the `quant_engine` C++ extension so mypy can resolve
+      # `from quant_engine import ...` against the bundled .pyi stubs.
+      # scikit-build-core fetches its own build deps in an isolated env.
+      - run: pip install -e .
       - run: mypy --strict src/ tests/ scripts/
 
   cpp-build-and-test:
@@ -52,6 +56,11 @@ jobs:
         run: brew install libomp
       - name: Install Python dependencies
         run: pip install pytest pytest-cov pandas numpy pydantic pydantic-settings pyyaml torch xgboost arch statsmodels scikit-learn optuna pmdarima matplotlib yfinance click pyarrow
+      # Build + install the `quant_engine` C++ extension so integration tests
+      # can `import quant_engine`. scikit-build-core fetches its own build
+      # deps in an isolated env.
+      - name: Install quant_engine extension
+        run: pip install -e .
       - name: Run Python tests
         env:
           OMP_NUM_THREADS: "1"
