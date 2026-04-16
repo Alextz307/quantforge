@@ -104,6 +104,7 @@ sequenceDiagram
     autonumber
     participant User as user script / tuner
     participant Split as TemporalTripleSplit
+    participant WF as evaluate_walk_forward
     participant Strat as IStrategy
     participant Meta as TrainingMetadata
     participant Eng as BacktestEngine · C++
@@ -111,23 +112,30 @@ sequenceDiagram
 
     User->>Split: split(df, val_pct, holdout_pct, gap)
     Split-->>User: {train, validation, holdout}
-    User->>Strat: train(train_data)
-    Strat->>Strat: fit leaf models · fit scalers (fit-once guard)
-    Strat->>Meta: TrainingMetadata.from_fit(...)
-    Strat-->>User: _fitted = True (transactional)
 
-    User->>Strat: generate_signals(validation_or_test)
-    Strat-->>User: signals  (NaN during warmup)
+    User->>WF: evaluate_walk_forward(strategy, df, validator, engine, slippage)
+    loop per fold
+        WF->>Strat: train(fold.train)
+        Strat->>Strat: fit leaf models · fit scalers (fit-once guard)
+        Strat->>Meta: TrainingMetadata.from_fit(...)
+        Strat-->>WF: _fitted = True (transactional)
 
-    User->>Eng: backtest(signals, bars)
-    Eng->>Meta: strategy.training_metadata.validate_no_overlap(bars)
-    Note over Meta,Eng: raises LeakageError on overlap
-    Eng->>Eng: shift signals t → t+1 · fill · accumulate equity
-    Eng->>Metr: Sharpe · Sortino · drawdown · win rate
-    Metr-->>User: MetricsReport
+        WF->>Meta: training_metadata.validate_no_overlap(fold.test)
+        Note over WF,Meta: raises LeakageError on overlap
+        WF->>Strat: generate_signals(fold.test)
+        Strat-->>WF: signals  (NaN during warmup)
+
+        WF->>Eng: run(bars, signals, slippage)
+        Eng->>Eng: shift signals t → t+1 · fill · accumulate equity
+        Eng-->>WF: BacktestResult (equity_curve, total_return, trade_count)
+
+        WF->>Metr: compute(equity_curve, annualization, rf)
+        Metr-->>WF: PerformanceMetrics (Sharpe · Sortino · drawdown · win rate)
+    end
+    WF-->>User: list[FoldResult]
 ```
 
-The holdout split is reserved for the final thesis evaluation — it is never touched during development or HPO. `TrainingMetadata.validate_no_overlap()` is a runtime tripwire: if a caller accidentally passes training data as evaluation data, the backtest engine refuses to run.
+The holdout split is reserved for the final thesis evaluation — it is never touched during development or HPO. `TrainingMetadata.validate_no_overlap()` is a runtime tripwire that lives in the orchestrator (`evaluate_walk_forward`), not in the engine itself: `engine.run()` is a pure number cruncher and does not inspect training metadata. Direct callers of `engine.run()` are responsible for their own data hygiene — the orchestrator is the recommended entry point precisely because it wires the tripwire in for free.
 
 ## What's Implemented
 
@@ -221,7 +229,10 @@ cpp/
     core/                Bar, TimeSeries, Interval, tagged series
     indicators/          IIndicator, IVolatilityEstimator, RSI, MACD, Bollinger, GK, Parkinson
     indicators/detail/   Shared helpers (Welford rolling, annualization)
+    engine/              SlippageConfig, BacktestEngine
+    metrics/             MetricsCalculator, PerformanceMetrics
   src/                   Implementation files
+  bindings/              pybind11 module entry point (python_module.cpp)
   tests/                 GoogleTest suite
   benchmarks/            Google Benchmark micro-benches
 
