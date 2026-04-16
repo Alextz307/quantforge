@@ -7,6 +7,7 @@ from __future__ import annotations
 import typing
 
 import numpy
+import numpy.typing
 
 import quant_engine
 
@@ -30,24 +31,24 @@ class BacktestEngine:
     ) -> None: ...
     def run(
         self,
-        timestamps: numpy.ndarray[numpy.int64],
-        open: numpy.ndarray[numpy.float64],
-        high: numpy.ndarray[numpy.float64],
-        low: numpy.ndarray[numpy.float64],
-        close: numpy.ndarray[numpy.float64],
-        volume: numpy.ndarray[numpy.float64],
-        signals: numpy.ndarray[numpy.float64],
+        timestamps: numpy.typing.NDArray[numpy.int64],
+        open: numpy.typing.NDArray[numpy.float64],
+        high: numpy.typing.NDArray[numpy.float64],
+        low: numpy.typing.NDArray[numpy.float64],
+        close: numpy.typing.NDArray[numpy.float64],
+        volume: numpy.typing.NDArray[numpy.float64],
+        signals: numpy.typing.NDArray[numpy.float64],
         slippage: SlippageConfig,
     ) -> BacktestResult: ...
     def run_scenarios(
         self,
-        timestamps: numpy.ndarray[numpy.int64],
-        open: numpy.ndarray[numpy.float64],
-        high: numpy.ndarray[numpy.float64],
-        low: numpy.ndarray[numpy.float64],
-        close: numpy.ndarray[numpy.float64],
-        volume: numpy.ndarray[numpy.float64],
-        signals: numpy.ndarray[numpy.float64],
+        timestamps: numpy.typing.NDArray[numpy.int64],
+        open: numpy.typing.NDArray[numpy.float64],
+        high: numpy.typing.NDArray[numpy.float64],
+        low: numpy.typing.NDArray[numpy.float64],
+        close: numpy.typing.NDArray[numpy.float64],
+        volume: numpy.typing.NDArray[numpy.float64],
+        signals: numpy.typing.NDArray[numpy.float64],
         scenarios: list[SlippageConfig],
     ) -> list[BacktestResult]: ...
 
@@ -57,7 +58,7 @@ class BacktestResult:
     @property
     def annualized_volatility(self) -> float: ...
     @property
-    def equity_curve(self) -> numpy.ndarray[numpy.float64]: ...
+    def equity_curve(self) -> numpy.typing.NDArray[numpy.float64]: ...
     @property
     def max_drawdown(self) -> float: ...
     @property
@@ -76,34 +77,34 @@ class BacktestResult:
 class MetricsCalculator:
     @staticmethod
     def annualized_return(
-        equity_curve: numpy.ndarray[numpy.float64], annualization_factor: int
+        equity_curve: numpy.typing.NDArray[numpy.float64], annualization_factor: int
     ) -> float: ...
     @staticmethod
     def annualized_volatility(
-        returns: numpy.ndarray[numpy.float64], annualization_factor: int
+        returns: numpy.typing.NDArray[numpy.float64], annualization_factor: int
     ) -> float: ...
     @staticmethod
     def compute(
-        equity_curve: numpy.ndarray[numpy.float64],
+        equity_curve: numpy.typing.NDArray[numpy.float64],
         annualization_factor: int,
         risk_free_rate: float = 0.0,
     ) -> PerformanceMetrics: ...
     @staticmethod
-    def max_drawdown(equity_curve: numpy.ndarray[numpy.float64]) -> float: ...
+    def max_drawdown(equity_curve: numpy.typing.NDArray[numpy.float64]) -> float: ...
     @staticmethod
     def sharpe_ratio(
-        returns: numpy.ndarray[numpy.float64],
+        returns: numpy.typing.NDArray[numpy.float64],
         annualization_factor: int,
         risk_free_rate: float = 0.0,
     ) -> float: ...
     @staticmethod
     def sortino_ratio(
-        returns: numpy.ndarray[numpy.float64],
+        returns: numpy.typing.NDArray[numpy.float64],
         annualization_factor: int,
         risk_free_rate: float = 0.0,
     ) -> float: ...
     @staticmethod
-    def win_rate(returns: numpy.ndarray[numpy.float64]) -> float: ...
+    def win_rate(returns: numpy.typing.NDArray[numpy.float64]) -> float: ...
 
 class PerformanceMetrics:
     @property

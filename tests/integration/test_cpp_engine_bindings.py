@@ -10,6 +10,7 @@ preserves order and matches per-scenario ``run()`` output.
 from __future__ import annotations
 
 import math
+from typing import cast
 
 import numpy as np
 import numpy.typing as npt
@@ -191,9 +192,11 @@ class TestBacktestEngineRun:
         """`c_style | forcecast` on the binding coerces f32 inputs to f64."""
         n = N_BARS_SHORT
         ts = np.arange(n, dtype=np.int64)
-        flat32 = np.full(n, FLAT_PRICE, dtype=np.float32)
-        vol32 = np.full(n, FIXED_VOLUME, dtype=np.float32)
-        sig32 = np.full(n, np.nan, dtype=np.float32)
+        # Cast away the f32 static type — this test exists precisely to
+        # verify the binding's runtime forcecast coercion of f32 → f64.
+        flat32 = cast(F64Array, np.full(n, FLAT_PRICE, dtype=np.float32))
+        vol32 = cast(F64Array, np.full(n, FIXED_VOLUME, dtype=np.float32))
+        sig32 = cast(F64Array, np.full(n, np.nan, dtype=np.float32))
         eng = qe.BacktestEngine()
         result = eng.run(
             timestamps=ts,
@@ -287,7 +290,7 @@ class TestBacktestEngineRun:
         rng = np.random.default_rng(GLOBAL_NUMPY_SEED)
         n = N_BARS_LONG
         ts = np.arange(n, dtype=np.int64)
-        close = np.cumprod(1.0 + rng.normal(0, RETURN_VOL, n)) * FLAT_PRICE
+        close = (np.cumprod(1.0 + rng.normal(0, RETURN_VOL, n)) * FLAT_PRICE).astype(np.float64)
         # Tight volume so |qty|/volume matters — otherwise impact → 0.
         vol = np.full(n, INITIAL_CAPITAL / FLAT_PRICE, dtype=np.float64)
         sig = np.where((np.arange(n) // SIGNAL_FLIP_PERIOD_TIGHT) % 2 == 0, 1.0, -1.0).astype(
@@ -327,7 +330,7 @@ class TestRunScenarios:
         rng = np.random.default_rng(GLOBAL_NUMPY_SEED)
         n = N_BARS_LONG
         ts = np.arange(n, dtype=np.int64)
-        close = np.cumprod(1.0 + rng.normal(0, RETURN_VOL, n)) * FLAT_PRICE
+        close = (np.cumprod(1.0 + rng.normal(0, RETURN_VOL, n)) * FLAT_PRICE).astype(np.float64)
         vol = np.full(n, FIXED_VOLUME, dtype=np.float64)
         # Flip signal every 5 bars so scenarios see plenty of trades
         sig = np.where((np.arange(n) // SIGNAL_FLIP_PERIOD) % 2 == 0, 1.0, -1.0).astype(np.float64)
@@ -510,7 +513,7 @@ class TestEngineMetricsHandoff:
         rng = np.random.default_rng(GLOBAL_NUMPY_SEED)
         n = N_BARS_LONG
         ts = np.arange(n, dtype=np.int64)
-        close = np.cumprod(1.0 + rng.normal(0, RETURN_VOL, n)) * FLAT_PRICE
+        close = (np.cumprod(1.0 + rng.normal(0, RETURN_VOL, n)) * FLAT_PRICE).astype(np.float64)
         vol = np.full(n, FIXED_VOLUME, dtype=np.float64)
         sig = np.where((np.arange(n) // SIGNAL_FLIP_PERIOD) % 2 == 0, 1.0, -1.0).astype(np.float64)
         eng = qe.BacktestEngine()

@@ -63,6 +63,10 @@ add_library(quant_core STATIC
     src/metrics/performance.cpp
 )
 target_include_directories(quant_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
+# Required so the static archive can be linked into the shared `quant_engine`
+# pybind11 module on Linux (Apple ld is permissive; GNU ld rejects non-PIC
+# objects in shared modules with R_X86_64_PC32 relocation errors).
+set_target_properties(quant_core PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 # ── pybind11 module ──
 # Exposes BacktestEngine / MetricsCalculator / SlippageConfig (+ a `hello`

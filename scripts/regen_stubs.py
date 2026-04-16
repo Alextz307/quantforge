@@ -39,6 +39,14 @@ MODULE_STUB = PACKAGE_DIR / "quant_engine.pyi"
 _MEMBERS_PATTERN = re.compile(r"__members__: typing\.ClassVar\[dict\[str, SlippageModel\]\][^\n]*")
 _MEMBERS_REPLACEMENT = "__members__: typing.ClassVar[dict[str, SlippageModel]]  # noqa: E501"
 
+# stubgen emits `numpy.ndarray[numpy.X]`, which numpy 2.x's `Generic[Shape, DType]`
+# resolves as `ndarray[Shape=X, DType=Any]` (wrong slot). Rewrite to the
+# `numpy.typing.NDArray[X]` form (== `ndarray[Any, dtype[X]]`), which mypy
+# accepts on both numpy 1.x and 2.x. Also injects the missing `numpy.typing`
+# import next to `import numpy`.
+_NDARRAY_PATTERN = re.compile(r"numpy\.ndarray\[numpy\.(\w+)\]")
+_NDARRAY_REPLACEMENT = r"numpy.typing.NDArray[numpy.\1]"
+
 
 def _run(cmd: list[str]) -> None:
     subprocess.run(cmd, check=True, cwd=REPO_ROOT)
@@ -65,6 +73,9 @@ def main() -> int:
             file=sys.stderr,
         )
         return 1
+    new_text, n_ndarray = _NDARRAY_PATTERN.subn(_NDARRAY_REPLACEMENT, new_text)
+    if n_ndarray > 0 and "import numpy.typing" not in new_text:
+        new_text = new_text.replace("import numpy\n", "import numpy\nimport numpy.typing\n", 1)
     MODULE_STUB.write_text(new_text)
 
     # --fix-only (not --fix) so unfixable violations don't poison the exit
