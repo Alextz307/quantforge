@@ -37,6 +37,8 @@ dev = [
 
 [tool.scikit-build]
 cmake.build-type = "Release"
+cmake.source-dir = "cpp"
+wheel.packages = ["src/quant_engine"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

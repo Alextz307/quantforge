@@ -63,9 +63,13 @@ add_library(quant_core STATIC
 target_include_directories(quant_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 # ── pybind11 module ──
-# Will be populated in Phase 4 when bindings are written.
-# pybind11_add_module(quant_engine bindings/python_module.cpp)
-# target_link_libraries(quant_engine PRIVATE quant_core)
+# Phase 3: minimal smoke binding. Phase 3 Batch C extends this with the
+# BacktestEngine / MetricsCalculator / SlippageConfig surface. The module is
+# installed into the `quant_engine` Python package so `import quant_engine`
+# picks it up via `src/quant_engine/__init__.py`.
+pybind11_add_module(quant_engine bindings/python_module.cpp)
+target_link_libraries(quant_engine PRIVATE quant_core)
+install(TARGETS quant_engine LIBRARY DESTINATION quant_engine)
 
 # ── Tests ──
 enable_testing()
