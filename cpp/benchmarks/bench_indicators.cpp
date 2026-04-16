@@ -1,4 +1,4 @@
-#include <cmath>
+#include <algorithm>
 #include <random>
 #include <vector>
 
@@ -58,7 +58,7 @@ OHLCData generate_ohlc(size_t n) {
 
 // ── RSI ──
 
-static void BM_RSI(benchmark::State& state) {
+void BM_RSI(benchmark::State& state) {
     auto prices = generate_prices(static_cast<size_t>(state.range(0)));
     quant::RSI rsi(14);
     for (auto _ : state) {
@@ -70,7 +70,7 @@ BENCHMARK(BM_RSI)->Arg(10000)->Arg(100000)->Arg(1000000);
 
 // ── MACD ──
 
-static void BM_MACD(benchmark::State& state) {
+void BM_MACD(benchmark::State& state) {
     auto prices = generate_prices(static_cast<size_t>(state.range(0)));
     quant::MACD macd;
     for (auto _ : state) {
@@ -80,7 +80,7 @@ static void BM_MACD(benchmark::State& state) {
 }
 BENCHMARK(BM_MACD)->Arg(10000)->Arg(100000)->Arg(1000000);
 
-static void BM_MACD_All(benchmark::State& state) {
+void BM_MACD_All(benchmark::State& state) {
     auto prices = generate_prices(static_cast<size_t>(state.range(0)));
     quant::MACD macd;
     for (auto _ : state) {
@@ -92,7 +92,7 @@ BENCHMARK(BM_MACD_All)->Arg(10000)->Arg(100000)->Arg(1000000);
 
 // ── Bollinger Bands ──
 
-static void BM_Bollinger(benchmark::State& state) {
+void BM_Bollinger(benchmark::State& state) {
     auto prices = generate_prices(static_cast<size_t>(state.range(0)));
     quant::BollingerBands bb(20, 2.0);
     for (auto _ : state) {
@@ -104,7 +104,7 @@ BENCHMARK(BM_Bollinger)->Arg(10000)->Arg(100000)->Arg(1000000);
 
 // ── Garman-Klass ──
 
-static void BM_GarmanKlass(benchmark::State& state) {
+void BM_GarmanKlass(benchmark::State& state) {
     auto ohlc = generate_ohlc(static_cast<size_t>(state.range(0)));
     quant::GarmanKlass gk(22);
     for (auto _ : state) {
@@ -116,7 +116,7 @@ BENCHMARK(BM_GarmanKlass)->Arg(10000)->Arg(100000)->Arg(1000000);
 
 // ── Parkinson ──
 
-static void BM_Parkinson(benchmark::State& state) {
+void BM_Parkinson(benchmark::State& state) {
     auto ohlc = generate_ohlc(static_cast<size_t>(state.range(0)));
     quant::Parkinson pk(22);
     for (auto _ : state) {
