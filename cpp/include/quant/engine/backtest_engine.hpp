@@ -43,6 +43,15 @@ public:
         std::span<const double> signals
     ) const;
 
+    /// Run with a slippage override — swaps in the given model instead of
+    /// `config_.slippage`. Lets a single engine drive scenario sweeps without
+    /// reconstructing it per scenario.
+    [[nodiscard]] BacktestResult run(
+        std::span<const Bar> bars,
+        std::span<const double> signals,
+        const SlippageConfig& slippage_override
+    ) const;
+
 private:
     Config config_;
 };

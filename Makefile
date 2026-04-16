@@ -25,9 +25,7 @@ bench-cpp:
 	cd cpp/build && ./quant_bench --benchmark_format=console
 
 stubs:
-	pybind11-stubgen quant_engine -o src/
-	ruff check --fix src/quant_engine/
-	ruff format src/quant_engine/
+	python scripts/regen_stubs.py
 
 clean:
 	rm -rf cpp/build/ dist/ *.egg-info .mypy_cache .pytest_cache

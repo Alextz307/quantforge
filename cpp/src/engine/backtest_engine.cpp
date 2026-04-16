@@ -15,6 +15,14 @@ BacktestResult BacktestEngine::run(
     std::span<const Bar> bars,
     std::span<const double> signals
 ) const {
+    return run(bars, signals, config_.slippage);
+}
+
+BacktestResult BacktestEngine::run(
+    std::span<const Bar> bars,
+    std::span<const double> signals,
+    const SlippageConfig& slippage_override
+) const {
     if (bars.size() != signals.size()) {
         throw std::invalid_argument(
             "BacktestEngine::run: bars.size() must equal signals.size()"
@@ -61,7 +69,7 @@ BacktestResult BacktestEngine::run(
         const double delta_shares = target_shares - shares;
 
         if (std::abs(delta_shares) > kMinOrderShares) {
-            const double fill_price = config_.slippage.apply(
+            const double fill_price = slippage_override.apply(
                 theoretical_price, delta_shares, bars[i].volume);
             const double trade_notional = delta_shares * fill_price;
             const double commission =
