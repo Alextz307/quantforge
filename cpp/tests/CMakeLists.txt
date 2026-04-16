@@ -4,6 +4,7 @@ add_executable(quant_tests
     test_core.cpp
     test_indicators.cpp
     test_backtest_engine.cpp
+    test_metrics.cpp
 )
 target_link_libraries(quant_tests PRIVATE quant_core GTest::gtest_main)
 include(GoogleTest)

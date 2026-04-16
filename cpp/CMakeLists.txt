@@ -60,6 +60,7 @@ add_library(quant_core STATIC
     src/indicators/garman_klass.cpp
     src/indicators/parkinson.cpp
     src/engine/backtest_engine.cpp
+    src/metrics/performance.cpp
 )
 target_include_directories(quant_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
