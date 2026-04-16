@@ -8,15 +8,10 @@ import pytest
 from pydantic import ValidationError
 
 from src.core.types import (
-    SLIPPAGE_SCENARIOS,
-    BacktestResult,
     BarData,
     Interval,
     PairSignal,
-    ScenarioComparisonResult,
     Signal,
-    SlippageScenario,
-    WalkForwardResult,
 )
 
 # Annualization expectations (kept hardcoded — these tests verify the function returns these
@@ -59,31 +54,6 @@ PAIR_LEG_OVERSIZED = 2.0  # |a| + |b| = 4 > 3 max combined leverage
 PAIR_LEG_AT_MAX = 1.5  # |a| + |b| = 3.0 (boundary)
 PAIR_INVALID_LEG_VALUE = 5.0  # individual leg out of [-3, 3]
 PAIR_MAX_COMBINED_LEVERAGE = 3.0
-
-# BacktestResult sample
-SAMPLE_TICKER = "SPY"
-SAMPLE_STRATEGY = "VolTarget"
-SAMPLE_SHARPE = 1.5
-SAMPLE_SORTINO = 2.0
-SAMPLE_TOTAL_RETURN = 0.25
-SAMPLE_ANNUAL_RETURN = 0.12
-SAMPLE_MAX_DRAWDOWN = -0.10
-SAMPLE_WIN_RATE = 0.55
-SAMPLE_EQUITY_CURVE = [100.0, 105.0, 110.0]
-SHORT_EQUITY_CURVE = [100.0, 110.0]
-SINGLE_POINT_EQUITY = [100.0]
-SAMPLE_TRADE_COUNT = 50
-SMALL_TRADE_COUNT = 10
-SAMPLE_STD_SHARPE = 0.3
-SAMPLE_ALPHA_DECAY_PCT = 15.0
-
-# SlippageScenario expectations
-PREDEFINED_SCENARIO_COUNT = 4
-PREDEFINED_SCENARIO_LABELS = {"zero", "normal", "adverse", "extreme"}
-ZERO_SCENARIO_LABEL = "zero"
-CUSTOM_SCENARIO_LABEL = "custom"
-CUSTOM_SLIPPAGE_BPS = 10.0
-CUSTOM_TRANSACTION_FEE = 0.003
 
 
 def _valid_bar(**overrides: object) -> BarData:
@@ -241,87 +211,3 @@ class TestPairSignal:
                 leg_b_position=0.0,
                 spread_zscore=PAIR_NEUTRAL_ZSCORE,
             )
-
-
-def _sample_backtest_result(
-    *, equity_curve: list[float] | None = None, trade_count: int = SAMPLE_TRADE_COUNT
-) -> BacktestResult:
-    return BacktestResult(
-        ticker=SAMPLE_TICKER,
-        strategy=SAMPLE_STRATEGY,
-        sharpe_ratio=SAMPLE_SHARPE,
-        sortino_ratio=SAMPLE_SORTINO,
-        total_return=SAMPLE_TOTAL_RETURN,
-        annualized_return=SAMPLE_ANNUAL_RETURN,
-        max_drawdown=SAMPLE_MAX_DRAWDOWN,
-        win_rate=SAMPLE_WIN_RATE,
-        equity_curve=equity_curve if equity_curve is not None else SAMPLE_EQUITY_CURVE,
-        trade_count=trade_count,
-    )
-
-
-class TestBacktestResult:
-    def test_creation(self) -> None:
-        result = _sample_backtest_result()
-        assert result.scenario_label == "normal"
-        assert result.trade_count == SAMPLE_TRADE_COUNT
-
-
-class TestWalkForwardResult:
-    def test_creation(self) -> None:
-        fold = _sample_backtest_result(equity_curve=SHORT_EQUITY_CURVE)
-        wf = WalkForwardResult(
-            ticker=SAMPLE_TICKER,
-            strategy=SAMPLE_STRATEGY,
-            fold_results=[fold],
-            mean_sharpe=SAMPLE_SHARPE,
-            std_sharpe=SAMPLE_STD_SHARPE,
-            mean_return=SAMPLE_ANNUAL_RETURN,
-            worst_drawdown=SAMPLE_MAX_DRAWDOWN,
-        )
-        assert len(wf.fold_results) == 1
-
-
-class TestSlippageScenarios:
-    def test_four_predefined_scenarios(self) -> None:
-        assert len(SLIPPAGE_SCENARIOS) == PREDEFINED_SCENARIO_COUNT
-
-    def test_scenario_labels(self) -> None:
-        labels = {s.label for s in SLIPPAGE_SCENARIOS}
-        assert labels == PREDEFINED_SCENARIO_LABELS
-
-    def test_zero_scenario_has_no_friction(self) -> None:
-        zero = next(s for s in SLIPPAGE_SCENARIOS if s.label == ZERO_SCENARIO_LABEL)
-        assert zero.slippage_bps == 0.0
-        assert zero.transaction_fee == 0.0
-
-    def test_custom_scenario(self) -> None:
-        custom = SlippageScenario(
-            label=CUSTOM_SCENARIO_LABEL,
-            slippage_bps=CUSTOM_SLIPPAGE_BPS,
-            transaction_fee=CUSTOM_TRANSACTION_FEE,
-        )
-        assert custom.description == ""
-
-
-class TestScenarioComparisonResult:
-    def test_creation(self) -> None:
-        fold = _sample_backtest_result(
-            equity_curve=SINGLE_POINT_EQUITY, trade_count=SMALL_TRADE_COUNT
-        )
-        wf = WalkForwardResult(
-            ticker=SAMPLE_TICKER,
-            strategy=SAMPLE_STRATEGY,
-            fold_results=[fold],
-            mean_sharpe=SAMPLE_SHARPE,
-            std_sharpe=SAMPLE_STD_SHARPE,
-            mean_return=SAMPLE_ANNUAL_RETURN,
-            worst_drawdown=SAMPLE_MAX_DRAWDOWN,
-        )
-        result = ScenarioComparisonResult(
-            ticker=SAMPLE_TICKER,
-            strategy=SAMPLE_STRATEGY,
-            scenario_results={"normal": wf},
-            alpha_decay_pct=SAMPLE_ALPHA_DECAY_PCT,
-        )
-        assert result.alpha_decay_pct == SAMPLE_ALPHA_DECAY_PCT

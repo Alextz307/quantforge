@@ -8,6 +8,8 @@ from __future__ import annotations
 
 import pandas as pd
 
+from src.core.constants import OHLCV_COLUMNS
+
 
 class DataNormalizer:
     """Normalizes DataFrame columns from various data sources."""
@@ -29,7 +31,7 @@ class DataNormalizer:
         },
     }
 
-    REQUIRED_COLUMNS = {"open", "high", "low", "close", "volume"}
+    REQUIRED_COLUMNS = set(OHLCV_COLUMNS)
 
     def __init__(self, source_name: str = "yfinance") -> None:
         self.source_name = source_name

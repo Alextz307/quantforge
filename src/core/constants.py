@@ -16,3 +16,15 @@ US_TRADING_HOURS_PER_DAY: float = 6.5
 MAX_LEVERAGE: float = 3.0
 MIN_POSITION: float = -1.0  # Full short
 MAX_POSITION: float = 3.0  # 3x leveraged long
+
+# ── Bar shape ──
+# Canonical OHLCV column ordering. The tuple form is load-bearing in the
+# engine adapter (`_bars_to_arrays` indexes by position); set/dict consumers
+# can wrap in `set(...)` at the call site.
+OHLCV_COLUMNS: tuple[str, str, str, str, str] = (
+    "open",
+    "high",
+    "low",
+    "close",
+    "volume",
+)

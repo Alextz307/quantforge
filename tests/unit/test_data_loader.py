@@ -8,12 +8,12 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
+from src.core.constants import OHLCV_COLUMNS
 from src.data.cache import DataCache
 from src.data.csv_source import CSVSource
 from src.data.normalizer import DataNormalizer
 
-# Required normalized OHLCV columns
-REQUIRED_OHLCV_COLUMNS = {"open", "high", "low", "close", "volume"}
+REQUIRED_OHLCV_COLUMNS = set(OHLCV_COLUMNS)
 
 # Common normalizer-test ladder length (3 days)
 NORMALIZER_DAY_COUNT = 3

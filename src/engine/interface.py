@@ -1,61 +1,64 @@
-"""Backtest engine abstract interface."""
+"""Backtest engine abstract interface.
+
+Returns the raw C++ ``BacktestResult`` (``equity_curve`` +
+``total_return`` + ``trade_count`` populated; statistical metric fields
+default-zero). Callers compute the statistical metrics via
+``quant_engine.MetricsCalculator``; the ``walk_forward`` orchestrator
+bundles raw + metrics into ``FoldResult`` per fold.
+
+Direct callers of ``run()`` are responsible for their own anti-leakage
+hygiene — the engine is a pure number cruncher and does not inspect
+``strategy.training_metadata``. Use ``evaluate_walk_forward`` to get the
+``validate_no_overlap`` tripwire wired in for free.
+"""
 
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import Sequence
 
-import numpy as np
-import numpy.typing as npt
 import pandas as pd
 
-from src.core.temporal import WalkForwardValidator
-from src.core.types import BacktestResult, WalkForwardResult
-from src.strategies.interface import IStrategy
+from quant_engine import BacktestResult, SlippageConfig
 
 
 class IBacktestEngine(ABC):
-    """Backtest engine interface — implemented by the C++ engine."""
+    """Backtest engine interface — implemented by ``CppBacktestEngine``."""
 
     @abstractmethod
-    def run_backtest(
+    def run(
         self,
-        prices: npt.NDArray[np.float64],
-        signals: npt.NDArray[np.float64],
-        transaction_fee: float,
-        initial_capital: float,
+        bars: pd.DataFrame,
+        signals: pd.Series,
+        slippage: SlippageConfig,
     ) -> BacktestResult:
-        """Run a single backtest on price and signal arrays.
+        """Run a single-scenario backtest.
 
         Args:
-            prices: 1-D array of close prices, shape (n_bars,), dtype float64,
-                sorted chronologically.
-            signals: 1-D array of position signals, shape (n_bars,), dtype float64,
-                range [MIN_POSITION, MAX_POSITION]. Must already be shifted
-                (signal at index i is applied to price change from i to i+1).
-            transaction_fee: Fraction of trade value charged per transaction
-                (e.g., 0.001 = 10 bps = 0.1%).
-            initial_capital: Starting equity in currency units.
+            bars: DataFrame with DatetimeIndex and columns
+                {open, high, low, close, volume}, sorted chronologically.
+            signals: Series aligned with ``bars.index`` carrying target
+                position values. NaN entries map to position = 0 (flat).
+                The engine reads ``signals[i]`` and fills at
+                ``bars[i+1].open``.
+            slippage: Slippage model + parameters applied per fill.
 
         Returns:
-            BacktestResult with performance metrics and equity curve.
+            ``BacktestResult`` with ``equity_curve``, ``total_return``,
+            and ``trade_count`` populated. Statistical metrics fields
+            (``sharpe_ratio``, ``sortino_ratio``, ...) default-zero —
+            compute via ``MetricsCalculator``.
         """
 
     @abstractmethod
-    def run_walk_forward(
+    def run_scenarios(
         self,
-        bar_data: pd.DataFrame,
-        strategies: dict[str, IStrategy],
-        validator: WalkForwardValidator,
-        transaction_fee: float,
-    ) -> list[WalkForwardResult]:
-        """Run full walk-forward evaluation across all folds and strategies.
+        bars: pd.DataFrame,
+        signals: pd.Series,
+        scenarios: Sequence[SlippageConfig],
+    ) -> list[BacktestResult]:
+        """Run the same bars + signals across multiple slippage scenarios.
 
-        Args:
-            bar_data: DataFrame with DatetimeIndex and OHLCV columns.
-            strategies: Map of strategy name to IStrategy instance.
-            validator: Walk-forward splitter for temporal train/test splits.
-            transaction_fee: Fraction of trade value charged per transaction.
-
-        Returns:
-            One WalkForwardResult per strategy, aggregating across folds.
+        The bars vector is constructed once and reused across scenarios
+        on the C++ side; this is the recommended API for slippage sweeps.
         """

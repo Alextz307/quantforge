@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from src.core.temporal import WalkForwardValidator
 from src.core.types import BarData, Interval
 
 # Deterministic seeds applied across all tests via the `deterministic_seed` fixture
@@ -154,6 +155,49 @@ def make_synthetic_close_df(
     returns = np.random.normal(SYNTH_RETURN_MEAN, SYNTH_RETURN_STD, n_rows)
     close = base_price * np.cumprod(1 + returns)
     return pd.DataFrame({"close": close, "volume": [SYNTH_FIXED_VOLUME] * n_rows}, index=idx)
+
+
+def make_synthetic_ohlcv_df(
+    n_rows: int = SYNTH_DEFAULT_ROW_COUNT,
+    start: str = SYNTH_DEFAULT_START_DATE,
+    seed: int = SYNTH_DEFAULT_SEED,
+    base_price: float = SYNTH_DEFAULT_BASE_PRICE,
+) -> pd.DataFrame:
+    """Random-walk synthetic OHLCV with valid HLOC ordering.
+
+    Used by engine integration tests that need a full bar shape (the C++
+    backtest engine requires open/high/low/close/volume). Open is the
+    prior close (so bar t fills at bar t-1's close); high/low bracket
+    the OHL with a small noise band.
+    """
+    np.random.seed(seed)
+    idx = pd.bdate_range(start=start, periods=n_rows, freq="B")
+    returns = np.random.normal(SYNTH_RETURN_MEAN, SYNTH_RETURN_STD, n_rows)
+    close = base_price * np.cumprod(1 + returns)
+    open_ = np.empty(n_rows)
+    open_[0] = base_price
+    open_[1:] = close[:-1]
+    daily_range = np.abs(np.random.normal(0, SPY_DAILY_RANGE_STD, n_rows))
+    high = np.maximum(close, open_) * (1 + daily_range)
+    low = np.minimum(close, open_) * (1 - daily_range)
+    # Force HLOC ordering by construction (mirrors `large_daily_df`).
+    high = np.maximum(high, np.maximum(open_, close))
+    low = np.minimum(low, np.minimum(open_, close))
+    volume = np.full(n_rows, SYNTH_FIXED_VOLUME)
+    return pd.DataFrame(
+        {"open": open_, "high": high, "low": low, "close": close, "volume": volume},
+        index=idx,
+    )
+
+
+def make_walk_forward_validator(n_splits: int, test_size: int) -> WalkForwardValidator:
+    """Pass-through factory shared across engine integration tests.
+
+    Forwards only the two parameters the tests actually vary; ``gap`` and
+    ``expanding`` flow through from ``WalkForwardValidator``'s own
+    defaults so this helper can never drift from them.
+    """
+    return WalkForwardValidator(n_splits=n_splits, test_size=test_size)
 
 
 def assert_params_match_constructor(
