@@ -2,10 +2,32 @@
 
 #include <limits>
 #include <stdexcept>
+#include <string>
 
 #include "quant/indicators/detail/rolling.hpp"
 
 namespace quant {
+
+namespace {
+
+// Strip `std::to_string(double)`'s trailing zeros for display names.
+// Keeps one zero after the decimal (`2.000000` → `2.0`) so the value
+// is still visibly a float; non-round values lose only the padding
+// (`2.500000` → `2.5`).
+std::string format_double(double x) {
+    std::string s = std::to_string(x);
+    const auto dot = s.find('.');
+    if (dot == std::string::npos) return s;
+    const auto last_nonzero = s.find_last_not_of('0');
+    if (last_nonzero == dot) {
+        s.erase(dot + 2);
+    } else {
+        s.erase(last_nonzero + 1);
+    }
+    return s;
+}
+
+}  // namespace
 
 BollingerBands::BollingerBands(int period, double num_std)
     : period_(period)
@@ -50,7 +72,7 @@ int BollingerBands::warmup_period() const noexcept {
 }
 
 std::string BollingerBands::name() const {
-    return "BB(" + std::to_string(period_) + "," + std::to_string(num_std_) + ")";
+    return "BB(" + std::to_string(period_) + "," + format_double(num_std_) + ")";
 }
 
 }  // namespace quant

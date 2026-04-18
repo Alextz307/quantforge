@@ -5,6 +5,11 @@
 #include <quant/core/types.hpp>
 #include <quant/engine/backtest_engine.hpp>
 #include <quant/engine/slippage.hpp>
+#include <quant/indicators/bollinger_bands.hpp>
+#include <quant/indicators/garman_klass.hpp>
+#include <quant/indicators/macd.hpp>
+#include <quant/indicators/parkinson.hpp>
+#include <quant/indicators/rsi.hpp>
 #include <quant/metrics/performance.hpp>
 
 #include <cstdint>
@@ -22,6 +27,15 @@ using ContigI64 = py::array_t<int64_t, py::array::c_style | py::array::forcecast
 
 [[nodiscard]] std::span<const double> as_span(const ContigF64& arr) {
     return {arr.data(), static_cast<size_t>(arr.size())};
+}
+
+// Copy a std::vector<double> into a fresh 1-D numpy f64 array.
+// Must be called with the GIL held (allocates a Python object).
+// TODO(Phase 6): eliminate the copy by returning a numpy array that owns the
+// vector via a pybind11 capsule (zero-copy); potentially significant under
+// Optuna HPO where indicators are called in inner sweep loops.
+[[nodiscard]] py::array_t<double> as_numpy(const std::vector<double>& v) {
+    return py::array_t<double>(static_cast<py::ssize_t>(v.size()), v.data());
 }
 
 [[nodiscard]] std::vector<quant::Bar> build_bars(
@@ -239,4 +253,149 @@ PYBIND11_MODULE(quant_engine, m) {
                     as_span(returns), annualization_factor);
             },
             py::arg("returns"), py::arg("annualization_factor"));
+
+    // ── RSI ──
+    py::class_<quant::RSI>(m, "RSI")
+        .def(py::init<int>(), py::arg("period") = 14)
+        .def(
+            "compute",
+            [](const quant::RSI& self, const ContigF64& prices) {
+                const auto input = as_span(prices);
+                std::vector<double> out;
+                {
+                    py::gil_scoped_release release;
+                    out = self.compute(input);
+                }
+                return as_numpy(out);
+            },
+            py::arg("prices"))
+        .def_property_readonly("warmup_period", &quant::RSI::warmup_period)
+        .def_property_readonly("name", &quant::RSI::name);
+
+    // ── MACDResult ──
+    py::class_<quant::MACDResult>(m, "MACDResult")
+        .def_property_readonly(
+            "macd_line",
+            [](const quant::MACDResult& r) { return as_numpy(r.macd_line); })
+        .def_property_readonly(
+            "signal_line",
+            [](const quant::MACDResult& r) { return as_numpy(r.signal_line); })
+        .def_property_readonly(
+            "histogram",
+            [](const quant::MACDResult& r) { return as_numpy(r.histogram); });
+
+    // ── MACD ──
+    py::class_<quant::MACD>(m, "MACD")
+        .def(py::init<int, int, int>(),
+             py::arg("fast_period") = 12,
+             py::arg("slow_period") = 26,
+             py::arg("signal_period") = 9)
+        .def(
+            "compute",
+            [](const quant::MACD& self, const ContigF64& prices) {
+                const auto input = as_span(prices);
+                std::vector<double> out;
+                {
+                    py::gil_scoped_release release;
+                    out = self.compute(input);
+                }
+                return as_numpy(out);
+            },
+            py::arg("prices"))
+        .def(
+            "compute_all",
+            [](const quant::MACD& self, const ContigF64& prices) {
+                const auto input = as_span(prices);
+                py::gil_scoped_release release;
+                return self.compute_all(input);
+            },
+            py::arg("prices"))
+        .def_property_readonly("warmup_period", &quant::MACD::warmup_period)
+        .def_property_readonly("name", &quant::MACD::name);
+
+    // ── BollingerResult ──
+    py::class_<quant::BollingerResult>(m, "BollingerResult")
+        .def_property_readonly(
+            "upper",
+            [](const quant::BollingerResult& r) { return as_numpy(r.upper); })
+        .def_property_readonly(
+            "mid",
+            [](const quant::BollingerResult& r) { return as_numpy(r.mid); })
+        .def_property_readonly(
+            "lower",
+            [](const quant::BollingerResult& r) { return as_numpy(r.lower); });
+
+    // ── BollingerBands ──
+    py::class_<quant::BollingerBands>(m, "BollingerBands")
+        .def(py::init<int, double>(),
+             py::arg("period") = 20, py::arg("num_std") = 2.0)
+        .def(
+            "compute",
+            [](const quant::BollingerBands& self, const ContigF64& prices) {
+                const auto input = as_span(prices);
+                std::vector<double> out;
+                {
+                    py::gil_scoped_release release;
+                    out = self.compute(input);
+                }
+                return as_numpy(out);
+            },
+            py::arg("prices"))
+        .def(
+            "compute_all",
+            [](const quant::BollingerBands& self, const ContigF64& prices) {
+                const auto input = as_span(prices);
+                py::gil_scoped_release release;
+                return self.compute_all(input);
+            },
+            py::arg("prices"))
+        .def_property_readonly("warmup_period",
+                               &quant::BollingerBands::warmup_period)
+        .def_property_readonly("name", &quant::BollingerBands::name);
+
+    // ── Parkinson ──
+    py::class_<quant::Parkinson>(m, "Parkinson")
+        .def(py::init<int>(), py::arg("window") = 22)
+        .def(
+            "compute",
+            [](const quant::Parkinson& self, const ContigF64& open,
+               const ContigF64& high, const ContigF64& low,
+               const ContigF64& close) {
+                const auto o = as_span(open);
+                const auto h = as_span(high);
+                const auto l = as_span(low);
+                const auto c = as_span(close);
+                std::vector<double> out;
+                {
+                    py::gil_scoped_release release;
+                    out = self.compute(o, h, l, c);
+                }
+                return as_numpy(out);
+            },
+            py::arg("open"), py::arg("high"), py::arg("low"), py::arg("close"))
+        .def_property_readonly("warmup_period", &quant::Parkinson::warmup_period)
+        .def_property_readonly("name", &quant::Parkinson::name);
+
+    // ── GarmanKlass ──
+    py::class_<quant::GarmanKlass>(m, "GarmanKlass")
+        .def(py::init<int>(), py::arg("window") = 22)
+        .def(
+            "compute",
+            [](const quant::GarmanKlass& self, const ContigF64& open,
+               const ContigF64& high, const ContigF64& low,
+               const ContigF64& close) {
+                const auto o = as_span(open);
+                const auto h = as_span(high);
+                const auto l = as_span(low);
+                const auto c = as_span(close);
+                std::vector<double> out;
+                {
+                    py::gil_scoped_release release;
+                    out = self.compute(o, h, l, c);
+                }
+                return as_numpy(out);
+            },
+            py::arg("open"), py::arg("high"), py::arg("low"), py::arg("close"))
+        .def_property_readonly("warmup_period", &quant::GarmanKlass::warmup_period)
+        .def_property_readonly("name", &quant::GarmanKlass::name);
 }
