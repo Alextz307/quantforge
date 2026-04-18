@@ -1,4 +1,4 @@
-"""Numerical-parity tests for the Phase 4 C++ ``garch_filter`` binding.
+"""Numerical-parity tests for the C++ ``garch_filter`` binding.
 
 The recursive filter logic is exhaustively covered by gtest in
 ``cpp/tests/test_garch_filter.cpp``. These tests verify the **binding layer**:

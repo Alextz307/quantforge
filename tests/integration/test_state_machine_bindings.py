@@ -1,4 +1,4 @@
-"""Numerical-parity tests for the Phase 4 C++ state-machine bindings.
+"""Numerical-parity tests for the C++ state-machine bindings.
 
 The recursive position-carry logic is exhaustively covered by gtest in
 ``cpp/tests/test_state_machines.cpp``. These tests verify the **binding layer**:

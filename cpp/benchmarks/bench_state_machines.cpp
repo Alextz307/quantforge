@@ -1,15 +1,13 @@
 #include <cstddef>
-#include <cstdint>
-#include <random>
 #include <vector>
 
 #include <benchmark/benchmark.h>
 
+#include "detail/random.hpp"
 #include "quant/strategies/state_machines.hpp"
 
 namespace {
 
-constexpr std::uint_fast32_t kBenchSeed = 42;
 constexpr double kPriceStart = 100.0;
 constexpr double kPriceStdDev = 1.0;
 constexpr double kBandHalfWidth = 2.0;
@@ -19,29 +17,9 @@ constexpr double kEntryZ = 2.0;
 constexpr double kExitZ = 0.5;
 constexpr double kStopLossZ = 3.0;
 
-std::vector<double> generate_prices(std::size_t n) {
-    std::mt19937 gen(kBenchSeed);
-    std::normal_distribution<double> dist(0.0, kPriceStdDev);
-    std::vector<double> prices(n);
-    double p = kPriceStart;
-    for (auto& v : prices) {
-        p += dist(gen);
-        v = p;
-    }
-    return prices;
-}
-
-std::vector<double> generate_zscore(std::size_t n) {
-    std::mt19937 gen(kBenchSeed);
-    std::normal_distribution<double> dist(0.0, kZScoreStdDev);
-    std::vector<double> z(n);
-    for (auto& v : z) v = dist(gen);
-    return z;
-}
-
 void BM_MeanReversionStateMachine(benchmark::State& state) {
     const auto n = static_cast<std::size_t>(state.range(0));
-    auto close = generate_prices(n);
+    auto close = quant::bench::detail::additive_random_walk(n, kPriceStart, kPriceStdDev);
     std::vector<double> mid(n);
     std::vector<double> upper(n);
     std::vector<double> lower(n);
@@ -63,7 +41,7 @@ BENCHMARK(BM_MeanReversionStateMachine)->Arg(1000)->Arg(10000)->Arg(100000)->Arg
 
 void BM_PairsStateMachine(benchmark::State& state) {
     const auto n = static_cast<std::size_t>(state.range(0));
-    auto z = generate_zscore(n);
+    auto z = quant::bench::detail::filled_normal(n, 0.0, kZScoreStdDev);
     for (auto _ : state) {
         benchmark::DoNotOptimize(
             quant::strategies::run_pairs_state_machine(

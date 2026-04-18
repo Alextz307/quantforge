@@ -1,7 +1,8 @@
 """YAML configuration loader for pipeline assembly.
 
 Parses and validates pipeline configuration. Full pipeline assembly
-is deferred until the C++ engine is available (Phase 4+).
+is a planned extension that will wire the validated config into the
+orchestrator; today the loader only round-trips + validates.
 """
 
 from __future__ import annotations
@@ -70,23 +71,19 @@ def load_pipeline_config(path: str | Path) -> PipelineConfig:
 def build_pipeline_from_config(path: str | Path) -> None:
     """Build a complete pipeline from YAML config.
 
-    Currently a skeleton — full assembly requires the C++ engine
-    and orchestrator from later phases.
+    Currently a skeleton — full assembly is a planned extension that
+    will instantiate the orchestrator from the validated config.
 
     Args:
         path: Path to the YAML configuration file.
 
     Raises:
-        NotImplementedError: Always, until the C++ engine is available.
+        NotImplementedError: Always — the orchestration wiring is not in place yet.
     """
     config = load_pipeline_config(path)
-
-    # Validate that referenced components exist in registries
-    # (deferred until registries are populated in later phases)
 
     raise NotImplementedError(
         f"Pipeline assembly not yet implemented. "
         f"Config loaded successfully with {len(config.tickers)} tickers, "
-        f"{len(config.strategies)} strategies. "
-        f"Full assembly requires C++ engine (Phase 4+)."
+        f"{len(config.strategies)} strategies."
     )

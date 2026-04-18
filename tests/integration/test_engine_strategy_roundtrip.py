@@ -1,10 +1,9 @@
 """End-to-end roundtrip: AdaptiveBollinger train → signals → C++ engine → metrics.
 
-Verifies the Phase 3 integration layer (CppBacktestEngine adapter) plays
-nicely with an existing strategy. Strategy correctness is owned by
-``tests/integration/test_adaptive_bollinger.py``; engine correctness by
-``cpp/tests/test_backtest_engine.cpp``. This test only asserts the seam
-holds: shapes line up, metrics are finite, no NaN propagation.
+Verifies the CppBacktestEngine adapter plays nicely with an existing strategy.
+Strategy correctness is owned by ``tests/integration/test_adaptive_bollinger.py``;
+engine correctness by ``cpp/tests/test_backtest_engine.cpp``. This test only
+asserts the seam holds: shapes line up, metrics are finite, no NaN propagation.
 
 The trained strategy and its generated signals are cached at
 module scope — fitting a GARCH grid (p_max=q_max=5) on 500 bars is the

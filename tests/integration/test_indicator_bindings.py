@@ -1,4 +1,4 @@
-"""Numerical-parity tests for the Phase 4 indicator bindings.
+"""Numerical-parity tests for the C++ indicator pybind11 bindings.
 
 The underlying C++ logic is exhaustively covered by gtest in
 ``cpp/tests/test_indicators.cpp``. These tests verify the **binding layer**:

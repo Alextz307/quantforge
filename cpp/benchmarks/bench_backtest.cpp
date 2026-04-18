@@ -1,9 +1,11 @@
 #include <algorithm>
+#include <cstddef>
 #include <random>
 #include <vector>
 
 #include <benchmark/benchmark.h>
 
+#include "detail/random.hpp"
 #include "quant/core/types.hpp"
 #include "quant/engine/backtest_engine.hpp"
 #include "quant/engine/slippage.hpp"
@@ -11,7 +13,6 @@
 namespace {
 
 // ───── Bench data constants (mirror cpp/tests/test_backtest_engine.cpp) ─────
-constexpr int kSeed = 42;
 constexpr int64_t kBaseTimestampS = 1'700'000'000;
 constexpr int64_t kSecondsPerBar = 86'400;
 constexpr double kStartPrice = 100.0;
@@ -25,15 +26,15 @@ constexpr double kSampleVolume = 1.0e6;
 constexpr double kVolumeScaledBaseBps = 1.0;
 constexpr double kVolumeImpactCoeff = 100.0;
 
-[[nodiscard]] std::vector<quant::Bar> generate_bars(size_t n) {
-    std::mt19937 gen(kSeed);
+[[nodiscard]] std::vector<quant::Bar> generate_bars(std::size_t n) {
+    auto gen = quant::bench::detail::seeded_rng();
     std::normal_distribution<double> ret_dist(0.0, kReturnStd);
     std::uniform_real_distribution<double> spread_dist(kMinSpread, kMaxSpread);
 
     std::vector<quant::Bar> bars(n);
     double price = kStartPrice;
     int64_t ts = kBaseTimestampS;
-    for (size_t i = 0; i < n; ++i) {
+    for (std::size_t i = 0; i < n; ++i) {
         const double open = price;
         const double change = price * ret_dist(gen);
         const double close = std::max(kPriceFloor, price + change);
@@ -54,9 +55,9 @@ constexpr double kVolumeImpactCoeff = 100.0;
 
 // Alternating ±1 forces a fill on every bar — worst-case for the engine hot
 // loop (maximum commission + slippage work per iteration).
-[[nodiscard]] std::vector<double> generate_alternating_signals(size_t n) {
+[[nodiscard]] std::vector<double> generate_alternating_signals(std::size_t n) {
     std::vector<double> sig(n);
-    for (size_t i = 0; i < n; ++i) {
+    for (std::size_t i = 0; i < n; ++i) {
         sig[i] = (i % 2 == 0) ? 1.0 : -1.0;
     }
     return sig;
@@ -69,7 +70,7 @@ constexpr double kVolumeImpactCoeff = 100.0;
 // overload that would amortize that cost.
 
 void BM_BacktestEngine_Run_NoSlippage(benchmark::State& state) {
-    const auto bars = generate_bars(static_cast<size_t>(state.range(0)));
+    const auto bars = generate_bars(static_cast<std::size_t>(state.range(0)));
     const auto signals = generate_alternating_signals(bars.size());
     quant::BacktestEngine::Config cfg;
     cfg.slippage = quant::SlippageConfig{.model = quant::SlippageModel::NoSlippage};
@@ -83,7 +84,7 @@ BENCHMARK(BM_BacktestEngine_Run_NoSlippage)
     ->Arg(1000)->Arg(10000)->Arg(100000)->Arg(1000000);
 
 void BM_BacktestEngine_Run(benchmark::State& state) {
-    const auto bars = generate_bars(static_cast<size_t>(state.range(0)));
+    const auto bars = generate_bars(static_cast<std::size_t>(state.range(0)));
     const auto signals = generate_alternating_signals(bars.size());
     const quant::BacktestEngine engine{quant::BacktestEngine::Config{}};
     for (auto _ : state) {
@@ -94,7 +95,7 @@ void BM_BacktestEngine_Run(benchmark::State& state) {
 BENCHMARK(BM_BacktestEngine_Run)->Arg(1000)->Arg(10000)->Arg(100000)->Arg(1000000);
 
 void BM_BacktestEngine_Run_VolumeScaled(benchmark::State& state) {
-    const auto bars = generate_bars(static_cast<size_t>(state.range(0)));
+    const auto bars = generate_bars(static_cast<std::size_t>(state.range(0)));
     const auto signals = generate_alternating_signals(bars.size());
     quant::BacktestEngine::Config cfg;
     cfg.slippage = quant::SlippageConfig{

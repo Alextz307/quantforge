@@ -1,6 +1,6 @@
 name: Benchmark
 
-# Disabled until Phase 6 (benchmark.py runner not yet implemented).
+# Disabled until the benchmark.py runner is implemented.
 # Re-enable by changing to: on: push: branches: [main]
 on: workflow_dispatch
 

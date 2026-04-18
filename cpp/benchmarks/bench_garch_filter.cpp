@@ -1,9 +1,8 @@
-#include <cstdint>
-#include <random>
-#include <vector>
+#include <cstddef>
 
 #include <benchmark/benchmark.h>
 
+#include "detail/random.hpp"
 #include "quant/filters/garch_filter.hpp"
 
 namespace {
@@ -13,18 +12,10 @@ constexpr double kAlpha1 = 0.10;
 constexpr double kBeta1 = 0.85;
 constexpr double kBackcast = 1.0;
 constexpr double kReturnStdDev = 1.0;
-constexpr std::uint_fast32_t kBenchSeed = 42;
-
-std::vector<double> generate_returns(size_t n) {
-    std::mt19937 gen(kBenchSeed);
-    std::normal_distribution<double> dist(0.0, kReturnStdDev);
-    std::vector<double> r(n);
-    for (auto& x : r) x = dist(gen);
-    return r;
-}
 
 void BM_GarchFilter(benchmark::State& state) {
-    auto r = generate_returns(static_cast<size_t>(state.range(0)));
+    const auto r = quant::bench::detail::filled_normal(
+        static_cast<std::size_t>(state.range(0)), 0.0, kReturnStdDev);
     quant::filters::GarchParams params{kOmega, {kAlpha1}, {kBeta1}, 0.0, kBackcast};
     for (auto _ : state) {
         benchmark::DoNotOptimize(quant::filters::garch_filter(r, params));

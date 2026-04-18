@@ -12,9 +12,14 @@ class LeakageError(RuntimeError):
 
 
 class DataQualityError(ValueError):
-    """Raised when input data fails quality validation.
+    """Raised when input data fails ingestion-time quality validation.
 
-    Examples: OHLCV ordering violations, excessive gaps, price outliers.
+    Covers the cases checked by ``src.data.validator.validate_bars``: NaN in
+    OHLCV columns, non-positive OHLC prices, negative volume, OHLC ordering
+    violations (``high >= max(open, close)``, ``low <= min(open, close)``,
+    ``high >= low``), duplicate timestamps, and empty / malformed frames.
+    Also raised by data-source adapters on structural failures (e.g.
+    ``YFinanceSource`` on an empty response).
     """
 
 

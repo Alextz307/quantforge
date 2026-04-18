@@ -2,7 +2,7 @@
 
 A thesis-grade, bifurcated C++/Python quantitative trading framework with strict anti-leakage guarantees, temporal contracts, and a clean separation between computation (C++) and orchestration (Python). Built around walk-forward validation, typed interfaces, and end-to-end hyperparameter tuning.
 
-**Current state:** Python foundation, C++ indicators, ML leaf models, hybrid residual models, five trading strategies, and the C++ backtesting engine + performance metrics (with pybind11 bindings and a Python walk-forward orchestrator) are implemented and under test. CI is green on Linux and macOS with **370 Python tests**, **138 C++ tests**, `mypy --strict` clean on 80 source files, and `ruff` clean across the whole repo. Phase 4 (porting Python hot paths to C++) is the next milestone.
+**Current state:** a Python orchestration layer built on top of a C++ core. Implemented and under test: the typed temporal contracts, data layer, ML leaf models (GARCH, ARMA, LSTM, XGBoost), hybrid residual models, five trading strategies, the feature pipeline, a C++ indicator suite (RSI, MACD, Bollinger, Garman-Klass, Parkinson), a GARCH inference filter and two strategy state machines in C++, and the C++ backtest engine + performance metrics — all bridged through a `pybind11` module (`quant_engine`) with the GIL released on every compute call. CI is green on Linux and macOS with **427 Python tests**, **154 C++ tests**, `mypy --strict` clean on 84 source files, and `ruff` clean across the whole repo.
 
 ## Architecture
 
@@ -11,10 +11,10 @@ graph TB
     subgraph py["Python orchestration (~40%)"]
         direction TB
         data["Data layer<br/>yfinance · CSV · cache"]
-        feat["FeatureEngineeringPipeline<br/>RSI · MACD · vol · MA · returns"]
-        leaf["Leaf models<br/>GARCH · ARMA · LSTM · XGBoost"]
+        feat["FeatureEngineeringPipeline<br/>(RSI + MACD delegate to C++)"]
+        leaf["Leaf models<br/>GARCH · ARMA · LSTM · XGBoost<br/>(GARCH inference uses C++ filter)"]
         hyb["Hybrid models<br/>GARCH+LSTM · ARMA+LSTM"]
-        strat["Strategies (5)<br/>Bollinger · Pairs · Momentum · VolTgt · RetFcst"]
+        strat["Strategies (5)<br/>Bollinger · Pairs · Momentum · VolTgt · RetFcst<br/>(state machines + realized-vol in C++)"]
         wforch["WalkForwardValidator<br/>+ evaluate_walk_forward orchestrator"]
         hpo["Optuna HPO<br/>suggest_params on every model + strategy"]
         data --> feat --> leaf --> hyb --> strat
@@ -23,16 +23,18 @@ graph TB
     end
 
     subgraph bridge["pybind11 bridge"]
-        numpy["numpy ↔ std::span · zero-copy"]
+        numpy["numpy ↔ std::span · zero-copy<br/>GIL released on every compute call"]
     end
 
     subgraph cpp["C++ engine (~60%)"]
         direction TB
         indicators["Indicators<br/>RSI · MACD · Bollinger"]
         voles["Volatility estimators<br/>Garman-Klass · Parkinson"]
+        filters["Filters<br/>garch_filter (recursive σ²)"]
+        smach["Strategy state machines<br/>mean-reversion · pairs z-score"]
         backtest["Backtest engine<br/>order state machine · fills · slippage"]
         metrics["Metrics<br/>Sharpe · Sortino · drawdown · Calmar"]
-        cppstrat["C++ strategy signals (Phase 5)"]
+        cppstrat["Full IStrategy C++ classes (planned)"]
         indicators --> backtest
         voles --> backtest
         backtest --> metrics
@@ -41,6 +43,10 @@ graph TB
 
     wforch --> numpy
     numpy --> backtest
+    numpy --> indicators
+    numpy --> voles
+    numpy --> filters
+    numpy --> smach
     metrics --> numpy
     numpy --> hpo
 
@@ -56,13 +62,13 @@ Anything that runs inside the backtest hot loop (bar iteration, indicators, metr
 - **Anti-leakage by construction.** No `.bfill()`, no `.fillna(0)`. Fit-once guards on scalers (a second `fit()` raises `LeakageError`), frozen params after `fit()` on GARCH and ARMA, `TrainingMetadata` populated on every model and checked at runtime by the backtest engine via `validate_no_overlap()`, and an intraday day-boundary rule so that even on hourly bars the training cutoff is always a daily close.
 - **Temporal contracts.** `TemporalSplit`, `TemporalTripleSplit`, and `WalkForwardValidator` enforce train-then-test ordering with embargo gaps. The holdout set is reserved for final thesis evaluation and is never touched during development or HPO.
 - **Strict typing.** `mypy --strict` across `src/`, `tests/`, and `scripts/`. No `Any` at internal boundaries. `**kwargs: object` rather than `**kwargs: Any`. Public APIs use pure `Enum` types — no `Enum | str` weak unions. CI enforces this on every push.
-- **Performance-ready, not premature.** C++ uses `std::span<const double>` interfaces, SoA layouts, Welford's algorithm for rolling std, and precomputed annualization factors. Every known optimization candidate (EMA fusion, rolling-mean-std fusion, zero-copy slicing) is cataloged as a `TODO(Phase 6)` marker; nothing is optimized speculatively.
-- **Registry-driven composition.** Every model, data source, and strategy registers via a decorator. Phase 5/6 will instantiate an entire pipeline from a YAML config.
+- **Performance-ready, not premature.** C++ uses `std::span<const double>` interfaces, SoA layouts, Welford's algorithm for rolling std, and precomputed annualization factors. Every known optimization candidate (EMA fusion, rolling-mean-std fusion, zero-copy slicing) is cataloged as a `TODO:` marker and deferred to a profile-driven optimization pass; nothing is optimized speculatively.
+- **Registry-driven composition.** Every model, data source, and strategy registers via a decorator, which will let a future config loader instantiate an entire pipeline from a YAML file.
 - **Drift guards over review vigilance.** Two sources of truth that must stay aligned (pyproject deps ↔ CI pip install, composite dataclass fields ↔ leaf ctor signature, Python `Interval` constants ↔ C++ `kTradingDaysPerYear`) get an automated stdlib-only script in `scripts/` plus a pytest, wired into the CI lint job as an early step.
 
 ## Model Composition
 
-Every strategy is a composition of typed, independently-tested building blocks. Leaf models are swappable; a Phase 4 C++ port of any leaf automatically benefits every composite that depends on it.
+Every strategy is a composition of typed, independently-tested building blocks. Leaf models are swappable; a C++ port of any leaf automatically benefits every composite that depends on it.
 
 ```mermaid
 graph LR
@@ -146,30 +152,32 @@ The holdout split is reserved for the final thesis evaluation — it is never to
 - **Volatility estimators.** Garman-Klass and Parkinson, sharing `detail/` helpers for annualized rolling variance and OHLC length validation.
 - **Backtest engine.** Bar-iteration loop with t→t+1 fill convention, position carry-forward, commission on turnover notional, NaN-signal-as-flat semantics, and an `allow_short` toggle. Slippage is pluggable: `NoSlippage`, `Fixed` (bps), and `VolumeScaled` (bps + volume-impact coefficient).
 - **Performance metrics.** `MetricsCalculator` computes Sharpe, Sortino (downside), max drawdown, Calmar, win rate, annualized return + volatility from an equity curve. Single-pass Welford for mean/std; degenerate inputs return 0 rather than NaN.
-- **138 GoogleTest cases** covering correctness, slippage variants, fill convention, and numerical edge cases; builds on Linux and macOS through the CI matrix.
+- **GARCH inference filter.** `quant::filters::garch_filter(scaled_returns, GarchParams)` runs the recursive σ² recurrence (`sigma²[t] = ω + Σ αᵢ·(r-μ)² + Σ βⱼ·σ²`) with backcast substitution and a variance floor. Called by `GARCHPredictor.predict()` — the `arch`-library fit loop stays in Python, only inference moves to C++.
+- **Strategy state machines.** `run_mean_reversion_state_machine(close, mid, upper, lower, trend_ma)` and `run_pairs_state_machine(zscore, entry, exit, stop)` — bar-by-bar position carry with NaN skipping, returned as numpy arrays. Consumed by `AdaptiveBollingerStrategy` and `PairsTradingStrategy`.
+- **154 GoogleTest cases** covering correctness, slippage variants, fill convention, filter recurrence, state-machine transitions, and numerical edge cases; builds on Linux and macOS through the CI matrix.
 
 ### Bridge + Python engine layer (`src/quant_engine/`, `src/engine/`)
-- **pybind11 module `quant_engine`.** Exposes `BacktestEngine`, `MetricsCalculator`, `SlippageConfig`, `SlippageModel`, `BacktestResult`, `PerformanceMetrics`. Six numpy arrays (timestamps + OHLCV) marshal to `std::vector<Bar>` once per call; equity curves come back as numpy. Stubs are checked in (`src/quant_engine/quant_engine.pyi`) so `mypy --strict` sees the binding.
+- **pybind11 module `quant_engine`.** Exposes `BacktestEngine`, `MetricsCalculator`, `SlippageConfig`, `SlippageModel`, `BacktestResult`, `PerformanceMetrics`, the five indicators (`RSI`, `MACD` + `MACDResult`, `BollingerBands` + `BollingerResult`, `Parkinson`, `GarmanKlass`), the `GarchParams` struct + `garch_filter` free function, and the two state machines (`run_mean_reversion_state_machine`, `run_pairs_state_machine`). Every new compute method declares `py::call_guard<py::gil_scoped_release>()` so Python-side parallelism (Optuna HPO, pytest-xdist) can actually scale. Stubs are checked in (`src/quant_engine/quant_engine.pyi`) so `mypy --strict` sees the binding.
 - **`CppBacktestEngine` adapter.** Implements `IBacktestEngine`. Validates the pandas-shaped contract (DatetimeIndex, OHLCV columns present, signals index aligned with bars index) before dispatching to the binding. Supports `run_scenarios` for single-pass scenario sweeps.
 - **`SLIPPAGE_SCENARIOS`.** Predefined `SlippageConfig` constants keyed by `SlippageScenario` (`ZERO` / `NORMAL` / `HIGH` / `EXTREME`).
 - **`evaluate_walk_forward` orchestrator.** Loops over `WalkForwardValidator` folds, retrains the strategy per fold, runs `validate_no_overlap()` as a runtime tripwire, and returns a list of `FoldResult` carrying both the raw `BacktestResult` and the `PerformanceMetrics`.
 
 ### Python ML layer (`src/`)
-- **Leaf models.** `GARCHPredictor` (AIC grid search, params frozen post-fit), `ARMAPredictor` (`pmdarima.auto_arima`, order and coefficients frozen), `MarketLSTM` + `LSTMPredictor` (configurable loss, temporal 80/20 validation split, early stopping, device auto-select), `DirectionalClassifier` (XGBoost binary direction).
+- **Leaf models.** `GARCHPredictor` (AIC grid search, params frozen post-fit, inference loop delegates to C++ `garch_filter`), `ARMAPredictor` (`pmdarima.auto_arima`, order and coefficients frozen), `MarketLSTM` + `LSTMPredictor` (configurable loss, temporal 80/20 validation split, early stopping, device auto-select), `DirectionalClassifier` (XGBoost binary direction).
 - **Hybrid residual models.** `HybridVolatilityModel` (GARCH + LSTM residual correction → conditional variance) and `HybridReturnModel` (ARMA + LSTM residual correction → conditional mean). Strict black-box composition — the leaves' anti-leakage guarantees are preserved at the composite level for free.
-- **Feature pipeline.** `FeatureEngineeringPipeline` produces log returns, RSI, MACD (+ signal and histogram), rolling volatility, MA ratio, and short/long return features. Every period is a ctor parameter and appears in `suggest_params`.
+- **Feature pipeline.** `FeatureEngineeringPipeline` produces log returns, RSI, MACD (+ signal and histogram), rolling volatility, MA ratio, and short/long return features. RSI and MACD delegate to the `quant_engine` bindings (Wilder smoothing for RSI, single-pass EMA fast/slow/signal for MACD). Every period is a ctor parameter and appears in `suggest_params`.
 - **Cointegration.** `CointegrationTester` implements the Engle-Granger two-step procedure with hedge ratio and spread statistics.
 - **Strategies.** All implement `IStrategy` with `train()` + `generate_signals()` + `suggest_params()`:
-  - `AdaptiveBollingerStrategy` — mean-reversion bands scaled by GARCH forecast volatility, gated by a trend filter; two-pass state machine (vectorized detection, tight state-carry loop).
-  - `PairsTradingStrategy` — Engle-Granger cointegrated spread z-score with configurable entry, exit, and stop-loss thresholds.
+  - `AdaptiveBollingerStrategy` — mean-reversion bands scaled by GARCH forecast volatility, gated by a trend filter; position carry loop runs in C++ via `run_mean_reversion_state_machine`.
+  - `PairsTradingStrategy` — Engle-Granger cointegrated spread z-score with configurable entry, exit, and stop-loss thresholds; position carry loop runs in C++ via `run_pairs_state_machine`.
   - `MomentumGatekeeperStrategy` — XGBoost directional classifier on the feature pipeline output, gated by a trend filter.
-  - `VolatilityTargetingStrategy` — hybrid volatility forecast driving continuous leverage, with bearish-regime attenuation.
+  - `VolatilityTargetingStrategy` — hybrid volatility forecast driving continuous leverage, with bearish-regime attenuation. Realized-vol training target is the annualized Garman-Klass OHLC estimator computed via `quant_engine.GarmanKlass`.
   - `ReturnForecastStrategy` — hybrid return forecast driving a bounded continuous position.
 
 ### Infrastructure
 - **Device selection** (`src/core/device.py`). Auto-picks CUDA > MPS > CPU for PyTorch and CUDA > CPU for XGBoost (MPS is explicitly rejected). Every model accepts `device: Device | None`.
 - **Temporal infrastructure.** `TemporalSplit`, `TemporalTripleSplit`, `WalkForwardValidator`, `TrainingMetadata` with `from_fit()` / `to_dict()` / `from_dict()` and runtime overlap validation.
-- **Data layer.** `CSVSource`, `DataNormalizer` (handles both yfinance and polygon column conventions), `DataCache`.
+- **Data layer.** `CSVSource`, `DataNormalizer` (handles both yfinance and polygon column conventions), `DataCache`, and a `validate_bars` ingestion-time quality check (NaN, non-positive prices, OHLC ordering, duplicate timestamps) that runs once per fetch before the cache write so bad data never reaches the strategies or the C++ engine.
 - **Registries.** `model_registry`, `classifier_registry`, `strategy_registry`, `data_source_registry`.
 
 ## Getting Started
@@ -198,11 +206,14 @@ cmake --build cpp/build -j
 
 ```bash
 make test           # Full gate: C++ ctest + pytest + mypy strict
-make test-cpp       # 138 GoogleTest cases
-make test-python    # 370 pytest cases
+make test-cpp       # 154 GoogleTest cases
+make test-python    # 427 pytest cases (+5 opt-in perf-guard skips)
 make typecheck      # mypy --strict src/ tests/ scripts/
 make lint           # ruff check + ruff format --check
-make bench-cpp      # Google Benchmark indicator + engine + metrics micro-benches
+make bench-cpp      # Google Benchmark indicator + engine + metrics + filter + state-machine micro-benches
+
+# Optional: verify each C++ path still beats its Python baseline
+PERF_GUARD=1 pytest tests/benchmarks/    # opt-in; CI does not gate on timing
 ```
 
 ### Minimal example — fit a strategy and generate signals
@@ -229,12 +240,15 @@ cpp/
     core/                Bar, TimeSeries, Interval, tagged series
     indicators/          IIndicator, IVolatilityEstimator, RSI, MACD, Bollinger, GK, Parkinson
     indicators/detail/   Shared helpers (Welford rolling, annualization)
+    filters/             garch_filter (GARCH inference σ² recurrence)
+    strategies/          run_mean_reversion_state_machine, run_pairs_state_machine
     engine/              SlippageConfig, BacktestEngine
     metrics/             MetricsCalculator, PerformanceMetrics
   src/                   Implementation files
   bindings/              pybind11 module entry point (python_module.cpp)
   tests/                 GoogleTest suite
   benchmarks/            Google Benchmark micro-benches
+  benchmarks/detail/     Shared bench helpers (seeded RNG, random-walk generators)
 
 src/
   core/                  Types, constants, temporal contracts, registry, device selection, exceptions
@@ -244,50 +258,23 @@ src/
   strategies/            Five strategies + IStrategy interface
   engine/                CppBacktestEngine adapter, slippage scenarios, walk-forward orchestrator
   quant_engine/          pybind11 module re-exports + checked-in mypy stubs
-  optimization/          Reserved for HPO orchestration (Phase 6)
-  visualization/         Reserved for plotting (Phase 6)
-  benchmarking/          Reserved for benchmarking harness (Phase 6)
+  optimization/          Reserved for HPO orchestration
+  visualization/         Reserved for plotting
+  benchmarking/          Reserved for benchmarking harness
 
 tests/
   unit/                  One unit-test file per component
-  integration/           pybind11 module load + engine bindings + walk-forward orchestrator
-  benchmarks/            Reserved for perf-regression tests (Phase 6)
+  integration/           pybind11 module load + engine/indicator/filter/state-machine binding parity + walk-forward orchestrator
+  benchmarks/            Opt-in perf guards (PERF_GUARD=1) verifying C++ still beats Python baselines
   conftest.py            Shared fixtures (synthetic data, global seeds)
 
 scripts/                 stdlib-only drift guards and utilities
-config/                  YAML + Pydantic settings (populated in Phase 5)
+config/                  YAML + Pydantic settings (reserved)
 .github/workflows/ci.yml Lint, typecheck, C++ matrix, Python matrix
 Makefile                 Canonical build/test entry points
 pyproject.toml           Python deps + scikit-build-core config
 mypy.ini                 Strict settings + per-module ignore_missing_imports
 ```
-
-## Roadmap
-
-```mermaid
-graph LR
-    P1["Phase 1<br/>Python foundation<br/>(DONE)"]:::done
-    P2["Phase 2<br/>C++ indicators<br/>(DONE)"]:::done
-    P25["Phase 2.5<br/>ML models +<br/>5 strategies<br/>(DONE)"]:::done
-    P3["Phase 3<br/>C++ backtest engine<br/>+ metrics + bindings<br/>(DONE)"]:::done
-    P4["Phase 4<br/>Python hot paths<br/>ported to C++<br/>(NEXT)"]:::next
-    P5["Phase 5<br/>C++ strategy signals<br/>model persistence"]:::planned
-    P6["Phase 6<br/>Benchmarks<br/>SIMD fusion · polish"]:::planned
-    P1 --> P2 --> P25 --> P3 --> P4 --> P5 --> P6
-    classDef done fill:#1f6f3b,color:#e0ffe0,stroke:#2ea043
-    classDef next fill:#f39c12,color:#1a1a1a,stroke:#e67e22
-    classDef planned fill:#2a2a3e,color:#c0c0d0,stroke:#4a90d9
-```
-
-| Phase | Name                                                                                | Status       |
-|------:|-------------------------------------------------------------------------------------|--------------|
-|     1 | Python foundation: types, temporal contracts, registry, data layer                  | **Complete** |
-|     2 | C++ foundation: core types, indicators, volatility estimators                       | **Complete** |
-|   2.5 | ML leaf models, hybrids, feature pipeline, cointegration, five strategies           | **Complete** |
-|     3 | C++ backtesting engine, performance metrics, pybind11 bindings, walk-forward orchestrator | **Complete** |
-|     4 | Python hot paths (indicators in strategies, GarchFilter, etc.) ported to C++        | Next         |
-|     5 | C++ strategy signal generation, model persistence, incremental `update()`           | Planned      |
-|     6 | Benchmarking suite, SIMD fusion, profile-driven optimization                        | Planned      |
 
 ## Tech Stack
 

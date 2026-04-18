@@ -10,13 +10,18 @@ import pandas as pd
 from src.core.types import Interval
 from src.data.cache import DataCache
 from src.data.normalizer import DataNormalizer
+from src.data.validator import validate_bars
 
 
 class IDataSource(ABC):
     """Pluggable data source — swap yfinance for any provider.
 
     Concrete implementations only need to implement fetch_raw().
-    The base class provides caching, normalization, and validation.
+    The base class handles caching, column normalization, and ingestion-time
+    quality validation: every freshly fetched frame is checked by
+    ``validate_bars`` (NaN, non-positive prices, OHLC ordering, duplicate
+    timestamps) before it reaches the cache, so bad data never fans out to
+    downstream strategies or the C++ engine.
     """
 
     def __init__(
@@ -59,22 +64,18 @@ class IDataSource(ABC):
 
         if self.cache is not None:
             try:
-                return self.cache.load(cache_key)
+                cached = self.cache.load(cache_key)
             except FileNotFoundError:
                 pass
+            else:
+                # Re-validate cached frames: a cache written by an older code version
+                # (weaker or absent validator) should not silently bypass today's checks.
+                validate_bars(cached)
+                return cached
 
         df = self.fetch_raw(ticker, start, end, interval)
         df = self.normalizer.normalize(df)
-
-        # TODO: Phase 2 — enable C++ data validation
-        # try:
-        #     import quant_engine
-        #     bars = dataframe_to_bars(df)
-        #     report = quant_engine.validate_data(bars)
-        #     if not report.is_valid:
-        #         raise DataQualityError(report)
-        # except ImportError:
-        #     pass
+        validate_bars(df)
 
         if self.cache is not None:
             self.cache.save(cache_key, df)

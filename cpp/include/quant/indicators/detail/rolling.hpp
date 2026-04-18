@@ -57,7 +57,7 @@ namespace quant::detail {
 
     const double denom = static_cast<double>(window - ddof);
 
-    // Phase 1: Compute mean and variance for the first window using Welford's method
+    // Step 1: Compute mean and variance for the first window using Welford's method
     double mean = 0.0;
     double m2 = 0.0;  // sum of squared deviations from the running mean
     for (int i = 0; i < window; ++i) {
@@ -68,7 +68,7 @@ namespace quant::detail {
     }
     result[window - 1] = std::sqrt(std::max(0.0, m2 / denom));
 
-    // Phase 2: Slide the window using the update formula
+    // Step 2: Slide the window using the update formula
     // When removing old_val and adding new_val:
     //   new_mean = old_mean + (new_val - old_val) / window
     //   m2 += (new_val - old_val) * (new_val - new_mean + old_val - old_mean)
