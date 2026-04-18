@@ -12,6 +12,7 @@
 #include <quant/indicators/parkinson.hpp>
 #include <quant/indicators/rsi.hpp>
 #include <quant/metrics/performance.hpp>
+#include <quant/strategies/state_machines.hpp>
 
 #include <cstdint>
 #include <span>
@@ -435,4 +436,43 @@ PYBIND11_MODULE(quant_engine, m) {
         },
         py::arg("scaled_returns"), py::arg("params"),
         "Run the GARCH(p,q) recursion; returns conditional variances.");
+
+    // ── State machines ──
+    m.def(
+        "run_mean_reversion_state_machine",
+        [](const ContigF64& close, const ContigF64& mid, const ContigF64& upper,
+           const ContigF64& lower, const ContigF64& trend_ma) {
+            const auto close_span = as_span(close);
+            const auto mid_span = as_span(mid);
+            const auto upper_span = as_span(upper);
+            const auto lower_span = as_span(lower);
+            const auto trend_ma_span = as_span(trend_ma);
+            std::vector<double> out;
+            {
+                py::gil_scoped_release release;
+                out = quant::strategies::run_mean_reversion_state_machine(
+                    close_span, mid_span, upper_span, lower_span, trend_ma_span);
+            }
+            return as_numpy(out);
+        },
+        py::arg("close"), py::arg("mid"), py::arg("upper"),
+        py::arg("lower"), py::arg("trend_ma"),
+        "Run the AdaptiveBollinger state machine; returns a position series.");
+
+    m.def(
+        "run_pairs_state_machine",
+        [](const ContigF64& zscore, double entry_zscore, double exit_zscore,
+           double stop_loss_zscore) {
+            const auto zscore_span = as_span(zscore);
+            std::vector<double> out;
+            {
+                py::gil_scoped_release release;
+                out = quant::strategies::run_pairs_state_machine(
+                    zscore_span, entry_zscore, exit_zscore, stop_loss_zscore);
+            }
+            return as_numpy(out);
+        },
+        py::arg("zscore"), py::arg("entry_zscore"), py::arg("exit_zscore"),
+        py::arg("stop_loss_zscore"),
+        "Run the pairs-trading state machine; returns a position series.");
 }

@@ -21,6 +21,8 @@ from quant_engine.quant_engine import (
     SlippageModel,
     garch_filter,
     hello,
+    run_mean_reversion_state_machine,
+    run_pairs_state_machine,
 )
 
 __all__: list = [
@@ -40,4 +42,6 @@ __all__: list = [
     "SlippageModel",
     "garch_filter",
     "hello",
+    "run_mean_reversion_state_machine",
+    "run_pairs_state_machine",
 ]

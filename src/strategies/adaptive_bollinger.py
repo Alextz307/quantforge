@@ -6,9 +6,9 @@ import logging
 import math
 from typing import TYPE_CHECKING
 
-import numpy as np
 import pandas as pd
 
+import quant_engine
 from src.core.registry import strategy_registry
 from src.core.temporal import TrainingMetadata
 from src.core.types import Interval
@@ -82,7 +82,7 @@ class AdaptiveBollingerStrategy(IStrategy):
         upper = mid + self._k * daily_price_sigma
         lower = mid - self._k * daily_price_sigma
 
-        signal = self._run_state_machine(
+        signal = quant_engine.run_mean_reversion_state_machine(
             close=close.to_numpy(),
             mid=mid.to_numpy(),
             upper=upper.to_numpy(),
@@ -90,40 +90,6 @@ class AdaptiveBollingerStrategy(IStrategy):
             trend_ma=trend_ma.to_numpy(),
         )
         return pd.Series(signal, index=data.index, name="adaptive_bollinger_signal")
-
-    @staticmethod
-    def _run_state_machine(
-        close: np.ndarray[tuple[int], np.dtype[np.float64]],
-        mid: np.ndarray[tuple[int], np.dtype[np.float64]],
-        upper: np.ndarray[tuple[int], np.dtype[np.float64]],
-        lower: np.ndarray[tuple[int], np.dtype[np.float64]],
-        trend_ma: np.ndarray[tuple[int], np.dtype[np.float64]],
-    ) -> np.ndarray[tuple[int], np.dtype[np.float64]]:
-        n = len(close)
-        out = np.full(n, np.nan, dtype=np.float64)
-        position = 0.0
-        for t in range(n):
-            if (
-                np.isnan(mid[t])
-                or np.isnan(upper[t])
-                or np.isnan(lower[t])
-                or np.isnan(trend_ma[t])
-            ):
-                continue
-            is_bull = close[t] > trend_ma[t]
-            if position == 0.0:
-                if is_bull and close[t] < lower[t]:
-                    position = 1.0
-                elif (not is_bull) and close[t] > upper[t]:
-                    position = -1.0
-            elif position == 1.0:
-                if close[t] >= mid[t]:
-                    position = 0.0
-            elif position == -1.0:
-                if close[t] <= mid[t]:
-                    position = 0.0
-            out[t] = position
-        return out
 
     @property
     def name(self) -> str:

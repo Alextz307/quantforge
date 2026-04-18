@@ -28,6 +28,8 @@ __all__: list[str] = [
     "SlippageModel",
     "garch_filter",
     "hello",
+    "run_mean_reversion_state_machine",
+    "run_pairs_state_machine",
 ]
 
 class BacktestEngine:
@@ -276,4 +278,25 @@ def garch_filter(
 def hello() -> str:
     """
     Smoke-test hook confirming the compiled C++ extension is loadable.
+    """
+
+def run_mean_reversion_state_machine(
+    close: numpy.typing.NDArray[numpy.float64],
+    mid: numpy.typing.NDArray[numpy.float64],
+    upper: numpy.typing.NDArray[numpy.float64],
+    lower: numpy.typing.NDArray[numpy.float64],
+    trend_ma: numpy.typing.NDArray[numpy.float64],
+) -> numpy.typing.NDArray[numpy.float64]:
+    """
+    Run the AdaptiveBollinger state machine; returns a position series.
+    """
+
+def run_pairs_state_machine(
+    zscore: numpy.typing.NDArray[numpy.float64],
+    entry_zscore: float,
+    exit_zscore: float,
+    stop_loss_zscore: float,
+) -> numpy.typing.NDArray[numpy.float64]:
+    """
+    Run the pairs-trading state machine; returns a position series.
     """

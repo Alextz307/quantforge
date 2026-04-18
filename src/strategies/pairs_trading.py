@@ -5,9 +5,9 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
-import numpy as np
 import pandas as pd
 
+import quant_engine
 from src.core.registry import strategy_registry
 from src.core.temporal import TrainingMetadata
 from src.core.types import Interval
@@ -106,30 +106,13 @@ class PairsTradingStrategy(IStrategy):
         rolling_std = spread.rolling(self._zscore_lookback).std()
         zscore = (spread - rolling_mean) / rolling_std
 
-        signal = self._run_state_machine(zscore.to_numpy())
+        signal = quant_engine.run_pairs_state_machine(
+            zscore=zscore.to_numpy(),
+            entry_zscore=self._entry_zscore,
+            exit_zscore=self._exit_zscore,
+            stop_loss_zscore=self._stop_loss_zscore,
+        )
         return pd.Series(signal, index=data.index, name="pairs_signal")
-
-    def _run_state_machine(
-        self, zscore: np.ndarray[tuple[int], np.dtype[np.float64]]
-    ) -> np.ndarray[tuple[int], np.dtype[np.float64]]:
-        n = len(zscore)
-        out = np.full(n, np.nan, dtype=np.float64)
-        position = 0.0
-        for t in range(n):
-            z = zscore[t]
-            if np.isnan(z):
-                continue
-            if abs(z) >= self._stop_loss_zscore:
-                position = 0.0
-            elif position == 0.0:
-                if z >= self._entry_zscore:
-                    position = -1.0
-                elif z <= -self._entry_zscore:
-                    position = 1.0
-            elif abs(z) <= self._exit_zscore:
-                position = 0.0
-            out[t] = position
-        return out
 
     @property
     def hedge_ratio(self) -> float:
