@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import math
+
 import numpy as np
 import pandas as pd
 import pytest
 import torch
 
+from src.core.constants import TRADING_DAYS_PER_YEAR
 from src.core.exceptions import LeakageError
 from src.core.registry import strategy_registry
 from src.core.types import Interval
@@ -18,9 +21,11 @@ from tests.conftest import (
     GLOBAL_NUMPY_SEED,
     GLOBAL_TORCH_SEED,
     assert_params_match_constructor,
-    make_declining_close_df,
-    make_synthetic_close_df,
+    make_declining_ohlcv_df,
+    make_synthetic_ohlcv_df,
 )
+
+RESCALE_RATIO_RTOL = 1e-12
 
 # Fixtures
 TRAIN_ROW_COUNT = 200
@@ -44,7 +49,7 @@ REALIZED_VOL_WINDOW = 20
 
 @pytest.fixture
 def train_df(synthetic_feature_columns: list[str]) -> pd.DataFrame:
-    df = make_synthetic_close_df(n_rows=TRAIN_ROW_COUNT)
+    df = make_synthetic_ohlcv_df(n_rows=TRAIN_ROW_COUNT)
     rng = np.random.default_rng(FEATURE_RNG_SEED)
     for col in synthetic_feature_columns:
         df[col] = rng.normal(0, 1, len(df))
@@ -191,13 +196,35 @@ class TestVolatilityTargetingStrategy:
         signals = s.generate_signals(shorter)
         assert isinstance(signals, pd.Series)
 
+    def test_hourly_interval_rescales_realized_vol(
+        self, train_df: pd.DataFrame, synthetic_feature_columns: list[str]
+    ) -> None:
+        """HOUR interval multiplies the C++ GK output by sqrt(ann_factor / 252)."""
+        daily = VolatilityTargetingStrategy(
+            feature_columns=synthetic_feature_columns,
+            realized_vol_window=REALIZED_VOL_WINDOW,
+        )
+        hourly = VolatilityTargetingStrategy(
+            feature_columns=synthetic_feature_columns,
+            realized_vol_window=REALIZED_VOL_WINDOW,
+            interval=Interval.HOUR,
+        )
+        rv_daily = daily._compute_realized_vol(train_df).dropna()
+        rv_hourly = hourly._compute_realized_vol(train_df).dropna()
+        expected_ratio = math.sqrt(Interval.HOUR.annualization_factor() / TRADING_DAYS_PER_YEAR)
+        np.testing.assert_allclose(
+            rv_hourly.to_numpy(),
+            rv_daily.to_numpy() * expected_ratio,
+            rtol=RESCALE_RATIO_RTOL,
+        )
+
     def test_bearish_regime_reduces_exposure(
         self,
         fitted_strategy: VolatilityTargetingStrategy,
         synthetic_feature_columns: list[str],
     ) -> None:
         """In a declining-trend window, leverage collapses to 0 (bearish_exposure=0)."""
-        df = make_declining_close_df()
+        df = make_declining_ohlcv_df()
         rng = np.random.default_rng(FEATURE_RNG_SEED)
         for col in synthetic_feature_columns:
             df[col] = rng.normal(0, 1, len(df))

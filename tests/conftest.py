@@ -32,6 +32,9 @@ BAR_LADDER_COUNT = 10
 BAR_LADDER_BASE_PRICE = 100.0
 BAR_LADDER_BASE_VOLUME = 1_000_000.0
 
+# make_declining_ohlcv_df defaults
+DECLINING_OHLCV_BAND = 0.002  # symmetric OHL half-width around close
+
 # make_synthetic_close_df defaults
 SYNTH_DEFAULT_ROW_COUNT = 200
 SYNTH_DEFAULT_START_DATE = "2020-01-02"
@@ -236,6 +239,32 @@ def make_declining_close_df(
     idx = pd.bdate_range(start=start, periods=n_rows, freq="B")
     close = np.linspace(start_price, end_price, n_rows)
     return pd.DataFrame({"close": close, "volume": [1e6] * n_rows}, index=idx)
+
+
+def make_declining_ohlcv_df(
+    n_rows: int = 120,
+    start: str = "2022-01-03",
+    start_price: float = 200.0,
+    end_price: float = 100.0,
+    band: float = DECLINING_OHLCV_BAND,
+) -> pd.DataFrame:
+    """Monotone-declining OHLCV series for bearish-regime tests.
+
+    Open = prior close (first bar's open = ``start_price``); high/low bracket
+    the OC range by a small symmetric ``band`` so HLOC ordering holds and the
+    Garman-Klass estimator receives non-degenerate OHLC input.
+    """
+    idx = pd.bdate_range(start=start, periods=n_rows, freq="B")
+    close = np.linspace(start_price, end_price, n_rows)
+    open_ = np.empty(n_rows)
+    open_[0] = start_price
+    open_[1:] = close[:-1]
+    high = np.maximum(open_, close) * (1.0 + band)
+    low = np.minimum(open_, close) * (1.0 - band)
+    return pd.DataFrame(
+        {"open": open_, "high": high, "low": low, "close": close, "volume": [1e6] * n_rows},
+        index=idx,
+    )
 
 
 def make_pair_close_df(

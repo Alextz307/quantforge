@@ -9,10 +9,11 @@ from typing import TYPE_CHECKING
 
 import pandas as pd
 
+import quant_engine
+from src.core.constants import TRADING_DAYS_PER_YEAR
 from src.core.registry import strategy_registry
 from src.core.temporal import TrainingMetadata
 from src.core.types import Device, Interval, LossFunction
-from src.core.utils import compute_log_returns
 from src.models.hybrid_volatility import HybridVolatilityModel
 from src.strategies.interface import IStrategy
 
@@ -59,8 +60,9 @@ class VolatilityTargetingStrategy(IStrategy):
     A trend MA gates the regime: in bearish windows, leverage is multiplied
     by ``bearish_exposure`` (default 0 → flat).
 
-    The realized-volatility training target is computed internally as
-    ``rolling_std(log_returns, realized_vol_window) * sqrt(ann_factor)``.
+    The realized-volatility training target is the annualized Garman-Klass
+    OHLC estimator over ``realized_vol_window`` bars. Input DataFrames must
+    carry ``open``/``high``/``low``/``close`` columns.
     """
 
     def __init__(
@@ -135,13 +137,26 @@ class VolatilityTargetingStrategy(IStrategy):
         kwargs["feature_columns"] = list(self._hybrid_params.feature_columns)
         return HybridVolatilityModel(**kwargs)
 
+    def _compute_realized_vol(self, bars: pd.DataFrame) -> pd.Series:
+        """Annualized Garman-Klass realized volatility at the strategy's interval.
+
+        The underlying C++ estimator annualizes assuming daily bars; we rescale
+        so ``Interval.HOUR`` and friends land on the same annualized horizon as
+        the rest of the framework.
+        """
+        gk = quant_engine.GarmanKlass(self._realized_vol_window).compute(
+            bars["open"].to_numpy(dtype=float, copy=False),
+            bars["high"].to_numpy(dtype=float, copy=False),
+            bars["low"].to_numpy(dtype=float, copy=False),
+            bars["close"].to_numpy(dtype=float, copy=False),
+        )
+        interval_scale = math.sqrt(self._interval.annualization_factor() / TRADING_DAYS_PER_YEAR)
+        return pd.Series(gk * interval_scale, index=bars.index)
+
     def train(self, train_data: pd.DataFrame, **kwargs: object) -> None:
         """Fit HybridVolatilityModel on an internally-computed realized-vol target."""
         self._hybrid_vol = self._build_hybrid_vol()
-        log_returns = compute_log_returns(train_data["close"])
-        ann_factor_sqrt = math.sqrt(self._interval.annualization_factor())
-        # TODO(Phase 4): replace with Garman-Klass C++ binding
-        realized_vol = log_returns.rolling(self._realized_vol_window).std() * ann_factor_sqrt
+        realized_vol = self._compute_realized_vol(train_data)
         target = realized_vol.dropna()
         aligned = train_data.loc[target.index]
 
