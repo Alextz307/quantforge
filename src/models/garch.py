@@ -10,6 +10,7 @@ import numpy as np
 import pandas as pd
 from arch import arch_model
 
+import quant_engine
 from src.core.registry import model_registry
 from src.core.temporal import TrainingMetadata
 from src.core.types import Interval
@@ -51,6 +52,7 @@ class GARCHPredictor(IPredictor):
         self._beta: np.ndarray[tuple[int], np.dtype[np.float64]] = np.array([])
         self._train_mu = 0.0
         self._train_backcast = 0.0
+        self._garch_params: quant_engine.GarchParams | None = None
         self._training_metadata: TrainingMetadata | None = None
 
     def tune(self, returns: pd.Series) -> tuple[int, int]:
@@ -109,6 +111,8 @@ class GARCHPredictor(IPredictor):
 
         result, self._best_p, self._best_q = self._grid_search(scaled)
 
+        # Scalar / numpy views are retained alongside the cached ``GarchParams``
+        # so "frozen-params" invariant tests can read individual fields.
         self._omega = float(result.params["omega"])
         self._alpha = np.array(
             [float(result.params[f"alpha[{i + 1}]"]) for i in range(self._best_p)]
@@ -117,6 +121,13 @@ class GARCHPredictor(IPredictor):
         self._train_mu = float(scaled.mean())
         cond_vol = cast(pd.Series, result.conditional_volatility)
         self._train_backcast = float(cond_vol.iloc[0] ** 2)
+        self._garch_params = quant_engine.GarchParams(
+            omega=self._omega,
+            alpha=self._alpha.tolist(),
+            beta=self._beta.tolist(),
+            mu=self._train_mu,
+            backcast=self._train_backcast,
+        )
         self._fitted = True
 
         self._training_metadata = TrainingMetadata.from_fit(
@@ -185,42 +196,10 @@ class GARCHPredictor(IPredictor):
     def _manual_garch_filter(
         self, scaled_returns: np.ndarray[tuple[int], np.dtype[np.float64]]
     ) -> np.ndarray[tuple[int], np.dtype[np.float64]]:
-        """Recursive GARCH(p,q) filter using fixed parameters.
-
-        sigma^2[t] = omega + sum(alpha[i] * e^2[t-i]) + sum(beta[j] * sigma^2[t-j])
-
-        For t < max(p, q), missing past values use backcast as substitute.
-
-        Args:
-            scaled_returns: Returns already multiplied by SCALE_FACTOR.
-
-        Returns:
-            Array of conditional variance values (scaled).
-        """
-        n = len(scaled_returns)
-        sigma2 = np.empty(n)
-        p = self._best_p
-        q = self._best_q
-
-        for t in range(n):
-            var_t = self._omega
-
-            for i in range(p):
-                if t - i - 1 >= 0:
-                    e2 = (scaled_returns[t - i - 1] - self._train_mu) ** 2
-                else:
-                    e2 = self._train_backcast
-                var_t += self._alpha[i] * e2
-
-            for j in range(q):
-                if t - j - 1 >= 0:
-                    var_t += self._beta[j] * sigma2[t - j - 1]
-                else:
-                    var_t += self._beta[j] * self._train_backcast
-
-            sigma2[t] = max(var_t, 1e-12)
-
-        return sigma2
+        """Run the GARCH(p,q) recursion via the C++ filter on the cached params."""
+        # Non-None by contract: callers guard on ``self._fitted``.
+        params = cast(quant_engine.GarchParams, self._garch_params)
+        return quant_engine.garch_filter(scaled_returns, params)
 
     @staticmethod
     def suggest_params(trial: optuna.Trial) -> dict[str, object]:

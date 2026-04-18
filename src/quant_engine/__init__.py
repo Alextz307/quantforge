@@ -7,6 +7,7 @@ from quant_engine.quant_engine import (
     BacktestResult,
     BollingerBands,
     BollingerResult,
+    GarchParams,
     GarmanKlass,
     MACDResult,
     MetricsCalculator,
@@ -14,6 +15,7 @@ from quant_engine.quant_engine import (
     PerformanceMetrics,
     SlippageConfig,
     SlippageModel,
+    garch_filter,
     hello,
 )
 
@@ -24,6 +26,7 @@ __all__ = [
     "BacktestResult",
     "BollingerBands",
     "BollingerResult",
+    "GarchParams",
     "GarmanKlass",
     "MACDResult",
     "MetricsCalculator",
@@ -31,5 +34,6 @@ __all__ = [
     "PerformanceMetrics",
     "SlippageConfig",
     "SlippageModel",
+    "garch_filter",
     "hello",
 ]

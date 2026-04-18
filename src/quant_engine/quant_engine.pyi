@@ -16,6 +16,7 @@ __all__: list[str] = [
     "BacktestResult",
     "BollingerBands",
     "BollingerResult",
+    "GarchParams",
     "GarmanKlass",
     "MACD",
     "MACDResult",
@@ -25,6 +26,7 @@ __all__: list[str] = [
     "RSI",
     "SlippageConfig",
     "SlippageModel",
+    "garch_filter",
     "hello",
 ]
 
@@ -99,6 +101,21 @@ class BollingerResult:
     def mid(self) -> numpy.typing.NDArray[numpy.float64]: ...
     @property
     def upper(self) -> numpy.typing.NDArray[numpy.float64]: ...
+
+class GarchParams:
+    def __init__(
+        self, *, omega: float, alpha: list[float], beta: list[float], mu: float, backcast: float
+    ) -> None: ...
+    @property
+    def alpha(self) -> list[float]: ...
+    @property
+    def backcast(self) -> float: ...
+    @property
+    def beta(self) -> list[float]: ...
+    @property
+    def mu(self) -> float: ...
+    @property
+    def omega(self) -> float: ...
 
 class GarmanKlass:
     def __init__(self, window: int = 22) -> None: ...
@@ -248,6 +265,13 @@ class SlippageModel:
     def name(self) -> str: ...
     @property
     def value(self) -> int: ...
+
+def garch_filter(
+    scaled_returns: numpy.typing.NDArray[numpy.float64], params: GarchParams
+) -> numpy.typing.NDArray[numpy.float64]:
+    """
+    Run the GARCH(p,q) recursion; returns conditional variances.
+    """
 
 def hello() -> str:
     """

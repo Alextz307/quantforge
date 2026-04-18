@@ -59,6 +59,7 @@ add_library(quant_core STATIC
     src/indicators/bollinger_bands.cpp
     src/indicators/garman_klass.cpp
     src/indicators/parkinson.cpp
+    src/filters/garch_filter.cpp
     src/engine/backtest_engine.cpp
     src/metrics/performance.cpp
 )

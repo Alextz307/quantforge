@@ -5,6 +5,7 @@
 #include <quant/core/types.hpp>
 #include <quant/engine/backtest_engine.hpp>
 #include <quant/engine/slippage.hpp>
+#include <quant/filters/garch_filter.hpp>
 #include <quant/indicators/bollinger_bands.hpp>
 #include <quant/indicators/garman_klass.hpp>
 #include <quant/indicators/macd.hpp>
@@ -398,4 +399,40 @@ PYBIND11_MODULE(quant_engine, m) {
             py::arg("open"), py::arg("high"), py::arg("low"), py::arg("close"))
         .def_property_readonly("warmup_period", &quant::GarmanKlass::warmup_period)
         .def_property_readonly("name", &quant::GarmanKlass::name);
+
+    // ── GarchParams ──
+    // Fields are read-only; GARCH parameters are frozen after the Python fit.
+    py::class_<quant::filters::GarchParams>(m, "GarchParams")
+        .def(py::init([](double omega, std::vector<double> alpha,
+                         std::vector<double> beta, double mu, double backcast) {
+                 return quant::filters::GarchParams{
+                     omega, std::move(alpha), std::move(beta), mu, backcast};
+             }),
+             py::kw_only(),
+             py::arg("omega"),
+             py::arg("alpha"),
+             py::arg("beta"),
+             py::arg("mu"),
+             py::arg("backcast"))
+        .def_readonly("omega", &quant::filters::GarchParams::omega)
+        .def_readonly("alpha", &quant::filters::GarchParams::alpha)
+        .def_readonly("beta", &quant::filters::GarchParams::beta)
+        .def_readonly("mu", &quant::filters::GarchParams::mu)
+        .def_readonly("backcast", &quant::filters::GarchParams::backcast);
+
+    // ── garch_filter ──
+    m.def(
+        "garch_filter",
+        [](const ContigF64& scaled_returns,
+           const quant::filters::GarchParams& params) {
+            const auto input = as_span(scaled_returns);
+            std::vector<double> out;
+            {
+                py::gil_scoped_release release;
+                out = quant::filters::garch_filter(input, params);
+            }
+            return as_numpy(out);
+        },
+        py::arg("scaled_returns"), py::arg("params"),
+        "Run the GARCH(p,q) recursion; returns conditional variances.");
 }
