@@ -7,6 +7,7 @@ import logging
 import pandas as pd
 from sklearn.preprocessing import StandardScaler
 
+import quant_engine
 from src.core.exceptions import guard_scaler_fit_once
 from src.core.registry import feature_registry
 from src.features.interface import IFeaturePipeline
@@ -15,20 +16,9 @@ logger = logging.getLogger(__name__)
 
 
 def _compute_rsi(close: pd.Series[float], period: int = 14) -> pd.Series[float]:
-    """Compute RSI using rolling-window average of gains and losses.
-
-    # TODO(Phase 4): replace with C++ binding
-    """
-    delta = close.diff()
-    gains = delta.clip(lower=0.0)
-    losses = (-delta).clip(lower=0.0)
-
-    avg_gain: pd.Series[float] = gains.rolling(window=period, min_periods=period).mean()
-    avg_loss: pd.Series[float] = losses.rolling(window=period, min_periods=period).mean()
-
-    rs = avg_gain / avg_loss
-    rsi: pd.Series[float] = 100.0 - (100.0 / (1.0 + rs))
-    return rsi
+    """Compute RSI via the C++ binding (Wilder's smoothing)."""
+    values = quant_engine.RSI(period).compute(close.to_numpy(dtype=float, copy=False))
+    return pd.Series(values, index=close.index)
 
 
 def _compute_macd(
@@ -37,15 +27,13 @@ def _compute_macd(
     slow: int = 26,
     signal: int = 9,
 ) -> tuple[pd.Series[float], pd.Series[float], pd.Series[float]]:
-    """Compute MACD line, signal line, and histogram.
-
-    # TODO(Phase 4): replace with C++ binding
-    """
-    ema_fast: pd.Series[float] = close.ewm(span=fast, adjust=False).mean()
-    ema_slow: pd.Series[float] = close.ewm(span=slow, adjust=False).mean()
-    macd_line: pd.Series[float] = ema_fast - ema_slow
-    signal_line: pd.Series[float] = macd_line.ewm(span=signal, adjust=False).mean()
-    histogram: pd.Series[float] = macd_line - signal_line
+    """Compute MACD line, signal line, and histogram via the C++ binding."""
+    result = quant_engine.MACD(fast, slow, signal).compute_all(
+        close.to_numpy(dtype=float, copy=False)
+    )
+    macd_line = pd.Series(result.macd_line, index=close.index)
+    signal_line = pd.Series(result.signal_line, index=close.index)
+    histogram = pd.Series(result.histogram, index=close.index)
     return macd_line, signal_line, histogram
 
 
@@ -90,12 +78,17 @@ class FeatureEngineeringPipeline(IFeaturePipeline):
 
     @property
     def hard_nan_warmup_bars(self) -> int:
-        """Longest leading-NaN horizon across all features (MACD EMAs are not hard-NaN)."""
+        """Count of leading NaN bars across all features.
+
+        C++ MACD signal line emits NaN for the first ``slow + signal - 2`` bars.
+        """
+        macd_signal_warmup = self._macd_slow + self._macd_signal - 2
         return max(
             self._long_return_period,
             self._vol_window,
             self._ma_ratio_window,
             self._rsi_period,
+            macd_signal_warmup,
         )
 
     def _compute_raw_features(self, data: pd.DataFrame) -> pd.DataFrame:

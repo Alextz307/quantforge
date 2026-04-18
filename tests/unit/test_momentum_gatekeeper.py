@@ -18,7 +18,7 @@ COMPACT_MAX_DEPTH = 3
 # Strategy defaults for tests
 MA_WINDOW = 20
 PROB_THRESHOLD = 0.55
-FEATURE_PIPELINE_WARMUP = 21  # long_return_period default = 21 dominates other hard-NaN horizons
+FEATURE_PIPELINE_WARMUP = 33  # MACD signal (slow=26 + signal=9 - 2) dominates hard-NaN horizons
 
 # Out-of-sample eval fixture
 EVAL_ROW_COUNT = 80
@@ -76,8 +76,8 @@ class TestMomentumGatekeeperStrategy:
         self, fitted_strategy: MomentumGatekeeperStrategy, train_df: pd.DataFrame
     ) -> None:
         signals = fitted_strategy.generate_signals(train_df)
-        # FeaturePipeline (MACD slow=26) dominates warmup
-        assert signals.iloc[: FEATURE_PIPELINE_WARMUP - 1].isna().all()
+        # MACD signal line warmup dominates FeaturePipeline hard-NaN horizon
+        assert signals.iloc[:FEATURE_PIPELINE_WARMUP].isna().all()
 
     def test_training_metadata_populated(
         self, fitted_strategy: MomentumGatekeeperStrategy, train_df: pd.DataFrame
