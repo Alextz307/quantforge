@@ -42,12 +42,7 @@ def _python_mean_reversion(
     out = np.full(n, np.nan, dtype=np.float64)
     position = 0.0
     for t in range(n):
-        if (
-            np.isnan(mid[t])
-            or np.isnan(upper[t])
-            or np.isnan(lower[t])
-            or np.isnan(trend_ma[t])
-        ):
+        if np.isnan(mid[t]) or np.isnan(upper[t]) or np.isnan(lower[t]) or np.isnan(trend_ma[t]):
             continue
         is_bull = close[t] > trend_ma[t]
         if position == 0.0:
@@ -151,9 +146,7 @@ class TestMeanReversionBinding:
         a = np.ones(5, dtype=np.float64)
         b = np.ones(4, dtype=np.float64)
         with pytest.raises(ValueError, match="same length"):
-            qe.run_mean_reversion_state_machine(
-                close=a, mid=b, upper=a, lower=a, trend_ma=a
-            )
+            qe.run_mean_reversion_state_machine(close=a, mid=b, upper=a, lower=a, trend_ma=a)
 
 
 class TestPairsBinding:
