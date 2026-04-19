@@ -166,23 +166,34 @@ class TestPairsTradingStrategy:
         s2 = fitted_strategy.generate_signals(pair_df)
         pd.testing.assert_series_equal(s1, s2)
 
-    def test_update_retrains_and_refreshes_metadata(self, pair_df: pd.DataFrame) -> None:
+    def test_update_extends_training_window(self, pair_df: pd.DataFrame) -> None:
+        """``update()`` advances ``train_end`` + ``n_train_samples`` on the
+        combined window while preserving ``train_start`` and
+        ``fit_timestamp``."""
+        # First half = initial train; second half = delta passed to update().
+        # The halves must be disjoint — ``extend()`` raises if ``new_end`` is
+        # not strictly after ``train_end``.
+        split = len(pair_df) // 2
+        train = pair_df.iloc[:split]
+        new = pair_df.iloc[split:]
+
         s = PairsTradingStrategy(
             entry_zscore=ENTRY_Z,
             exit_zscore=EXIT_Z,
             stop_loss_zscore=STOP_Z,
             zscore_lookback=LOOKBACK,
         )
-        s.train(pair_df)
+        s.train(train)
         first_meta = s.training_metadata
         assert first_meta is not None
-        assert first_meta.n_train_samples == len(pair_df)
+        assert first_meta.n_train_samples == len(train)
 
-        second_df = pair_df.iloc[50:].copy()
-        s.update(second_df)
+        s.update(new)
         second_meta = s.training_metadata
         assert second_meta is not None
-        assert second_meta.n_train_samples == len(second_df)
-        assert second_meta.train_start == pd.Timestamp(second_df.index[0])
-        signals = s.generate_signals(second_df)
+        assert second_meta.n_train_samples == len(train) + len(new)
+        assert second_meta.train_start == first_meta.train_start
+        assert second_meta.train_end == pd.Timestamp(new.index[-1])
+        assert second_meta.fit_timestamp == first_meta.fit_timestamp
+        signals = s.generate_signals(new)
         assert isinstance(signals, pd.Series)

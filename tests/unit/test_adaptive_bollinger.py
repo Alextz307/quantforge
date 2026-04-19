@@ -134,9 +134,11 @@ class TestAdaptiveBollingerStrategy:
         s2 = fitted_strategy.generate_signals(train_df)
         pd.testing.assert_series_equal(s1, s2)
 
-    def test_update_retrains_and_refreshes_metadata(
+    def test_update_extends_training_window(
         self, train_df: pd.DataFrame, eval_df: pd.DataFrame
     ) -> None:
+        """``update()`` advances ``train_end`` + ``n_train_samples`` while
+        preserving ``train_start`` and ``fit_timestamp``."""
         s = AdaptiveBollingerStrategy(
             window=BOLLINGER_WINDOW,
             k=BOLLINGER_K,
@@ -152,9 +154,10 @@ class TestAdaptiveBollingerStrategy:
         s.update(eval_df)
         second_meta = s.training_metadata
         assert second_meta is not None
-        assert second_meta.n_train_samples == len(eval_df)
-        assert second_meta.train_start == pd.Timestamp(eval_df.index[0])
-        # After update, signals still produce without raising
+        assert second_meta.n_train_samples == len(train_df) + len(eval_df)
+        assert second_meta.train_start == first_meta.train_start
+        assert second_meta.train_end == pd.Timestamp(eval_df.index[-1])
+        assert second_meta.fit_timestamp == first_meta.fit_timestamp
         signals = s.generate_signals(eval_df)
         assert isinstance(signals, pd.Series)
 

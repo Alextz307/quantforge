@@ -103,6 +103,20 @@ class AdaptiveBollingerStrategy(IStrategy):
         )
         return pd.Series(signal, index=data.index, name="adaptive_bollinger_signal")
 
+    def update(self, new_data: pd.DataFrame, **kwargs: object) -> None:
+        """Delegate to GARCH's warm-start refit on the extended return series.
+
+        See :meth:`IStrategy.update` for the shared contract.
+        """
+        if not self._fitted or self._training_metadata is None:
+            raise RuntimeError("AdaptiveBollingerStrategy.update() called before train()")
+
+        new_metadata = self._training_metadata.extend_from(new_data)
+
+        new_returns = compute_log_returns(new_data["close"]).dropna()
+        self._garch.update(new_data.loc[new_returns.index], new_returns)
+        self._training_metadata = new_metadata
+
     def save(self, path: str | Path) -> None:
         """Persist AdaptiveBollinger config + nested GARCH to ``path``."""
         if not self._fitted:

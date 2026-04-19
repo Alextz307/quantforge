@@ -199,6 +199,76 @@ class TrainingMetadata:
             feature_columns=feature_columns,
         )
 
+    def extend(
+        self,
+        new_start: pd.Timestamp,
+        new_end: pd.Timestamp,
+        additional_samples: int,
+    ) -> TrainingMetadata:
+        """Return a copy with ``train_end`` advanced and ``n_train_samples`` incremented.
+
+        ``fit_timestamp`` is preserved — it records when the model was *first*
+        fit, not when it was last touched. ``train_start``, ``interval``, and
+        ``feature_columns`` are also preserved (update() extends the training
+        window forward, it never rewinds or changes schema).
+
+        Raises ``LeakageError`` if ``new_start <= train_end`` OR
+        ``new_end <= train_end`` — the new window must start strictly after
+        the existing training window AND end strictly after it. The first
+        mirrors ``validate_no_overlap``'s invariant at extend-time so a caller
+        passing overlapping ``new_data`` double-counts nothing. The second
+        catches a non-monotonic ``new_data`` whose last bar precedes the
+        training cutoff (zero forward progress — a subsequent
+        ``validate_no_overlap`` would still compare against a stale window).
+
+        Most callers should use :meth:`extend_from` instead — it reads the
+        ``new_start`` / ``new_end`` / ``additional_samples`` off a DataFrame
+        in one call and avoids the ``pd.Timestamp(...)`` coercions sprinkled
+        across every ``update()`` override.
+        """
+        if new_start <= self.train_end:
+            raise LeakageError(
+                f"extend() requires new_start > train_end; got new_start={new_start}, "
+                f"train_end={self.train_end}. Overlapping new_data would double-count "
+                f"rows already in the training window."
+            )
+        if new_end <= self.train_end:
+            raise LeakageError(
+                f"extend() requires new_end > train_end; got new_end={new_end}, "
+                f"train_end={self.train_end}. Zero forward progress leaves "
+                f"``validate_no_overlap`` checking against a stale window."
+            )
+        if additional_samples < 1:
+            raise ValueError(f"extend() requires additional_samples >= 1, got {additional_samples}")
+        return TrainingMetadata(
+            train_start=self.train_start,
+            train_end=new_end,
+            n_train_samples=self.n_train_samples + additional_samples,
+            fit_timestamp=self.fit_timestamp,
+            interval=self.interval,
+            feature_columns=self.feature_columns,
+        )
+
+    def extend_from(self, new_data: pd.DataFrame) -> TrainingMetadata:
+        """Convenience wrapper: read ``(new_start, new_end, additional_samples)``
+        straight off ``new_data`` and delegate to :meth:`extend`.
+
+        Collapses the 4-line boilerplate every ``update()`` override would
+        otherwise repeat into a single call. Requires a non-empty DataFrame
+        with a ``DatetimeIndex`` — both invariants are enforced elsewhere
+        in the framework, but they're checked here too so a misuse surfaces
+        with a pointed error rather than a confusing ``LeakageError``.
+        """
+        if not isinstance(new_data.index, pd.DatetimeIndex):
+            raise TypeError("extend_from() requires a DataFrame with a DatetimeIndex")
+        if len(new_data) == 0:
+            raise ValueError("extend_from() requires a non-empty DataFrame")
+        return self.extend(
+            new_start=pd.Timestamp(new_data.index[0]),
+            new_end=pd.Timestamp(new_data.index[-1]),
+            additional_samples=len(new_data),
+        )
+
     @staticmethod
     def from_dict(d: dict[str, object]) -> TrainingMetadata:
         """Deserialize from dict. Used when loading a saved model."""

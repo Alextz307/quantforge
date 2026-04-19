@@ -48,12 +48,15 @@ class DirectionalClassifier(IClassifier):
         subsample: float = 0.8,
         colsample_bytree: float = 0.8,
         val_split_ratio: float = 0.2,
+        update_n_estimators: int = 10,
         device: Device | None = None,
         interval: Interval = Interval.DAILY,
     ) -> None:
         if not feature_columns:
             raise ValueError("DirectionalClassifier requires a non-empty feature_columns list")
         validate_open_unit_interval(val_split_ratio, "val_split_ratio")
+        if update_n_estimators < 1:
+            raise ValueError(f"update_n_estimators must be >= 1, got {update_n_estimators}")
         self._n_estimators = n_estimators
         self._learning_rate = learning_rate
         self._max_depth = max_depth
@@ -62,6 +65,7 @@ class DirectionalClassifier(IClassifier):
         self._subsample = subsample
         self._colsample_bytree = colsample_bytree
         self._val_split_ratio = val_split_ratio
+        self._update_n_estimators = update_n_estimators
         self._device = select_xgboost_device(device)
         self._interval = interval
 
@@ -146,6 +150,47 @@ class DirectionalClassifier(IClassifier):
         proba = self._model.predict_proba(data[self._feature_columns])
         return pd.Series(proba[:, 1], index=data.index, name="up_prob")
 
+    def update(
+        self,
+        new_data: pd.DataFrame,
+        target: pd.Series,
+        **kwargs: object,
+    ) -> None:
+        """Continue-boost: append ``update_n_estimators`` trees to the existing booster.
+
+        Uses XGBoost's native ``xgb_model=<existing booster>`` continue-boosting
+        API — no scaler or feature-schema refit. The existing booster is the
+        starting point; ``update_n_estimators`` additional rounds are trained
+        on ``new_data``. See :meth:`IClassifier.update` for the shared contract.
+        """
+        if not self._fitted or self._model is None or self._training_metadata is None:
+            raise RuntimeError("DirectionalClassifier.update() called before fit()")
+
+        new_metadata = self._training_metadata.extend_from(new_data)
+
+        existing_booster = self._model.get_booster()
+        refreshed = xgb.XGBClassifier(
+            n_estimators=self._update_n_estimators,
+            learning_rate=self._learning_rate,
+            max_depth=self._max_depth,
+            objective=self._objective,
+            subsample=self._subsample,
+            colsample_bytree=self._colsample_bytree,
+            eval_metric="logloss",
+            random_state=42,
+            verbosity=0,
+            tree_method="hist",
+            device=self._device,
+        )
+        refreshed.fit(
+            new_data[self._feature_columns],
+            target,
+            xgb_model=existing_booster,
+            verbose=False,
+        )
+        self._model = refreshed
+        self._training_metadata = new_metadata
+
     def predict(self, data: pd.DataFrame) -> pd.Series:
         """Predict binary class labels (0 = down, 1 = up).
 
@@ -195,6 +240,7 @@ class DirectionalClassifier(IClassifier):
                 "subsample": self._subsample,
                 "colsample_bytree": self._colsample_bytree,
                 "val_split_ratio": self._val_split_ratio,
+                "update_n_estimators": self._update_n_estimators,
                 "interval": self._interval.value,
             },
             training_metadata=self._training_metadata,
@@ -223,6 +269,7 @@ class DirectionalClassifier(IClassifier):
             subsample=json_io.get_float(config, "subsample"),
             colsample_bytree=json_io.get_float(config, "colsample_bytree"),
             val_split_ratio=json_io.get_float(config, "val_split_ratio"),
+            update_n_estimators=json_io.get_int(config, "update_n_estimators"),
             interval=Interval(json_io.get_str(config, "interval")),
         )
         model = xgb.XGBClassifier(device=instance._device)

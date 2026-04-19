@@ -41,6 +41,12 @@ SCALER_JSON = "scaler.json"
 WEIGHTS_PT = "weights.pt"
 MODEL_UBJ = "model.ubj"
 ENDOG_NPY = "endog.npy"
+# Cached training targets used by warm-start update() overrides. GARCH
+# concatenates with new returns to refit with fixed (p,q); PairsTrading
+# concatenates with new prices to re-test cointegration. ARMA reuses
+# ENDOG_NPY (already persisted for the statsmodels filter).
+TRAIN_RETURNS_NPY = "train_returns.npy"
+TRAIN_PAIR_NPZ = "train_pair.npz"
 
 # Canonical subdirectory names for composite save layouts. Centralized so a
 # strategy that persists a GARCH subdir and the GARCHPredictor it delegates to

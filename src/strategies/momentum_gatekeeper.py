@@ -149,6 +149,22 @@ class MomentumGatekeeperStrategy(IStrategy):
             long_return_period=self._params.long_return_period,
         )
 
+    def _build_classifier_batch(
+        self, data: pd.DataFrame, resolved: list[str]
+    ) -> tuple[pd.DataFrame, pd.Series]:
+        """Compute valid-row features + next-bar direction target from ``data``.
+
+        Shared by ``train()`` (initial fit) and ``update()`` (continue-boost)
+        so the two paths can't drift on target derivation or NaN filtering.
+        The final row has no ``t+1`` close and is excluded.
+        """
+        features = self._pipeline.transform(data)
+        close = data["close"]
+        direction = (close.shift(-1) > close).astype(int).iloc[:-1]
+        features_aligned = features.iloc[:-1]
+        valid_mask = features_aligned[resolved].notna().all(axis=1)
+        return features_aligned.loc[valid_mask, resolved], direction.loc[valid_mask]
+
     def train(self, train_data: pd.DataFrame, **kwargs: object) -> None:
         """Fit feature pipeline + directional classifier on training data."""
         self._pipeline = self._build_pipeline()
@@ -167,13 +183,7 @@ class MomentumGatekeeperStrategy(IStrategy):
                 )
         self._resolved_feature_columns = resolved
 
-        close = train_data["close"]
-        direction = (close.shift(-1) > close).astype(int).iloc[:-1]
-        features_aligned = features.iloc[:-1]
-
-        valid_mask = features_aligned[resolved].notna().all(axis=1)
-        features_ready = features_aligned.loc[valid_mask]
-        target_ready = direction.loc[valid_mask]
+        features_ready, target_ready = self._build_classifier_batch(train_data, resolved)
 
         self._classifier = DirectionalClassifier(
             feature_columns=resolved,
@@ -215,6 +225,32 @@ class MomentumGatekeeperStrategy(IStrategy):
         signal = raw_signal.where(trend_ma.notna() & prob_up.notna(), np.nan)
         signal.name = "momentum_gatekeeper_signal"
         return signal
+
+    def update(self, new_data: pd.DataFrame, **kwargs: object) -> None:
+        """Continue-boost the classifier on new bars; pipeline scaler stays frozen.
+
+        Features are re-computed from ``new_data`` via the existing (fitted)
+        pipeline — its scaler is NOT re-fit (anti-leakage). Next-bar direction
+        targets are derived from ``new_data`` the same way ``train()`` does;
+        the final row has no ``t+1`` close so it's excluded. See
+        :meth:`IStrategy.update` for the shared contract.
+        """
+        if not self._fitted or self._classifier is None or self._training_metadata is None:
+            raise RuntimeError("MomentumGatekeeperStrategy.update() called before train()")
+
+        new_metadata = self._training_metadata.extend_from(new_data)
+
+        features_ready, target_ready = self._build_classifier_batch(
+            new_data, self._resolved_feature_columns
+        )
+        if features_ready.empty:
+            raise ValueError(
+                "MomentumGatekeeperStrategy.update(): no valid rows after warmup+dropna; "
+                "new_data is too short for the pipeline's warmup window"
+            )
+
+        self._classifier.update(features_ready, target_ready)
+        self._training_metadata = new_metadata
 
     def save(self, path: str | Path) -> None:
         """Persist MomentumGatekeeper config + nested DirectionalClassifier.

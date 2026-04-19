@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Self
+from typing import TYPE_CHECKING, Self, cast
 
 import pandas as pd
 from sklearn.preprocessing import StandardScaler
@@ -195,12 +195,7 @@ class HybridVolatilityModel(IPredictor):
         # TODO(Phase 6): wrapping the scaled ndarray as a DataFrame just so LSTM
         # can call `.values` again is wasted allocation per fold. Add
         # `LSTMPredictor.predict_array(scaled, index)` to accept ndarray directly.
-        scaled_values = self._scaler.transform(data[self._feature_columns])
-        scaled_features = pd.DataFrame(
-            scaled_values,
-            index=data.index,
-            columns=self._feature_columns,
-        )
+        scaled_features = self._scale_to_frame(data[self._feature_columns])
 
         lstm_residual = self._lstm.predict(scaled_features)
         # Clip floor: vol is non-negative by definition; a large negative LSTM
@@ -209,11 +204,58 @@ class HybridVolatilityModel(IPredictor):
         final_vol.name = "hybrid_vol"
         return final_vol
 
+    def _scale_to_frame(self, feature_frame: pd.DataFrame) -> pd.DataFrame:
+        """Transform ``feature_frame`` through the fitted scaler and rewrap as a
+        DataFrame the LSTM can consume. Callers must ensure ``_fitted`` first
+        (the ``cast`` is safe under that precondition; ``_scaler`` is assigned
+        alongside ``_fitted = True`` inside ``fit()``).
+        """
+        scaler = cast(StandardScaler, self._scaler)
+        scaled = scaler.transform(feature_frame)
+        return pd.DataFrame(scaled, index=feature_frame.index, columns=self._feature_columns)
+
     def predict_single(self, recent_window: pd.DataFrame) -> float:
         """Single hybrid-vol forecast from a recent window."""
         if not self._fitted:
             raise RuntimeError("HybridVolatilityModel.predict_single() called before fit()")
         return float(self.predict(recent_window).iloc[-1])
+
+    def update(
+        self,
+        new_data: pd.DataFrame,
+        target: pd.Series,
+        **kwargs: object,
+    ) -> None:
+        """Update both leaves — no scaler re-fit (anti-leakage).
+
+        GARCH warm-starts on the extended return series; the updated GARCH
+        then emits fresh residuals for ``new_data`` which feed the LSTM's
+        fine-tune. The scaler fitted in ``fit()`` stays frozen so new-window
+        features are scaled against the original training distribution. Each
+        leaf is itself atomic under ``extend_from``-first validation; a
+        mid-leaf crash won't half-update its internal state. See
+        :meth:`IPredictor.update` for the shared contract.
+        """
+        if not self._fitted or self._scaler is None or self._training_metadata is None:
+            raise RuntimeError("HybridVolatilityModel.update() called before fit()")
+
+        new_metadata = self._training_metadata.extend_from(new_data)
+
+        new_returns = compute_log_returns(new_data["close"]).dropna()
+        self._garch.update(new_data.loc[new_returns.index], new_returns)
+
+        # TODO(Phase 6): GARCH.predict(new_data) re-derives log returns from
+        # data["close"] internally — the array was just computed above. Extend
+        # the planned ``predict_from_returns(new_returns)`` fast path to cover
+        # the update-path residual derivation too.
+        new_garch_vol = self._garch.predict(new_data)
+        new_residuals = (target - new_garch_vol).dropna()
+
+        feature_frame = new_data.loc[new_residuals.index, self._feature_columns]
+        scaled_features = self._scale_to_frame(feature_frame)
+        self._lstm.update(scaled_features, new_residuals, **kwargs)
+
+        self._training_metadata = new_metadata
 
     def save(self, path: str | Path) -> None:
         """Persist HybridVolatility to ``path`` as ``<path>/garch/`` +

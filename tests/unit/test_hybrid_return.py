@@ -118,9 +118,11 @@ class TestHybridReturnModel:
         synthetic_feature_columns: list[str],
     ) -> None:
         model = _fit_model(hybrid_train_df, log_return_target, synthetic_feature_columns)
-        order_before = model._arma._best_order
+        assert model._arma._model is not None
+        order_before = model._arma._model.order
         model.predict(hybrid_train_df)
-        assert model._arma._best_order == order_before
+        assert model._arma._model is not None
+        assert model._arma._model.order == order_before
 
     def test_training_metadata_populated(
         self,

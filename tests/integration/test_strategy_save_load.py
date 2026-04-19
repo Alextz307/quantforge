@@ -31,6 +31,7 @@ from src.strategies.pairs_trading import PairsTradingStrategy
 from src.strategies.return_forecast import ReturnForecastStrategy
 from src.strategies.volatility_targeting import VolatilityTargetingStrategy
 from tests.conftest import (
+    attach_synthetic_features,
     make_pair_close_df,
     make_synthetic_close_df,
     make_synthetic_ohlcv_df,
@@ -61,17 +62,6 @@ PAIRS_LOOKBACK = 20
 # insofar as the test must be reproducible across runs.
 FIT_TORCH_SEED = 0
 FIT_NUMPY_SEED = 0
-
-FEATURE_SEED = 11
-
-
-def _seeded_feature_frame(close_df: pd.DataFrame, feats: list[str]) -> pd.DataFrame:
-    """Attach synthetic ``feats`` columns to a close-df using a fixed seed."""
-    rng = np.random.default_rng(FEATURE_SEED)
-    df = close_df.copy()
-    for col in feats:
-        df[col] = rng.normal(0, 1, len(df))
-    return df
 
 
 @pytest.fixture
@@ -210,7 +200,7 @@ class TestReturnForecastSaveLoad:
         feature_columns: list[str],
         tmp_path: Path,
     ) -> None:
-        df = _seeded_feature_frame(close_df, feature_columns)
+        df = attach_synthetic_features(close_df, feature_columns)
 
         torch.manual_seed(FIT_TORCH_SEED)
         np.random.seed(FIT_NUMPY_SEED)
@@ -256,7 +246,7 @@ class TestVolatilityTargetingSaveLoad:
         feature_columns: list[str],
         tmp_path: Path,
     ) -> None:
-        df = _seeded_feature_frame(ohlcv_df, feature_columns)
+        df = attach_synthetic_features(ohlcv_df, feature_columns)
 
         torch.manual_seed(FIT_TORCH_SEED)
         np.random.seed(FIT_NUMPY_SEED)

@@ -16,6 +16,7 @@ from src.core import json_io
 from src.core.persistence import (
     CONFIG_JSON,
     METADATA_JSON,
+    TRAIN_RETURNS_NPY,
     WEIGHTS_JSON,
     save_model_skeleton,
 )
@@ -61,6 +62,10 @@ class GARCHPredictor(IPredictor):
         self._train_mu = 0.0
         self._train_backcast = 0.0
         self._garch_params: quant_engine.GarchParams | None = None
+        # Cache of the unscaled training returns (values only). ``update()``
+        # concatenates this with new returns and re-fits with fixed (p,q),
+        # skipping the AIC grid search.
+        self._train_returns: np.ndarray[tuple[int], np.dtype[np.float64]] = np.array([])
         self._training_metadata: TrainingMetadata | None = None
 
     def tune(self, returns: pd.Series) -> tuple[int, int]:
@@ -136,6 +141,7 @@ class GARCHPredictor(IPredictor):
             mu=self._train_mu,
             backcast=self._train_backcast,
         )
+        self._train_returns = np.asarray(target.values, dtype=np.float64)
         self._fitted = True
 
         self._training_metadata = TrainingMetadata.from_fit(
@@ -176,6 +182,60 @@ class GARCHPredictor(IPredictor):
         """Predict a single annualized volatility value from recent data."""
         vol_series = self.predict(recent_window)
         return float(vol_series.iloc[-1])
+
+    def update(
+        self,
+        new_data: pd.DataFrame,
+        target: pd.Series,
+        **kwargs: object,
+    ) -> None:
+        """Warm-start refit on the training window extended by ``new_data``.
+
+        Skips the AIC grid search — re-fits only ``(best_p, best_q)`` on the
+        combined training + new-bar returns, typically ~10-25× faster than a
+        full ``fit()`` when ``p_max == q_max == 5``. See :meth:`IPredictor.update`
+        for the shared transactional-validation + metadata contract.
+        """
+        if not self._fitted or self._training_metadata is None:
+            raise RuntimeError("GARCHPredictor.update() called before fit()")
+
+        new_metadata = self._training_metadata.extend_from(new_data)
+
+        new_returns = np.asarray(target.values, dtype=np.float64)
+        combined = np.concatenate([self._train_returns, new_returns])
+        scaled = combined * _SCALE_FACTOR
+
+        model = arch_model(
+            scaled,
+            vol="GARCH",
+            p=self._best_p,
+            q=self._best_q,
+            dist="skewt",
+            mean="Zero",
+        )
+        result = model.fit(disp="off", show_warning=False)
+
+        # Commit: pure assignments below cannot raise.
+        self._omega = float(result.params["omega"])
+        self._alpha = np.array(
+            [float(result.params[f"alpha[{i + 1}]"]) for i in range(self._best_p)]
+        )
+        self._beta = np.array([float(result.params[f"beta[{i + 1}]"]) for i in range(self._best_q)])
+        self._train_mu = float(scaled.mean())
+        # ``result.conditional_volatility`` is a pd.Series when the input was a
+        # Series and a plain ndarray when the input was an array. ``update()``
+        # passes a concatenated ndarray, so index via ``[0]`` instead of the
+        # Series-only ``.iloc[0]`` accessor used by ``fit()``.
+        self._train_backcast = float(np.asarray(result.conditional_volatility)[0] ** 2)
+        self._garch_params = quant_engine.GarchParams(
+            omega=self._omega,
+            alpha=self._alpha.tolist(),
+            beta=self._beta.tolist(),
+            mu=self._train_mu,
+            backcast=self._train_backcast,
+        )
+        self._train_returns = combined
+        self._training_metadata = new_metadata
 
     def generate_vol_series(self, returns: pd.Series) -> pd.Series:
         """Convenience: run the GARCH filter on a returns series.
@@ -232,6 +292,10 @@ class GARCHPredictor(IPredictor):
                     "backcast": self._train_backcast,
                 },
             )
+            # Training returns are cached for warm-start ``update()``. Stored as
+            # float64 ``.npy`` rather than JSON to keep long training windows
+            # lean on disk (2000 bars ≈ 16KB here vs. ~40KB as JSON digits).
+            np.save(root / TRAIN_RETURNS_NPY, self._train_returns, allow_pickle=False)
 
         save_model_skeleton(
             path,
@@ -276,6 +340,9 @@ class GARCHPredictor(IPredictor):
             beta=list(beta),
             mu=instance._train_mu,
             backcast=instance._train_backcast,
+        )
+        instance._train_returns = np.load(root / TRAIN_RETURNS_NPY, allow_pickle=False).astype(
+            np.float64, copy=False
         )
         instance._training_metadata = TrainingMetadata.from_dict(metadata)
         instance._fitted = True

@@ -154,7 +154,8 @@ class TestARMASaveLoad:
         loaded = ARMAPredictor.load(path)
 
         assert loaded._fitted
-        assert loaded._best_order == original._best_order
+        assert loaded._model is not None and original._model is not None
+        assert loaded._model.order == original._model.order
         assert loaded.training_metadata == original.training_metadata
         # ARMA predictions are fitted-values + forecasts; round-trip via
         # statsmodels ``filter`` reproduces both branches exactly.

@@ -62,6 +62,10 @@ HOURLY_START = "2020-01-02 09:30"
 HOURLY_RETURN_STD = 0.005
 HOURLY_BASE_PRICE = 100.0
 
+# Seed for synthetic feature-column noise attached via ``attach_synthetic_features``.
+# Fixed so every integration test sees the same feature signal.
+FEATURE_NOISE_SEED = 11
+
 
 @pytest.fixture
 def deterministic_seed() -> None:
@@ -265,6 +269,22 @@ def make_declining_ohlcv_df(
         {"open": open_, "high": high, "low": low, "close": close, "volume": [1e6] * n_rows},
         index=idx,
     )
+
+
+def attach_synthetic_features(
+    base: pd.DataFrame,
+    features: list[str],
+    seed: int = FEATURE_NOISE_SEED,
+) -> pd.DataFrame:
+    """Return a copy of ``base`` with each ``features`` column filled with
+    seeded ``N(0, 1)`` noise. Used by composite + strategy tests that need a
+    close (or OHLCV) frame plus a deterministic feature matrix.
+    """
+    rng = np.random.default_rng(seed)
+    df = base.copy()
+    for col in features:
+        df[col] = rng.normal(0, 1, len(df))
+    return df
 
 
 def make_pair_close_df(

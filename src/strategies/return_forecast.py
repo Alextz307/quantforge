@@ -151,6 +151,21 @@ class ReturnForecastStrategy(IStrategy):
         position.name = "return_forecast_signal"
         return position
 
+    def update(self, new_data: pd.DataFrame, **kwargs: object) -> None:
+        """Delegate to HybridReturnModel's warm-start update.
+
+        See :meth:`IStrategy.update` for the shared contract.
+        """
+        if not self._fitted or self._training_metadata is None:
+            raise RuntimeError("ReturnForecastStrategy.update() called before train()")
+
+        new_metadata = self._training_metadata.extend_from(new_data)
+
+        new_returns = compute_log_returns(new_data["close"]).dropna()
+        aligned = new_data.loc[new_returns.index]
+        self._hybrid_return.update(aligned, new_returns, **kwargs)
+        self._training_metadata = new_metadata
+
     def save(self, path: str | Path) -> None:
         """Persist ReturnForecast config + nested HybridReturn to ``path``.
 

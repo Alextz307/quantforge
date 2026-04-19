@@ -49,7 +49,20 @@ class IStrategy(ABC):
         return getattr(self, "_training_metadata", None)
 
     def update(self, new_data: pd.DataFrame, **kwargs: object) -> None:
-        """Incrementally update strategy models with new data. Default: full retrain."""
+        """Incrementally update the trained strategy with a new window.
+
+        Default: full retrain. Subclasses override by delegating to the
+        internal model's ``update()`` (or, for ``PairsTradingStrategy``,
+        re-testing cointegration on the extended window). Every override is
+        transactional — ``_training_metadata`` is produced via
+        ``extend_from(new_data)`` *before* any leaf mutation so a
+        ``LeakageError`` on overlapping ``new_data`` leaves the strategy
+        untouched.
+
+        Post-update invariants: ``fit_timestamp`` stays frozen (provenance —
+        only ``train()`` sets it); ``train_end`` and ``n_train_samples``
+        advance.
+        """
         self.train(new_data, **kwargs)
 
     def save(self, path: str | Path) -> None:

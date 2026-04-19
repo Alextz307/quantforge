@@ -193,6 +193,24 @@ class VolatilityTargetingStrategy(IStrategy):
         gated.name = "vol_target_signal"
         return gated
 
+    def update(self, new_data: pd.DataFrame, **kwargs: object) -> None:
+        """Delegate to HybridVolatilityModel's warm-start update.
+
+        Realized-vol target is computed internally from ``new_data`` OHLC via
+        the Garman-Klass estimator (same recipe as ``train()``). See
+        :meth:`IStrategy.update` for the shared contract.
+        """
+        if not self._fitted or self._training_metadata is None:
+            raise RuntimeError("VolatilityTargetingStrategy.update() called before train()")
+
+        new_metadata = self._training_metadata.extend_from(new_data)
+
+        realized_vol = self._compute_realized_vol(new_data)
+        target = realized_vol.dropna()
+        aligned = new_data.loc[target.index]
+        self._hybrid_vol.update(aligned, target, **kwargs)
+        self._training_metadata = new_metadata
+
     def save(self, path: str | Path) -> None:
         """Persist VolatilityTargeting config + nested HybridVolatility.
 

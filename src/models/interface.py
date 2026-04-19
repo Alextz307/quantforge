@@ -69,7 +69,23 @@ class IPredictor(ABC):
         return getattr(self, "_training_metadata", None)
 
     def update(self, new_data: pd.DataFrame, target: pd.Series, **kwargs: object) -> None:
-        """Incrementally update model with new data. Default: full refit."""
+        """Incrementally update the fitted model with a new window.
+
+        Default: full refit. Subclasses override with warm-start behavior
+        (GARCH: skip AIC grid search; ARMA: fixed-order refit; LSTM: fine-tune;
+        XGBoost: continue-boost). Every override is transactional —
+        ``_training_metadata`` is produced via ``extend_from(new_data)`` *before*
+        any mutation so a ``LeakageError`` on overlapping ``new_data`` leaves
+        the model untouched.
+
+        The ``new_data`` contract differs per leaf: GARCH/ARMA concatenate it
+        with cached training targets and refit on the combined series, while
+        LSTM/XGBoost consume only the new bars (fine-tune / continue-boost)
+        without re-visiting earlier samples. See each override's docstring.
+
+        Post-update invariants: ``fit_timestamp`` stays frozen (provenance —
+        only ``fit()`` sets it); ``train_end`` and ``n_train_samples`` advance.
+        """
         self.fit(new_data, target, **kwargs)
 
 
@@ -121,5 +137,11 @@ class IClassifier(ABC):
         return getattr(self, "_training_metadata", None)
 
     def update(self, new_data: pd.DataFrame, target: pd.Series, **kwargs: object) -> None:
-        """Incrementally update classifier with new data. Default: full refit."""
+        """Incrementally update the fitted classifier with a new window.
+
+        Default: full refit. See :meth:`IPredictor.update` for the shared
+        contract around transactional ``extend_from(new_data)`` validation
+        and the ``fit_timestamp`` / ``train_end`` / ``n_train_samples``
+        post-update invariants.
+        """
         self.fit(new_data, target, **kwargs)

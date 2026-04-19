@@ -6,6 +6,7 @@ import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Self
 
+import numpy as np
 import pandas as pd
 
 import quant_engine
@@ -13,6 +14,7 @@ from src.core import json_io
 from src.core.persistence import (
     CONFIG_JSON,
     METADATA_JSON,
+    TRAIN_PAIR_NPZ,
     WEIGHTS_JSON,
     save_model_skeleton,
 )
@@ -69,6 +71,12 @@ class PairsTradingStrategy(IStrategy):
         self._spread_mean = 0.0
         self._spread_std = 0.0
         self._is_cointegrated = False
+        # Cached training price series (values only — cointegration refit
+        # doesn't need the index). ``update()`` concatenates with new bars and
+        # re-runs the Engle-Granger test on the extended window, so the
+        # ``is_cointegrated`` flag may flip.
+        self._train_close_a: np.ndarray[tuple[int], np.dtype[np.float64]] = np.array([])
+        self._train_close_b: np.ndarray[tuple[int], np.dtype[np.float64]] = np.array([])
         self._fitted = False
         self._training_metadata: TrainingMetadata | None = None
 
@@ -94,6 +102,8 @@ class PairsTradingStrategy(IStrategy):
         self._spread_mean = result.spread_mean
         self._spread_std = result.spread_std
         self._is_cointegrated = True
+        self._train_close_a = np.asarray(train_data["close_a"].values, dtype=np.float64)
+        self._train_close_b = np.asarray(train_data["close_b"].values, dtype=np.float64)
 
         self._training_metadata = TrainingMetadata.from_fit(
             train_data, self._interval, ("close_a", "close_b")
@@ -122,6 +132,69 @@ class PairsTradingStrategy(IStrategy):
         )
         return pd.Series(signal, index=data.index, name="pairs_signal")
 
+    def update(self, new_data: pd.DataFrame, **kwargs: object) -> None:
+        """Re-test cointegration on the extended window.
+
+        Concatenates the cached training prices with ``new_data``'s
+        ``close_a`` / ``close_b`` and reruns Engle-Granger. The
+        ``is_cointegrated`` flag may flip to False on a regime change — the
+        strategy will still generate signals (the state machine doesn't
+        short-circuit on ``_is_cointegrated``); a logger warning fires on
+        flip so the caller can pull the pair from the live book. See
+        :meth:`IStrategy.update` for the shared contract.
+        """
+        if not self._fitted or self._training_metadata is None:
+            raise RuntimeError("PairsTradingStrategy.update() called before train()")
+        if "close_a" not in new_data.columns or "close_b" not in new_data.columns:
+            raise ValueError(
+                "PairsTradingStrategy.update() requires 'close_a' and 'close_b' columns"
+            )
+        if len(new_data) < self._zscore_lookback:
+            # Not a correctness issue for update() itself (cointegration runs on
+            # the extended window), but a downstream ``generate_signals(new_data)``
+            # call would produce all-NaN signals because the rolling z-score
+            # needs at least ``zscore_lookback`` bars. Warn so the caller
+            # notices rather than staring at a silent NaN stream.
+            logger.warning(
+                "PairsTradingStrategy.update(): new_data has %d bars, fewer than "
+                "zscore_lookback=%d. generate_signals() on this window alone will "
+                "emit NaN — prepend prior bars or pass a longer window to the "
+                "next generate_signals() call.",
+                len(new_data),
+                self._zscore_lookback,
+            )
+
+        new_metadata = self._training_metadata.extend_from(new_data)
+
+        new_a = np.asarray(new_data["close_a"].values, dtype=np.float64)
+        new_b = np.asarray(new_data["close_b"].values, dtype=np.float64)
+        combined_a = np.concatenate([self._train_close_a, new_a])
+        combined_b = np.concatenate([self._train_close_b, new_b])
+
+        # The Engle-Granger tester calls ``.values`` on inputs, so passing
+        # plain Series without a meaningful index is enough — no need to
+        # round-trip the timestamp index of the training bars.
+        result = CointegrationTester.engle_granger(
+            pd.Series(combined_a),
+            pd.Series(combined_b),
+            self._p_value_threshold,
+        )
+        if self._is_cointegrated and not result.is_cointegrated:
+            logger.warning(
+                "PairsTradingStrategy.update(): pair de-cointegrated after extension "
+                "(p-value %.4f >= threshold %.4f). Strategy will keep generating "
+                "signals — callers should inspect `is_cointegrated` before trading.",
+                result.p_value,
+                self._p_value_threshold,
+            )
+        self._hedge_ratio = result.hedge_ratio
+        self._spread_mean = result.spread_mean
+        self._spread_std = result.spread_std
+        self._is_cointegrated = result.is_cointegrated
+        self._train_close_a = combined_a
+        self._train_close_b = combined_b
+        self._training_metadata = new_metadata
+
     def save(self, path: str | Path) -> None:
         """Persist PairsTrading config + cointegration stats to ``path``."""
         if not self._fitted:
@@ -138,6 +211,13 @@ class PairsTradingStrategy(IStrategy):
                     "spread_std": self._spread_std,
                     "is_cointegrated": self._is_cointegrated,
                 },
+            )
+            # Training prices go into a single ``.npz`` for compact float64
+            # storage (tighter + faster to load than JSON lists).
+            np.savez(
+                root / TRAIN_PAIR_NPZ,
+                close_a=self._train_close_a,
+                close_b=self._train_close_b,
             )
 
         save_model_skeleton(
@@ -183,6 +263,9 @@ class PairsTradingStrategy(IStrategy):
         instance._spread_mean = json_io.get_float(weights, "spread_mean")
         instance._spread_std = json_io.get_float(weights, "spread_std")
         instance._is_cointegrated = json_io.get_bool(weights, "is_cointegrated")
+        with np.load(root / TRAIN_PAIR_NPZ, allow_pickle=False) as train_pair:
+            instance._train_close_a = np.asarray(train_pair["close_a"], dtype=np.float64)
+            instance._train_close_b = np.asarray(train_pair["close_b"], dtype=np.float64)
         instance._training_metadata = TrainingMetadata.from_dict(metadata)
         instance._fitted = True
         return instance

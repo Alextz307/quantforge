@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import TYPE_CHECKING, Protocol, Self, cast
+from typing import TYPE_CHECKING, Self
 
 import numpy as np
 import pandas as pd
@@ -32,32 +32,20 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class _ARMAModel(Protocol):
-    """Subset of the pmdarima ``ARIMA`` surface that ``ARMAPredictor`` uses.
-
-    ``_StatsmodelsARMAAdapter`` satisfies this protocol post-load so the rest of
-    the predictor doesn't care whether the underlying model is pmdarima (fresh
-    fit) or statsmodels-backed (reconstructed from JSON).
-    """
-
-    order: tuple[int, int, int]
-
-    def predict_in_sample(self) -> np.ndarray[tuple[int], np.dtype[np.float64]]: ...
-    def predict(self, n_periods: int) -> np.ndarray[tuple[int], np.dtype[np.float64]]: ...
-
-
 class _StatsmodelsARMAAdapter:
-    """Minimal pmdarima-ARIMA-compatible adapter backed by statsmodels.
+    """Pmdarima-ARIMA-compatible adapter backed by statsmodels.
 
-    Constructed by ``ARMAPredictor.load()``. ``predict_in_sample`` returns the
-    statsmodels fitted values as a plain numpy array; ``predict(n_periods)``
-    returns the numpy array of out-of-sample forecasts. Matches the shapes
-    ``ARMAPredictor.predict`` already expects from pmdarima.
+    Produced by every ``ARMAPredictor`` write path (``fit``, ``update``,
+    ``load``) so the rest of the predictor can treat ``self._model`` as a
+    single surface. ``predict_in_sample()`` returns the statsmodels fitted
+    values as a plain numpy array; ``predict(n_periods)`` returns the numpy
+    array of out-of-sample forecasts — both match the shapes
+    ``ARMAPredictor.predict`` expected from the original pmdarima path.
 
-    ``_results`` holds the filtered SARIMAX state; ``order`` is public to match
-    the pmdarima ``ARIMA.order`` surface. Every other input is function-local
-    — the statsmodels results object already retains the endog and params it
-    needs, so stashing them on ``self`` would just duplicate memory.
+    Public attributes (``order``, ``trend``, ``endog``, ``params``) are the
+    single source of truth for ``save()`` and ``update()``. ``_results`` is
+    the filtered SARIMAX state used for in-sample fitted values and
+    out-of-sample forecasts.
     """
 
     def __init__(
@@ -68,6 +56,9 @@ class _StatsmodelsARMAAdapter:
         trend: str,
     ) -> None:
         self.order = order
+        self.trend = trend
+        self.endog = endog
+        self.params = params
         # ``statsmodels.tsa.arima.model.ARIMA`` auto-adds a constant when ``d=0``
         # and ``trend=None``. Callers persist ``'n'`` for "no trend" and ``'c'``
         # for "with intercept" so the filter params and the model shape match.
@@ -106,8 +97,11 @@ class ARMAPredictor(IPredictor):
         self._interval = interval
 
         self._fitted = False
-        self._model: _ARMAModel | None = None
-        self._best_order: tuple[int, int, int] = (0, 0, 0)
+        # ``self._model`` is always a ``_StatsmodelsARMAAdapter`` once fit. Its
+        # public attributes (``order``, ``trend``, ``endog``, ``params``) are
+        # the single source of truth for ``update()`` and ``save()``; pmdarima
+        # is only used transiently inside ``fit()`` to pick the order.
+        self._model: _StatsmodelsARMAAdapter | None = None
         self._training_metadata: TrainingMetadata | None = None
 
     def _run_auto_arima(self, values: np.ndarray[tuple[int], np.dtype[np.float64]]) -> ARIMA:
@@ -153,10 +147,22 @@ class ARMAPredictor(IPredictor):
             target: Log returns series to fit on.
             **kwargs: Unused (reserved for Optuna Trial passthrough).
         """
-        self._model = self._run_auto_arima(np.asarray(target.values, dtype=np.float64))
-        self._best_order = self._model.order
+        endog = np.asarray(target.values, dtype=np.float64)
+        pm_model = self._run_auto_arima(endog)
+        order = pm_model.order
+        arima_res = pm_model.arima_res_
+        # pmdarima represents "no trend" as ``None``; statsmodels' ``ARIMA``
+        # treats ``None`` as "auto" (adds a constant when d=0), so we normalize
+        # to the explicit ``'n'`` here and carry that through save/load.
+        trend_raw = arima_res.model.trend
+        trend = trend_raw if isinstance(trend_raw, str) else "n"
+        params = np.asarray(arima_res.params, dtype=np.float64)
 
-        logger.info("ARMA fit: best order %s", self._best_order)
+        # Wrap into the adapter so every post-fit code path (predict, update,
+        # save) sees the same ``_StatsmodelsARMAAdapter`` surface.
+        self._model = _StatsmodelsARMAAdapter(endog, order, params, trend)
+
+        logger.info("ARMA fit: best order %s", order)
 
         self._fitted = True
         self._training_metadata = TrainingMetadata.from_fit(
@@ -212,6 +218,37 @@ class ARMAPredictor(IPredictor):
         forecast = self._model.predict(n_periods=1)
         return float(forecast[0])
 
+    def update(
+        self,
+        new_data: pd.DataFrame,
+        target: pd.Series,
+        **kwargs: object,
+    ) -> None:
+        """Fixed-order refit on the training window extended by ``new_data``.
+
+        Skips ``pmdarima.auto_arima`` — re-runs statsmodels MLE on the combined
+        endog with the cached ``(p, d, q)`` and trend spec. The order stays
+        frozen; coefficients move. The refitted model is stored as a
+        ``_StatsmodelsARMAAdapter`` (same shape as post-``load()``) so
+        ``predict()`` stays indifferent to fit-vs-update origin. See
+        :meth:`IPredictor.update` for the shared contract.
+        """
+        if not self._fitted or self._model is None or self._training_metadata is None:
+            raise RuntimeError("ARMAPredictor.update() called before fit()")
+
+        new_metadata = self._training_metadata.extend_from(new_data)
+
+        new_endog = np.asarray(target.values, dtype=np.float64)
+        combined = np.concatenate([self._model.endog, new_endog])
+        sm_result = SMARIMA(combined, order=self._model.order, trend=self._model.trend).fit()
+        refitted_params = np.asarray(sm_result.params, dtype=np.float64)
+
+        # Commit: pure assignments below cannot raise.
+        self._model = _StatsmodelsARMAAdapter(
+            combined, self._model.order, refitted_params, self._model.trend
+        )
+        self._training_metadata = new_metadata
+
     def save(self, path: str | Path) -> None:
         """Persist fitted ARMA params + training endog to ``path``.
 
@@ -226,27 +263,18 @@ class ARMAPredictor(IPredictor):
         if self._training_metadata is None:
             raise RuntimeError("ARMAPredictor.save() missing training metadata")
 
-        # pmdarima's ARIMA stores the statsmodels result in ``arima_res_``. That
-        # holds the fitted params + the training endog + the trend spec.
-        pm_model = cast("ARIMA", self._model)
-        arima_res = pm_model.arima_res_
-        trend_raw = arima_res.model.trend
-        # pmdarima represents "no trend" as ``None``; statsmodels' ``ARIMA``
-        # treats ``None`` as "auto" (adds a constant when d=0), so on load we
-        # persist ``'n'`` to mean "no trend" explicitly.
-        trend = trend_raw if isinstance(trend_raw, str) else "n"
+        adapter = self._model
 
         def write_weights(root: Path) -> None:
             json_io.write(
                 root / WEIGHTS_JSON,
                 {
-                    "order": list(self._best_order),
-                    "params": np.asarray(arima_res.params, dtype=np.float64).tolist(),
-                    "trend": trend,
+                    "order": list(adapter.order),
+                    "params": adapter.params.tolist(),
+                    "trend": adapter.trend,
                 },
             )
-            endog = np.asarray(arima_res.model.endog, dtype=np.float64)
-            np.save(root / ENDOG_NPY, endog, allow_pickle=False)
+            np.save(root / ENDOG_NPY, adapter.endog, allow_pickle=False)
 
         save_model_skeleton(
             path,
@@ -265,10 +293,8 @@ class ARMAPredictor(IPredictor):
     def load(cls, path: str | Path) -> Self:
         """Reconstruct a fitted ARMAPredictor from ``path``.
 
-        The loaded ``_model`` is a statsmodels-backed adapter rather than a
-        pmdarima ARIMA — pmdarima has no pickle-free round-trip. The adapter
-        exposes the same ``.order`` / ``.predict_in_sample`` / ``.predict``
-        surface, so ``ARMAPredictor.predict()`` doesn't care.
+        The loaded ``_model`` is a ``_StatsmodelsARMAAdapter`` — same shape
+        as the post-fit and post-update paths.
         """
         root = Path(path)
         config = json_io.read_dict(root / CONFIG_JSON)
@@ -293,7 +319,6 @@ class ARMAPredictor(IPredictor):
         trend = json_io.get_str(weights, "trend")
         endog = np.load(root / ENDOG_NPY, allow_pickle=False).astype(np.float64, copy=False)
 
-        instance._best_order = order
         instance._model = _StatsmodelsARMAAdapter(endog, order, params, trend)
         instance._training_metadata = TrainingMetadata.from_dict(metadata)
         instance._fitted = True

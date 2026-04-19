@@ -64,7 +64,8 @@ class TestARMAPredictor:
         assert fitted_arma._fitted
 
     def test_fitted_order_valid(self, fitted_arma: ARMAPredictor) -> None:
-        p, d, q = fitted_arma._best_order
+        assert fitted_arma._model is not None
+        p, d, q = fitted_arma._model.order
         assert p >= 0
         assert d == 0  # returns are stationary
         assert q >= 0

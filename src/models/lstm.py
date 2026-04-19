@@ -89,12 +89,18 @@ class LSTMPredictor(IPredictor):
         patience: int = 10,
         batch_size: int = 32,
         val_split_ratio: float = 0.2,
+        update_epochs: int = 3,
+        update_lr_scale: float = 0.1,
         device: Device | None = None,
         interval: Interval = Interval.DAILY,
     ) -> None:
         if not feature_columns:
             raise ValueError("LSTMPredictor requires a non-empty feature_columns list")
         validate_open_unit_interval(val_split_ratio, "val_split_ratio")
+        if update_epochs < 1:
+            raise ValueError(f"update_epochs must be >= 1, got {update_epochs}")
+        if update_lr_scale <= 0:
+            raise ValueError(f"update_lr_scale must be > 0, got {update_lr_scale}")
 
         self._hidden_dim = hidden_dim
         self._num_layers = num_layers
@@ -106,6 +112,8 @@ class LSTMPredictor(IPredictor):
         self._patience = patience
         self._batch_size = batch_size
         self._val_split_ratio = val_split_ratio
+        self._update_epochs = update_epochs
+        self._update_lr_scale = update_lr_scale
         self._device = select_device(device)
         self._interval = interval
 
@@ -258,6 +266,62 @@ class LSTMPredictor(IPredictor):
 
         return pd.Series(predictions, index=data.index, name="lstm_pred")
 
+    def update(
+        self,
+        new_data: pd.DataFrame,
+        target: pd.Series,
+        **kwargs: object,
+    ) -> None:
+        """Fine-tune on ``new_data`` only — no concat, no scaler refit.
+
+        Short optimization loop (``update_epochs``, default 3) at a reduced
+        learning rate (``lr * update_lr_scale``, default 1e-4 vs 1e-3). No
+        validation split, no early stopping — ``new_data`` is assumed to be
+        the incremental walk-forward bar count (~tens of rows) where a full
+        80/20 split would leave the val fold below the lookback threshold.
+        Parameter snapshots are taken before the loop so a mid-fine-tune
+        exception rolls back to the pre-update weights (leaf-level atomicity).
+        See :meth:`IPredictor.update` for the shared contract.
+        """
+        if not self._fitted or self._model is None or self._training_metadata is None:
+            raise RuntimeError("LSTMPredictor.update() called before fit()")
+        if len(new_data) <= self._lookback:
+            raise ValueError(
+                f"LSTMPredictor.update() needs > lookback ({self._lookback}) "
+                f"rows of new_data, got {len(new_data)}"
+            )
+        new_metadata = self._training_metadata.extend_from(new_data)
+
+        df = new_data.copy()
+        target_col = "_target"
+        df[target_col] = target.values
+        train_ds = TemporalDataset(df, target_col, self._lookback, self._feature_columns)
+        train_loader = DataLoader(train_ds, batch_size=self._batch_size, shuffle=False)
+
+        criterion = _LOSS_FUNCTIONS[self._loss_fn]()
+        optimizer = torch.optim.Adam(self._model.parameters(), lr=self._lr * self._update_lr_scale)
+
+        # ``optimizer.step()`` mutates parameters in-place; snapshotting first
+        # lets the except-branch roll back a half-updated model if the loop
+        # raises (OOM, NaN gradients). Composite callers rely on leaf atomicity.
+        original_state = {k: v.detach().clone() for k, v in self._model.state_dict().items()}
+        try:
+            self._model.train()
+            for _ in range(self._update_epochs):
+                for features, targets in train_loader:
+                    features = features.to(self._device)
+                    targets = targets.to(self._device)
+                    optimizer.zero_grad()
+                    preds = self._model(features).squeeze(-1)
+                    loss = criterion(preds, targets)
+                    loss.backward()
+                    optimizer.step()
+        except BaseException:
+            self._model.load_state_dict(original_state)
+            raise
+
+        self._training_metadata = new_metadata
+
     def predict_single(self, recent_window: pd.DataFrame) -> float:
         """Predict single value from a recent data window."""
         if not self._fitted or self._model is None:
@@ -308,6 +372,8 @@ class LSTMPredictor(IPredictor):
                 "patience": self._patience,
                 "batch_size": self._batch_size,
                 "val_split_ratio": self._val_split_ratio,
+                "update_epochs": self._update_epochs,
+                "update_lr_scale": self._update_lr_scale,
                 "interval": self._interval.value,
             },
             training_metadata=self._training_metadata,
@@ -337,6 +403,8 @@ class LSTMPredictor(IPredictor):
             patience=json_io.get_int(config, "patience"),
             batch_size=json_io.get_int(config, "batch_size"),
             val_split_ratio=json_io.get_float(config, "val_split_ratio"),
+            update_epochs=json_io.get_int(config, "update_epochs"),
+            update_lr_scale=json_io.get_float(config, "update_lr_scale"),
             interval=Interval(json_io.get_str(config, "interval")),
         )
         model = MarketLSTM(

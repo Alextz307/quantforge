@@ -54,6 +54,12 @@ META_BOUNDARY_DF_ROWS = 10
 META_BOUNDARY_START = META_TRAIN_END  # exact boundary should still be rejected
 META_PLAIN_ROWS = 10
 
+# extend() new-window samples
+META_EXTEND_NEW_START = "2023-07-02"  # strictly after META_TRAIN_END
+META_EXTEND_NEW_END = "2023-12-29"
+META_EXTEND_ADDITIONAL_SAMPLES = 120
+META_EXTEND_OVERLAP_NEW_START = "2023-06-01"  # inside training window
+
 
 class TestTemporalTripleSplit:
     def test_valid_split(self) -> None:
@@ -230,6 +236,50 @@ class TestTrainingMetadata:
         assert isinstance(d["train_end"], str)
         assert isinstance(d["interval"], str)
         assert isinstance(d["feature_columns"], list)
+
+    def test_extend_advances_end_and_sample_count(self, sample_metadata: TrainingMetadata) -> None:
+        extended = sample_metadata.extend(
+            new_start=pd.Timestamp(META_EXTEND_NEW_START),
+            new_end=pd.Timestamp(META_EXTEND_NEW_END),
+            additional_samples=META_EXTEND_ADDITIONAL_SAMPLES,
+        )
+        assert extended.train_start == sample_metadata.train_start
+        assert extended.train_end == pd.Timestamp(META_EXTEND_NEW_END)
+        assert (
+            extended.n_train_samples
+            == sample_metadata.n_train_samples + META_EXTEND_ADDITIONAL_SAMPLES
+        )
+        # fit_timestamp preserved — this is provenance, not "last touched".
+        assert extended.fit_timestamp == sample_metadata.fit_timestamp
+
+    def test_extend_rejects_overlapping_new_window(self, sample_metadata: TrainingMetadata) -> None:
+        """``new_start`` inside the training window is a leakage vector — the
+        caller would double-count rows already seen during fit()."""
+        with pytest.raises(LeakageError, match="new_start > train_end"):
+            sample_metadata.extend(
+                new_start=pd.Timestamp(META_EXTEND_OVERLAP_NEW_START),
+                new_end=pd.Timestamp(META_EXTEND_NEW_END),
+                additional_samples=META_EXTEND_ADDITIONAL_SAMPLES,
+            )
+
+    def test_extend_rejects_zero_samples(self, sample_metadata: TrainingMetadata) -> None:
+        with pytest.raises(ValueError, match="additional_samples >= 1"):
+            sample_metadata.extend(
+                new_start=pd.Timestamp(META_EXTEND_NEW_START),
+                new_end=pd.Timestamp(META_EXTEND_NEW_END),
+                additional_samples=0,
+            )
+
+    def test_extend_rejects_new_end_at_boundary(self, sample_metadata: TrainingMetadata) -> None:
+        """``new_end == train_end`` is zero forward progress — a subsequent
+        ``validate_no_overlap`` would check against a stale window. Rejected
+        as ``LeakageError`` for the same reason overlapping ``new_start`` is."""
+        with pytest.raises(LeakageError, match="new_end > train_end"):
+            sample_metadata.extend(
+                new_start=pd.Timestamp(META_EXTEND_NEW_START),
+                new_end=sample_metadata.train_end,
+                additional_samples=META_EXTEND_ADDITIONAL_SAMPLES,
+            )
 
     def test_training_metadata_none_before_fit(self) -> None:
         """IPredictor.training_metadata returns None before fit()."""
