@@ -151,8 +151,8 @@ def _pandas_macd(
         macd_series.iloc[valid_start:].ewm(span=signal, adjust=False).mean()
     )
 
-    macd = macd_series.to_numpy()
-    sig = sig_series.to_numpy()
+    macd = np.asarray(macd_series, dtype=np.float64)
+    sig = np.asarray(sig_series, dtype=np.float64)
     return macd, sig, macd - sig
 
 

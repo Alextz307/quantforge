@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 
+import numpy as np
 import pandas as pd
 from sklearn.preprocessing import StandardScaler
 
@@ -17,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 def _compute_rsi(close: pd.Series[float], period: int = 14) -> pd.Series[float]:
     """Compute RSI via the C++ binding (Wilder's smoothing)."""
-    values = quant_engine.RSI(period).compute(close.to_numpy(dtype=float, copy=False))
+    values = quant_engine.RSI(period).compute(np.asarray(close, dtype=np.float64))
     return pd.Series(values, index=close.index)
 
 
@@ -28,9 +29,7 @@ def _compute_macd(
     signal: int = 9,
 ) -> tuple[pd.Series[float], pd.Series[float], pd.Series[float]]:
     """Compute MACD line, signal line, and histogram via the C++ binding."""
-    result = quant_engine.MACD(fast, slow, signal).compute_all(
-        close.to_numpy(dtype=float, copy=False)
-    )
+    result = quant_engine.MACD(fast, slow, signal).compute_all(np.asarray(close, dtype=np.float64))
     macd_line = pd.Series(result.macd_line, index=close.index)
     signal_line = pd.Series(result.signal_line, index=close.index)
     histogram = pd.Series(result.histogram, index=close.index)

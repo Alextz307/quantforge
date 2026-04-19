@@ -241,11 +241,11 @@ class TestLongSeriesParity:
         band_half = 1.0
         trend_series = close_series.rolling(50).mean()
 
-        close = close_series.to_numpy()
-        mid = mid_series.to_numpy()
-        upper = (mid_series + band_half).to_numpy()
-        lower = (mid_series - band_half).to_numpy()
-        trend_ma = trend_series.to_numpy()
+        close = np.asarray(close_series, dtype=np.float64)
+        mid = np.asarray(mid_series, dtype=np.float64)
+        upper = np.asarray(mid_series + band_half, dtype=np.float64)
+        lower = np.asarray(mid_series - band_half, dtype=np.float64)
+        trend_ma = np.asarray(trend_series, dtype=np.float64)
 
         got = qe.run_mean_reversion_state_machine(
             close=close, mid=mid, upper=upper, lower=lower, trend_ma=trend_ma
