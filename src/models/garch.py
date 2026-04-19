@@ -4,13 +4,26 @@ from __future__ import annotations
 
 import logging
 import math
-from typing import TYPE_CHECKING, cast
+from pathlib import Path
+from typing import TYPE_CHECKING, Self, cast
 
 import numpy as np
 import pandas as pd
 from arch import arch_model
 
 import quant_engine
+from src.core.persistence import (
+    CONFIG_JSON,
+    METADATA_JSON,
+    WEIGHTS_JSON,
+    ensure_model_dir,
+    json_get_float,
+    json_get_float_list,
+    json_get_int,
+    json_get_str,
+    read_json_dict,
+    write_json,
+)
 from src.core.registry import model_registry
 from src.core.temporal import TrainingMetadata
 from src.core.types import Interval
@@ -200,6 +213,76 @@ class GARCHPredictor(IPredictor):
         # Non-None by contract: callers guard on ``self._fitted``.
         params = cast(quant_engine.GarchParams, self._garch_params)
         return quant_engine.garch_filter(scaled_returns, params)
+
+    def save(self, path: str | Path) -> None:
+        """Persist fitted GARCH params to ``path`` as a directory.
+
+        ``best_p`` and ``best_q`` are NOT persisted — they are always equal to
+        ``len(alpha)`` and ``len(beta)`` respectively, so storing them would
+        introduce a silent consistency failure point.
+        """
+        if not self._fitted:
+            raise RuntimeError("GARCHPredictor.save() called before fit()")
+        if self._training_metadata is None:
+            raise RuntimeError("GARCHPredictor.save() missing training metadata")
+
+        root = ensure_model_dir(path)
+        write_json(
+            root / CONFIG_JSON,
+            {
+                "p_max": self._p_max,
+                "q_max": self._q_max,
+                "interval": self._interval.value,
+            },
+        )
+        write_json(
+            root / WEIGHTS_JSON,
+            {
+                "omega": self._omega,
+                "alpha": self._alpha.tolist(),
+                "beta": self._beta.tolist(),
+                "mu": self._train_mu,
+                "backcast": self._train_backcast,
+            },
+        )
+        write_json(root / METADATA_JSON, self._training_metadata.to_dict())
+
+    @classmethod
+    def load(cls, path: str | Path) -> Self:
+        """Reconstruct a fitted GARCHPredictor from ``path``."""
+        root = Path(path)
+        config = read_json_dict(root / CONFIG_JSON)
+        weights = read_json_dict(root / WEIGHTS_JSON)
+        metadata = read_json_dict(root / METADATA_JSON)
+
+        instance = cls(
+            p_max=json_get_int(config, "p_max"),
+            q_max=json_get_int(config, "q_max"),
+            interval=Interval(json_get_str(config, "interval")),
+        )
+        alpha = json_get_float_list(weights, "alpha")
+        beta = json_get_float_list(weights, "beta")
+        instance._omega = json_get_float(weights, "omega")
+        instance._alpha = np.asarray(alpha, dtype=np.float64)
+        instance._beta = np.asarray(beta, dtype=np.float64)
+        instance._train_mu = json_get_float(weights, "mu")
+        instance._train_backcast = json_get_float(weights, "backcast")
+        instance._best_p = len(alpha)
+        instance._best_q = len(beta)
+        # ``GarchParams`` takes independent copies so a future caller that
+        # mutates ``_alpha``/``_beta`` ndarrays can't silently divergence the
+        # cached pybind11 struct. The list() copy is O(p+q), typically ≤10
+        # elements.
+        instance._garch_params = quant_engine.GarchParams(
+            omega=instance._omega,
+            alpha=list(alpha),
+            beta=list(beta),
+            mu=instance._train_mu,
+            backcast=instance._train_backcast,
+        )
+        instance._training_metadata = TrainingMetadata.from_dict(metadata)
+        instance._fitted = True
+        return instance
 
     @staticmethod
     def suggest_params(trial: optuna.Trial) -> dict[str, object]:

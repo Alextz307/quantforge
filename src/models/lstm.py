@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, cast
+from pathlib import Path
+from typing import TYPE_CHECKING, Self, cast
 
 import numpy as np
 import pandas as pd
@@ -12,6 +13,18 @@ import torch.nn as nn
 from torch.utils.data import DataLoader
 
 from src.core.device import select_device
+from src.core.persistence import (
+    CONFIG_JSON,
+    METADATA_JSON,
+    WEIGHTS_PT,
+    ensure_model_dir,
+    json_get_float,
+    json_get_int,
+    json_get_str,
+    json_get_str_list,
+    read_json_dict,
+    write_json,
+)
 from src.core.registry import model_registry
 from src.core.temporal import TrainingMetadata
 from src.core.types import Device, Interval, LossFunction
@@ -267,6 +280,78 @@ class LSTMPredictor(IPredictor):
             pred = self._model(features.unsqueeze(0)).item()
 
         return float(pred)
+
+    def save(self, path: str | Path) -> None:
+        """Persist LSTM config + torch state_dict to ``path``.
+
+        Device is NOT persisted — it is re-resolved against the current runtime
+        via ``select_device()`` on load. ``torch.save`` writes CPU tensors to
+        guarantee portability across CUDA / MPS / CPU.
+        """
+        if not self._fitted or self._model is None:
+            raise RuntimeError("LSTMPredictor.save() called before fit()")
+        if self._training_metadata is None:
+            raise RuntimeError("LSTMPredictor.save() missing training metadata")
+
+        root = ensure_model_dir(path)
+        write_json(
+            root / CONFIG_JSON,
+            {
+                "feature_columns": list(self._feature_columns),
+                "hidden_dim": self._hidden_dim,
+                "num_layers": self._num_layers,
+                "dropout": self._dropout,
+                "lookback": self._lookback,
+                "lr": self._lr,
+                "epochs": self._epochs,
+                "loss_fn": self._loss_fn.value,
+                "patience": self._patience,
+                "batch_size": self._batch_size,
+                "val_split_ratio": self._val_split_ratio,
+                "interval": self._interval.value,
+            },
+        )
+        cpu_state = {k: v.detach().cpu() for k, v in self._model.state_dict().items()}
+        torch.save(cpu_state, root / WEIGHTS_PT)
+        write_json(root / METADATA_JSON, self._training_metadata.to_dict())
+
+    @classmethod
+    def load(cls, path: str | Path) -> Self:
+        """Reconstruct a fitted LSTMPredictor from ``path``.
+
+        Device is re-resolved at load time (``Device.AUTO`` preference) so a
+        model trained on CUDA loads cleanly on a CPU-only machine.
+        """
+        root = Path(path)
+        config = read_json_dict(root / CONFIG_JSON)
+        metadata = read_json_dict(root / METADATA_JSON)
+
+        instance = cls(
+            feature_columns=json_get_str_list(config, "feature_columns"),
+            hidden_dim=json_get_int(config, "hidden_dim"),
+            num_layers=json_get_int(config, "num_layers"),
+            dropout=json_get_float(config, "dropout"),
+            lookback=json_get_int(config, "lookback"),
+            lr=json_get_float(config, "lr"),
+            epochs=json_get_int(config, "epochs"),
+            loss_fn=LossFunction(json_get_str(config, "loss_fn")),
+            patience=json_get_int(config, "patience"),
+            batch_size=json_get_int(config, "batch_size"),
+            val_split_ratio=json_get_float(config, "val_split_ratio"),
+            interval=Interval(json_get_str(config, "interval")),
+        )
+        model = MarketLSTM(
+            input_size=len(instance._feature_columns),
+            hidden_dim=instance._hidden_dim,
+            num_layers=instance._num_layers,
+            dropout=instance._dropout,
+        ).to(instance._device)
+        state = torch.load(root / WEIGHTS_PT, map_location=instance._device, weights_only=True)
+        model.load_state_dict(state)
+        instance._model = model
+        instance._training_metadata = TrainingMetadata.from_dict(metadata)
+        instance._fitted = True
+        return instance
 
     @staticmethod
     def suggest_params(trial: optuna.Trial) -> dict[str, object]:

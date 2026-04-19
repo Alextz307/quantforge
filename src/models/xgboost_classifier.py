@@ -3,12 +3,25 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
+from pathlib import Path
+from typing import TYPE_CHECKING, Self
 
 import pandas as pd
 import xgboost as xgb
 
 from src.core.device import select_xgboost_device
+from src.core.persistence import (
+    CONFIG_JSON,
+    METADATA_JSON,
+    MODEL_UBJ,
+    ensure_model_dir,
+    json_get_float,
+    json_get_int,
+    json_get_str,
+    json_get_str_list,
+    read_json_dict,
+    write_json,
+)
 from src.core.registry import classifier_registry
 from src.core.temporal import TrainingMetadata
 from src.core.types import Device, Interval
@@ -152,6 +165,81 @@ class DirectionalClassifier(IClassifier):
 
         preds = self._model.predict(data[self._feature_columns])
         return pd.Series(preds, index=data.index, name="direction")
+
+    def save(self, path: str | Path) -> None:
+        """Persist classifier config + booster to ``path``.
+
+        Uses XGBoost's native UBJSON format (``model.ubj``) for the booster —
+        the most version-stable option available. Device is NOT persisted; it
+        is re-resolved on load via ``select_xgboost_device()``.
+        """
+        if not self._fitted or self._model is None:
+            raise RuntimeError("DirectionalClassifier.save() called before fit()")
+        if self._training_metadata is None:
+            raise RuntimeError("DirectionalClassifier.save() missing training metadata")
+
+        root = ensure_model_dir(path)
+        write_json(
+            root / CONFIG_JSON,
+            {
+                "feature_columns": list(self._feature_columns),
+                "n_estimators": self._n_estimators,
+                "learning_rate": self._learning_rate,
+                "max_depth": self._max_depth,
+                "early_stopping_rounds": self._early_stopping_rounds,
+                "objective": self._objective,
+                "subsample": self._subsample,
+                "colsample_bytree": self._colsample_bytree,
+                "val_split_ratio": self._val_split_ratio,
+                "interval": self._interval.value,
+            },
+        )
+        # XGBClassifier.save_model requires ``_estimator_type`` (a sklearn-side
+        # attribute that's inconsistently populated across xgboost versions).
+        # The booster-level save is stable: ``XGBClassifier.load_model`` accepts
+        # a booster-only UBJ on the reconstruct side. ``best_iteration`` is
+        # baked into the booster itself, so no separate weights.json is needed.
+        self._model.get_booster().save_model(str(root / MODEL_UBJ))
+        write_json(root / METADATA_JSON, self._training_metadata.to_dict())
+
+    @classmethod
+    def load(cls, path: str | Path) -> Self:
+        """Reconstruct a fitted DirectionalClassifier from ``path``.
+
+        Only ``device`` is threaded through to the fresh XGBClassifier — every
+        other hyperparameter is baked into the booster UBJ and re-setting them
+        on the wrapper would just be discarded the moment ``load_model`` runs.
+        """
+        root = Path(path)
+        config = read_json_dict(root / CONFIG_JSON)
+        metadata = read_json_dict(root / METADATA_JSON)
+
+        instance = cls(
+            feature_columns=json_get_str_list(config, "feature_columns"),
+            n_estimators=json_get_int(config, "n_estimators"),
+            learning_rate=json_get_float(config, "learning_rate"),
+            max_depth=json_get_int(config, "max_depth"),
+            early_stopping_rounds=json_get_int(config, "early_stopping_rounds"),
+            objective=json_get_str(config, "objective"),
+            subsample=json_get_float(config, "subsample"),
+            colsample_bytree=json_get_float(config, "colsample_bytree"),
+            val_split_ratio=json_get_float(config, "val_split_ratio"),
+            interval=Interval(json_get_str(config, "interval")),
+        )
+        model = xgb.XGBClassifier(device=instance._device)
+        model.load_model(str(root / MODEL_UBJ))
+        instance._model = model
+        # ``best_iteration`` is only populated on the booster when early
+        # stopping fired during fit. ``hasattr`` already swallows the
+        # ``AttributeError`` XGBoost raises otherwise, so no try/except needed.
+        instance._best_iteration = (
+            int(model.best_iteration)
+            if hasattr(model, "best_iteration")
+            else instance._n_estimators
+        )
+        instance._training_metadata = TrainingMetadata.from_dict(metadata)
+        instance._fitted = True
+        return instance
 
     @staticmethod
     def suggest_params(trial: optuna.Trial) -> dict[str, object]:
