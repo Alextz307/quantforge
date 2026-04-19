@@ -76,6 +76,27 @@ class FeatureEngineeringPipeline(IFeaturePipeline):
         self._scaler: StandardScaler | None = None
 
     @property
+    def scaler(self) -> StandardScaler | None:
+        """The fitted ``StandardScaler``, or ``None`` before ``fit()``.
+
+        Exposed so callers that persist the pipeline's state (e.g.
+        ``MomentumGatekeeperStrategy.save``) can round-trip the scaler
+        through the public API instead of reaching into ``_scaler``.
+        """
+        return self._scaler
+
+    @scaler.setter
+    def scaler(self, value: StandardScaler) -> None:
+        """Replace the fitted scaler with a loaded one.
+
+        Used by ``load()`` paths that reconstruct the pipeline from a
+        persisted scaler rather than re-fitting. The loaded scaler is
+        assumed fitted — sklearn will raise on the first ``transform()``
+        call otherwise.
+        """
+        self._scaler = value
+
+    @property
     def hard_nan_warmup_bars(self) -> int:
         """Count of leading NaN bars across all features.
 

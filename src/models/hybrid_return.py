@@ -2,12 +2,25 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from dataclasses import asdict, dataclass
+from pathlib import Path
+from typing import TYPE_CHECKING, Self
 
 import pandas as pd
 from sklearn.preprocessing import StandardScaler
 
+from src.core import json_io
 from src.core.exceptions import guard_scaler_fit_once
+from src.core.persistence import (
+    ARMA_SUBDIR,
+    CONFIG_JSON,
+    LSTM_SUBDIR,
+    METADATA_JSON,
+    SCALER_JSON,
+    load_standard_scaler,
+    save_model_skeleton,
+    save_standard_scaler,
+)
 from src.core.registry import model_registry
 from src.core.temporal import TrainingMetadata
 from src.core.types import Device, InformationCriterion, Interval, LossFunction
@@ -17,6 +30,32 @@ from src.models.lstm import LSTMPredictor
 
 if TYPE_CHECKING:
     import optuna
+
+
+@dataclass(frozen=True)
+class _HybridReturnConfig:
+    """Frozen snapshot of every ``HybridReturnModel.__init__`` kwarg.
+
+    One source of truth for save/load + drift-guard tests. Field names MUST
+    mirror the ctor param names.
+    """
+
+    feature_columns: tuple[str, ...]
+    arma_p_max: int
+    arma_q_max: int
+    arma_information_criterion: InformationCriterion
+    lstm_hidden_dim: int
+    lstm_num_layers: int
+    lstm_dropout: float
+    lstm_lookback: int
+    lstm_lr: float
+    lstm_epochs: int
+    lstm_loss_fn: LossFunction
+    lstm_patience: int
+    lstm_batch_size: int
+    lstm_val_split_ratio: float
+    lstm_device: Device | None
+    interval: Interval
 
 
 @model_registry.register("hybrid_return")
@@ -50,8 +89,25 @@ class HybridReturnModel(IPredictor):
         if not feature_columns:
             raise ValueError("HybridReturnModel requires a non-empty feature_columns list")
 
+        self._params = _HybridReturnConfig(
+            feature_columns=tuple(feature_columns),
+            arma_p_max=arma_p_max,
+            arma_q_max=arma_q_max,
+            arma_information_criterion=arma_information_criterion,
+            lstm_hidden_dim=lstm_hidden_dim,
+            lstm_num_layers=lstm_num_layers,
+            lstm_dropout=lstm_dropout,
+            lstm_lookback=lstm_lookback,
+            lstm_lr=lstm_lr,
+            lstm_epochs=lstm_epochs,
+            lstm_loss_fn=lstm_loss_fn,
+            lstm_patience=lstm_patience,
+            lstm_batch_size=lstm_batch_size,
+            lstm_val_split_ratio=lstm_val_split_ratio,
+            lstm_device=lstm_device,
+            interval=interval,
+        )
         self._feature_columns: list[str] = list(feature_columns)
-        self._interval = interval
 
         self._arma = ARMAPredictor(
             p_max=arma_p_max,
@@ -116,7 +172,7 @@ class HybridReturnModel(IPredictor):
 
         self._fitted = True
         self._training_metadata = TrainingMetadata.from_fit(
-            train_data, self._interval, tuple(self._feature_columns)
+            train_data, self._params.interval, tuple(self._feature_columns)
         )
 
     def predict(self, data: pd.DataFrame) -> pd.Series:
@@ -154,6 +210,85 @@ class HybridReturnModel(IPredictor):
         if not self._fitted:
             raise RuntimeError("HybridReturnModel.predict_single() called before fit()")
         return float(self.predict(recent_window).iloc[-1])
+
+    def save(self, path: str | Path) -> None:
+        """Persist HybridReturn to ``path`` as ``<path>/arma/`` +
+        ``<path>/lstm/`` + ``<path>/scaler.json`` + config + metadata.
+
+        Every ctor kwarg is persisted in the composite's own ``config.json``.
+        """
+        if not self._fitted or self._scaler is None:
+            raise RuntimeError("HybridReturnModel.save() called before fit()")
+        if self._training_metadata is None:
+            raise RuntimeError("HybridReturnModel.save() missing training metadata")
+
+        scaler = self._scaler
+
+        def write_weights(root: Path) -> None:
+            self._arma.save(root / ARMA_SUBDIR)
+            self._lstm.save(root / LSTM_SUBDIR)
+            save_standard_scaler(scaler, root / SCALER_JSON)
+
+        save_model_skeleton(
+            path,
+            config=self._ctor_kwargs_as_json(),
+            training_metadata=self._training_metadata,
+            write_weights=write_weights,
+        )
+
+    def _ctor_kwargs_as_json(self) -> dict[str, object]:
+        """Snapshot of this composite's constructor kwargs as JSON-ready values.
+
+        Built from ``self._params`` (the frozen ctor bundle). ``lstm_device``
+        is dropped (re-resolved on load via ``select_device()``). The drift
+        guard in ``tests/integration/test_strategy_save_load.py`` verifies
+        the output keys match ``__init__``'s parameter names.
+        """
+        d: dict[str, object] = asdict(self._params)
+        d.pop("lstm_device")
+        d["feature_columns"] = list(self._params.feature_columns)
+        d["arma_information_criterion"] = self._params.arma_information_criterion.value
+        d["lstm_loss_fn"] = self._params.lstm_loss_fn.value
+        d["interval"] = self._params.interval.value
+        return d
+
+    @classmethod
+    def load(cls, path: str | Path) -> Self:
+        """Reconstruct a fitted HybridReturnModel from ``path``.
+
+        Construct the composite instance from its own ``config.json`` BEFORE
+        loading sub-models — a corrupt composite config fast-fails with a
+        named-field error, without wasting I/O on the ARMA/LSTM subdirs.
+        """
+        root = Path(path)
+        config = json_io.read_dict(root / CONFIG_JSON)
+        metadata = json_io.read_dict(root / METADATA_JSON)
+
+        instance = cls(
+            feature_columns=json_io.get_str_list(config, "feature_columns"),
+            arma_p_max=json_io.get_int(config, "arma_p_max"),
+            arma_q_max=json_io.get_int(config, "arma_q_max"),
+            arma_information_criterion=InformationCriterion(
+                json_io.get_str(config, "arma_information_criterion")
+            ),
+            lstm_hidden_dim=json_io.get_int(config, "lstm_hidden_dim"),
+            lstm_num_layers=json_io.get_int(config, "lstm_num_layers"),
+            lstm_dropout=json_io.get_float(config, "lstm_dropout"),
+            lstm_lookback=json_io.get_int(config, "lstm_lookback"),
+            lstm_lr=json_io.get_float(config, "lstm_lr"),
+            lstm_epochs=json_io.get_int(config, "lstm_epochs"),
+            lstm_loss_fn=LossFunction(json_io.get_str(config, "lstm_loss_fn")),
+            lstm_patience=json_io.get_int(config, "lstm_patience"),
+            lstm_batch_size=json_io.get_int(config, "lstm_batch_size"),
+            lstm_val_split_ratio=json_io.get_float(config, "lstm_val_split_ratio"),
+            interval=Interval(json_io.get_str(config, "interval")),
+        )
+        instance._arma = ARMAPredictor.load(root / ARMA_SUBDIR)
+        instance._lstm = LSTMPredictor.load(root / LSTM_SUBDIR)
+        instance._scaler = load_standard_scaler(root / SCALER_JSON)
+        instance._training_metadata = TrainingMetadata.from_dict(metadata)
+        instance._fitted = True
+        return instance
 
     @staticmethod
     def suggest_params(trial: optuna.Trial) -> dict[str, object]:

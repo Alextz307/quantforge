@@ -11,18 +11,13 @@ import pandas as pd
 import pmdarima as pm
 from statsmodels.tsa.arima.model import ARIMA as SMARIMA
 
+from src.core import json_io
 from src.core.persistence import (
     CONFIG_JSON,
     ENDOG_NPY,
     METADATA_JSON,
     WEIGHTS_JSON,
-    ensure_model_dir,
-    json_get_float_list,
-    json_get_int,
-    json_get_int_list,
-    json_get_str,
-    read_json_dict,
-    write_json,
+    save_model_skeleton,
 )
 from src.core.registry import model_registry
 from src.core.temporal import TrainingMetadata
@@ -241,28 +236,30 @@ class ARMAPredictor(IPredictor):
         # persist ``'n'`` to mean "no trend" explicitly.
         trend = trend_raw if isinstance(trend_raw, str) else "n"
 
-        root = ensure_model_dir(path)
-        write_json(
-            root / CONFIG_JSON,
-            {
+        def write_weights(root: Path) -> None:
+            json_io.write(
+                root / WEIGHTS_JSON,
+                {
+                    "order": list(self._best_order),
+                    "params": np.asarray(arima_res.params, dtype=np.float64).tolist(),
+                    "trend": trend,
+                },
+            )
+            endog = np.asarray(arima_res.model.endog, dtype=np.float64)
+            np.save(root / ENDOG_NPY, endog, allow_pickle=False)
+
+        save_model_skeleton(
+            path,
+            config={
                 "p_max": self._p_max,
                 "q_max": self._q_max,
                 "d": self._d,
                 "information_criterion": self._information_criterion.value,
                 "interval": self._interval.value,
             },
+            training_metadata=self._training_metadata,
+            write_weights=write_weights,
         )
-        write_json(
-            root / WEIGHTS_JSON,
-            {
-                "order": list(self._best_order),
-                "params": np.asarray(arima_res.params, dtype=np.float64).tolist(),
-                "trend": trend,
-            },
-        )
-        endog = np.asarray(arima_res.model.endog, dtype=np.float64)
-        np.save(root / ENDOG_NPY, endog, allow_pickle=False)
-        write_json(root / METADATA_JSON, self._training_metadata.to_dict())
 
     @classmethod
     def load(cls, path: str | Path) -> Self:
@@ -274,26 +271,26 @@ class ARMAPredictor(IPredictor):
         surface, so ``ARMAPredictor.predict()`` doesn't care.
         """
         root = Path(path)
-        config = read_json_dict(root / CONFIG_JSON)
-        weights = read_json_dict(root / WEIGHTS_JSON)
-        metadata = read_json_dict(root / METADATA_JSON)
+        config = json_io.read_dict(root / CONFIG_JSON)
+        weights = json_io.read_dict(root / WEIGHTS_JSON)
+        metadata = json_io.read_dict(root / METADATA_JSON)
 
         instance = cls(
-            p_max=json_get_int(config, "p_max"),
-            q_max=json_get_int(config, "q_max"),
-            d=json_get_int(config, "d"),
+            p_max=json_io.get_int(config, "p_max"),
+            q_max=json_io.get_int(config, "q_max"),
+            d=json_io.get_int(config, "d"),
             information_criterion=InformationCriterion(
-                json_get_str(config, "information_criterion")
+                json_io.get_str(config, "information_criterion")
             ),
-            interval=Interval(json_get_str(config, "interval")),
+            interval=Interval(json_io.get_str(config, "interval")),
         )
-        order_ints = json_get_int_list(weights, "order")
+        order_ints = json_io.get_int_list(weights, "order")
         if len(order_ints) != 3:
             raise ValueError(f"ARMA order must be a 3-element list, got length {len(order_ints)}")
         order: tuple[int, int, int] = (order_ints[0], order_ints[1], order_ints[2])
 
-        params = np.asarray(json_get_float_list(weights, "params"), dtype=np.float64)
-        trend = json_get_str(weights, "trend")
+        params = np.asarray(json_io.get_float_list(weights, "params"), dtype=np.float64)
+        trend = json_io.get_str(weights, "trend")
         endog = np.load(root / ENDOG_NPY, allow_pickle=False).astype(np.float64, copy=False)
 
         instance._best_order = order

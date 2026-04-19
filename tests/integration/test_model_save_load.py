@@ -16,10 +16,14 @@ import pandas as pd
 import pytest
 import torch
 
-from src.core.persistence import CONFIG_JSON, WEIGHTS_JSON, read_json_dict, write_json
+from src.core import json_io
+from src.core.persistence import CONFIG_JSON, WEIGHTS_JSON
+from src.core.types import Interval
 from src.core.utils import compute_log_returns
 from src.models.arma import ARMAPredictor
 from src.models.garch import GARCHPredictor
+from src.models.hybrid_return import HybridReturnModel
+from src.models.hybrid_volatility import HybridVolatilityModel
 from src.models.lstm import LSTMPredictor
 from src.models.xgboost_classifier import DirectionalClassifier
 from tests.conftest import make_synthetic_close_df
@@ -281,10 +285,10 @@ class TestCorruptPayloadLoad:
     partial loads could pass ``_fitted=True`` without valid internal state and
     break late inside ``predict()`` with a much more opaque error.
 
-    GARCH is the representative case: it exercises every narrowing helper
-    (``json_get_int``, ``json_get_float``, ``json_get_float_list``,
-    ``json_get_str``) and the ``read_json_dict`` top-level guard. Other models
-    share the same machinery, so their failure modes would be identical.
+    GARCH is the representative case: it exercises every ``json_io`` narrowing
+    helper (``get_int``, ``get_float``, ``get_float_list``, ``get_str``) and
+    the ``read_dict`` top-level guard. Other models share the same machinery,
+    so their failure modes would be identical.
     """
 
     @pytest.fixture
@@ -306,28 +310,28 @@ class TestCorruptPayloadLoad:
             GARCHPredictor.load(fitted_garch_path)
 
     def test_config_not_an_object_raises(self, fitted_garch_path: Path) -> None:
-        write_json(fitted_garch_path / CONFIG_JSON, [1, 2, 3])
+        json_io.write(fitted_garch_path / CONFIG_JSON, [1, 2, 3])
         with pytest.raises(ValueError, match="must be an object"):
             GARCHPredictor.load(fitted_garch_path)
 
     def test_missing_config_field_raises(self, fitted_garch_path: Path) -> None:
-        config = read_json_dict(fitted_garch_path / CONFIG_JSON)
+        config = json_io.read_dict(fitted_garch_path / CONFIG_JSON)
         del config["p_max"]
-        write_json(fitted_garch_path / CONFIG_JSON, config)
+        json_io.write(fitted_garch_path / CONFIG_JSON, config)
         with pytest.raises(KeyError, match="p_max"):
             GARCHPredictor.load(fitted_garch_path)
 
     def test_wrong_type_in_config_raises(self, fitted_garch_path: Path) -> None:
-        config = read_json_dict(fitted_garch_path / CONFIG_JSON)
+        config = json_io.read_dict(fitted_garch_path / CONFIG_JSON)
         config["p_max"] = "not-an-int"
-        write_json(fitted_garch_path / CONFIG_JSON, config)
+        json_io.write(fitted_garch_path / CONFIG_JSON, config)
         with pytest.raises(ValueError, match="'p_max' must be an int"):
             GARCHPredictor.load(fitted_garch_path)
 
     def test_wrong_type_in_weights_list_raises(self, fitted_garch_path: Path) -> None:
-        weights = read_json_dict(fitted_garch_path / WEIGHTS_JSON)
+        weights = json_io.read_dict(fitted_garch_path / WEIGHTS_JSON)
         weights["alpha"] = [0.1, "nope", 0.3]
-        write_json(fitted_garch_path / WEIGHTS_JSON, weights)
+        json_io.write(fitted_garch_path / WEIGHTS_JSON, weights)
         with pytest.raises(ValueError, match=r"'alpha'\[1\] must be a number"):
             GARCHPredictor.load(fitted_garch_path)
 
@@ -337,9 +341,196 @@ class TestCorruptPayloadLoad:
             GARCHPredictor.load(fitted_garch_path)
 
 
+class TestHybridVolatilitySaveLoad:
+    """Composite round-trip exercises every subdir: ``garch/`` + ``lstm/`` +
+    ``scaler.json``. Bit-identical predict() is the decisive check —
+    divergence anywhere would indicate a leaf or scaler state drift.
+    """
+
+    # Compact architecture; we just need a fitted model to round-trip.
+    COMPACT_GARCH_P_MAX = 2
+    COMPACT_GARCH_Q_MAX = 2
+    COMPACT_LSTM_HIDDEN_DIM = 8
+    COMPACT_LSTM_LOOKBACK = 5
+    COMPACT_LSTM_EPOCHS = 1
+    FEATURE_RNG_SEED = 11
+
+    def _fit_model(
+        self,
+        close_df: pd.DataFrame,
+    ) -> tuple[HybridVolatilityModel, pd.DataFrame, pd.Series]:
+        rng = np.random.default_rng(self.FEATURE_RNG_SEED)
+        feats = ["feat_a", "feat_b"]
+        df = close_df.copy()
+        for col in feats:
+            df[col] = rng.normal(0, 1, len(df))
+
+        log_ret = compute_log_returns(df["close"])
+        # Synthetic annualized realized-vol target — rolling std of log returns.
+        realized_vol = log_ret.rolling(20, min_periods=20).std() * np.sqrt(
+            Interval.DAILY.annualization_factor()
+        )
+
+        # Keep CI fast — one epoch is enough to exercise the save path.
+        torch.manual_seed(0)
+        np.random.seed(0)
+        model = HybridVolatilityModel(
+            feature_columns=feats,
+            garch_p_max=self.COMPACT_GARCH_P_MAX,
+            garch_q_max=self.COMPACT_GARCH_Q_MAX,
+            lstm_hidden_dim=self.COMPACT_LSTM_HIDDEN_DIM,
+            lstm_lookback=self.COMPACT_LSTM_LOOKBACK,
+            lstm_epochs=self.COMPACT_LSTM_EPOCHS,
+        )
+        model.fit(df, realized_vol)
+        return model, df, realized_vol
+
+    def test_save_before_fit_raises(
+        self,
+        synthetic_feature_columns: list[str],
+        tmp_path: Path,
+    ) -> None:
+        m = HybridVolatilityModel(feature_columns=synthetic_feature_columns)
+        with pytest.raises(RuntimeError, match="before fit"):
+            m.save(tmp_path / "hybrid_vol")
+
+    def test_round_trip_matches_original(
+        self,
+        close_df: pd.DataFrame,
+        tmp_path: Path,
+    ) -> None:
+        original, df, _ = self._fit_model(close_df)
+        path = tmp_path / "hybrid_vol"
+        original.save(path)
+        loaded = HybridVolatilityModel.load(path)
+
+        assert loaded._fitted
+        assert loaded._feature_columns == original._feature_columns
+        assert loaded.training_metadata == original.training_metadata
+        np.testing.assert_array_equal(
+            loaded.predict(df).to_numpy(),
+            original.predict(df).to_numpy(),
+        )
+
+
+class TestHybridReturnSaveLoad:
+    """Composite round-trip exercises every subdir: ``arma/`` + ``lstm/`` +
+    ``scaler.json``. The ARMA subdir also round-trips the persisted ``endog.npy``.
+    """
+
+    COMPACT_ARMA_P_MAX = 2
+    COMPACT_ARMA_Q_MAX = 2
+    COMPACT_LSTM_HIDDEN_DIM = 8
+    COMPACT_LSTM_LOOKBACK = 5
+    COMPACT_LSTM_EPOCHS = 1
+    FEATURE_RNG_SEED = 13
+
+    def _fit_model(
+        self,
+        close_df: pd.DataFrame,
+    ) -> tuple[HybridReturnModel, pd.DataFrame, pd.Series]:
+        rng = np.random.default_rng(self.FEATURE_RNG_SEED)
+        feats = ["feat_a", "feat_b"]
+        df = close_df.copy()
+        for col in feats:
+            df[col] = rng.normal(0, 1, len(df))
+
+        log_ret = compute_log_returns(df["close"]).dropna()
+
+        torch.manual_seed(0)
+        np.random.seed(0)
+        model = HybridReturnModel(
+            feature_columns=feats,
+            arma_p_max=self.COMPACT_ARMA_P_MAX,
+            arma_q_max=self.COMPACT_ARMA_Q_MAX,
+            lstm_hidden_dim=self.COMPACT_LSTM_HIDDEN_DIM,
+            lstm_lookback=self.COMPACT_LSTM_LOOKBACK,
+            lstm_epochs=self.COMPACT_LSTM_EPOCHS,
+        )
+        model.fit(df, log_ret)
+        return model, df, log_ret
+
+    def test_save_before_fit_raises(
+        self,
+        synthetic_feature_columns: list[str],
+        tmp_path: Path,
+    ) -> None:
+        m = HybridReturnModel(feature_columns=synthetic_feature_columns)
+        with pytest.raises(RuntimeError, match="before fit"):
+            m.save(tmp_path / "hybrid_return")
+
+    def test_round_trip_matches_original(
+        self,
+        close_df: pd.DataFrame,
+        tmp_path: Path,
+    ) -> None:
+        original, df, _ = self._fit_model(close_df)
+        path = tmp_path / "hybrid_return"
+        original.save(path)
+        loaded = HybridReturnModel.load(path)
+
+        assert loaded._fitted
+        assert loaded._feature_columns == original._feature_columns
+        assert loaded.training_metadata == original.training_metadata
+        np.testing.assert_allclose(
+            loaded.predict(df).to_numpy(),
+            original.predict(df).to_numpy(),
+            rtol=0.0,
+            atol=1e-10,
+        )
+
+
+class TestHybridVolatilityCorruptConfig:
+    """Composite save() writes 3 config.json files (one per level:
+    composite + garch + lstm). A corruption in the composite's own
+    config.json must surface with a named-field error, not a late crash
+    inside a sub-model's load.
+    """
+
+    def test_missing_composite_feature_columns_raises(
+        self,
+        close_df: pd.DataFrame,
+        tmp_path: Path,
+    ) -> None:
+        rng = np.random.default_rng(11)
+        feats = ["feat_a", "feat_b"]
+        df = close_df.copy()
+        for col in feats:
+            df[col] = rng.normal(0, 1, len(df))
+        log_ret = compute_log_returns(df["close"])
+        realized_vol = log_ret.rolling(20, min_periods=20).std() * np.sqrt(
+            Interval.DAILY.annualization_factor()
+        )
+
+        torch.manual_seed(0)
+        np.random.seed(0)
+        model = HybridVolatilityModel(
+            feature_columns=feats,
+            garch_p_max=2,
+            garch_q_max=2,
+            lstm_hidden_dim=8,
+            lstm_lookback=5,
+            lstm_epochs=1,
+        )
+        model.fit(df, realized_vol)
+
+        path = tmp_path / "hv"
+        model.save(path)
+
+        # Corrupt the composite's own config — leave the sub-model configs
+        # untouched. The error must name ``feature_columns`` before we fall
+        # through to any sub-model load.
+        config = json_io.read_dict(path / CONFIG_JSON)
+        del config["feature_columns"]
+        json_io.write(path / CONFIG_JSON, config)
+
+        with pytest.raises(KeyError, match="feature_columns"):
+            HybridVolatilityModel.load(path)
+
+
 class TestARMACorruptOrder:
     """ARMA has a unique fixed-length list field (``order``) that goes through
-    ``json_get_int_list`` + a post-check on length. Covers the branch that the
+    ``json_io.get_int_list`` + a post-check on length. Covers the branch that the
     GARCH corrupt-payload suite doesn't touch.
     """
 
@@ -354,9 +545,9 @@ class TestARMACorruptOrder:
         path = tmp_path / "arma"
         model.save(path)
 
-        weights = read_json_dict(path / WEIGHTS_JSON)
+        weights = json_io.read_dict(path / WEIGHTS_JSON)
         weights["order"] = [1, 2]  # too short
-        write_json(path / WEIGHTS_JSON, weights)
+        json_io.write(path / WEIGHTS_JSON, weights)
 
         with pytest.raises(ValueError, match="3-element list"):
             ARMAPredictor.load(path)

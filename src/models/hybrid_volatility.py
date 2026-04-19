@@ -2,12 +2,25 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from dataclasses import asdict, dataclass
+from pathlib import Path
+from typing import TYPE_CHECKING, Self
 
 import pandas as pd
 from sklearn.preprocessing import StandardScaler
 
+from src.core import json_io
 from src.core.exceptions import guard_scaler_fit_once
+from src.core.persistence import (
+    CONFIG_JSON,
+    GARCH_SUBDIR,
+    LSTM_SUBDIR,
+    METADATA_JSON,
+    SCALER_JSON,
+    load_standard_scaler,
+    save_model_skeleton,
+    save_standard_scaler,
+)
 from src.core.registry import model_registry
 from src.core.temporal import TrainingMetadata
 from src.core.types import Device, Interval, LossFunction
@@ -18,6 +31,34 @@ from src.models.lstm import LSTMPredictor
 
 if TYPE_CHECKING:
     import optuna
+
+
+@dataclass(frozen=True)
+class _HybridVolConfig:
+    """Frozen snapshot of every ``HybridVolatilityModel.__init__`` kwarg.
+
+    One source of truth for save/load + drift-guard tests. ``feature_columns``
+    is a tuple so ``frozen=True`` actually guarantees immutability (a list
+    field would still be mutable). Field names MUST mirror the ctor param
+    names — the drift test catches misalignment.
+    """
+
+    feature_columns: tuple[str, ...]
+    garch_p_max: int
+    garch_q_max: int
+    lstm_hidden_dim: int
+    lstm_num_layers: int
+    lstm_dropout: float
+    lstm_lookback: int
+    lstm_lr: float
+    lstm_epochs: int
+    lstm_loss_fn: LossFunction
+    lstm_patience: int
+    lstm_batch_size: int
+    lstm_val_split_ratio: float
+    lstm_device: Device | None
+    min_vol: float
+    interval: Interval
 
 
 @model_registry.register("hybrid_volatility")
@@ -51,9 +92,25 @@ class HybridVolatilityModel(IPredictor):
         if not feature_columns:
             raise ValueError("HybridVolatilityModel requires a non-empty feature_columns list")
 
+        self._params = _HybridVolConfig(
+            feature_columns=tuple(feature_columns),
+            garch_p_max=garch_p_max,
+            garch_q_max=garch_q_max,
+            lstm_hidden_dim=lstm_hidden_dim,
+            lstm_num_layers=lstm_num_layers,
+            lstm_dropout=lstm_dropout,
+            lstm_lookback=lstm_lookback,
+            lstm_lr=lstm_lr,
+            lstm_epochs=lstm_epochs,
+            lstm_loss_fn=lstm_loss_fn,
+            lstm_patience=lstm_patience,
+            lstm_batch_size=lstm_batch_size,
+            lstm_val_split_ratio=lstm_val_split_ratio,
+            lstm_device=lstm_device,
+            min_vol=min_vol,
+            interval=interval,
+        )
         self._feature_columns: list[str] = list(feature_columns)
-        self._min_vol = min_vol
-        self._interval = interval
 
         self._garch = GARCHPredictor(
             p_max=garch_p_max,
@@ -116,7 +173,7 @@ class HybridVolatilityModel(IPredictor):
 
         self._fitted = True
         self._training_metadata = TrainingMetadata.from_fit(
-            train_data, self._interval, tuple(self._feature_columns)
+            train_data, self._params.interval, tuple(self._feature_columns)
         )
 
     def predict(self, data: pd.DataFrame) -> pd.Series:
@@ -148,7 +205,7 @@ class HybridVolatilityModel(IPredictor):
         lstm_residual = self._lstm.predict(scaled_features)
         # Clip floor: vol is non-negative by definition; a large negative LSTM
         # residual can drive `garch_vol + residual` below zero on noisy data.
-        final_vol = (garch_vol + lstm_residual).clip(lower=self._min_vol)
+        final_vol = (garch_vol + lstm_residual).clip(lower=self._params.min_vol)
         final_vol.name = "hybrid_vol"
         return final_vol
 
@@ -157,6 +214,87 @@ class HybridVolatilityModel(IPredictor):
         if not self._fitted:
             raise RuntimeError("HybridVolatilityModel.predict_single() called before fit()")
         return float(self.predict(recent_window).iloc[-1])
+
+    def save(self, path: str | Path) -> None:
+        """Persist HybridVolatility to ``path`` as ``<path>/garch/`` +
+        ``<path>/lstm/`` + ``<path>/scaler.json`` + config + metadata.
+
+        Every ctor kwarg is persisted in the composite's own ``config.json``
+        — we don't reach into leaf private state on load (see
+        black-box-composition rule). The leaf directories exist solely to
+        round-trip the fitted weights.
+        """
+        if not self._fitted or self._scaler is None:
+            raise RuntimeError("HybridVolatilityModel.save() called before fit()")
+        if self._training_metadata is None:
+            raise RuntimeError("HybridVolatilityModel.save() missing training metadata")
+
+        scaler = self._scaler
+
+        def write_weights(root: Path) -> None:
+            self._garch.save(root / GARCH_SUBDIR)
+            self._lstm.save(root / LSTM_SUBDIR)
+            save_standard_scaler(scaler, root / SCALER_JSON)
+
+        save_model_skeleton(
+            path,
+            config=self._ctor_kwargs_as_json(),
+            training_metadata=self._training_metadata,
+            write_weights=write_weights,
+        )
+
+    def _ctor_kwargs_as_json(self) -> dict[str, object]:
+        """Snapshot of this composite's constructor kwargs as JSON-ready values.
+
+        Built from ``self._params`` (the frozen ctor bundle), then adjusted
+        for on-disk representation: ``lstm_device`` is dropped (re-resolved
+        on load via ``select_device()``), tuples become lists, enums become
+        their string values. The drift guard in
+        ``tests/integration/test_strategy_save_load.py`` verifies the output
+        keys match ``__init__``'s parameter names.
+        """
+        d: dict[str, object] = asdict(self._params)
+        d.pop("lstm_device")
+        d["feature_columns"] = list(self._params.feature_columns)
+        d["lstm_loss_fn"] = self._params.lstm_loss_fn.value
+        d["interval"] = self._params.interval.value
+        return d
+
+    @classmethod
+    def load(cls, path: str | Path) -> Self:
+        """Reconstruct a fitted HybridVolatilityModel from ``path``.
+
+        Construct the composite instance from its own ``config.json`` BEFORE
+        loading sub-models — a corrupt composite config fast-fails with a
+        named-field error, without wasting I/O on the GARCH/LSTM subdirs.
+        """
+        root = Path(path)
+        config = json_io.read_dict(root / CONFIG_JSON)
+        metadata = json_io.read_dict(root / METADATA_JSON)
+
+        instance = cls(
+            feature_columns=json_io.get_str_list(config, "feature_columns"),
+            garch_p_max=json_io.get_int(config, "garch_p_max"),
+            garch_q_max=json_io.get_int(config, "garch_q_max"),
+            lstm_hidden_dim=json_io.get_int(config, "lstm_hidden_dim"),
+            lstm_num_layers=json_io.get_int(config, "lstm_num_layers"),
+            lstm_dropout=json_io.get_float(config, "lstm_dropout"),
+            lstm_lookback=json_io.get_int(config, "lstm_lookback"),
+            lstm_lr=json_io.get_float(config, "lstm_lr"),
+            lstm_epochs=json_io.get_int(config, "lstm_epochs"),
+            lstm_loss_fn=LossFunction(json_io.get_str(config, "lstm_loss_fn")),
+            lstm_patience=json_io.get_int(config, "lstm_patience"),
+            lstm_batch_size=json_io.get_int(config, "lstm_batch_size"),
+            lstm_val_split_ratio=json_io.get_float(config, "lstm_val_split_ratio"),
+            min_vol=json_io.get_float(config, "min_vol"),
+            interval=Interval(json_io.get_str(config, "interval")),
+        )
+        instance._garch = GARCHPredictor.load(root / GARCH_SUBDIR)
+        instance._lstm = LSTMPredictor.load(root / LSTM_SUBDIR)
+        instance._scaler = load_standard_scaler(root / SCALER_JSON)
+        instance._training_metadata = TrainingMetadata.from_dict(metadata)
+        instance._fitted = True
+        return instance
 
     @staticmethod
     def suggest_params(trial: optuna.Trial) -> dict[str, object]:

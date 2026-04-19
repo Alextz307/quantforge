@@ -3,11 +3,23 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
+from dataclasses import asdict, dataclass
+from pathlib import Path
+from typing import TYPE_CHECKING, Self
 
 import numpy as np
 import pandas as pd
 
+from src.core import json_io
+from src.core.persistence import (
+    CLASSIFIER_SUBDIR,
+    CONFIG_JSON,
+    METADATA_JSON,
+    PIPELINE_SCALER_JSON,
+    load_standard_scaler,
+    save_model_skeleton,
+    save_standard_scaler,
+)
 from src.core.registry import strategy_registry
 from src.core.temporal import TrainingMetadata
 from src.core.types import Device, Interval
@@ -19,6 +31,37 @@ if TYPE_CHECKING:
     import optuna
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class _MomentumConfig:
+    """Frozen snapshot of every ``MomentumGatekeeperStrategy.__init__`` kwarg.
+
+    One source of truth for save/load + drift-guard tests. ``feature_columns``
+    is ``tuple[str, ...] | None`` so ``frozen=True`` actually guarantees
+    immutability (a list field would still be mutable). Field names MUST
+    mirror the ctor param names.
+    """
+
+    ma_window: int
+    prob_threshold: float
+    feature_columns: tuple[str, ...] | None
+    rsi_period: int
+    macd_fast: int
+    macd_slow: int
+    macd_signal: int
+    vol_window: int
+    ma_ratio_window: int
+    short_return_period: int
+    long_return_period: int
+    n_estimators: int
+    learning_rate: float
+    max_depth: int
+    subsample: float
+    colsample_bytree: float
+    val_split_ratio: float
+    device: Device | None
+    interval: Interval
 
 
 @strategy_registry.register("MomentumGatekeeper")
@@ -64,29 +107,29 @@ class MomentumGatekeeperStrategy(IStrategy):
                 f"macd_fast must be < macd_slow, got fast={macd_fast}, slow={macd_slow}"
             )
 
-        self._ma_window = ma_window
-        self._prob_threshold = prob_threshold
-        self._configured_feature_columns = (
-            list(feature_columns) if feature_columns is not None else None
+        self._params = _MomentumConfig(
+            ma_window=ma_window,
+            prob_threshold=prob_threshold,
+            feature_columns=(tuple(feature_columns) if feature_columns is not None else None),
+            rsi_period=rsi_period,
+            macd_fast=macd_fast,
+            macd_slow=macd_slow,
+            macd_signal=macd_signal,
+            vol_window=vol_window,
+            ma_ratio_window=ma_ratio_window,
+            short_return_period=short_return_period,
+            long_return_period=long_return_period,
+            n_estimators=n_estimators,
+            learning_rate=learning_rate,
+            max_depth=max_depth,
+            subsample=subsample,
+            colsample_bytree=colsample_bytree,
+            val_split_ratio=val_split_ratio,
+            # Unresolved preference — DirectionalClassifier calls select_xgboost_device(...)
+            # when train() instantiates it, so resolution/validation is deferred.
+            device=device,
+            interval=interval,
         )
-        self._rsi_period = rsi_period
-        self._macd_fast = macd_fast
-        self._macd_slow = macd_slow
-        self._macd_signal = macd_signal
-        self._vol_window = vol_window
-        self._ma_ratio_window = ma_ratio_window
-        self._short_return_period = short_return_period
-        self._long_return_period = long_return_period
-        self._n_estimators = n_estimators
-        self._learning_rate = learning_rate
-        self._max_depth = max_depth
-        self._subsample = subsample
-        self._colsample_bytree = colsample_bytree
-        self._val_split_ratio = val_split_ratio
-        # Unresolved preference — DirectionalClassifier calls select_xgboost_device(...)
-        # when `train()` instantiates it, so resolution/validation is deferred to that point.
-        self._device_preference = device
-        self._interval = interval
 
         self._pipeline = self._build_pipeline()
         self._classifier: DirectionalClassifier | None = None
@@ -96,14 +139,14 @@ class MomentumGatekeeperStrategy(IStrategy):
 
     def _build_pipeline(self) -> FeatureEngineeringPipeline:
         return FeatureEngineeringPipeline(
-            rsi_period=self._rsi_period,
-            macd_fast=self._macd_fast,
-            macd_slow=self._macd_slow,
-            macd_signal=self._macd_signal,
-            vol_window=self._vol_window,
-            ma_ratio_window=self._ma_ratio_window,
-            short_return_period=self._short_return_period,
-            long_return_period=self._long_return_period,
+            rsi_period=self._params.rsi_period,
+            macd_fast=self._params.macd_fast,
+            macd_slow=self._params.macd_slow,
+            macd_signal=self._params.macd_signal,
+            vol_window=self._params.vol_window,
+            ma_ratio_window=self._params.ma_ratio_window,
+            short_return_period=self._params.short_return_period,
+            long_return_period=self._params.long_return_period,
         )
 
     def train(self, train_data: pd.DataFrame, **kwargs: object) -> None:
@@ -112,10 +155,10 @@ class MomentumGatekeeperStrategy(IStrategy):
         self._pipeline.fit(train_data)
         features = self._pipeline.transform(train_data)
 
-        resolved = self._configured_feature_columns
-        if resolved is None:
+        if self._params.feature_columns is None:
             resolved = list(features.columns)
         else:
+            resolved = list(self._params.feature_columns)
             missing = set(resolved) - set(features.columns)
             if missing:
                 raise ValueError(
@@ -134,19 +177,19 @@ class MomentumGatekeeperStrategy(IStrategy):
 
         self._classifier = DirectionalClassifier(
             feature_columns=resolved,
-            n_estimators=self._n_estimators,
-            learning_rate=self._learning_rate,
-            max_depth=self._max_depth,
-            subsample=self._subsample,
-            colsample_bytree=self._colsample_bytree,
-            val_split_ratio=self._val_split_ratio,
-            device=self._device_preference,
-            interval=self._interval,
+            n_estimators=self._params.n_estimators,
+            learning_rate=self._params.learning_rate,
+            max_depth=self._params.max_depth,
+            subsample=self._params.subsample,
+            colsample_bytree=self._params.colsample_bytree,
+            val_split_ratio=self._params.val_split_ratio,
+            device=self._params.device,
+            interval=self._params.interval,
         )
         self._classifier.fit(features_ready, target_ready)
 
         self._training_metadata = TrainingMetadata.from_fit(
-            train_data, self._interval, tuple(resolved)
+            train_data, self._params.interval, tuple(resolved)
         )
         self._fitted = True
 
@@ -165,13 +208,108 @@ class MomentumGatekeeperStrategy(IStrategy):
             prob_valid = self._classifier.predict_proba(features.loc[valid_mask])
             prob_up.loc[prob_valid.index] = prob_valid
 
-        trend_ma = data["close"].rolling(self._ma_window).mean()
+        trend_ma = data["close"].rolling(self._params.ma_window).mean()
         is_bull = data["close"] > trend_ma
 
-        raw_signal = (is_bull & (prob_up > self._prob_threshold)).astype(float)
+        raw_signal = (is_bull & (prob_up > self._params.prob_threshold)).astype(float)
         signal = raw_signal.where(trend_ma.notna() & prob_up.notna(), np.nan)
         signal.name = "momentum_gatekeeper_signal"
         return signal
+
+    def save(self, path: str | Path) -> None:
+        """Persist MomentumGatekeeper config + nested DirectionalClassifier.
+
+        Feature-pipeline hyperparams live in this config alongside strategy
+        hyperparams — the pipeline is stateless (no scaler to round-trip),
+        it's rebuilt on load from the same ctor kwargs. Device preference is
+        NOT persisted: the classifier subdir captures whatever device was
+        resolved at fit time, and on load we defer to the classifier's own
+        device re-resolution.
+        """
+        if not self._fitted or self._classifier is None:
+            raise RuntimeError("MomentumGatekeeperStrategy.save() called before train()")
+        if self._training_metadata is None:
+            raise RuntimeError("MomentumGatekeeperStrategy.save() missing training metadata")
+
+        classifier = self._classifier
+        pipeline_scaler = self._pipeline.scaler
+        if pipeline_scaler is None:
+            raise RuntimeError(
+                "MomentumGatekeeperStrategy.save() found an unfitted feature pipeline; "
+                "train() should have fitted the scaler"
+            )
+
+        def write_weights(root: Path) -> None:
+            classifier.save(root / CLASSIFIER_SUBDIR)
+            save_standard_scaler(pipeline_scaler, root / PIPELINE_SCALER_JSON)
+
+        save_model_skeleton(
+            path,
+            config=self._ctor_kwargs_as_json(),
+            training_metadata=self._training_metadata,
+            write_weights=write_weights,
+        )
+
+    def _ctor_kwargs_as_json(self) -> dict[str, object]:
+        """Snapshot of this strategy's constructor kwargs as JSON-ready values.
+
+        Built from ``self._params`` (the frozen ctor bundle); ``device`` is
+        dropped (re-resolved on load via ``select_xgboost_device()``).
+        ``feature_columns`` persists ``_resolved_feature_columns`` — the list
+        the classifier was actually fit on (the ctor's ``feature_columns``
+        kwarg, when ``None``, resolves to the pipeline's full column set at
+        ``train()`` time). Post-fit the two are equivalent.
+        """
+        d: dict[str, object] = asdict(self._params)
+        d.pop("device")
+        d["feature_columns"] = list(self._resolved_feature_columns)
+        d["interval"] = self._params.interval.value
+        return d
+
+    @classmethod
+    def load(cls, path: str | Path) -> Self:
+        """Reconstruct a trained MomentumGatekeeperStrategy from ``path``.
+
+        Narrow the strategy's ``config.json`` into ctor kwargs BEFORE loading
+        the classifier + pipeline scaler — a corrupt composite config
+        fast-fails with a named-field error rather than crashing deep inside
+        a sub-loader.
+        """
+        root = Path(path)
+        config = json_io.read_dict(root / CONFIG_JSON)
+        metadata = json_io.read_dict(root / METADATA_JSON)
+        resolved = json_io.get_str_list(config, "feature_columns")
+
+        instance = cls(
+            ma_window=json_io.get_int(config, "ma_window"),
+            prob_threshold=json_io.get_float(config, "prob_threshold"),
+            feature_columns=resolved,
+            rsi_period=json_io.get_int(config, "rsi_period"),
+            macd_fast=json_io.get_int(config, "macd_fast"),
+            macd_slow=json_io.get_int(config, "macd_slow"),
+            macd_signal=json_io.get_int(config, "macd_signal"),
+            vol_window=json_io.get_int(config, "vol_window"),
+            ma_ratio_window=json_io.get_int(config, "ma_ratio_window"),
+            short_return_period=json_io.get_int(config, "short_return_period"),
+            long_return_period=json_io.get_int(config, "long_return_period"),
+            n_estimators=json_io.get_int(config, "n_estimators"),
+            learning_rate=json_io.get_float(config, "learning_rate"),
+            max_depth=json_io.get_int(config, "max_depth"),
+            subsample=json_io.get_float(config, "subsample"),
+            colsample_bytree=json_io.get_float(config, "colsample_bytree"),
+            val_split_ratio=json_io.get_float(config, "val_split_ratio"),
+            interval=Interval(json_io.get_str(config, "interval")),
+        )
+        instance._classifier = DirectionalClassifier.load(root / CLASSIFIER_SUBDIR)
+        # Replace the pipeline's unfitted scaler with the loaded fitted one.
+        # The pipeline itself is stateless aside from this scaler — reusing
+        # the ctor-built pipeline means hyperparams (rsi_period, macd_*, …)
+        # stay in one place.
+        instance._pipeline.scaler = load_standard_scaler(root / PIPELINE_SCALER_JSON)
+        instance._resolved_feature_columns = resolved
+        instance._training_metadata = TrainingMetadata.from_dict(metadata)
+        instance._fitted = True
+        return instance
 
     @property
     def name(self) -> str:
@@ -179,7 +317,7 @@ class MomentumGatekeeperStrategy(IStrategy):
 
     @property
     def required_warmup_bars(self) -> int:
-        return max(self._ma_window, self._pipeline.hard_nan_warmup_bars)
+        return max(self._params.ma_window, self._pipeline.hard_nan_warmup_bars)
 
     @staticmethod
     def suggest_params(trial: optuna.Trial) -> dict[str, object]:

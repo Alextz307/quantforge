@@ -3,11 +3,19 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
+from pathlib import Path
+from typing import TYPE_CHECKING, Self
 
 import pandas as pd
 
 import quant_engine
+from src.core import json_io
+from src.core.persistence import (
+    CONFIG_JSON,
+    METADATA_JSON,
+    WEIGHTS_JSON,
+    save_model_skeleton,
+)
 from src.core.registry import strategy_registry
 from src.core.temporal import TrainingMetadata
 from src.core.types import Interval
@@ -113,6 +121,71 @@ class PairsTradingStrategy(IStrategy):
             stop_loss_zscore=self._stop_loss_zscore,
         )
         return pd.Series(signal, index=data.index, name="pairs_signal")
+
+    def save(self, path: str | Path) -> None:
+        """Persist PairsTrading config + cointegration stats to ``path``."""
+        if not self._fitted:
+            raise RuntimeError("PairsTradingStrategy.save() called before train()")
+        if self._training_metadata is None:
+            raise RuntimeError("PairsTradingStrategy.save() missing training metadata")
+
+        def write_weights(root: Path) -> None:
+            json_io.write(
+                root / WEIGHTS_JSON,
+                {
+                    "hedge_ratio": self._hedge_ratio,
+                    "spread_mean": self._spread_mean,
+                    "spread_std": self._spread_std,
+                    "is_cointegrated": self._is_cointegrated,
+                },
+            )
+
+        save_model_skeleton(
+            path,
+            config=self._ctor_kwargs_as_json(),
+            training_metadata=self._training_metadata,
+            write_weights=write_weights,
+        )
+
+    def _ctor_kwargs_as_json(self) -> dict[str, object]:
+        """Snapshot of this strategy's constructor kwargs as JSON-ready values.
+
+        Single source of truth for the save-time config — the load path reads
+        the same keys back. Exercised by a parametrized drift test that
+        compares these keys against ``__init__``'s parameter set.
+        """
+        return {
+            "entry_zscore": self._entry_zscore,
+            "exit_zscore": self._exit_zscore,
+            "stop_loss_zscore": self._stop_loss_zscore,
+            "zscore_lookback": self._zscore_lookback,
+            "p_value_threshold": self._p_value_threshold,
+            "interval": self._interval.value,
+        }
+
+    @classmethod
+    def load(cls, path: str | Path) -> Self:
+        """Reconstruct a trained PairsTradingStrategy from ``path``."""
+        root = Path(path)
+        config = json_io.read_dict(root / CONFIG_JSON)
+        weights = json_io.read_dict(root / WEIGHTS_JSON)
+        metadata = json_io.read_dict(root / METADATA_JSON)
+
+        instance = cls(
+            entry_zscore=json_io.get_float(config, "entry_zscore"),
+            exit_zscore=json_io.get_float(config, "exit_zscore"),
+            stop_loss_zscore=json_io.get_float(config, "stop_loss_zscore"),
+            zscore_lookback=json_io.get_int(config, "zscore_lookback"),
+            p_value_threshold=json_io.get_float(config, "p_value_threshold"),
+            interval=Interval(json_io.get_str(config, "interval")),
+        )
+        instance._hedge_ratio = json_io.get_float(weights, "hedge_ratio")
+        instance._spread_mean = json_io.get_float(weights, "spread_mean")
+        instance._spread_std = json_io.get_float(weights, "spread_std")
+        instance._is_cointegrated = json_io.get_bool(weights, "is_cointegrated")
+        instance._training_metadata = TrainingMetadata.from_dict(metadata)
+        instance._fitted = True
+        return instance
 
     @property
     def hedge_ratio(self) -> float:

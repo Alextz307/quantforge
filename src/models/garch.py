@@ -12,17 +12,12 @@ import pandas as pd
 from arch import arch_model
 
 import quant_engine
+from src.core import json_io
 from src.core.persistence import (
     CONFIG_JSON,
     METADATA_JSON,
     WEIGHTS_JSON,
-    ensure_model_dir,
-    json_get_float,
-    json_get_float_list,
-    json_get_int,
-    json_get_str,
-    read_json_dict,
-    write_json,
+    save_model_skeleton,
 )
 from src.core.registry import model_registry
 from src.core.temporal import TrainingMetadata
@@ -226,47 +221,49 @@ class GARCHPredictor(IPredictor):
         if self._training_metadata is None:
             raise RuntimeError("GARCHPredictor.save() missing training metadata")
 
-        root = ensure_model_dir(path)
-        write_json(
-            root / CONFIG_JSON,
-            {
+        def write_weights(root: Path) -> None:
+            json_io.write(
+                root / WEIGHTS_JSON,
+                {
+                    "omega": self._omega,
+                    "alpha": self._alpha.tolist(),
+                    "beta": self._beta.tolist(),
+                    "mu": self._train_mu,
+                    "backcast": self._train_backcast,
+                },
+            )
+
+        save_model_skeleton(
+            path,
+            config={
                 "p_max": self._p_max,
                 "q_max": self._q_max,
                 "interval": self._interval.value,
             },
+            training_metadata=self._training_metadata,
+            write_weights=write_weights,
         )
-        write_json(
-            root / WEIGHTS_JSON,
-            {
-                "omega": self._omega,
-                "alpha": self._alpha.tolist(),
-                "beta": self._beta.tolist(),
-                "mu": self._train_mu,
-                "backcast": self._train_backcast,
-            },
-        )
-        write_json(root / METADATA_JSON, self._training_metadata.to_dict())
 
     @classmethod
     def load(cls, path: str | Path) -> Self:
         """Reconstruct a fitted GARCHPredictor from ``path``."""
         root = Path(path)
-        config = read_json_dict(root / CONFIG_JSON)
-        weights = read_json_dict(root / WEIGHTS_JSON)
-        metadata = read_json_dict(root / METADATA_JSON)
+        config = json_io.read_dict(root / CONFIG_JSON)
+        weights = json_io.read_dict(root / WEIGHTS_JSON)
+        metadata = json_io.read_dict(root / METADATA_JSON)
 
         instance = cls(
-            p_max=json_get_int(config, "p_max"),
-            q_max=json_get_int(config, "q_max"),
-            interval=Interval(json_get_str(config, "interval")),
+            p_max=json_io.get_int(config, "p_max"),
+            q_max=json_io.get_int(config, "q_max"),
+            interval=Interval(json_io.get_str(config, "interval")),
         )
-        alpha = json_get_float_list(weights, "alpha")
-        beta = json_get_float_list(weights, "beta")
-        instance._omega = json_get_float(weights, "omega")
+        alpha = json_io.get_float_list(weights, "alpha")
+        beta = json_io.get_float_list(weights, "beta")
+        instance._omega = json_io.get_float(weights, "omega")
         instance._alpha = np.asarray(alpha, dtype=np.float64)
         instance._beta = np.asarray(beta, dtype=np.float64)
-        instance._train_mu = json_get_float(weights, "mu")
-        instance._train_backcast = json_get_float(weights, "backcast")
+        instance._train_mu = json_io.get_float(weights, "mu")
+        instance._train_backcast = json_io.get_float(weights, "backcast")
         instance._best_p = len(alpha)
         instance._best_q = len(beta)
         # ``GarchParams`` takes independent copies so a future caller that

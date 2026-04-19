@@ -1,26 +1,21 @@
-"""Unit tests for src/core/persistence.py helpers."""
+"""Unit tests for src/core/persistence.py helpers (model-persistence layout +
+scaler round-trip). Pure JSON helpers live in ``src.core.json_io`` and are
+covered by ``tests/unit/test_json_io.py``.
+"""
 
 from __future__ import annotations
 
 from pathlib import Path
 
 import numpy as np
+import pandas as pd
 import pytest
 from sklearn.preprocessing import StandardScaler
 
 from src.core.persistence import (
     ensure_model_dir,
-    json_get_float,
-    json_get_float_list,
-    json_get_int,
-    json_get_int_list,
-    json_get_str,
-    json_get_str_list,
     load_standard_scaler,
-    read_json,
-    read_json_dict,
     save_standard_scaler,
-    write_json,
 )
 
 # Fixture scale constants — kept small; the helpers are pure IO and don't need
@@ -29,24 +24,6 @@ N_SAMPLES = 20
 N_FEATURES = 3
 SCALER_MEAN_SEED = 42
 ROUND_TRIP_ATOL = 0.0
-
-
-class TestWriteReadJson:
-    def test_round_trip_dict(self, tmp_path: Path) -> None:
-        obj: dict[str, object] = {"a": 1, "b": [1.5, 2.5], "c": {"nested": True}}
-        p = tmp_path / "out.json"
-        write_json(p, obj)
-        loaded = read_json(p)
-        assert loaded == obj
-
-    def test_round_trip_empty_list(self, tmp_path: Path) -> None:
-        p = tmp_path / "out.json"
-        write_json(p, [])
-        assert read_json(p) == []
-
-    def test_read_missing_file_raises(self, tmp_path: Path) -> None:
-        with pytest.raises(FileNotFoundError):
-            read_json(tmp_path / "nope.json")
 
 
 class TestEnsureModelDir:
@@ -103,104 +80,42 @@ class TestStandardScalerRoundTrip:
         with pytest.raises(RuntimeError, match="unfitted"):
             save_standard_scaler(StandardScaler(), tmp_path / "never.json")
 
+    def test_feature_names_roundtrip_silences_transform_warning(self, tmp_path: Path) -> None:
+        """A scaler fit on a DataFrame carries ``feature_names_in_``; the
+        save/load round-trip must preserve it so post-load ``.transform()``
+        on a named DataFrame doesn't trip sklearn's "fit without feature
+        names" warning.
+        """
+        rng = np.random.default_rng(SCALER_MEAN_SEED)
+        frame = pd.DataFrame(
+            rng.normal(0.0, 1.0, size=(N_SAMPLES, N_FEATURES)),
+            columns=[f"feat_{i}" for i in range(N_FEATURES)],
+        )
+        scaler = StandardScaler().fit(frame)
 
-class TestReadJsonDict:
-    def test_rejects_top_level_list(self, tmp_path: Path) -> None:
-        path = tmp_path / "list.json"
-        write_json(path, [1, 2, 3])
-        with pytest.raises(ValueError, match="must be an object"):
-            read_json_dict(path)
+        path = tmp_path / "scaler_with_names.json"
+        save_standard_scaler(scaler, path)
+        loaded = load_standard_scaler(path)
 
-    def test_accepts_object(self, tmp_path: Path) -> None:
-        path = tmp_path / "obj.json"
-        write_json(path, {"a": 1})
-        assert read_json_dict(path) == {"a": 1}
+        np.testing.assert_array_equal(loaded.feature_names_in_, scaler.feature_names_in_)
+        # Decisive check: calling transform() on a named DataFrame must not
+        # emit any warning — the restored feature_names_in_ satisfies sklearn.
+        import warnings
 
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            loaded.transform(frame)
 
-class TestJsonGetScalars:
-    # Sample payload containing one of each expected and one wrong-type value
-    # per field. Tests below pull from this single source of truth so the
-    # happy-path + error-path wiring is obvious.
-    SAMPLE: dict[str, object] = {
-        "an_int": 7,
-        "a_float": 1.5,
-        "a_str": "hello",
-        "a_list": [1, 2, 3],
-        "str_list": ["a", "b"],
-        "float_list": [0.1, 2, 3.5],  # mixed int+float, should coerce
-        "a_bool": True,  # bool is int subclass — helpers must reject
-    }
+    def test_fit_on_ndarray_does_not_persist_feature_names(self, tmp_path: Path) -> None:
+        """A scaler fit on a bare ndarray has no ``feature_names_in_``; the
+        persisted JSON must omit the key (not write a null) and the loaded
+        scaler must likewise lack the attribute.
+        """
+        rng = np.random.default_rng(SCALER_MEAN_SEED)
+        scaler = StandardScaler().fit(rng.normal(0.0, 1.0, size=(N_SAMPLES, N_FEATURES)))
 
-    def test_get_int_happy(self) -> None:
-        assert json_get_int(self.SAMPLE, "an_int") == 7
+        path = tmp_path / "scaler_no_names.json"
+        save_standard_scaler(scaler, path)
+        loaded = load_standard_scaler(path)
 
-    def test_get_int_rejects_bool(self) -> None:
-        with pytest.raises(ValueError, match="must be an int"):
-            json_get_int(self.SAMPLE, "a_bool")
-
-    def test_get_int_rejects_float(self) -> None:
-        with pytest.raises(ValueError, match="must be an int"):
-            json_get_int(self.SAMPLE, "a_float")
-
-    def test_get_int_missing_key(self) -> None:
-        with pytest.raises(KeyError, match="missing required"):
-            json_get_int(self.SAMPLE, "nonexistent")
-
-    def test_get_float_happy(self) -> None:
-        assert json_get_float(self.SAMPLE, "a_float") == 1.5
-
-    def test_get_float_accepts_int(self) -> None:
-        # Integers are valid JSON numbers; we coerce to float.
-        assert json_get_float(self.SAMPLE, "an_int") == 7.0
-
-    def test_get_float_rejects_bool(self) -> None:
-        with pytest.raises(ValueError, match="must be a number"):
-            json_get_float(self.SAMPLE, "a_bool")
-
-    def test_get_float_rejects_str(self) -> None:
-        with pytest.raises(ValueError, match="must be a number"):
-            json_get_float(self.SAMPLE, "a_str")
-
-    def test_get_str_happy(self) -> None:
-        assert json_get_str(self.SAMPLE, "a_str") == "hello"
-
-    def test_get_str_rejects_int(self) -> None:
-        with pytest.raises(ValueError, match="must be a string"):
-            json_get_str(self.SAMPLE, "an_int")
-
-
-class TestJsonGetLists:
-    def test_rejects_non_list_via_typed_wrapper(self) -> None:
-        # Every typed list helper (int/float/str) routes through the same
-        # ``_json_get_list`` guard, so we exercise it via one of them.
-        with pytest.raises(ValueError, match="must be a list"):
-            json_get_float_list({"x": 7}, "x")
-
-    def test_get_float_list_happy(self) -> None:
-        assert json_get_float_list({"x": [0.1, 2, 3.5]}, "x") == [0.1, 2.0, 3.5]
-
-    def test_get_float_list_rejects_string_item(self) -> None:
-        with pytest.raises(ValueError, match=r"'x'\[1\] must be a number"):
-            json_get_float_list({"x": [0.1, "nope", 3.5]}, "x")
-
-    def test_get_float_list_rejects_bool_item(self) -> None:
-        with pytest.raises(ValueError, match=r"'x'\[0\] must be a number"):
-            json_get_float_list({"x": [True, 1.0]}, "x")
-
-    def test_get_str_list_happy(self) -> None:
-        assert json_get_str_list({"x": ["a", "b"]}, "x") == ["a", "b"]
-
-    def test_get_str_list_rejects_int_item(self) -> None:
-        with pytest.raises(ValueError, match=r"'x'\[1\] must be a string"):
-            json_get_str_list({"x": ["a", 2]}, "x")
-
-    def test_get_int_list_happy(self) -> None:
-        assert json_get_int_list({"x": [1, 2, 3]}, "x") == [1, 2, 3]
-
-    def test_get_int_list_rejects_float_item(self) -> None:
-        with pytest.raises(ValueError, match=r"'x'\[1\] must be an int"):
-            json_get_int_list({"x": [1, 2.5, 3]}, "x")
-
-    def test_get_int_list_rejects_bool_item(self) -> None:
-        with pytest.raises(ValueError, match=r"'x'\[0\] must be an int"):
-            json_get_int_list({"x": [True, 1]}, "x")
+        assert not hasattr(loaded, "feature_names_in_")

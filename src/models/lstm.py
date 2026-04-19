@@ -12,18 +12,13 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
 
+from src.core import json_io
 from src.core.device import select_device
 from src.core.persistence import (
     CONFIG_JSON,
     METADATA_JSON,
     WEIGHTS_PT,
-    ensure_model_dir,
-    json_get_float,
-    json_get_int,
-    json_get_str,
-    json_get_str_list,
-    read_json_dict,
-    write_json,
+    save_model_skeleton,
 )
 from src.core.registry import model_registry
 from src.core.temporal import TrainingMetadata
@@ -293,10 +288,15 @@ class LSTMPredictor(IPredictor):
         if self._training_metadata is None:
             raise RuntimeError("LSTMPredictor.save() missing training metadata")
 
-        root = ensure_model_dir(path)
-        write_json(
-            root / CONFIG_JSON,
-            {
+        model = self._model
+
+        def write_weights(root: Path) -> None:
+            cpu_state = {k: v.detach().cpu() for k, v in model.state_dict().items()}
+            torch.save(cpu_state, root / WEIGHTS_PT)
+
+        save_model_skeleton(
+            path,
+            config={
                 "feature_columns": list(self._feature_columns),
                 "hidden_dim": self._hidden_dim,
                 "num_layers": self._num_layers,
@@ -310,10 +310,9 @@ class LSTMPredictor(IPredictor):
                 "val_split_ratio": self._val_split_ratio,
                 "interval": self._interval.value,
             },
+            training_metadata=self._training_metadata,
+            write_weights=write_weights,
         )
-        cpu_state = {k: v.detach().cpu() for k, v in self._model.state_dict().items()}
-        torch.save(cpu_state, root / WEIGHTS_PT)
-        write_json(root / METADATA_JSON, self._training_metadata.to_dict())
 
     @classmethod
     def load(cls, path: str | Path) -> Self:
@@ -323,22 +322,22 @@ class LSTMPredictor(IPredictor):
         model trained on CUDA loads cleanly on a CPU-only machine.
         """
         root = Path(path)
-        config = read_json_dict(root / CONFIG_JSON)
-        metadata = read_json_dict(root / METADATA_JSON)
+        config = json_io.read_dict(root / CONFIG_JSON)
+        metadata = json_io.read_dict(root / METADATA_JSON)
 
         instance = cls(
-            feature_columns=json_get_str_list(config, "feature_columns"),
-            hidden_dim=json_get_int(config, "hidden_dim"),
-            num_layers=json_get_int(config, "num_layers"),
-            dropout=json_get_float(config, "dropout"),
-            lookback=json_get_int(config, "lookback"),
-            lr=json_get_float(config, "lr"),
-            epochs=json_get_int(config, "epochs"),
-            loss_fn=LossFunction(json_get_str(config, "loss_fn")),
-            patience=json_get_int(config, "patience"),
-            batch_size=json_get_int(config, "batch_size"),
-            val_split_ratio=json_get_float(config, "val_split_ratio"),
-            interval=Interval(json_get_str(config, "interval")),
+            feature_columns=json_io.get_str_list(config, "feature_columns"),
+            hidden_dim=json_io.get_int(config, "hidden_dim"),
+            num_layers=json_io.get_int(config, "num_layers"),
+            dropout=json_io.get_float(config, "dropout"),
+            lookback=json_io.get_int(config, "lookback"),
+            lr=json_io.get_float(config, "lr"),
+            epochs=json_io.get_int(config, "epochs"),
+            loss_fn=LossFunction(json_io.get_str(config, "loss_fn")),
+            patience=json_io.get_int(config, "patience"),
+            batch_size=json_io.get_int(config, "batch_size"),
+            val_split_ratio=json_io.get_float(config, "val_split_ratio"),
+            interval=Interval(json_io.get_str(config, "interval")),
         )
         model = MarketLSTM(
             input_size=len(instance._feature_columns),

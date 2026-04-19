@@ -5,12 +5,20 @@ from __future__ import annotations
 import logging
 import math
 from dataclasses import asdict, dataclass
-from typing import TYPE_CHECKING
+from pathlib import Path
+from typing import TYPE_CHECKING, Self
 
 import pandas as pd
 
 import quant_engine
+from src.core import json_io
 from src.core.constants import TRADING_DAYS_PER_YEAR
+from src.core.persistence import (
+    CONFIG_JSON,
+    HYBRID_VOL_SUBDIR,
+    METADATA_JSON,
+    save_model_skeleton,
+)
 from src.core.registry import strategy_registry
 from src.core.temporal import TrainingMetadata
 from src.core.types import Device, Interval, LossFunction
@@ -184,6 +192,94 @@ class VolatilityTargetingStrategy(IStrategy):
         gated = gated.where(trend_ma.notna())
         gated.name = "vol_target_signal"
         return gated
+
+    def save(self, path: str | Path) -> None:
+        """Persist VolatilityTargeting config + nested HybridVolatility.
+
+        Strategy-specific kwargs (``target_vol``, ``trend_window``,
+        ``max_leverage``, ``bearish_exposure``, ``realized_vol_window``) are
+        written alongside every passthrough ``_HybridVolParams`` field.
+        """
+        if not self._fitted:
+            raise RuntimeError("VolatilityTargetingStrategy.save() called before train()")
+        if self._training_metadata is None:
+            raise RuntimeError("VolatilityTargetingStrategy.save() missing training metadata")
+
+        def write_weights(root: Path) -> None:
+            self._hybrid_vol.save(root / HYBRID_VOL_SUBDIR)
+
+        save_model_skeleton(
+            path,
+            config=self._ctor_kwargs_as_json(),
+            training_metadata=self._training_metadata,
+            write_weights=write_weights,
+        )
+
+    def _ctor_kwargs_as_json(self) -> dict[str, object]:
+        """Snapshot of this strategy's constructor kwargs as JSON-ready values."""
+        p = self._hybrid_params
+        return {
+            "target_vol": self._target_vol,
+            "trend_window": self._trend_window,
+            "max_leverage": self._max_leverage,
+            "bearish_exposure": self._bearish_exposure,
+            "realized_vol_window": self._realized_vol_window,
+            "feature_columns": list(p.feature_columns),
+            "garch_p_max": p.garch_p_max,
+            "garch_q_max": p.garch_q_max,
+            "lstm_hidden_dim": p.lstm_hidden_dim,
+            "lstm_num_layers": p.lstm_num_layers,
+            "lstm_dropout": p.lstm_dropout,
+            "lstm_lookback": p.lstm_lookback,
+            "lstm_lr": p.lstm_lr,
+            "lstm_epochs": p.lstm_epochs,
+            "lstm_loss_fn": p.lstm_loss_fn.value,
+            "lstm_patience": p.lstm_patience,
+            "lstm_batch_size": p.lstm_batch_size,
+            "lstm_val_split_ratio": p.lstm_val_split_ratio,
+            "min_vol": p.min_vol,
+            "interval": p.interval.value,
+        }
+
+    @classmethod
+    def load(cls, path: str | Path) -> Self:
+        """Reconstruct a trained VolatilityTargetingStrategy from ``path``.
+
+        Narrow the strategy's ``config.json`` into ctor kwargs BEFORE loading
+        the nested ``hybrid_vol/`` subdir — a corrupt strategy config
+        fast-fails with a named-field error, without wasting I/O on the
+        HybridVolatilityModel's nested GARCH + LSTM + scaler loads.
+        """
+        root = Path(path)
+        config = json_io.read_dict(root / CONFIG_JSON)
+        metadata = json_io.read_dict(root / METADATA_JSON)
+
+        instance = cls(
+            feature_columns=json_io.get_str_list(config, "feature_columns"),
+            target_vol=json_io.get_float(config, "target_vol"),
+            trend_window=json_io.get_int(config, "trend_window"),
+            max_leverage=json_io.get_float(config, "max_leverage"),
+            bearish_exposure=json_io.get_float(config, "bearish_exposure"),
+            realized_vol_window=json_io.get_int(config, "realized_vol_window"),
+            garch_p_max=json_io.get_int(config, "garch_p_max"),
+            garch_q_max=json_io.get_int(config, "garch_q_max"),
+            lstm_hidden_dim=json_io.get_int(config, "lstm_hidden_dim"),
+            lstm_num_layers=json_io.get_int(config, "lstm_num_layers"),
+            lstm_dropout=json_io.get_float(config, "lstm_dropout"),
+            lstm_lookback=json_io.get_int(config, "lstm_lookback"),
+            lstm_lr=json_io.get_float(config, "lstm_lr"),
+            lstm_epochs=json_io.get_int(config, "lstm_epochs"),
+            lstm_loss_fn=LossFunction(json_io.get_str(config, "lstm_loss_fn")),
+            lstm_patience=json_io.get_int(config, "lstm_patience"),
+            lstm_batch_size=json_io.get_int(config, "lstm_batch_size"),
+            lstm_val_split_ratio=json_io.get_float(config, "lstm_val_split_ratio"),
+            min_vol=json_io.get_float(config, "min_vol"),
+            interval=Interval(json_io.get_str(config, "interval")),
+        )
+        instance._hybrid_vol = HybridVolatilityModel.load(root / HYBRID_VOL_SUBDIR)
+        instance._training_metadata = TrainingMetadata.from_dict(metadata)
+        instance._fitted = True
+        return instance
 
     @property
     def name(self) -> str:

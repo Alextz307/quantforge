@@ -118,7 +118,7 @@ class TestHybridVolatilityModel:
     ) -> None:
         model = _fit_model(hybrid_train_df, realized_vol_target, synthetic_feature_columns)
         result = model.predict(hybrid_train_df).dropna()
-        assert (result >= model._min_vol).all()
+        assert (result >= model._params.min_vol).all()
 
     def test_scaler_refit_raises_leakage(
         self,

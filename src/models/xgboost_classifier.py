@@ -9,18 +9,13 @@ from typing import TYPE_CHECKING, Self
 import pandas as pd
 import xgboost as xgb
 
+from src.core import json_io
 from src.core.device import select_xgboost_device
 from src.core.persistence import (
     CONFIG_JSON,
     METADATA_JSON,
     MODEL_UBJ,
-    ensure_model_dir,
-    json_get_float,
-    json_get_int,
-    json_get_str,
-    json_get_str_list,
-    read_json_dict,
-    write_json,
+    save_model_skeleton,
 )
 from src.core.registry import classifier_registry
 from src.core.temporal import TrainingMetadata
@@ -178,10 +173,19 @@ class DirectionalClassifier(IClassifier):
         if self._training_metadata is None:
             raise RuntimeError("DirectionalClassifier.save() missing training metadata")
 
-        root = ensure_model_dir(path)
-        write_json(
-            root / CONFIG_JSON,
-            {
+        model = self._model
+
+        def write_weights(root: Path) -> None:
+            # XGBClassifier.save_model requires ``_estimator_type`` (a sklearn-side
+            # attribute that's inconsistently populated across xgboost versions).
+            # The booster-level save is stable: ``XGBClassifier.load_model`` accepts
+            # a booster-only UBJ on the reconstruct side. ``best_iteration`` is
+            # baked into the booster itself, so no separate weights.json is needed.
+            model.get_booster().save_model(str(root / MODEL_UBJ))
+
+        save_model_skeleton(
+            path,
+            config={
                 "feature_columns": list(self._feature_columns),
                 "n_estimators": self._n_estimators,
                 "learning_rate": self._learning_rate,
@@ -193,14 +197,9 @@ class DirectionalClassifier(IClassifier):
                 "val_split_ratio": self._val_split_ratio,
                 "interval": self._interval.value,
             },
+            training_metadata=self._training_metadata,
+            write_weights=write_weights,
         )
-        # XGBClassifier.save_model requires ``_estimator_type`` (a sklearn-side
-        # attribute that's inconsistently populated across xgboost versions).
-        # The booster-level save is stable: ``XGBClassifier.load_model`` accepts
-        # a booster-only UBJ on the reconstruct side. ``best_iteration`` is
-        # baked into the booster itself, so no separate weights.json is needed.
-        self._model.get_booster().save_model(str(root / MODEL_UBJ))
-        write_json(root / METADATA_JSON, self._training_metadata.to_dict())
 
     @classmethod
     def load(cls, path: str | Path) -> Self:
@@ -211,20 +210,20 @@ class DirectionalClassifier(IClassifier):
         on the wrapper would just be discarded the moment ``load_model`` runs.
         """
         root = Path(path)
-        config = read_json_dict(root / CONFIG_JSON)
-        metadata = read_json_dict(root / METADATA_JSON)
+        config = json_io.read_dict(root / CONFIG_JSON)
+        metadata = json_io.read_dict(root / METADATA_JSON)
 
         instance = cls(
-            feature_columns=json_get_str_list(config, "feature_columns"),
-            n_estimators=json_get_int(config, "n_estimators"),
-            learning_rate=json_get_float(config, "learning_rate"),
-            max_depth=json_get_int(config, "max_depth"),
-            early_stopping_rounds=json_get_int(config, "early_stopping_rounds"),
-            objective=json_get_str(config, "objective"),
-            subsample=json_get_float(config, "subsample"),
-            colsample_bytree=json_get_float(config, "colsample_bytree"),
-            val_split_ratio=json_get_float(config, "val_split_ratio"),
-            interval=Interval(json_get_str(config, "interval")),
+            feature_columns=json_io.get_str_list(config, "feature_columns"),
+            n_estimators=json_io.get_int(config, "n_estimators"),
+            learning_rate=json_io.get_float(config, "learning_rate"),
+            max_depth=json_io.get_int(config, "max_depth"),
+            early_stopping_rounds=json_io.get_int(config, "early_stopping_rounds"),
+            objective=json_io.get_str(config, "objective"),
+            subsample=json_io.get_float(config, "subsample"),
+            colsample_bytree=json_io.get_float(config, "colsample_bytree"),
+            val_split_ratio=json_io.get_float(config, "val_split_ratio"),
+            interval=Interval(json_io.get_str(config, "interval")),
         )
         model = xgb.XGBClassifier(device=instance._device)
         model.load_model(str(root / MODEL_UBJ))
