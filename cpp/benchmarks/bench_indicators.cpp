@@ -5,6 +5,7 @@
 
 #include <benchmark/benchmark.h>
 
+#include "detail/measure.hpp"
 #include "detail/random.hpp"
 #include "quant/indicators/bollinger_bands.hpp"
 #include "quant/indicators/garman_klass.hpp"
@@ -21,7 +22,7 @@ constexpr double kSpreadMin = 0.001;
 constexpr double kSpreadMax = 0.02;
 
 std::vector<double> generate_prices(std::size_t n) {
-    auto gen = quant::bench::detail::seeded_rng();
+    auto gen = quant::benchmark::detail::seeded_rng();
     std::normal_distribution<double> dist(0.0, kReturnStdDev);
     std::vector<double> prices(n);
     prices[0] = kStartPrice;
@@ -39,7 +40,7 @@ struct OHLCData {
 };
 
 OHLCData generate_ohlc(std::size_t n) {
-    auto gen = quant::bench::detail::seeded_rng();
+    auto gen = quant::benchmark::detail::seeded_rng();
     std::normal_distribution<double> ret_dist(0.0, kReturnStdDev);
     std::uniform_real_distribution<double> spread_dist(kSpreadMin, kSpreadMax);
 
@@ -65,70 +66,70 @@ OHLCData generate_ohlc(std::size_t n) {
 // ── RSI ──
 
 void BM_RSI(benchmark::State& state) {
-    auto prices = generate_prices(static_cast<std::size_t>(state.range(0)));
+    const auto n = static_cast<std::size_t>(state.range(0));
+    auto prices = generate_prices(n);
     quant::RSI rsi(14);
-    for (auto _ : state) {
+    quant::benchmark::detail::measure(state, [&] {
         benchmark::DoNotOptimize(rsi.compute(prices));
-    }
-    state.SetItemsProcessed(state.iterations() * state.range(0));
+    });
 }
 BENCHMARK(BM_RSI)->Arg(10000)->Arg(100000)->Arg(1000000);
 
 // ── MACD ──
 
 void BM_MACD(benchmark::State& state) {
-    auto prices = generate_prices(static_cast<std::size_t>(state.range(0)));
+    const auto n = static_cast<std::size_t>(state.range(0));
+    auto prices = generate_prices(n);
     quant::MACD macd;
-    for (auto _ : state) {
+    quant::benchmark::detail::measure(state, [&] {
         benchmark::DoNotOptimize(macd.compute(prices));
-    }
-    state.SetItemsProcessed(state.iterations() * state.range(0));
+    });
 }
 BENCHMARK(BM_MACD)->Arg(10000)->Arg(100000)->Arg(1000000);
 
 void BM_MACD_All(benchmark::State& state) {
-    auto prices = generate_prices(static_cast<std::size_t>(state.range(0)));
+    const auto n = static_cast<std::size_t>(state.range(0));
+    auto prices = generate_prices(n);
     quant::MACD macd;
-    for (auto _ : state) {
+    quant::benchmark::detail::measure(state, [&] {
         benchmark::DoNotOptimize(macd.compute_all(prices));
-    }
-    state.SetItemsProcessed(state.iterations() * state.range(0));
+    });
 }
 BENCHMARK(BM_MACD_All)->Arg(10000)->Arg(100000)->Arg(1000000);
 
 // ── Bollinger Bands ──
 
 void BM_Bollinger(benchmark::State& state) {
-    auto prices = generate_prices(static_cast<std::size_t>(state.range(0)));
+    const auto n = static_cast<std::size_t>(state.range(0));
+    auto prices = generate_prices(n);
     quant::BollingerBands bb(20, 2.0);
-    for (auto _ : state) {
+    quant::benchmark::detail::measure(state, [&] {
         benchmark::DoNotOptimize(bb.compute_all(prices));
-    }
-    state.SetItemsProcessed(state.iterations() * state.range(0));
+    });
 }
 BENCHMARK(BM_Bollinger)->Arg(10000)->Arg(100000)->Arg(1000000);
 
 // ── Garman-Klass ──
 
 void BM_GarmanKlass(benchmark::State& state) {
-    auto ohlc = generate_ohlc(static_cast<std::size_t>(state.range(0)));
+    const auto n = static_cast<std::size_t>(state.range(0));
+    auto ohlc = generate_ohlc(n);
     quant::GarmanKlass gk(22);
-    for (auto _ : state) {
+    quant::benchmark::detail::measure(state, [&] {
         benchmark::DoNotOptimize(gk.compute(ohlc.open, ohlc.high, ohlc.low, ohlc.close));
-    }
-    state.SetItemsProcessed(state.iterations() * state.range(0));
+    });
 }
 BENCHMARK(BM_GarmanKlass)->Arg(10000)->Arg(100000)->Arg(1000000);
 
 // ── Parkinson ──
 
 void BM_Parkinson(benchmark::State& state) {
-    auto ohlc = generate_ohlc(static_cast<std::size_t>(state.range(0)));
+    const auto n = static_cast<std::size_t>(state.range(0));
+    auto ohlc = generate_ohlc(n);
     quant::Parkinson pk(22);
-    for (auto _ : state) {
+    quant::benchmark::detail::measure(state, [&] {
         benchmark::DoNotOptimize(pk.compute(ohlc.open, ohlc.high, ohlc.low, ohlc.close));
-    }
-    state.SetItemsProcessed(state.iterations() * state.range(0));
+    });
 }
 BENCHMARK(BM_Parkinson)->Arg(10000)->Arg(100000)->Arg(1000000);
 

@@ -10,7 +10,9 @@ add_executable(quant_tests
     test_spread.cpp
     test_pairs_trading_strategy.cpp
     test_adaptive_bollinger_strategy.cpp
+    test_cycle_counter.cpp
 )
-target_link_libraries(quant_tests PRIVATE quant_core GTest::gtest_main)
+target_link_libraries(quant_tests
+    PRIVATE quant_core quant_bench_instrumentation GTest::gtest_main)
 include(GoogleTest)
 gtest_discover_tests(quant_tests)

@@ -11,4 +11,5 @@ add_executable(quant_bench
     bench_adaptive_bollinger_strategy.cpp
 )
 target_include_directories(quant_bench PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
-target_link_libraries(quant_bench PRIVATE quant_core benchmark::benchmark_main)
+target_link_libraries(quant_bench
+    PRIVATE quant_core quant_bench_instrumentation benchmark::benchmark_main)

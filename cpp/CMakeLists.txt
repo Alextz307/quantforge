@@ -73,6 +73,16 @@ target_include_directories(quant_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include
 # objects in shared modules with R_X86_64_PC32 relocation errors).
 set_target_properties(quant_core PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
+# ── Bench/test-only instrumentation ──
+# Cycle counter lives here rather than in quant_core because it is strictly a
+# measurement tool — shipping it into the production backtest engine would mix
+# profiling concerns with business logic.
+add_library(quant_bench_instrumentation OBJECT src/benchmark/cycle_counter.cpp)
+target_include_directories(quant_bench_instrumentation
+    PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
+set_target_properties(quant_bench_instrumentation
+    PROPERTIES POSITION_INDEPENDENT_CODE ON)
+
 # ── pybind11 module ──
 # Exposes BacktestEngine / MetricsCalculator / SlippageConfig (+ a `hello`
 # smoke hook) as the `quant_engine` Python module. Installed into the

@@ -5,6 +5,7 @@
 
 #include <benchmark/benchmark.h>
 
+#include "detail/measure.hpp"
 #include "detail/random.hpp"
 #include "quant/core/types.hpp"
 #include "quant/engine/backtest_engine.hpp"
@@ -27,7 +28,7 @@ constexpr double kVolumeScaledBaseBps = 1.0;
 constexpr double kVolumeImpactCoeff = 100.0;
 
 [[nodiscard]] std::vector<quant::Bar> generate_bars(std::size_t n) {
-    auto gen = quant::bench::detail::seeded_rng();
+    auto gen = quant::benchmark::detail::seeded_rng();
     std::normal_distribution<double> ret_dist(0.0, kReturnStd);
     std::uniform_real_distribution<double> spread_dist(kMinSpread, kMaxSpread);
 
@@ -70,32 +71,33 @@ constexpr double kVolumeImpactCoeff = 100.0;
 // overload that would amortize that cost.
 
 void BM_BacktestEngine_Run_NoSlippage(benchmark::State& state) {
-    const auto bars = generate_bars(static_cast<std::size_t>(state.range(0)));
+    const auto n = static_cast<std::size_t>(state.range(0));
+    const auto bars = generate_bars(n);
     const auto signals = generate_alternating_signals(bars.size());
     quant::BacktestEngine::Config cfg;
     cfg.slippage = quant::SlippageConfig{.model = quant::SlippageModel::NoSlippage};
     const quant::BacktestEngine engine{cfg};
-    for (auto _ : state) {
+    quant::benchmark::detail::measure(state, [&] {
         benchmark::DoNotOptimize(engine.run(bars, signals));
-    }
-    state.SetItemsProcessed(state.iterations() * state.range(0));
+    });
 }
 BENCHMARK(BM_BacktestEngine_Run_NoSlippage)
     ->Arg(1000)->Arg(10000)->Arg(100000)->Arg(1000000);
 
 void BM_BacktestEngine_Run(benchmark::State& state) {
-    const auto bars = generate_bars(static_cast<std::size_t>(state.range(0)));
+    const auto n = static_cast<std::size_t>(state.range(0));
+    const auto bars = generate_bars(n);
     const auto signals = generate_alternating_signals(bars.size());
     const quant::BacktestEngine engine{quant::BacktestEngine::Config{}};
-    for (auto _ : state) {
+    quant::benchmark::detail::measure(state, [&] {
         benchmark::DoNotOptimize(engine.run(bars, signals));
-    }
-    state.SetItemsProcessed(state.iterations() * state.range(0));
+    });
 }
 BENCHMARK(BM_BacktestEngine_Run)->Arg(1000)->Arg(10000)->Arg(100000)->Arg(1000000);
 
 void BM_BacktestEngine_Run_VolumeScaled(benchmark::State& state) {
-    const auto bars = generate_bars(static_cast<std::size_t>(state.range(0)));
+    const auto n = static_cast<std::size_t>(state.range(0));
+    const auto bars = generate_bars(n);
     const auto signals = generate_alternating_signals(bars.size());
     quant::BacktestEngine::Config cfg;
     cfg.slippage = quant::SlippageConfig{
@@ -104,10 +106,9 @@ void BM_BacktestEngine_Run_VolumeScaled(benchmark::State& state) {
         .volume_impact_coeff = kVolumeImpactCoeff,
     };
     const quant::BacktestEngine engine{cfg};
-    for (auto _ : state) {
+    quant::benchmark::detail::measure(state, [&] {
         benchmark::DoNotOptimize(engine.run(bars, signals));
-    }
-    state.SetItemsProcessed(state.iterations() * state.range(0));
+    });
 }
 BENCHMARK(BM_BacktestEngine_Run_VolumeScaled)
     ->Arg(1000)->Arg(10000)->Arg(100000)->Arg(1000000);

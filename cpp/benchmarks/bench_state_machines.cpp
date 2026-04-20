@@ -3,6 +3,7 @@
 
 #include <benchmark/benchmark.h>
 
+#include "detail/measure.hpp"
 #include "detail/random.hpp"
 #include "quant/strategies/state_machines.hpp"
 
@@ -19,7 +20,7 @@ constexpr double kStopLossZ = 3.0;
 
 void BM_MeanReversionStateMachine(benchmark::State& state) {
     const auto n = static_cast<std::size_t>(state.range(0));
-    auto close = quant::bench::detail::additive_random_walk(n, kPriceStart, kPriceStdDev);
+    auto close = quant::benchmark::detail::additive_random_walk(n, kPriceStart, kPriceStdDev);
     std::vector<double> mid(n);
     std::vector<double> upper(n);
     std::vector<double> lower(n);
@@ -30,24 +31,22 @@ void BM_MeanReversionStateMachine(benchmark::State& state) {
         lower[i] = close[i] - kBandHalfWidth;
         trend_ma[i] = close[i] * kTrendScale;
     }
-    for (auto _ : state) {
+    quant::benchmark::detail::measure(state, [&] {
         benchmark::DoNotOptimize(
             quant::strategies::run_mean_reversion_state_machine(
                 close, mid, upper, lower, trend_ma));
-    }
-    state.SetItemsProcessed(state.iterations() * state.range(0));
+    });
 }
 BENCHMARK(BM_MeanReversionStateMachine)->Arg(1000)->Arg(10000)->Arg(100000)->Arg(1000000);
 
 void BM_PairsStateMachine(benchmark::State& state) {
     const auto n = static_cast<std::size_t>(state.range(0));
-    auto z = quant::bench::detail::filled_normal(n, 0.0, kZScoreStdDev);
-    for (auto _ : state) {
+    auto z = quant::benchmark::detail::filled_normal(n, 0.0, kZScoreStdDev);
+    quant::benchmark::detail::measure(state, [&] {
         benchmark::DoNotOptimize(
             quant::strategies::run_pairs_state_machine(
                 z, kEntryZ, kExitZ, kStopLossZ));
-    }
-    state.SetItemsProcessed(state.iterations() * state.range(0));
+    });
 }
 BENCHMARK(BM_PairsStateMachine)->Arg(1000)->Arg(10000)->Arg(100000)->Arg(1000000);
 

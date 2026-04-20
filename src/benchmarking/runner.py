@@ -269,8 +269,10 @@ def _git_state(repo_root: Path) -> tuple[str, bool]:
     if sha_proc.returncode != 0:
         return "", False
     sha = sha_proc.stdout.strip()
+    # Exclude untracked files so a fresh baseline JSONL written by this run
+    # doesn't self-flag the tree as dirty.
     dirty_proc = subprocess.run(
-        [git, "-C", str(repo_root), "status", "--porcelain"],
+        [git, "-C", str(repo_root), "status", "--porcelain", "--untracked-files=no"],
         capture_output=True,
         text=True,
         check=False,

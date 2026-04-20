@@ -2,6 +2,7 @@
 
 #include <benchmark/benchmark.h>
 
+#include "detail/measure.hpp"
 #include "detail/random.hpp"
 #include "quant/statistics/spread.hpp"
 #include "quant/strategies/pairs_trading.hpp"
@@ -21,17 +22,16 @@ constexpr int kZScoreLookback = 60;
 
 void BM_PairsTradingStrategy(benchmark::State& state) {
     const auto n = static_cast<std::size_t>(state.range(0));
-    const auto a = quant::bench::detail::additive_random_walk(n, kPriceStartA, kPriceStdDev);
-    const auto b = quant::bench::detail::additive_random_walk(n, kPriceStartB, kPriceStdDev,
+    const auto a = quant::benchmark::detail::additive_random_walk(n, kPriceStartA, kPriceStdDev);
+    const auto b = quant::benchmark::detail::additive_random_walk(n, kPriceStartB, kPriceStdDev,
                                                               /*seed=*/321);
     const quant::statistics::CointegrationParams coint{kHedgeRatio, kSpreadMean, kSpreadStd};
     const quant::strategies::PairsTradingStrategy strategy(
         quant::strategies::PairsTradingStrategy::Config{
             kEntryZ, kExitZ, kStopLossZ, kZScoreLookback});
-    for (auto _ : state) {
+    quant::benchmark::detail::measure(state, [&] {
         benchmark::DoNotOptimize(strategy.generate_signals(a, b, coint));
-    }
-    state.SetItemsProcessed(state.iterations() * state.range(0));
+    });
 }
 BENCHMARK(BM_PairsTradingStrategy)->Arg(1000)->Arg(10000)->Arg(100000)->Arg(1000000);
 

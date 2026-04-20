@@ -228,6 +228,19 @@ make bench-cpp      # Google Benchmark indicator + engine + metrics + filter + s
 PERF_GUARD=1 pytest tests/benchmarks/    # opt-in; CI does not gate on timing
 ```
 
+### Benchmarking
+
+Every C++ micro-benchmark emits wall time alongside `Cycles` / `CyclesPerItem` custom counters (sourced from `__rdtsc` on x86, `CNTVCT_EL0` on arm64, `steady_clock` elsewhere). The Python orchestrator subprocesses `quant_bench --benchmark_format=json`, parses it into `BenchmarkResult` dataclasses, persists under `benchmark_results/runs/`, and drives the comparator / reporter.
+
+```bash
+make bench                                                   # build + run; dumps JSONL under benchmark_results/runs/
+python -m scripts.benchmark run --save-baseline my-baseline  # capture a named baseline
+python -m scripts.benchmark compare pre-optimization <run>   # regression gate (z-test + pct delta)
+python -m scripts.benchmark latex                            # LaTeX summary table of the newest run
+```
+
+Runs and reports are gitignored; `benchmark_results/baselines/` is tracked so the thesis has a reproducible anchor across machines.
+
 ### Minimal example — fit a strategy and generate signals
 
 ```python

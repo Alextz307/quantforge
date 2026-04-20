@@ -5,7 +5,7 @@
 #include <random>
 #include <vector>
 
-namespace quant::bench::detail {
+namespace quant::benchmark::detail {
 
 inline constexpr std::uint_fast32_t kDefaultSeed = 42;
 
@@ -41,4 +41,4 @@ inline constexpr std::uint_fast32_t kDefaultSeed = 42;
     return v;
 }
 
-}  // namespace quant::bench::detail
+}  // namespace quant::benchmark::detail
