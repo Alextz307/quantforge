@@ -19,7 +19,7 @@ lint:
 	ruff format --check src/ tests/ scripts/
 
 bench:
-	python scripts/benchmark.py run
+	python -m scripts.benchmark run
 
 bench-cpp:
 	cd cpp/build && ./quant_bench --benchmark_format=console

@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from src.benchmarking.types import BenchmarkResult, BenchmarkRun, HardwareInfo
 from src.core.temporal import WalkForwardValidator
 from src.core.types import BarData, Interval
 
@@ -354,4 +355,76 @@ def large_daily_df() -> pd.DataFrame:
             "volume": volume,
         },
         index=idx,
+    )
+
+
+# Shared benchmark-test defaults --------------------------------------------
+BENCH_TEST_RUN_ID = "rid"
+BENCH_TEST_TIMESTAMP = "2026-04-20T12:00:00Z"
+BENCH_TEST_HW_CPU = "test-cpu"
+BENCH_TEST_HW_RAM_GB = 1.0
+BENCH_TEST_RESULT_N = 10_000
+BENCH_TEST_RESULT_NS = 50_000.0
+
+
+def make_benchmark_hardware(
+    *,
+    cpu_brand: str = BENCH_TEST_HW_CPU,
+    cpu_count: int = 1,
+    ram_gb: float = BENCH_TEST_HW_RAM_GB,
+    os_name: str = "test-os",
+    os_version: str = "test-version",
+    python_version: str = "3.12.0",
+    git_sha: str = "",
+    git_dirty: bool = False,
+) -> HardwareInfo:
+    return HardwareInfo(
+        cpu_brand=cpu_brand,
+        cpu_count=cpu_count,
+        ram_gb=ram_gb,
+        os_name=os_name,
+        os_version=os_version,
+        python_version=python_version,
+        git_sha=git_sha,
+        git_dirty=git_dirty,
+    )
+
+
+def make_benchmark_result(
+    name: str,
+    *,
+    family: str | None = None,
+    n: int = BENCH_TEST_RESULT_N,
+    ns: float = BENCH_TEST_RESULT_NS,
+    items_per_second: float = 0.0,
+    custom_counters: dict[str, float] | None = None,
+    tags: tuple[str, ...] = (),
+) -> BenchmarkResult:
+    return BenchmarkResult(
+        name=name,
+        family=family if family is not None else name.split("/", 1)[0],
+        iterations=1,
+        real_time_ns=ns,
+        cpu_time_ns=ns,
+        items_per_second=items_per_second,
+        custom_counters=dict(custom_counters) if custom_counters else {},
+        params={"n": n},
+        tags=tags,
+    )
+
+
+def make_benchmark_run(
+    results: tuple[BenchmarkResult, ...],
+    *,
+    run_id: str = BENCH_TEST_RUN_ID,
+    timestamp: str = BENCH_TEST_TIMESTAMP,
+    tags: tuple[str, ...] = (),
+    hardware: HardwareInfo | None = None,
+) -> BenchmarkRun:
+    return BenchmarkRun(
+        run_id=run_id,
+        timestamp=timestamp,
+        tags=tags,
+        results=results,
+        hardware=hardware if hardware is not None else make_benchmark_hardware(),
     )

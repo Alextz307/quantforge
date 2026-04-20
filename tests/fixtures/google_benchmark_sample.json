@@ -1,0 +1,77 @@
+{
+  "context": {
+    "date": "2026-04-20T12:00:00+00:00",
+    "host_name": "ci-host",
+    "executable": "quant_bench",
+    "num_cpus": 8,
+    "mhz_per_cpu": 3000,
+    "cpu_scaling_enabled": false,
+    "library_build_type": "release"
+  },
+  "benchmarks": [
+    {
+      "name": "BM_RSI/10000",
+      "family_index": 0,
+      "per_family_instance_index": 0,
+      "run_name": "BM_RSI/10000",
+      "run_type": "iteration",
+      "repetitions": 1,
+      "repetition_index": 0,
+      "threads": 1,
+      "iterations": 100,
+      "real_time": 5.0e+04,
+      "cpu_time": 5.0e+04,
+      "time_unit": "ns",
+      "items_per_second": 2.0e+08
+    },
+    {
+      "name": "BM_RSI/100000",
+      "family_index": 0,
+      "per_family_instance_index": 1,
+      "run_name": "BM_RSI/100000",
+      "run_type": "iteration",
+      "repetitions": 1,
+      "repetition_index": 0,
+      "threads": 1,
+      "iterations": 30,
+      "real_time": 5.0e+05,
+      "cpu_time": 5.0e+05,
+      "time_unit": "ns",
+      "items_per_second": 2.0e+08
+    },
+    {
+      "name": "BM_RSI/1000000",
+      "family_index": 0,
+      "per_family_instance_index": 2,
+      "run_name": "BM_RSI/1000000",
+      "run_type": "iteration",
+      "repetitions": 1,
+      "repetition_index": 0,
+      "threads": 1,
+      "iterations": 3,
+      "real_time": 5.0e+06,
+      "cpu_time": 5.0e+06,
+      "time_unit": "ns",
+      "items_per_second": 2.0e+08
+    },
+    {
+      "name": "BM_MACD/10000",
+      "family_index": 1,
+      "per_family_instance_index": 0,
+      "run_name": "BM_MACD/10000",
+      "run_type": "iteration",
+      "repetitions": 1,
+      "repetition_index": 0,
+      "threads": 1,
+      "iterations": 50,
+      "real_time": 6.0e+01,
+      "cpu_time": 6.0e+01,
+      "time_unit": "us",
+      "items_per_second": 1.6e+08,
+      "Cycles": 1.8e+05,
+      "CyclesPerItem": 18.0,
+      "Instructions": 3.6e+05,
+      "IPC": 2.0
+    }
+  ]
+}

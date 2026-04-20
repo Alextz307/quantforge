@@ -22,6 +22,7 @@ dependencies = [
     "matplotlib>=3.8",
     "yfinance>=0.2",
     "click>=8.1",
+    "psutil>=5.9",
 ]
 
 [project.optional-dependencies]
@@ -31,6 +32,7 @@ dev = [
     "mypy>=1.8",
     "pandas-stubs",
     "types-PyYAML",
+    "types-psutil",
     "pybind11-stubgen",
     "ruff>=0.3",
 ]

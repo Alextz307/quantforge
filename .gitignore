@@ -45,8 +45,10 @@ htmlcov/
 *.gcno
 
 # ── Benchmark results (tracked selectively) ──
-# benchmark_results/ is tracked, but large run files may be gitignored
+# runs/ and reports/ are ephemeral per-developer artefacts; baselines/ is
+# committed so the thesis has a reproducible anchor.
 benchmark_results/runs/*.jsonl
+benchmark_results/reports/
 
 # ── Secrets / local config ──
 .env
