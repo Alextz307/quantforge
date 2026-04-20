@@ -14,6 +14,7 @@ from collections.abc import Iterator
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+import numpy as np
 import pandas as pd
 
 from src.core.exceptions import LeakageError
@@ -287,6 +288,44 @@ class TrainingMetadata:
         )
 
 
+def _snap_train_end_backward(dates: pd.DatetimeIndex, train_end: int) -> int:
+    """Snap ``train_end`` backward so ``iloc[:train_end]`` ends at a day close.
+
+    ``train_end`` is exclusive. On return, bar ``train_end - 1`` is the last
+    bar of its calendar date and bar ``train_end`` (if present) is the first
+    bar of a later date. Already-at-boundary indices are returned unchanged.
+    """
+    if train_end <= 0 or train_end >= len(dates):
+        return train_end
+    prefix = dates[:train_end].values
+    shifted = dates[1 : train_end + 1].values
+    boundaries = np.flatnonzero(prefix != shifted)
+    if boundaries.size == 0:
+        return 0
+    return int(boundaries[-1]) + 1
+
+
+def _first_bar_after_gap_days(dates: pd.DatetimeIndex, train_end: int, gap_days: int) -> int:
+    """First bar strictly ``gap_days`` trading days past the last training date.
+
+    ``gap_days=0`` returns the first bar of the next distinct date;
+    ``gap_days=k`` skips ``k`` distinct dates of embargo. Trading days are the
+    distinct normalized dates observed — holiday gaps are handled naturally.
+    """
+    if train_end < 1:
+        raise ValueError(f"_first_bar_after_gap_days requires train_end >= 1, got {train_end}.")
+    prev = dates[train_end - 1 : -1].values
+    tail = dates[train_end:].values
+    new_date_offsets = np.flatnonzero(tail != prev)
+    target = gap_days + 1
+    if new_date_offsets.size < target:
+        raise ValueError(
+            f"snap_to_day: only {new_date_offsets.size} distinct dates remain after "
+            f"{dates[train_end - 1]}; gap={gap_days} cannot be honored."
+        )
+    return train_end + int(new_date_offsets[target - 1])
+
+
 class WalkForwardValidator:
     """Expanding-window walk-forward validation splitter.
 
@@ -294,6 +333,12 @@ class WalkForwardValidator:
     - Training window expands (or slides) forward through time
     - A gap (embargo) separates train from test to prevent leakage
     - Test window has a fixed size
+
+    When ``snap_to_day=True``, every fold's train ends at a day close and
+    test starts at the first bar of a new calendar date. The ``gap`` argument
+    is then interpreted as **trading days** of embargo (distinct dates
+    observed in ``df``), not bars. This honours the framework's intraday
+    day-boundary rule for hourly/minute data.
     """
 
     def __init__(
@@ -302,6 +347,7 @@ class WalkForwardValidator:
         test_size: int = 252,
         gap: int = 5,
         expanding: bool = True,
+        snap_to_day: bool = False,
     ) -> None:
         if n_splits < 1:
             raise ValueError(f"n_splits must be >= 1, got {n_splits}")
@@ -314,6 +360,7 @@ class WalkForwardValidator:
         self.test_size = test_size
         self.gap = gap
         self.expanding = expanding
+        self.snap_to_day = snap_to_day
 
     def split(self, df: pd.DataFrame) -> Iterator[TemporalSplit]:
         """Generate expanding-window temporal splits.
@@ -323,6 +370,10 @@ class WalkForwardValidator:
         - Working backward, each fold's test set is `test_size` bars
         - Training data extends from the start (expanding) or slides
 
+        When ``snap_to_day=True``, ``train_end`` is snapped backward to a
+        day boundary and ``test_start`` is pushed forward by ``gap`` trading
+        days. ``test_size`` remains a bar count.
+
         Args:
             df: DataFrame with DatetimeIndex, sorted chronologically.
 
@@ -330,7 +381,9 @@ class WalkForwardValidator:
             TemporalSplit for each fold.
 
         Raises:
-            ValueError: If the DataFrame is too short for the requested splits.
+            ValueError: If the DataFrame is too short for the requested splits,
+                or if ``snap_to_day=True`` and fewer than 2 distinct dates are
+                present.
         """
         if not isinstance(df.index, pd.DatetimeIndex):
             raise TypeError("DataFrame must have a DatetimeIndex")
@@ -344,6 +397,17 @@ class WalkForwardValidator:
                 f"{self.test_size} and gap={self.gap}"
             )
 
+        normalized_dates: pd.DatetimeIndex | None = None
+        if self.snap_to_day:
+            assert isinstance(df.index, pd.DatetimeIndex)
+            normalized_dates = df.index.normalize()
+            if normalized_dates.nunique() < 2:
+                raise ValueError(
+                    "snap_to_day=True requires at least 2 distinct dates in the DataFrame."
+                )
+
+        first_train_end = n - (self.n_splits - 1) * self.test_size - self.test_size - self.gap
+
         for i in range(self.n_splits):
             # Test set position: work backward from the end
             test_end = n - (self.n_splits - 1 - i) * self.test_size
@@ -356,11 +420,28 @@ class WalkForwardValidator:
             if self.expanding:
                 train_start = 0
             else:
-                # Sliding window: train size equals first fold's train size
-                first_train_end = (
-                    n - (self.n_splits - 1) * self.test_size - self.test_size - self.gap
-                )
                 train_start = max(0, train_end - first_train_end)
+
+            if self.snap_to_day:
+                assert normalized_dates is not None
+                train_end = _snap_train_end_backward(normalized_dates, train_end)
+                # Sliding: recompute train_start from snapped train_end so the
+                # window size stays invariant across folds.
+                if not self.expanding:
+                    train_start = max(0, train_end - first_train_end)
+                if train_end <= train_start:
+                    raise ValueError(
+                        f"snap_to_day: fold {i} has empty train window after "
+                        f"snapping to day boundary."
+                    )
+                test_start = _first_bar_after_gap_days(normalized_dates, train_end, self.gap)
+                test_end = test_start + self.test_size
+                if test_end > n:
+                    raise ValueError(
+                        f"snap_to_day: fold {i} would need {test_end - n} bars past "
+                        f"end-of-frame for a full test window of {self.test_size}; "
+                        f"provide more data or reduce test_size / gap."
+                    )
 
             train_df = df.iloc[train_start:train_end]
             test_df = df.iloc[test_start:test_end]
