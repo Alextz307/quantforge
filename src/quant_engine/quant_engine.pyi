@@ -12,25 +12,52 @@ import numpy.typing
 import quant_engine
 
 __all__: list[str] = [
+    "AdaptiveBollingerStrategy",
     "BacktestEngine",
     "BacktestResult",
     "BollingerBands",
     "BollingerResult",
+    "CointegrationParams",
     "GarchParams",
     "GarmanKlass",
     "MACD",
     "MACDResult",
     "MetricsCalculator",
+    "PairsTradingStrategy",
     "Parkinson",
     "PerformanceMetrics",
     "RSI",
     "SlippageConfig",
     "SlippageModel",
+    "SpreadCalculator",
     "garch_filter",
     "hello",
     "run_mean_reversion_state_machine",
     "run_pairs_state_machine",
 ]
+
+class AdaptiveBollingerStrategy:
+    class Config:
+        def __init__(
+            self, *, band_window: int = 20, k: float = 2.0, trend_window: int = 100
+        ) -> None: ...
+        @property
+        def band_window(self) -> int: ...
+        @property
+        def k(self) -> float: ...
+        @property
+        def trend_window(self) -> int: ...
+
+    def __init__(self, config: AdaptiveBollingerStrategy.Config) -> None: ...
+    def generate_signals(
+        self,
+        close: numpy.typing.NDArray[numpy.float64],
+        cond_vol: numpy.typing.NDArray[numpy.float64],
+    ) -> numpy.typing.NDArray[numpy.float64]: ...
+    @property
+    def name(self) -> str: ...
+    @property
+    def required_warmup(self) -> int: ...
 
 class BacktestEngine:
     def __init__(
@@ -103,6 +130,17 @@ class BollingerResult:
     def mid(self) -> numpy.typing.NDArray[numpy.float64]: ...
     @property
     def upper(self) -> numpy.typing.NDArray[numpy.float64]: ...
+
+class CointegrationParams:
+    def __init__(
+        self, *, hedge_ratio: float, spread_mean: float = 0.0, spread_std: float = 1.0
+    ) -> None: ...
+    @property
+    def hedge_ratio(self) -> float: ...
+    @property
+    def spread_mean(self) -> float: ...
+    @property
+    def spread_std(self) -> float: ...
 
 class GarchParams:
     def __init__(
@@ -186,6 +224,37 @@ class MetricsCalculator:
     @staticmethod
     def win_rate(returns: numpy.typing.NDArray[numpy.float64]) -> float: ...
 
+class PairsTradingStrategy:
+    class Config:
+        def __init__(
+            self,
+            *,
+            entry_zscore: float = 2.0,
+            exit_zscore: float = 0.5,
+            stop_loss_zscore: float = 4.0,
+            zscore_lookback: int = 60,
+        ) -> None: ...
+        @property
+        def entry_zscore(self) -> float: ...
+        @property
+        def exit_zscore(self) -> float: ...
+        @property
+        def stop_loss_zscore(self) -> float: ...
+        @property
+        def zscore_lookback(self) -> int: ...
+
+    def __init__(self, config: PairsTradingStrategy.Config) -> None: ...
+    def generate_signals(
+        self,
+        prices_a: numpy.typing.NDArray[numpy.float64],
+        prices_b: numpy.typing.NDArray[numpy.float64],
+        coint: CointegrationParams,
+    ) -> numpy.typing.NDArray[numpy.float64]: ...
+    @property
+    def name(self) -> str: ...
+    @property
+    def required_warmup(self) -> int: ...
+
 class Parkinson:
     def __init__(self, window: int = 22) -> None: ...
     def compute(
@@ -267,6 +336,18 @@ class SlippageModel:
     def name(self) -> str: ...
     @property
     def value(self) -> int: ...
+
+class SpreadCalculator:
+    @staticmethod
+    def compute_spread(
+        a: numpy.typing.NDArray[numpy.float64],
+        b: numpy.typing.NDArray[numpy.float64],
+        hedge_ratio: float,
+    ) -> numpy.typing.NDArray[numpy.float64]: ...
+    @staticmethod
+    def compute_zscore(
+        spread: numpy.typing.NDArray[numpy.float64], window: int
+    ) -> numpy.typing.NDArray[numpy.float64]: ...
 
 def garch_filter(
     scaled_returns: numpy.typing.NDArray[numpy.float64], params: GarchParams

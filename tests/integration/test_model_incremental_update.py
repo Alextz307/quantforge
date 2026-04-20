@@ -43,9 +43,9 @@ from tests.conftest import (
     make_synthetic_ohlcv_df,
 )
 
-# Synthetic windows — split in half for fit / update.
-TOTAL_ROWS = 300
-SPLIT_POINT = 200  # first 200 rows are initial train, next 100 are update delta
+# Synthetic windows — initial train + update-delta split.
+TOTAL_ROWS = 800
+SPLIT_POINT = 200  # first 200 rows are initial train, next 600 are update delta
 
 # Compact model parameters — we need fitted models to exercise the warm-start
 # path, not production-grade hyperparameters.

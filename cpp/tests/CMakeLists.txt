@@ -7,6 +7,9 @@ add_executable(quant_tests
     test_metrics.cpp
     test_garch_filter.cpp
     test_state_machines.cpp
+    test_spread.cpp
+    test_pairs_trading_strategy.cpp
+    test_adaptive_bollinger_strategy.cpp
 )
 target_link_libraries(quant_tests PRIVATE quant_core GTest::gtest_main)
 include(GoogleTest)

@@ -7,6 +7,7 @@ import math
 from pathlib import Path
 from typing import TYPE_CHECKING, Self
 
+import numpy as np
 import pandas as pd
 
 import quant_engine
@@ -29,8 +30,10 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+_STRATEGY_NAME = "AdaptiveBollinger"
 
-@strategy_registry.register("AdaptiveBollinger")
+
+@strategy_registry.register(_STRATEGY_NAME)
 class AdaptiveBollingerStrategy(IStrategy):
     """Mean-reversion Bollinger-band strategy with GARCH-adaptive band widths.
 
@@ -68,6 +71,13 @@ class AdaptiveBollingerStrategy(IStrategy):
         self._garch = GARCHPredictor(p_max=garch_p_max, q_max=garch_q_max, interval=interval)
         self._fitted = False
         self._training_metadata: TrainingMetadata | None = None
+        self._cpp_strategy = quant_engine.AdaptiveBollingerStrategy(
+            quant_engine.AdaptiveBollingerStrategy.Config(
+                band_window=self._window,
+                k=self._k,
+                trend_window=self._trend_window,
+            )
+        )
 
     def train(self, train_data: pd.DataFrame, **kwargs: object) -> None:
         """Fit the GARCH volatility model on training log returns."""
@@ -84,22 +94,13 @@ class AdaptiveBollingerStrategy(IStrategy):
             raise RuntimeError("AdaptiveBollingerStrategy.generate_signals() called before train()")
 
         close = data["close"]
-        mid = close.rolling(self._window).mean()
-        trend_ma = close.rolling(self._trend_window).mean()
-
         garch_vol_annual = self._garch.predict(data)
         ann_factor_sqrt = math.sqrt(self._interval.annualization_factor())
         daily_price_sigma = (garch_vol_annual / ann_factor_sqrt) * close
 
-        upper = mid + self._k * daily_price_sigma
-        lower = mid - self._k * daily_price_sigma
-
-        signal = quant_engine.run_mean_reversion_state_machine(
-            close=close.to_numpy(),
-            mid=mid.to_numpy(),
-            upper=upper.to_numpy(),
-            lower=lower.to_numpy(),
-            trend_ma=trend_ma.to_numpy(),
+        signal = self._cpp_strategy.generate_signals(
+            close=np.asarray(close, dtype=np.float64),
+            cond_vol=np.asarray(daily_price_sigma, dtype=np.float64),
         )
         return pd.Series(signal, index=data.index, name="adaptive_bollinger_signal")
 
@@ -172,7 +173,7 @@ class AdaptiveBollingerStrategy(IStrategy):
 
     @property
     def name(self) -> str:
-        return "AdaptiveBollinger"
+        return _STRATEGY_NAME
 
     @property
     def required_warmup_bars(self) -> int:

@@ -114,6 +114,23 @@ class TestPairsTradingStrategy:
         with pytest.raises(ValueError, match="close_a"):
             s.train(bad)
 
+    def test_non_finite_prices_raise(
+        self, fitted_strategy: PairsTradingStrategy, pair_df: pd.DataFrame
+    ) -> None:
+        """The C++ Welford z-score is poisoned by any NaN/inf in the price
+        inputs and cannot recover once the NaN slides out — unlike pandas'
+        rolling std. Inject a NaN / inf and expect a loud boundary error
+        instead of silently-NaN signals."""
+        with_nan = pair_df.copy()
+        with_nan.loc[with_nan.index[10], "close_a"] = np.nan
+        with pytest.raises(ValueError, match="finite"):
+            fitted_strategy.generate_signals(with_nan)
+
+        with_inf = pair_df.copy()
+        with_inf.loc[with_inf.index[10], "close_b"] = np.inf
+        with pytest.raises(ValueError, match="finite"):
+            fitted_strategy.generate_signals(with_inf)
+
     def test_training_metadata_populated(
         self, fitted_strategy: PairsTradingStrategy, pair_df: pd.DataFrame
     ) -> None:

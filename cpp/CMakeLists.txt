@@ -60,7 +60,10 @@ add_library(quant_core STATIC
     src/indicators/garman_klass.cpp
     src/indicators/parkinson.cpp
     src/filters/garch_filter.cpp
+    src/statistics/spread.cpp
     src/strategies/state_machines.cpp
+    src/strategies/pairs_trading.cpp
+    src/strategies/adaptive_bollinger.cpp
     src/engine/backtest_engine.cpp
     src/metrics/performance.cpp
 )

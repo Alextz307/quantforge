@@ -12,6 +12,9 @@
 #include <quant/indicators/parkinson.hpp>
 #include <quant/indicators/rsi.hpp>
 #include <quant/metrics/performance.hpp>
+#include <quant/statistics/spread.hpp>
+#include <quant/strategies/adaptive_bollinger.hpp>
+#include <quant/strategies/pairs_trading.hpp>
 #include <quant/strategies/state_machines.hpp>
 
 #include <cstdint>
@@ -475,4 +478,130 @@ PYBIND11_MODULE(quant_engine, m) {
         py::arg("zscore"), py::arg("entry_zscore"), py::arg("exit_zscore"),
         py::arg("stop_loss_zscore"),
         "Run the pairs-trading state machine; returns a position series.");
+
+    // ── CointegrationParams ──
+    // spread_mean / spread_std are training-time provenance only — the
+    // rolling z-score recomputes them on the inference window. Defaulted
+    // so callers who only care about the hedge ratio can omit them.
+    py::class_<quant::statistics::CointegrationParams>(m, "CointegrationParams")
+        .def(py::init([](double hedge_ratio, double spread_mean, double spread_std) {
+                 return quant::statistics::CointegrationParams{
+                     hedge_ratio, spread_mean, spread_std};
+             }),
+             py::kw_only(),
+             py::arg("hedge_ratio"),
+             py::arg("spread_mean") = 0.0,
+             py::arg("spread_std") = 1.0)
+        .def_readonly("hedge_ratio", &quant::statistics::CointegrationParams::hedge_ratio)
+        .def_readonly("spread_mean", &quant::statistics::CointegrationParams::spread_mean)
+        .def_readonly("spread_std", &quant::statistics::CointegrationParams::spread_std);
+
+    // ── SpreadCalculator ──
+    py::class_<quant::statistics::SpreadCalculator>(m, "SpreadCalculator")
+        .def_static(
+            "compute_spread",
+            [](const ContigF64& a, const ContigF64& b, double hedge_ratio) {
+                const auto a_span = as_span(a);
+                const auto b_span = as_span(b);
+                std::vector<double> out;
+                {
+                    py::gil_scoped_release release;
+                    out = quant::statistics::SpreadCalculator::compute_spread(
+                        a_span, b_span, hedge_ratio);
+                }
+                return as_numpy(out);
+            },
+            py::arg("a"), py::arg("b"), py::arg("hedge_ratio"))
+        .def_static(
+            "compute_zscore",
+            [](const ContigF64& spread, int window) {
+                const auto spread_span = as_span(spread);
+                std::vector<double> out;
+                {
+                    py::gil_scoped_release release;
+                    out = quant::statistics::SpreadCalculator::compute_zscore(
+                        spread_span, window);
+                }
+                return as_numpy(out);
+            },
+            py::arg("spread"), py::arg("window"));
+
+    // ── PairsTradingStrategy ──
+    py::class_<quant::strategies::PairsTradingStrategy> pairs_trading(m, "PairsTradingStrategy");
+    py::class_<quant::strategies::PairsTradingStrategy::Config>(pairs_trading, "Config")
+        .def(py::init([](double entry_zscore, double exit_zscore,
+                         double stop_loss_zscore, int zscore_lookback) {
+                 return quant::strategies::PairsTradingStrategy::Config{
+                     entry_zscore, exit_zscore, stop_loss_zscore, zscore_lookback};
+             }),
+             py::kw_only(),
+             py::arg("entry_zscore") = 2.0,
+             py::arg("exit_zscore") = 0.5,
+             py::arg("stop_loss_zscore") = 4.0,
+             py::arg("zscore_lookback") = 60)
+        .def_readonly("entry_zscore",
+                      &quant::strategies::PairsTradingStrategy::Config::entry_zscore)
+        .def_readonly("exit_zscore",
+                      &quant::strategies::PairsTradingStrategy::Config::exit_zscore)
+        .def_readonly("stop_loss_zscore",
+                      &quant::strategies::PairsTradingStrategy::Config::stop_loss_zscore)
+        .def_readonly("zscore_lookback",
+                      &quant::strategies::PairsTradingStrategy::Config::zscore_lookback);
+    pairs_trading
+        .def(py::init<quant::strategies::PairsTradingStrategy::Config>(), py::arg("config"))
+        .def(
+            "generate_signals",
+            [](const quant::strategies::PairsTradingStrategy& self,
+               const ContigF64& prices_a, const ContigF64& prices_b,
+               const quant::statistics::CointegrationParams& coint) {
+                const auto a_span = as_span(prices_a);
+                const auto b_span = as_span(prices_b);
+                std::vector<double> out;
+                {
+                    py::gil_scoped_release release;
+                    out = self.generate_signals(a_span, b_span, coint);
+                }
+                return as_numpy(out);
+            },
+            py::arg("prices_a"), py::arg("prices_b"), py::arg("coint"))
+        .def_property_readonly("name", &quant::strategies::PairsTradingStrategy::name)
+        .def_property_readonly("required_warmup",
+                               &quant::strategies::PairsTradingStrategy::required_warmup);
+
+    // ── AdaptiveBollingerStrategy ──
+    py::class_<quant::strategies::AdaptiveBollingerStrategy> adaptive_bollinger(
+        m, "AdaptiveBollingerStrategy");
+    py::class_<quant::strategies::AdaptiveBollingerStrategy::Config>(adaptive_bollinger, "Config")
+        .def(py::init([](int band_window, double k, int trend_window) {
+                 return quant::strategies::AdaptiveBollingerStrategy::Config{
+                     band_window, k, trend_window};
+             }),
+             py::kw_only(),
+             py::arg("band_window") = 20,
+             py::arg("k") = 2.0,
+             py::arg("trend_window") = 100)
+        .def_readonly("band_window",
+                      &quant::strategies::AdaptiveBollingerStrategy::Config::band_window)
+        .def_readonly("k", &quant::strategies::AdaptiveBollingerStrategy::Config::k)
+        .def_readonly("trend_window",
+                      &quant::strategies::AdaptiveBollingerStrategy::Config::trend_window);
+    adaptive_bollinger
+        .def(py::init<quant::strategies::AdaptiveBollingerStrategy::Config>(), py::arg("config"))
+        .def(
+            "generate_signals",
+            [](const quant::strategies::AdaptiveBollingerStrategy& self,
+               const ContigF64& close, const ContigF64& cond_vol) {
+                const auto close_span = as_span(close);
+                const auto cond_vol_span = as_span(cond_vol);
+                std::vector<double> out;
+                {
+                    py::gil_scoped_release release;
+                    out = self.generate_signals(close_span, cond_vol_span);
+                }
+                return as_numpy(out);
+            },
+            py::arg("close"), py::arg("cond_vol"))
+        .def_property_readonly("name", &quant::strategies::AdaptiveBollingerStrategy::name)
+        .def_property_readonly("required_warmup",
+                               &quant::strategies::AdaptiveBollingerStrategy::required_warmup);
 }

@@ -29,8 +29,10 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+_STRATEGY_NAME = "PairsTrading"
 
-@strategy_registry.register("PairsTrading")
+
+@strategy_registry.register(_STRATEGY_NAME)
 class PairsTradingStrategy(IStrategy):
     """Pairs trading on a cointegrated spread via rolling z-score.
 
@@ -71,6 +73,7 @@ class PairsTradingStrategy(IStrategy):
         self._spread_mean = 0.0
         self._spread_std = 0.0
         self._is_cointegrated = False
+        self._cpp_coint: quant_engine.CointegrationParams | None = None
         # Cached training price series (values only — cointegration refit
         # doesn't need the index). ``update()`` concatenates with new bars and
         # re-runs the Engle-Granger test on the extended window, so the
@@ -79,6 +82,14 @@ class PairsTradingStrategy(IStrategy):
         self._train_close_b: np.ndarray[tuple[int], np.dtype[np.float64]] = np.array([])
         self._fitted = False
         self._training_metadata: TrainingMetadata | None = None
+        self._cpp_strategy = quant_engine.PairsTradingStrategy(
+            quant_engine.PairsTradingStrategy.Config(
+                entry_zscore=self._entry_zscore,
+                exit_zscore=self._exit_zscore,
+                stop_loss_zscore=self._stop_loss_zscore,
+                zscore_lookback=self._zscore_lookback,
+            )
+        )
 
     def train(self, train_data: pd.DataFrame, **kwargs: object) -> None:
         """Run Engle-Granger cointegration and cache hedge ratio / spread stats."""
@@ -104,6 +115,7 @@ class PairsTradingStrategy(IStrategy):
         self._is_cointegrated = True
         self._train_close_a = np.asarray(train_data["close_a"].values, dtype=np.float64)
         self._train_close_b = np.asarray(train_data["close_b"].values, dtype=np.float64)
+        self._cpp_coint = self._build_coint_params()
 
         self._training_metadata = TrainingMetadata.from_fit(
             train_data, self._interval, ("close_a", "close_b")
@@ -112,25 +124,38 @@ class PairsTradingStrategy(IStrategy):
 
     def generate_signals(self, data: pd.DataFrame) -> pd.Series:
         """Produce {-1, 0, +1} leg_a position. Leading lookback bars are NaN."""
-        if not self._fitted:
+        if not self._fitted or self._cpp_coint is None:
             raise RuntimeError("PairsTradingStrategy.generate_signals() called before train()")
         if "close_a" not in data.columns or "close_b" not in data.columns:
             raise ValueError(
                 "PairsTradingStrategy.generate_signals() requires 'close_a' and 'close_b' columns"
             )
 
-        spread = data["close_a"] - self._hedge_ratio * data["close_b"]
-        rolling_mean = spread.rolling(self._zscore_lookback).mean()
-        rolling_std = spread.rolling(self._zscore_lookback).std()
-        zscore = (spread - rolling_mean) / rolling_std
+        prices_a = np.asarray(data["close_a"], dtype=np.float64)
+        prices_b = np.asarray(data["close_b"], dtype=np.float64)
+        # The C++ rolling z-score uses a Welford accumulator that cannot
+        # recover once any NaN enters — unlike pandas' rolling(w).std().
+        # Fail loud at the boundary rather than silently emit all-NaN
+        # signals from the first corrupted bar onward.
+        if not np.isfinite(prices_a).all() or not np.isfinite(prices_b).all():
+            raise ValueError(
+                "PairsTradingStrategy.generate_signals() requires finite close_a / close_b "
+                "(NaN or inf in price inputs would poison the rolling z-score)"
+            )
 
-        signal = quant_engine.run_pairs_state_machine(
-            zscore=zscore.to_numpy(),
-            entry_zscore=self._entry_zscore,
-            exit_zscore=self._exit_zscore,
-            stop_loss_zscore=self._stop_loss_zscore,
+        signal = self._cpp_strategy.generate_signals(
+            prices_a=prices_a,
+            prices_b=prices_b,
+            coint=self._cpp_coint,
         )
         return pd.Series(signal, index=data.index, name="pairs_signal")
+
+    def _build_coint_params(self) -> quant_engine.CointegrationParams:
+        return quant_engine.CointegrationParams(
+            hedge_ratio=self._hedge_ratio,
+            spread_mean=self._spread_mean,
+            spread_std=self._spread_std,
+        )
 
     def update(self, new_data: pd.DataFrame, **kwargs: object) -> None:
         """Re-test cointegration on the extended window.
@@ -193,6 +218,7 @@ class PairsTradingStrategy(IStrategy):
         self._is_cointegrated = result.is_cointegrated
         self._train_close_a = combined_a
         self._train_close_b = combined_b
+        self._cpp_coint = self._build_coint_params()
         self._training_metadata = new_metadata
 
     def save(self, path: str | Path) -> None:
@@ -266,6 +292,7 @@ class PairsTradingStrategy(IStrategy):
         with np.load(root / TRAIN_PAIR_NPZ, allow_pickle=False) as train_pair:
             instance._train_close_a = np.asarray(train_pair["close_a"], dtype=np.float64)
             instance._train_close_b = np.asarray(train_pair["close_b"], dtype=np.float64)
+        instance._cpp_coint = instance._build_coint_params()
         instance._training_metadata = TrainingMetadata.from_dict(metadata)
         instance._fitted = True
         return instance
@@ -279,7 +306,7 @@ class PairsTradingStrategy(IStrategy):
 
     @property
     def name(self) -> str:
-        return "PairsTrading"
+        return _STRATEGY_NAME
 
     @property
     def required_warmup_bars(self) -> int:
