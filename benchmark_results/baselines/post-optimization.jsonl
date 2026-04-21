@@ -1,0 +1,1203 @@
+{
+  "hardware": {
+    "cpu_brand": "Apple M1 Pro",
+    "cpu_count": 10,
+    "git_dirty": true,
+    "git_sha": "d58e0733cce35300e12fbd674e3c844d9aa1cd6b",
+    "os_name": "Darwin",
+    "os_version": "25.3.0",
+    "python_version": "3.12.11",
+    "ram_gb": 17.179869184
+  },
+  "results": [
+    {
+      "cpu_time_ns": 48150.430292598976,
+      "custom_counters": {
+        "Cycles": 1160.172117039587,
+        "CyclesPerItem": 0.11601721170395869
+      },
+      "family": "BM_RSI",
+      "items_per_second": 207682463.87897936,
+      "iterations": 2905,
+      "name": "BM_RSI/10000",
+      "params": {
+        "n": 10000
+      },
+      "real_time_ns": 48341.43714193838,
+      "tags": []
+    },
+    {
+      "cpu_time_ns": 477187.71331058,
+      "custom_counters": {
+        "Cycles": 11479.63481228669,
+        "CyclesPerItem": 0.11479634812286689
+      },
+      "family": "BM_RSI",
+      "items_per_second": 209561137.4949935,
+      "iterations": 293,
+      "name": "BM_RSI/100000",
+      "params": {
+        "n": 100000
+      },
+      "real_time_ns": 478343.9968073734,
+      "tags": []
+    },
+    {
+      "cpu_time_ns": 4773275.862068967,
+      "custom_counters": {
+        "Cycles": 114839.4827586207,
+        "CyclesPerItem": 0.11483948275862069
+      },
+      "family": "BM_RSI",
+      "items_per_second": 209499729.09517786,
+      "iterations": 29,
+      "name": "BM_RSI/1000000",
+      "params": {
+        "n": 1000000
+      },
+      "real_time_ns": 4785185.342590356,
+      "tags": []
+    },
+    {
+      "cpu_time_ns": 28840.722495894905,
+      "custom_counters": {
+        "Cycles": 693.4583333333334,
+        "CyclesPerItem": 0.06934583333333333
+      },
+      "family": "BM_MACD",
+      "items_per_second": 346731951.71942616,
+      "iterations": 4872,
+      "name": "BM_MACD/10000",
+      "params": {
+        "n": 10000
+      },
+      "real_time_ns": 28895.037952192703,
+      "tags": []
+    },
+    {
+      "cpu_time_ns": 284487.854251012,
+      "custom_counters": {
+        "Cycles": 6847.9797570850205,
+        "CyclesPerItem": 0.06847979757085021
+      },
+      "family": "BM_MACD",
+      "items_per_second": 351508855.31924,
+      "iterations": 494,
+      "name": "BM_MACD/100000",
+      "params": {
+        "n": 100000
+      },
+      "real_time_ns": 285337.971304713,
+      "tags": []
+    },
+    {
+      "cpu_time_ns": 2837448.9795918325,
+      "custom_counters": {
+        "Cycles": 68293.8163265306,
+        "CyclesPerItem": 0.06829381632653062
+      },
+      "family": "BM_MACD",
+      "items_per_second": 352429244.43485504,
+      "iterations": 49,
+      "name": "BM_MACD/1000000",
+      "params": {
+        "n": 1000000
+      },
+      "real_time_ns": 2845684.513069537,
+      "tags": []
+    },
+    {
+      "cpu_time_ns": 40779.763620639875,
+      "custom_counters": {
+        "Cycles": 980.1568175266648,
+        "CyclesPerItem": 0.09801568175266648
+      },
+      "family": "BM_MACD_All",
+      "items_per_second": 245219665.64167863,
+      "iterations": 3469,
+      "name": "BM_MACD_All/10000",
+      "params": {
+        "n": 10000
+      },
+      "real_time_ns": 40841.18859105201,
+      "tags": []
+    },
+    {
+      "cpu_time_ns": 379932.4324324328,
+      "custom_counters": {
+        "Cycles": 9132.764864864865,
+        "CyclesPerItem": 0.09132764864864865
+      },
+      "family": "BM_MACD_All",
+      "items_per_second": 263204695.0026674,
+      "iterations": 370,
+      "name": "BM_MACD_All/100000",
+      "params": {
+        "n": 100000
+      },
+      "real_time_ns": 380541.32632709836,
+      "tags": []
+    },
+    {
+      "cpu_time_ns": 3895833.3333333335,
+      "custom_counters": {
+        "Cycles": 93792.36111111111,
+        "CyclesPerItem": 0.09379236111111111
+      },
+      "family": "BM_MACD_All",
+      "items_per_second": 256684491.97860965,
+      "iterations": 36,
+      "name": "BM_MACD_All/1000000",
+      "params": {
+        "n": 1000000
+      },
+      "real_time_ns": 3908149.3159756064,
+      "tags": []
+    },
+    {
+      "cpu_time_ns": 30249.6099843994,
+      "custom_counters": {
+        "Cycles": 726.8364163137954,
+        "CyclesPerItem": 0.07268364163137954
+      },
+      "family": "BM_Bollinger",
+      "items_per_second": 330582774.6260956,
+      "iterations": 4487,
+      "name": "BM_Bollinger/10000",
+      "params": {
+        "n": 10000
+      },
+      "real_time_ns": 30285.788707041596,
+      "tags": []
+    },
+    {
+      "cpu_time_ns": 277619.52191235096,
+      "custom_counters": {
+        "Cycles": 6693.9302788844625,
+        "CyclesPerItem": 0.06693930278884462
+      },
+      "family": "BM_Bollinger",
+      "items_per_second": 360205216.5177766,
+      "iterations": 502,
+      "name": "BM_Bollinger/100000",
+      "params": {
+        "n": 100000
+      },
+      "real_time_ns": 278918.74138963415,
+      "tags": []
+    },
+    {
+      "cpu_time_ns": 2776333.33333333,
+      "custom_counters": {
+        "Cycles": 66630.72549019608,
+        "CyclesPerItem": 0.06663072549019608
+      },
+      "family": "BM_Bollinger",
+      "items_per_second": 360187297.3946456,
+      "iterations": 51,
+      "name": "BM_Bollinger/1000000",
+      "params": {
+        "n": 1000000
+      },
+      "real_time_ns": 2776321.900241515,
+      "tags": []
+    },
+    {
+      "cpu_time_ns": 94253.02013422785,
+      "custom_counters": {
+        "Cycles": 2262.8328859060402,
+        "CyclesPerItem": 0.22628328859060404
+      },
+      "family": "BM_GarmanKlass",
+      "items_per_second": 106097395.98538886,
+      "iterations": 1490,
+      "name": "BM_GarmanKlass/10000",
+      "params": {
+        "n": 10000
+      },
+      "real_time_ns": 94286.13019119573,
+      "tags": []
+    },
+    {
+      "cpu_time_ns": 927211.9205297987,
+      "custom_counters": {
+        "Cycles": 22262.66225165563,
+        "CyclesPerItem": 0.2226266225165563
+      },
+      "family": "BM_GarmanKlass",
+      "items_per_second": 107850209.62938127,
+      "iterations": 151,
+      "name": "BM_GarmanKlass/100000",
+      "params": {
+        "n": 100000
+      },
+      "real_time_ns": 927623.6234763205,
+      "tags": []
+    },
+    {
+      "cpu_time_ns": 9343923.076923119,
+      "custom_counters": {
+        "Cycles": 224244.38461538462,
+        "CyclesPerItem": 0.22424438461538462
+      },
+      "family": "BM_GarmanKlass",
+      "items_per_second": 107021428.98304896,
+      "iterations": 13,
+      "name": "BM_GarmanKlass/1000000",
+      "params": {
+        "n": 1000000
+      },
+      "real_time_ns": 9343871.775154885,
+      "tags": []
+    },
+    {
+      "cpu_time_ns": 63141.89189189196,
+      "custom_counters": {
+        "Cycles": 1515.386936936937,
+        "CyclesPerItem": 0.1515386936936937
+      },
+      "family": "BM_Parkinson",
+      "items_per_second": 158373461.7442481,
+      "iterations": 2220,
+      "name": "BM_Parkinson/10000",
+      "params": {
+        "n": 10000
+      },
+      "real_time_ns": 63141.94824143841,
+      "tags": []
+    },
+    {
+      "cpu_time_ns": 615418.502202641,
+      "custom_counters": {
+        "Cycles": 14770.444933920704,
+        "CyclesPerItem": 0.14770444933920704
+      },
+      "family": "BM_Parkinson",
+      "items_per_second": 162491052.2548324,
+      "iterations": 227,
+      "name": "BM_Parkinson/100000",
+      "params": {
+        "n": 100000
+      },
+      "real_time_ns": 615447.6878303001,
+      "tags": []
+    },
+    {
+      "cpu_time_ns": 6308565.217391296,
+      "custom_counters": {
+        "Cycles": 151425.0,
+        "CyclesPerItem": 0.151425
+      },
+      "family": "BM_Parkinson",
+      "items_per_second": 158514648.82113364,
+      "iterations": 23,
+      "name": "BM_Parkinson/1000000",
+      "params": {
+        "n": 1000000
+      },
+      "real_time_ns": 6309626.7859572945,
+      "tags": []
+    },
+    {
+      "cpu_time_ns": 11695.354150799696,
+      "custom_counters": {
+        "Cycles": 280.98239823982397,
+        "CyclesPerItem": 0.28098239823982396
+      },
+      "family": "BM_BacktestEngine_Run_NoSlippage",
+      "items_per_second": 85504037.50976817,
+      "iterations": 11817,
+      "name": "BM_BacktestEngine_Run_NoSlippage/1000",
+      "params": {
+        "n": 1000
+      },
+      "real_time_ns": 11707.994859298999,
+      "tags": []
+    },
+    {
+      "cpu_time_ns": 122879.03893951964,
+      "custom_counters": {
+        "Cycles": 2956.1201325600664,
+        "CyclesPerItem": 0.2956120132560066
+      },
+      "family": "BM_BacktestEngine_Run_NoSlippage",
+      "items_per_second": 81380844.82351741,
+      "iterations": 1207,
+      "name": "BM_BacktestEngine_Run_NoSlippage/10000",
+      "params": {
+        "n": 10000
+      },
+      "real_time_ns": 123173.53623433852,
+      "tags": []
+    },
+    {
+      "cpu_time_ns": 365432.64248704666,
+      "custom_counters": {
+        "Cycles": 8788.360103626943,
+        "CyclesPerItem": 0.08788360103626942
+      },
+      "family": "BM_BacktestEngine_Run_NoSlippage",
+      "items_per_second": 273648241.4910285,
+      "iterations": 386,
+      "name": "BM_BacktestEngine_Run_NoSlippage/100000",
+      "params": {
+        "n": 100000
+      },
+      "real_time_ns": 366189.2275504498,
+      "tags": []
+    },
+    {
+      "cpu_time_ns": 2183193.5483870837,
+      "custom_counters": {
+        "Cycles": 52488.95161290323,
+        "CyclesPerItem": 0.05248895161290323
+      },
+      "family": "BM_BacktestEngine_Run_NoSlippage",
+      "items_per_second": 458044592.85746217,
+      "iterations": 62,
+      "name": "BM_BacktestEngine_Run_NoSlippage/1000000",
+      "params": {
+        "n": 1000000
+      },
+      "real_time_ns": 2187101.4633366177,
+      "tags": []
+    },
+    {
+      "cpu_time_ns": 16676.04375976785,
+      "custom_counters": {
+        "Cycles": 400.68899307881225,
+        "CyclesPerItem": 0.40068899307881223
+      },
+      "family": "BM_BacktestEngine_Run",
+      "items_per_second": 59966261.447008885,
+      "iterations": 8958,
+      "name": "BM_BacktestEngine_Run/1000",
+      "params": {
+        "n": 1000
+      },
+      "real_time_ns": 16696.01649777861,
+      "tags": []
+    },
+    {
+      "cpu_time_ns": 165176.54171705034,
+      "custom_counters": {
+        "Cycles": 3969.706166868198,
+        "CyclesPerItem": 0.3969706166868198
+      },
+      "family": "BM_BacktestEngine_Run",
+      "items_per_second": 60541284.47083082,
+      "iterations": 827,
+      "name": "BM_BacktestEngine_Run/10000",
+      "params": {
+        "n": 10000
+      },
+      "real_time_ns": 165407.345973703,
+      "tags": []
+    },
+    {
+      "cpu_time_ns": 411162.24188790744,
+      "custom_counters": {
+        "Cycles": 9885.050147492626,
+        "CyclesPerItem": 0.09885050147492626
+      },
+      "family": "BM_BacktestEngine_Run",
+      "items_per_second": 243212994.31785464,
+      "iterations": 339,
+      "name": "BM_BacktestEngine_Run/100000",
+      "params": {
+        "n": 100000
+      },
+      "real_time_ns": 411885.4457452058,
+      "tags": []
+    },
+    {
+      "cpu_time_ns": 7194052.6315789595,
+      "custom_counters": {
+        "Cycles": 172973.2105263158,
+        "CyclesPerItem": 0.17297321052631578
+      },
+      "family": "BM_BacktestEngine_Run",
+      "items_per_second": 139003709.2042401,
+      "iterations": 19,
+      "name": "BM_BacktestEngine_Run/1000000",
+      "params": {
+        "n": 1000000
+      },
+      "real_time_ns": 7207535.109237621,
+      "tags": []
+    },
+    {
+      "cpu_time_ns": 23486.86632089686,
+      "custom_counters": {
+        "Cycles": 564.8484189392672,
+        "CyclesPerItem": 0.5648484189392672
+      },
+      "family": "BM_BacktestEngine_Run_VolumeScaled",
+      "items_per_second": 42576986.91418338,
+      "iterations": 5977,
+      "name": "BM_BacktestEngine_Run_VolumeScaled/1000",
+      "params": {
+        "n": 1000
+      },
+      "real_time_ns": 23536.096699878646,
+      "tags": []
+    },
+    {
+      "cpu_time_ns": 237051.36986301345,
+      "custom_counters": {
+        "Cycles": 5698.561643835616,
+        "CyclesPerItem": 0.5698561643835617
+      },
+      "family": "BM_BacktestEngine_Run_VolumeScaled",
+      "items_per_second": 42184949.21914508,
+      "iterations": 584,
+      "name": "BM_BacktestEngine_Run_VolumeScaled/10000",
+      "params": {
+        "n": 10000
+      },
+      "real_time_ns": 237444.8494551933,
+      "tags": []
+    },
+    {
+      "cpu_time_ns": 520443.1818181818,
+      "custom_counters": {
+        "Cycles": 12515.795454545454,
+        "CyclesPerItem": 0.12515795454545456
+      },
+      "family": "BM_BacktestEngine_Run_VolumeScaled",
+      "items_per_second": 192143933.2736523,
+      "iterations": 264,
+      "name": "BM_BacktestEngine_Run_VolumeScaled/100000",
+      "params": {
+        "n": 100000
+      },
+      "real_time_ns": 521502.9990667421,
+      "tags": []
+    },
+    {
+      "cpu_time_ns": 2711173.07692306,
+      "custom_counters": {
+        "Cycles": 65181.71153846154,
+        "CyclesPerItem": 0.06518171153846154
+      },
+      "family": "BM_BacktestEngine_Run_VolumeScaled",
+      "items_per_second": 368844028.62797344,
+      "iterations": 52,
+      "name": "BM_BacktestEngine_Run_VolumeScaled/1000000",
+      "params": {
+        "n": 1000000
+      },
+      "real_time_ns": 2716086.536216048,
+      "tags": []
+    },
+    {
+      "cpu_time_ns": 5244.69595099352,
+      "custom_counters": {
+        "Cycles": 126.12490661885552,
+        "CyclesPerItem": 0.12612490661885553
+      },
+      "family": "BM_MetricsCalculator_Compute",
+      "items_per_second": 190668822.24327356,
+      "iterations": 26772,
+      "name": "BM_MetricsCalculator_Compute/1000",
+      "params": {
+        "n": 1000
+      },
+      "real_time_ns": 5255.710261506687,
+      "tags": []
+    },
+    {
+      "cpu_time_ns": 52043.29819277095,
+      "custom_counters": {
+        "Cycles": 1251.144201807229,
+        "CyclesPerItem": 0.12511442018072289
+      },
+      "family": "BM_MetricsCalculator_Compute",
+      "items_per_second": 192147699.0747109,
+      "iterations": 2656,
+      "name": "BM_MetricsCalculator_Compute/10000",
+      "params": {
+        "n": 10000
+      },
+      "real_time_ns": 52136.79719144052,
+      "tags": []
+    },
+    {
+      "cpu_time_ns": 525183.5205992506,
+      "custom_counters": {
+        "Cycles": 12625.685393258427,
+        "CyclesPerItem": 0.12625685393258426
+      },
+      "family": "BM_MetricsCalculator_Compute",
+      "items_per_second": 190409630.30579656,
+      "iterations": 267,
+      "name": "BM_MetricsCalculator_Compute/100000",
+      "params": {
+        "n": 100000
+      },
+      "real_time_ns": 526081.770658493,
+      "tags": []
+    },
+    {
+      "cpu_time_ns": 5320851.851851855,
+      "custom_counters": {
+        "Cycles": 127984.77777777778,
+        "CyclesPerItem": 0.12798477777777778
+      },
+      "family": "BM_MetricsCalculator_Compute",
+      "items_per_second": 187939831.41101035,
+      "iterations": 27,
+      "name": "BM_MetricsCalculator_Compute/1000000",
+      "params": {
+        "n": 1000000
+      },
+      "real_time_ns": 5332918.182291366,
+      "tags": []
+    },
+    {
+      "cpu_time_ns": 1632.0040734140139,
+      "custom_counters": {
+        "Cycles": 39.25664822829634,
+        "CyclesPerItem": 0.03925664822829634
+      },
+      "family": "BM_MetricsCalculator_MaxDrawdown",
+      "items_per_second": 612743568.6530396,
+      "iterations": 86414,
+      "name": "BM_MetricsCalculator_MaxDrawdown/1000",
+      "params": {
+        "n": 1000
+      },
+      "real_time_ns": 1636.040363686071,
+      "tags": []
+    },
+    {
+      "cpu_time_ns": 16273.320135087983,
+      "custom_counters": {
+        "Cycles": 391.43309654128336,
+        "CyclesPerItem": 0.039143309654128336
+      },
+      "family": "BM_MetricsCalculator_MaxDrawdown",
+      "items_per_second": 614502751.55826,
+      "iterations": 8587,
+      "name": "BM_MetricsCalculator_MaxDrawdown/10000",
+      "params": {
+        "n": 10000
+      },
+      "real_time_ns": 16310.406312792435,
+      "tags": []
+    },
+    {
+      "cpu_time_ns": 166437.9391100714,
+      "custom_counters": {
+        "Cycles": 4000.718969555035,
+        "CyclesPerItem": 0.04000718969555035
+      },
+      "family": "BM_MetricsCalculator_MaxDrawdown",
+      "items_per_second": 600824550.788666,
+      "iterations": 854,
+      "name": "BM_MetricsCalculator_MaxDrawdown/100000",
+      "params": {
+        "n": 100000
+      },
+      "real_time_ns": 166700.2821232103,
+      "tags": []
+    },
+    {
+      "cpu_time_ns": 1644894.1176470558,
+      "custom_counters": {
+        "Cycles": 39587.02352941177,
+        "CyclesPerItem": 0.03958702352941176
+      },
+      "family": "BM_MetricsCalculator_MaxDrawdown",
+      "items_per_second": 607941866.4530538,
+      "iterations": 85,
+      "name": "BM_MetricsCalculator_MaxDrawdown/1000000",
+      "params": {
+        "n": 1000000
+      },
+      "real_time_ns": 1649505.880606525,
+      "tags": []
+    },
+    {
+      "cpu_time_ns": 5220.819605375148,
+      "custom_counters": {
+        "Cycles": 125.54377521933884,
+        "CyclesPerItem": 0.12554377521933885
+      },
+      "family": "BM_MetricsCalculator_Sharpe",
+      "items_per_second": 191540806.92051488,
+      "iterations": 27013,
+      "name": "BM_MetricsCalculator_Sharpe/1000",
+      "params": {
+        "n": 1000
+      },
+      "real_time_ns": 5231.4148023953485,
+      "tags": []
+    },
+    {
+      "cpu_time_ns": 52782.41091736131,
+      "custom_counters": {
+        "Cycles": 1269.3153904473086,
+        "CyclesPerItem": 0.12693153904473087
+      },
+      "family": "BM_MetricsCalculator_Sharpe",
+      "items_per_second": 189457052.57110143,
+      "iterations": 2638,
+      "name": "BM_MetricsCalculator_Sharpe/10000",
+      "params": {
+        "n": 10000
+      },
+      "real_time_ns": 52889.578476536895,
+      "tags": []
+    },
+    {
+      "cpu_time_ns": 535079.5454545458,
+      "custom_counters": {
+        "Cycles": 12865.628787878788,
+        "CyclesPerItem": 0.12865628787878788
+      },
+      "family": "BM_MetricsCalculator_Sharpe",
+      "items_per_second": 186888100.74967602,
+      "iterations": 264,
+      "name": "BM_MetricsCalculator_Sharpe/100000",
+      "params": {
+        "n": 100000
+      },
+      "real_time_ns": 536080.1746560768,
+      "tags": []
+    },
+    {
+      "cpu_time_ns": 5257153.846153815,
+      "custom_counters": {
+        "Cycles": 126536.23076923077,
+        "CyclesPerItem": 0.12653623076923076
+      },
+      "family": "BM_MetricsCalculator_Sharpe",
+      "items_per_second": 190216993.6935762,
+      "iterations": 26,
+      "name": "BM_MetricsCalculator_Sharpe/1000000",
+      "params": {
+        "n": 1000000
+      },
+      "real_time_ns": 5272613.766674812,
+      "tags": []
+    },
+    {
+      "cpu_time_ns": 1860.7454676527943,
+      "custom_counters": {
+        "Cycles": 44.73880597014925,
+        "CyclesPerItem": 0.04473880597014925
+      },
+      "family": "BM_MetricsCalculator_Sortino",
+      "items_per_second": 537419016.9391804,
+      "iterations": 74906,
+      "name": "BM_MetricsCalculator_Sortino/1000",
+      "params": {
+        "n": 1000
+      },
+      "real_time_ns": 1864.4973939939216,
+      "tags": []
+    },
+    {
+      "cpu_time_ns": 19657.618333106162,
+      "custom_counters": {
+        "Cycles": 472.62174328195334,
+        "CyclesPerItem": 0.047262174328195336
+      },
+      "family": "BM_MetricsCalculator_Sortino",
+      "items_per_second": 508708625.3556265,
+      "iterations": 7331,
+      "name": "BM_MetricsCalculator_Sortino/10000",
+      "params": {
+        "n": 10000
+      },
+      "real_time_ns": 19693.232083378345,
+      "tags": []
+    },
+    {
+      "cpu_time_ns": 193485.27349228837,
+      "custom_counters": {
+        "Cycles": 4649.429172510519,
+        "CyclesPerItem": 0.04649429172510519
+      },
+      "family": "BM_MetricsCalculator_Sortino",
+      "items_per_second": 516835199.8840141,
+      "iterations": 713,
+      "name": "BM_MetricsCalculator_Sortino/100000",
+      "params": {
+        "n": 100000
+      },
+      "real_time_ns": 193730.7150927366,
+      "tags": []
+    },
+    {
+      "cpu_time_ns": 1950802.816901392,
+      "custom_counters": {
+        "Cycles": 46875.84507042253,
+        "CyclesPerItem": 0.046875845070422535
+      },
+      "family": "BM_MetricsCalculator_Sortino",
+      "items_per_second": 512609471.00146997,
+      "iterations": 71,
+      "name": "BM_MetricsCalculator_Sortino/1000000",
+      "params": {
+        "n": 1000000
+      },
+      "real_time_ns": 1953294.0153714637,
+      "tags": []
+    },
+    {
+      "cpu_time_ns": 5649.801706525647,
+      "custom_counters": {
+        "Cycles": 135.9108280254777,
+        "CyclesPerItem": 0.13591082802547771
+      },
+      "family": "BM_GarchFilter",
+      "items_per_second": 176997362.37556404,
+      "iterations": 24963,
+      "name": "BM_GarchFilter/1000",
+      "params": {
+        "n": 1000
+      },
+      "real_time_ns": 5663.451893297721,
+      "tags": []
+    },
+    {
+      "cpu_time_ns": 56959.10931174164,
+      "custom_counters": {
+        "Cycles": 1370.5522267206477,
+        "CyclesPerItem": 0.13705522267206477
+      },
+      "family": "BM_GarchFilter",
+      "items_per_second": 175564543.07017377,
+      "iterations": 2470,
+      "name": "BM_GarchFilter/10000",
+      "params": {
+        "n": 10000
+      },
+      "real_time_ns": 57107.60776240092,
+      "tags": []
+    },
+    {
+      "cpu_time_ns": 567238.8663967598,
+      "custom_counters": {
+        "Cycles": 13629.251012145749,
+        "CyclesPerItem": 0.1362925101214575
+      },
+      "family": "BM_GarchFilter",
+      "items_per_second": 176292574.29982626,
+      "iterations": 247,
+      "name": "BM_GarchFilter/100000",
+      "params": {
+        "n": 100000
+      },
+      "real_time_ns": 567905.197621357,
+      "tags": []
+    },
+    {
+      "cpu_time_ns": 5590039.999999945,
+      "custom_counters": {
+        "Cycles": 134425.68,
+        "CyclesPerItem": 0.13442568
+      },
+      "family": "BM_GarchFilter",
+      "items_per_second": 178889596.4966279,
+      "iterations": 25,
+      "name": "BM_GarchFilter/1000000",
+      "params": {
+        "n": 1000000
+      },
+      "real_time_ns": 5601249.989122152,
+      "tags": []
+    },
+    {
+      "cpu_time_ns": 1843.8502673796784,
+      "custom_counters": {
+        "Cycles": 44.31557323594626,
+        "CyclesPerItem": 0.044315573235946266
+      },
+      "family": "BM_MeanReversionStateMachine",
+      "items_per_second": 542343387.4709979,
+      "iterations": 76670,
+      "name": "BM_MeanReversionStateMachine/1000",
+      "params": {
+        "n": 1000
+      },
+      "real_time_ns": 1846.8729639529124,
+      "tags": []
+    },
+    {
+      "cpu_time_ns": 18884.48623237087,
+      "custom_counters": {
+        "Cycles": 454.42404298186705,
+        "CyclesPerItem": 0.0454424042981867
+      },
+      "family": "BM_MeanReversionStateMachine",
+      "items_per_second": 529535189.7293602,
+      "iterations": 7445,
+      "name": "BM_MeanReversionStateMachine/10000",
+      "params": {
+        "n": 10000
+      },
+      "real_time_ns": 18934.911596066526,
+      "tags": []
+    },
+    {
+      "cpu_time_ns": 183818.918918918,
+      "custom_counters": {
+        "Cycles": 4422.204054054054,
+        "CyclesPerItem": 0.04422204054054054
+      },
+      "family": "BM_MeanReversionStateMachine",
+      "items_per_second": 544013644.4503285,
+      "iterations": 740,
+      "name": "BM_MeanReversionStateMachine/100000",
+      "params": {
+        "n": 100000
+      },
+      "real_time_ns": 184262.1053141114,
+      "tags": []
+    },
+    {
+      "cpu_time_ns": 1803184.2105263288,
+      "custom_counters": {
+        "Cycles": 43274.32894736842,
+        "CyclesPerItem": 0.04327432894736842
+      },
+      "family": "BM_MeanReversionStateMachine",
+      "items_per_second": 554574510.0042282,
+      "iterations": 76,
+      "name": "BM_MeanReversionStateMachine/1000000",
+      "params": {
+        "n": 1000000
+      },
+      "real_time_ns": 1803187.5002443006,
+      "tags": []
+    },
+    {
+      "cpu_time_ns": 1620.4530013933368,
+      "custom_counters": {
+        "Cycles": 38.905116129106545,
+        "CyclesPerItem": 0.03890511612910655
+      },
+      "family": "BM_PairsStateMachine",
+      "items_per_second": 617111387.457801,
+      "iterations": 86843,
+      "name": "BM_PairsStateMachine/1000",
+      "params": {
+        "n": 1000
+      },
+      "real_time_ns": 1621.3823702056068,
+      "tags": []
+    },
+    {
+      "cpu_time_ns": 20826.486150015397,
+      "custom_counters": {
+        "Cycles": 501.6904761904762,
+        "CyclesPerItem": 0.05016904761904762
+      },
+      "family": "BM_PairsStateMachine",
+      "items_per_second": 480157810.97055626,
+      "iterations": 6426,
+      "name": "BM_PairsStateMachine/10000",
+      "params": {
+        "n": 10000
+      },
+      "real_time_ns": 20904.405204271403,
+      "tags": []
+    },
+    {
+      "cpu_time_ns": 316397.19626168127,
+      "custom_counters": {
+        "Cycles": 7605.478971962617,
+        "CyclesPerItem": 0.07605478971962616
+      },
+      "family": "BM_PairsStateMachine",
+      "items_per_second": 316058426.5016477,
+      "iterations": 428,
+      "name": "BM_PairsStateMachine/100000",
+      "params": {
+        "n": 100000
+      },
+      "real_time_ns": 316900.50469206594,
+      "tags": []
+    },
+    {
+      "cpu_time_ns": 3403523.809523864,
+      "custom_counters": {
+        "Cycles": 81886.38095238095,
+        "CyclesPerItem": 0.08188638095238095
+      },
+      "family": "BM_PairsStateMachine",
+      "items_per_second": 293813134.84623307,
+      "iterations": 42,
+      "name": "BM_PairsStateMachine/1000000",
+      "params": {
+        "n": 1000000
+      },
+      "real_time_ns": 3412074.4094252586,
+      "tags": []
+    },
+    {
+      "cpu_time_ns": 250.04395004282932,
+      "custom_counters": {
+        "Cycles": 6.0004226684969835,
+        "CyclesPerItem": 0.0060004226684969835
+      },
+      "family": "BM_ComputeSpread",
+      "items_per_second": 3999296922.9158025,
+      "iterations": 534698,
+      "name": "BM_ComputeSpread/1000",
+      "params": {
+        "n": 1000
+      },
+      "real_time_ns": 250.33983307149467,
+      "tags": []
+    },
+    {
+      "cpu_time_ns": 3555.3383948482815,
+      "custom_counters": {
+        "Cycles": 85.45563657320405,
+        "CyclesPerItem": 0.008545563657320404
+      },
+      "family": "BM_ComputeSpread",
+      "items_per_second": 2812671788.0047913,
+      "iterations": 39909,
+      "name": "BM_ComputeSpread/10000",
+      "params": {
+        "n": 10000
+      },
+      "real_time_ns": 3561.080631108849,
+      "tags": []
+    },
+    {
+      "cpu_time_ns": 28406.80049160166,
+      "custom_counters": {
+        "Cycles": 683.1257681278165,
+        "CyclesPerItem": 0.006831257681278164
+      },
+      "family": "BM_ComputeSpread",
+      "items_per_second": 3520283814.7704997,
+      "iterations": 4882,
+      "name": "BM_ComputeSpread/100000",
+      "params": {
+        "n": 100000
+      },
+      "real_time_ns": 28465.263658446984,
+      "tags": []
+    },
+    {
+      "cpu_time_ns": 415746.0815046985,
+      "custom_counters": {
+        "Cycles": 9981.742946708464,
+        "CyclesPerItem": 0.009981742946708463
+      },
+      "family": "BM_ComputeSpread",
+      "items_per_second": 2405314311.997186,
+      "iterations": 319,
+      "name": "BM_ComputeSpread/1000000",
+      "params": {
+        "n": 1000000
+      },
+      "real_time_ns": 415929.730362653,
+      "tags": []
+    },
+    {
+      "cpu_time_ns": 3169.851331630811,
+      "custom_counters": {
+        "Cycles": 76.14390277271069,
+        "CyclesPerItem": 0.07614390277271069
+      },
+      "family": "BM_ComputeZScore",
+      "items_per_second": 315472208.4349377,
+      "iterations": 43856,
+      "name": "BM_ComputeZScore/1000",
+      "params": {
+        "n": 1000
+      },
+      "real_time_ns": 3173.0435971770025,
+      "tags": []
+    },
+    {
+      "cpu_time_ns": 31283.252929014645,
+      "custom_counters": {
+        "Cycles": 752.1238226510452,
+        "CyclesPerItem": 0.07521238226510453
+      },
+      "family": "BM_ComputeZScore",
+      "items_per_second": 319659851.9562901,
+      "iterations": 4353,
+      "name": "BM_ComputeZScore/10000",
+      "params": {
+        "n": 10000
+      },
+      "real_time_ns": 31339.603052820086,
+      "tags": []
+    },
+    {
+      "cpu_time_ns": 311078.65168539237,
+      "custom_counters": {
+        "Cycles": 7473.961797752809,
+        "CyclesPerItem": 0.0747396179775281
+      },
+      "family": "BM_ComputeZScore",
+      "items_per_second": 321462110.8141308,
+      "iterations": 445,
+      "name": "BM_ComputeZScore/100000",
+      "params": {
+        "n": 100000
+      },
+      "real_time_ns": 311422.1910579821,
+      "tags": []
+    },
+    {
+      "cpu_time_ns": 3122155.5555555527,
+      "custom_counters": {
+        "Cycles": 75084.11111111111,
+        "CyclesPerItem": 0.07508411111111112
+      },
+      "family": "BM_ComputeZScore",
+      "items_per_second": 320291536.4740887,
+      "iterations": 45,
+      "name": "BM_ComputeZScore/1000000",
+      "params": {
+        "n": 1000000
+      },
+      "real_time_ns": 3128585.1986871827,
+      "tags": []
+    },
+    {
+      "cpu_time_ns": 5405.928428812755,
+      "custom_counters": {
+        "Cycles": 129.85102134848717,
+        "CyclesPerItem": 0.12985102134848717
+      },
+      "family": "BM_PairsTradingStrategy",
+      "items_per_second": 184982101.255754,
+      "iterations": 26044,
+      "name": "BM_PairsTradingStrategy/1000",
+      "params": {
+        "n": 1000
+      },
+      "real_time_ns": 5411.403135667884,
+      "tags": []
+    },
+    {
+      "cpu_time_ns": 55736.171906089,
+      "custom_counters": {
+        "Cycles": 1339.5443692797453,
+        "CyclesPerItem": 0.13395443692797454
+      },
+      "family": "BM_PairsTradingStrategy",
+      "items_per_second": 179416699.389567,
+      "iterations": 2513,
+      "name": "BM_PairsTradingStrategy/10000",
+      "params": {
+        "n": 10000
+      },
+      "real_time_ns": 55815.5590658685,
+      "tags": []
+    },
+    {
+      "cpu_time_ns": 528084.2911877433,
+      "custom_counters": {
+        "Cycles": 12694.505747126437,
+        "CyclesPerItem": 0.12694505747126436
+      },
+      "family": "BM_PairsTradingStrategy",
+      "items_per_second": 189363708.91678014,
+      "iterations": 261,
+      "name": "BM_PairsTradingStrategy/100000",
+      "params": {
+        "n": 100000
+      },
+      "real_time_ns": 528948.4368515882,
+      "tags": []
+    },
+    {
+      "cpu_time_ns": 5546879.999999987,
+      "custom_counters": {
+        "Cycles": 133429.76,
+        "CyclesPerItem": 0.13342976
+      },
+      "family": "BM_PairsTradingStrategy",
+      "items_per_second": 180281527.63355297,
+      "iterations": 25,
+      "name": "BM_PairsTradingStrategy/1000000",
+      "params": {
+        "n": 1000000
+      },
+      "real_time_ns": 5559861.622750759,
+      "tags": []
+    },
+    {
+      "cpu_time_ns": 5293.426424020426,
+      "custom_counters": {
+        "Cycles": 127.21662660714966,
+        "CyclesPerItem": 0.12721662660714966
+      },
+      "family": "BM_AdaptiveBollingerStrategy",
+      "items_per_second": 188913554.26462832,
+      "iterations": 26211,
+      "name": "BM_AdaptiveBollingerStrategy/1000",
+      "params": {
+        "n": 1000
+      },
+      "real_time_ns": 5301.13149673812,
+      "tags": []
+    },
+    {
+      "cpu_time_ns": 56803.68589743558,
+      "custom_counters": {
+        "Cycles": 1365.9735576923076,
+        "CyclesPerItem": 0.13659735576923077
+      },
+      "family": "BM_AdaptiveBollingerStrategy",
+      "items_per_second": 176044914.02293763,
+      "iterations": 2496,
+      "name": "BM_AdaptiveBollingerStrategy/10000",
+      "params": {
+        "n": 10000
+      },
+      "real_time_ns": 56918.01888110021,
+      "tags": []
+    },
+    {
+      "cpu_time_ns": 558097.5609756114,
+      "custom_counters": {
+        "Cycles": 13420.69918699187,
+        "CyclesPerItem": 0.1342069918699187
+      },
+      "family": "BM_AdaptiveBollingerStrategy",
+      "items_per_second": 179180141.59601378,
+      "iterations": 246,
+      "name": "BM_AdaptiveBollingerStrategy/100000",
+      "params": {
+        "n": 100000
+      },
+      "real_time_ns": 559224.4272158155,
+      "tags": []
+    },
+    {
+      "cpu_time_ns": 5982181.818181816,
+      "custom_counters": {
+        "Cycles": 143565.5909090909,
+        "CyclesPerItem": 0.1435655909090909
+      },
+      "family": "BM_AdaptiveBollingerStrategy",
+      "items_per_second": 167163090.38964203,
+      "iterations": 22,
+      "name": "BM_AdaptiveBollingerStrategy/1000000",
+      "params": {
+        "n": 1000000
+      },
+      "real_time_ns": 5982168.547978455,
+      "tags": []
+    }
+  ],
+  "run_id": "2026-04-21T21-18-49Z_d58e073",
+  "tags": [
+    "post-optimization"
+  ],
+  "timestamp": "2026-04-21T21:18:49Z"
+}

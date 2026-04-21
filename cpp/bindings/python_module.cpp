@@ -263,58 +263,73 @@ PYBIND11_MODULE(quant_engine, m) {
         .def_readonly("win_rate", &quant::PerformanceMetrics::win_rate);
 
     // ── MetricsCalculator ── uninstantiable namespace wrapper.
+    // GIL released on every compute so Python-side parallelism (Optuna HPO,
+    // pytest-xdist) scales across cores for multi-million-bar equity curves.
+    // ``call_gil_free`` materializes the span while the GIL is held (numpy
+    // accessor), then drops the GIL for the pure-C++ math call.
+    const auto call_gil_free = [](const ContigF64& arr, auto&& fn) {
+        const auto input = as_span(arr);
+        py::gil_scoped_release release;
+        return fn(input);
+    };
     py::class_<quant::MetricsCalculator>(m, "MetricsCalculator")
         .def_static(
             "compute",
-            [](const ContigF64& equity_curve, int annualization_factor,
-               double risk_free_rate) {
-                return quant::MetricsCalculator::compute(
-                    as_span(equity_curve), annualization_factor, risk_free_rate);
+            [call_gil_free](const ContigF64& equity_curve, int ann, double rf) {
+                return call_gil_free(equity_curve, [&](auto s) {
+                    return quant::MetricsCalculator::compute(s, ann, rf);
+                });
             },
             py::arg("equity_curve"), py::arg("annualization_factor"),
             py::arg("risk_free_rate") = 0.0)
         .def_static(
             "sharpe_ratio",
-            [](const ContigF64& returns, int annualization_factor,
-               double risk_free_rate) {
-                return quant::MetricsCalculator::sharpe_ratio(
-                    as_span(returns), annualization_factor, risk_free_rate);
+            [call_gil_free](const ContigF64& returns, int ann, double rf) {
+                return call_gil_free(returns, [&](auto s) {
+                    return quant::MetricsCalculator::sharpe_ratio(s, ann, rf);
+                });
             },
             py::arg("returns"), py::arg("annualization_factor"),
             py::arg("risk_free_rate") = 0.0)
         .def_static(
             "sortino_ratio",
-            [](const ContigF64& returns, int annualization_factor,
-               double risk_free_rate) {
-                return quant::MetricsCalculator::sortino_ratio(
-                    as_span(returns), annualization_factor, risk_free_rate);
+            [call_gil_free](const ContigF64& returns, int ann, double rf) {
+                return call_gil_free(returns, [&](auto s) {
+                    return quant::MetricsCalculator::sortino_ratio(s, ann, rf);
+                });
             },
             py::arg("returns"), py::arg("annualization_factor"),
             py::arg("risk_free_rate") = 0.0)
         .def_static(
             "max_drawdown",
-            [](const ContigF64& equity_curve) {
-                return quant::MetricsCalculator::max_drawdown(as_span(equity_curve));
+            [call_gil_free](const ContigF64& equity_curve) {
+                return call_gil_free(equity_curve, [](auto s) {
+                    return quant::MetricsCalculator::max_drawdown(s);
+                });
             },
             py::arg("equity_curve"))
         .def_static(
             "win_rate",
-            [](const ContigF64& returns) {
-                return quant::MetricsCalculator::win_rate(as_span(returns));
+            [call_gil_free](const ContigF64& returns) {
+                return call_gil_free(returns, [](auto s) {
+                    return quant::MetricsCalculator::win_rate(s);
+                });
             },
             py::arg("returns"))
         .def_static(
             "annualized_return",
-            [](const ContigF64& equity_curve, int annualization_factor) {
-                return quant::MetricsCalculator::annualized_return(
-                    as_span(equity_curve), annualization_factor);
+            [call_gil_free](const ContigF64& equity_curve, int ann) {
+                return call_gil_free(equity_curve, [&](auto s) {
+                    return quant::MetricsCalculator::annualized_return(s, ann);
+                });
             },
             py::arg("equity_curve"), py::arg("annualization_factor"))
         .def_static(
             "annualized_volatility",
-            [](const ContigF64& returns, int annualization_factor) {
-                return quant::MetricsCalculator::annualized_volatility(
-                    as_span(returns), annualization_factor);
+            [call_gil_free](const ContigF64& returns, int ann) {
+                return call_gil_free(returns, [&](auto s) {
+                    return quant::MetricsCalculator::annualized_volatility(s, ann);
+                });
             },
             py::arg("returns"), py::arg("annualization_factor"));
 

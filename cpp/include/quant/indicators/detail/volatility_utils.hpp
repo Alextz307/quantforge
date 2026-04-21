@@ -19,7 +19,7 @@ namespace quant::detail {
 inline void annualize_rolling_variance(
     std::span<const double> daily_values,
     int window,
-    std::span<double> out)
+    std::span<double> out) noexcept
 {
     rolling_mean(daily_values, window, out);
     const auto n = static_cast<int>(out.size());

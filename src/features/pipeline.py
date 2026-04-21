@@ -170,10 +170,7 @@ class FeatureEngineeringPipeline(IFeaturePipeline):
         self._fit_scaler(features)
         assert self._scaler is not None
 
-        valid_mask = features.notna().all(axis=1)
-        if valid_mask.any():
-            features.loc[valid_mask] = self._scaler.transform(features.loc[valid_mask])
-
+        self._apply_scaler_in_place(features)
         return features
 
     def transform(self, data: pd.DataFrame) -> pd.DataFrame:
@@ -188,9 +185,13 @@ class FeatureEngineeringPipeline(IFeaturePipeline):
             raise RuntimeError("FeatureEngineeringPipeline.transform() called before fit()")
 
         features = self._compute_raw_features(data)
+        self._apply_scaler_in_place(features)
+        return features
 
+    def _apply_scaler_in_place(self, features: pd.DataFrame) -> None:
+        """Scale non-NaN rows in place. Leading warmup NaNs are preserved."""
+        assert self._scaler is not None
         valid_mask = features.notna().all(axis=1)
         if valid_mask.any():
-            features.loc[valid_mask] = self._scaler.transform(features.loc[valid_mask])
-
-        return features
+            features_valid = features.loc[valid_mask]
+            features.loc[valid_mask] = self._scaler.transform(features_valid)

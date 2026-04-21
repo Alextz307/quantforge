@@ -13,7 +13,7 @@ namespace quant::detail {
 inline void rolling_mean(
     std::span<const double> data,
     int window,
-    std::span<double> out)
+    std::span<double> out) noexcept
 {
     const auto n = static_cast<int>(data.size());
     const double nan = std::numeric_limits<double>::quiet_NaN();
@@ -56,7 +56,7 @@ inline void rolling_mean_std(
     int window,
     std::span<double> mean_out,
     std::span<double> std_out,
-    int ddof = 1)
+    int ddof = 1) noexcept
 {
     const auto n = static_cast<int>(data.size());
     const double nan = std::numeric_limits<double>::quiet_NaN();

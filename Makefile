@@ -1,4 +1,4 @@
-.PHONY: install test test-cpp test-python lint typecheck bench bench-cpp stubs clean
+.PHONY: install test test-cpp test-python lint typecheck bench bench-cpp bench-baseline bench-report stubs clean
 
 install:
 	pip install -e ".[dev]"
@@ -23,6 +23,14 @@ bench:
 
 bench-cpp:
 	cd cpp/build && ./quant_bench --benchmark_format=console
+
+bench-baseline:
+	@test -n "$(NAME)" || { echo "usage: make bench-baseline NAME=<baseline-name>"; exit 1; }
+	python -m scripts.benchmark run --save-baseline $(NAME)
+
+bench-report:
+	python -m scripts.benchmark run
+	@echo "Reports written under benchmark_results/reports/"
 
 stubs:
 	python scripts/regen_stubs.py

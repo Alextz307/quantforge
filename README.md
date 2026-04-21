@@ -2,7 +2,7 @@
 
 A thesis-grade, bifurcated C++/Python quantitative trading framework with strict anti-leakage guarantees, temporal contracts, and a clean separation between computation (C++) and orchestration (Python). Built around walk-forward validation, typed interfaces, and end-to-end hyperparameter tuning.
 
-**Current state:** a Python orchestration layer built on top of a C++ core. Implemented and under test: the typed temporal contracts, data layer, ML leaf models (GARCH, ARMA, LSTM, XGBoost), hybrid residual models, five trading strategies, the feature pipeline, a C++ indicator suite (RSI, MACD, Bollinger, Garman-Klass, Parkinson), a GARCH inference filter, two strategy state machines and two full `IStrategy` C++ classes (pairs trading + adaptive bollinger) with a shared `SpreadCalculator` primitive, and the C++ backtest engine + performance metrics — all bridged through a `pybind11` module (`quant_engine`) with the GIL released on every compute call. Every model and strategy round-trips through directory-based `save()` / `load()` (JSON configs + metadata + native binary weights, zero pickle) and supports warm-start `update()` so walk-forward folds extend the training window cheaply. `WalkForwardValidator` supports an optional `snap_to_day` mode that keeps every train/test boundary on a daily close, honouring the intraday day-boundary rule. CI is green on Linux and macOS with **595 Python tests**, **172 C++ tests**, `mypy --strict` clean on 95 source files, and `ruff` clean across the whole repo.
+**Current state:** a Python orchestration layer built on top of a C++ core. Implemented and under test: the typed temporal contracts, data layer, ML leaf models (GARCH, ARMA, LSTM, XGBoost), hybrid residual models, five trading strategies, the feature pipeline, a C++ indicator suite (RSI, MACD, Bollinger, Garman-Klass, Parkinson), a GARCH inference filter, two strategy state machines and two full `IStrategy` C++ classes (pairs trading + adaptive bollinger) with a shared `SpreadCalculator` primitive, and the C++ backtest engine + performance metrics — all bridged through a `pybind11` module (`quant_engine`) with the GIL released on every compute call. Every model and strategy round-trips through directory-based `save()` / `load()` (JSON configs + metadata + native binary weights, zero pickle) and supports warm-start `update()` so walk-forward folds extend the training window cheaply. `WalkForwardValidator` supports an optional `snap_to_day` mode that keeps every train/test boundary on a daily close, honouring the intraday day-boundary rule. CI is green on Linux and macOS with **643 Python tests**, **214 C++ tests**, `mypy --strict` clean on 110 source files, and `ruff` clean across the whole repo.
 
 ## Architecture
 
@@ -70,7 +70,7 @@ Anything that runs inside the backtest hot loop (bar iteration, indicators, metr
 - **Anti-leakage by construction.** No `.bfill()`, no `.fillna(0)`. Fit-once guards on scalers (a second `fit()` raises `LeakageError`), frozen params after `fit()` on GARCH and ARMA, `TrainingMetadata` populated on every model and checked at runtime by the backtest engine via `validate_no_overlap()`, and an intraday day-boundary rule so that even on hourly bars the training cutoff is always a daily close (enforced by `WalkForwardValidator(snap_to_day=True)` for intraday folds). `update()` extends `train_end` without rewinding `fit_timestamp`, so the provenance of the initial fit is never clobbered.
 - **Temporal contracts.** `TemporalSplit`, `TemporalTripleSplit`, and `WalkForwardValidator` enforce train-then-test ordering with embargo gaps. The holdout set is reserved for final thesis evaluation and is never touched during development or HPO.
 - **Strict typing.** `mypy --strict` across `src/`, `tests/`, and `scripts/`. No `Any` at internal boundaries. `**kwargs: object` rather than `**kwargs: Any`. Public APIs use pure `Enum` types — no `Enum | str` weak unions. CI enforces this on every push.
-- **Performance-ready, not premature.** C++ uses `std::span<const double>` interfaces, SoA layouts, Welford's algorithm for rolling std, and precomputed annualization factors. Every known optimization candidate (EMA fusion, rolling-mean-std fusion, zero-copy slicing) is cataloged as a `TODO:` marker and deferred to a profile-driven optimization pass; nothing is optimized speculatively.
+- **Performance, measured.** C++ uses `std::span<const double>` interfaces, SoA layouts, and Welford's algorithm for rolling mean/std fused in one pass. Every hot-path indicator, metric, engine, and strategy exposes both an allocating convenience overload and a buffer-reuse (`out`-param / `Buffer&`) overload so HPO inner loops reuse scratch across scenarios. `TimeSeries::slice_view` returns a non-owning `std::span` for zero-copy walk-forward splitting. Pybind11 bindings emit zero-copy numpy views over C++-owned buffers via pybind11 `py::capsule` and `handle base` ownership — no `memcpy` at the Python↔C++ boundary. Release builds compile with `-O3 -march=native -flto`; rolling kernels are `noexcept` to unblock inlining + vectorization. C++ benchmarks emit wall time alongside `Cycles` / `CyclesPerItem` (and `Instructions` / `IPC` on PMU-capable hosts) so optimization is driven by measurement, not intuition.
 - **Registry-driven composition.** Every model, data source, and strategy registers via a decorator, which will let a future config loader instantiate an entire pipeline from a YAML file.
 - **Drift guards over review vigilance.** Two sources of truth that must stay aligned (pyproject deps ↔ CI pip install, composite dataclass fields ↔ leaf ctor signature, Python `Interval` constants ↔ C++ `kTradingDaysPerYear`) get an automated stdlib-only script in `scripts/` plus a pytest, wired into the CI lint job as an early step.
 
@@ -164,7 +164,7 @@ The holdout split is reserved for the final thesis evaluation — it is never to
 - **Strategy state machines.** `run_mean_reversion_state_machine(close, mid, upper, lower, trend_ma)` and `run_pairs_state_machine(zscore, entry, exit, stop)` — bar-by-bar position carry with NaN skipping, returned as numpy arrays.
 - **`SpreadCalculator` primitive.** `compute_spread(a, b, hedge_ratio)` and `compute_zscore(spread, window)` (Welford rolling, NaN on leading warmup and zero-variance windows). Consumed by `PairsTradingStrategy`.
 - **Full `IStrategy` C++ classes.** `PairsTradingStrategy` fuses `SpreadCalculator` + pairs state machine behind a keyword-ctor `Config`; `AdaptiveBollingerStrategy` fuses rolling mid/trend + mean-reversion state machine. Both release the GIL on every `generate_signals`. Momentum, ReturnForecast, and VolatilityTargeting remain Python-native — their signal logic is dominated by ML inference, so C++ ports give no measurable speedup.
-- **172 GoogleTest cases** covering correctness, slippage variants, fill convention, filter recurrence, state-machine transitions, spread + rolling z-score parity, C++ strategy classes, and numerical edge cases; builds on Linux and macOS through the CI matrix.
+- **214 GoogleTest cases** covering correctness, slippage variants, fill convention, filter recurrence, state-machine transitions, spread + rolling z-score parity, C++ strategy classes, buffer-reuse overload parity, `slice_view` pointer-identity, fused-pass parity against pre-fusion references (MACD EMAs, Bollinger rolling mean+std, metrics Welford, spread Welford z-score), and numerical edge cases; builds on Linux and macOS through the CI matrix.
 
 ### Bridge + Python engine layer (`src/quant_engine/`, `src/engine/`)
 - **pybind11 module `quant_engine`.** Exposes `BacktestEngine`, `MetricsCalculator`, `SlippageConfig`, `SlippageModel`, `BacktestResult`, `PerformanceMetrics`, the five indicators (`RSI`, `MACD` + `MACDResult`, `BollingerBands` + `BollingerResult`, `Parkinson`, `GarmanKlass`), the `GarchParams` struct + `garch_filter` free function, the two state machines (`run_mean_reversion_state_machine`, `run_pairs_state_machine`), `SpreadCalculator` + `CointegrationParams`, and the two full strategy classes (`PairsTradingStrategy` + its `Config`, `AdaptiveBollingerStrategy` + its `Config`). Every compute method declares `py::call_guard<py::gil_scoped_release>()` so Python-side parallelism (Optuna HPO, pytest-xdist) can actually scale. Stubs are checked in (`src/quant_engine/quant_engine.pyi`) so `mypy --strict` sees the binding.
@@ -218,8 +218,8 @@ cmake --build cpp/build -j
 
 ```bash
 make test           # Full gate: C++ ctest + pytest + mypy strict
-make test-cpp       # 172 GoogleTest cases
-make test-python    # 595 pytest cases (+5 opt-in perf-guard skips)
+make test-cpp       # 214 GoogleTest cases
+make test-python    # 643 pytest cases (+7 opt-in perf-guard skips)
 make typecheck      # mypy --strict src/ tests/ scripts/
 make lint           # ruff check + ruff format --check
 make bench-cpp      # Google Benchmark indicator + engine + metrics + filter + state-machine + spread + C++ strategy micro-benches
@@ -232,9 +232,23 @@ PERF_GUARD=1 pytest tests/benchmarks/    # opt-in; CI does not gate on timing
 
 Every C++ micro-benchmark emits wall time alongside `Cycles` / `CyclesPerItem` custom counters (sourced from `__rdtsc` on x86, `CNTVCT_EL0` on arm64, `steady_clock` elsewhere). The Python orchestrator subprocesses `quant_bench --benchmark_format=json`, parses it into `BenchmarkResult` dataclasses, persists under `benchmark_results/runs/`, and drives the comparator / reporter.
 
+```mermaid
+graph LR
+    cpp["quant_bench<br/>(Google Benchmark)"]
+    cc["CycleCounter<br/>rdtsc · CNTVCT · steady_clock"]
+    runner["BenchmarkRunner<br/>subprocesses + parses JSON"]
+    store["BenchmarkStore<br/>JSONL runs + baselines"]
+    analyzer["BenchmarkAnalyzer<br/>z-test · scaling fits"]
+    reporter["BenchmarkReporter<br/>LaTeX · plots"]
+    cc -. cycle counters .-> cpp
+    cpp --> runner --> store
+    store --> analyzer --> reporter
+```
+
 ```bash
 make bench                                                   # build + run; dumps JSONL under benchmark_results/runs/
-python -m scripts.benchmark run --save-baseline my-baseline  # capture a named baseline
+make bench-baseline NAME=my-baseline                         # capture a named baseline (NAME required)
+python -m scripts.benchmark run --save-baseline my-baseline  # same, via the CLI directly
 python -m scripts.benchmark compare pre-optimization <run>   # regression gate (z-test + pct delta)
 python -m scripts.benchmark latex                            # LaTeX summary table of the newest run
 ```
@@ -280,7 +294,7 @@ cpp/
   bindings/              pybind11 module entry point (python_module.cpp)
   tests/                 GoogleTest suite
   benchmarks/            Google Benchmark micro-benches
-  benchmarks/detail/     Shared bench helpers (seeded RNG, random-walk generators)
+  benchmarks/detail/     Shared bench helpers (seeded RNG, cycle-counter measure wrapper)
 
 src/
   core/                  Types, constants, temporal contracts, registry, device selection, exceptions, persistence helpers
@@ -292,7 +306,7 @@ src/
   quant_engine/          pybind11 module re-exports + checked-in mypy stubs
   optimization/          Reserved for HPO orchestration
   visualization/         Reserved for plotting
-  benchmarking/          Reserved for benchmarking harness
+  benchmarking/          Runner + store + analyzer + reporter + comparator
 
 tests/
   unit/                  One unit-test file per component
@@ -300,7 +314,11 @@ tests/
   benchmarks/            Opt-in perf guards (PERF_GUARD=1) verifying C++ still beats Python baselines
   conftest.py            Shared fixtures (synthetic data, global seeds)
 
-scripts/                 stdlib-only drift guards and utilities
+scripts/                 stdlib-only drift guards + benchmark CLI
+benchmark_results/
+  baselines/             Tracked JSONL anchors (pre-/post-optimization)
+  runs/                  Per-run JSONL (gitignored)
+  reports/               LaTeX + plots (gitignored)
 config/                  YAML + Pydantic settings (reserved)
 .github/workflows/ci.yml Lint, typecheck, C++ matrix, Python matrix
 Makefile                 Canonical build/test entry points
