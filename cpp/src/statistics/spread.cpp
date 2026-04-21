@@ -1,16 +1,17 @@
 #include "quant/statistics/spread.hpp"
 
+#include <algorithm>
+#include <cmath>
 #include <cstddef>
 #include <limits>
 #include <stdexcept>
-
-#include "quant/indicators/detail/rolling.hpp"
 
 namespace quant::statistics {
 
 namespace {
 
 constexpr double kNaN = std::numeric_limits<double>::quiet_NaN();
+constexpr int kZScoreDDoF = 1;
 
 }  // namespace
 
@@ -35,8 +36,7 @@ std::vector<double> SpreadCalculator::compute_spread(
     return out;
 }
 
-// TODO(Phase 6): fuse rolling_mean + rolling_std + z-score into a single
-// Welford pass to eliminate two temporary vectors.
+// Keep the Welford recurrence below in sync with detail::rolling_mean_std.
 // NaN semantics diverge from pandas — see the header docstring.
 std::vector<double> SpreadCalculator::compute_zscore(
     std::span<const double> spread,
@@ -52,12 +52,39 @@ std::vector<double> SpreadCalculator::compute_zscore(
         return out;
     }
 
-    const auto mean = detail::rolling_mean(spread, window);
-    const auto std_dev = detail::rolling_std(spread, window, /*ddof=*/1);
-    const auto start = static_cast<std::size_t>(window - 1);
-    for (std::size_t i = start; i < n; ++i) {
-        if (std_dev[i] > 0.0) {
-            out[i] = (spread[i] - mean[i]) / std_dev[i];
+    const double denom = static_cast<double>(window - kZScoreDDoF);
+
+    double sum = 0.0;
+    double w_mean = 0.0;
+    double m2 = 0.0;
+    for (int i = 0; i < window; ++i) {
+        sum += spread[i];
+        const double delta = spread[i] - w_mean;
+        w_mean += delta / (i + 1);
+        m2 += delta * (spread[i] - w_mean);
+    }
+    {
+        const double mean = sum / window;
+        const double var = m2 / denom;
+        const double sd = std::sqrt(std::max(0.0, var));
+        if (sd > 0.0) {
+            out[window - 1] = (spread[window - 1] - mean) / sd;
+        }
+    }
+
+    const auto nn = static_cast<int>(n);
+    for (int i = window; i < nn; ++i) {
+        const double old_val = spread[i - window];
+        const double new_val = spread[i];
+        sum += new_val - old_val;
+        const double old_wmean = w_mean;
+        w_mean += (new_val - old_val) / window;
+        m2 += (new_val - old_val) * (new_val - w_mean + old_val - old_wmean);
+        const double mean = sum / window;
+        const double var = m2 / denom;
+        const double sd = std::sqrt(std::max(0.0, var));
+        if (sd > 0.0) {
+            out[i] = (new_val - mean) / sd;
         }
     }
     return out;

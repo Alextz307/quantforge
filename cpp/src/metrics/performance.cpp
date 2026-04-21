@@ -162,33 +162,93 @@ double MetricsCalculator::annualized_volatility(
     return sd * std::sqrt(static_cast<double>(annualization_factor));
 }
 
-// TODO(Phase 6): compute() walks the return series 4× (Welford for sharpe,
-// Welford for ann_vol, sortino, win_rate) plus 1× over equity_curve for
-// max_drawdown. Profile and, if hot, fuse into a single streaming pass that
-// derives returns on the fly and accumulates mean/variance/downside/peak/
-// win-count together.
+// Keep the per-statistic recurrences in sync with the single-statistic
+// helpers above (welford_mean_std, sortino_ratio, max_drawdown, win_rate):
+// same op order gives bit-identical results in fp64.
 PerformanceMetrics MetricsCalculator::compute(
     std::span<const double> equity_curve,
     int annualization_factor,
     double risk_free_rate
 ) {
     PerformanceMetrics metrics;
-    if (equity_curve.size() < 2) {
+    const size_t n_eq = equity_curve.size();
+    if (n_eq < 2) {
         return metrics;
     }
-    const auto returns = equity_to_returns(equity_curve);
-    const std::span<const double> rs{returns};
 
+    double peak = equity_curve[0];
+    double max_dd = 0.0;
+    double mean = 0.0;
+    double m2 = 0.0;
+    double sum_excess = 0.0;
+    double sum_sq_downside = 0.0;
+    size_t positives = 0;
+    size_t non_zero = 0;
+
+    for (size_t i = 1; i < n_eq; ++i) {
+        const double prev = equity_curve[i - 1];
+        const double cur = equity_curve[i];
+        const double r = (prev > 0.0) ? (cur / prev - 1.0) : 0.0;
+
+        if (cur > peak) {
+            peak = cur;
+        }
+        if (peak > 0.0) {
+            const double dd = (cur - peak) / peak;
+            if (dd < max_dd) {
+                max_dd = dd;
+            }
+        }
+
+        const double delta = r - mean;
+        mean += delta / static_cast<double>(i);
+        m2 += delta * (r - mean);
+
+        const double excess = r - risk_free_rate;
+        sum_excess += excess;
+        if (excess < 0.0) {
+            sum_sq_downside += excess * excess;
+        }
+
+        if (r > 0.0) {
+            ++positives;
+        }
+        if (r != 0.0) {
+            ++non_zero;
+        }
+    }
+
+    const size_t n_ret = n_eq - 1;
+    metrics.max_drawdown = max_dd;
     metrics.annualized_return =
         annualized_return(equity_curve, annualization_factor);
-    metrics.annualized_volatility =
-        annualized_volatility(rs, annualization_factor);
-    metrics.sharpe_ratio =
-        sharpe_ratio(rs, annualization_factor, risk_free_rate);
-    metrics.sortino_ratio =
-        sortino_ratio(rs, annualization_factor, risk_free_rate);
-    metrics.max_drawdown = max_drawdown(equity_curve);
-    metrics.win_rate = win_rate(rs);
+
+    if (n_ret >= kMinObsForSampleStd) {
+        const double ann_sqrt =
+            std::sqrt(static_cast<double>(annualization_factor));
+        const double variance = m2 / static_cast<double>(n_ret - 1);
+        const double sd = std::sqrt(variance < 0.0 ? 0.0 : variance);
+
+        metrics.annualized_volatility = sd * ann_sqrt;
+        if (sd > 0.0) {
+            metrics.sharpe_ratio =
+                ((mean - risk_free_rate) / sd) * ann_sqrt;
+        }
+
+        const double downside_var =
+            sum_sq_downside / static_cast<double>(n_ret);
+        if (downside_var > 0.0) {
+            const double downside_std = std::sqrt(downside_var);
+            const double m = sum_excess / static_cast<double>(n_ret);
+            metrics.sortino_ratio = (m / downside_std) * ann_sqrt;
+        }
+    }
+
+    if (non_zero > 0) {
+        metrics.win_rate =
+            static_cast<double>(positives) / static_cast<double>(non_zero);
+    }
+
     metrics.calmar_ratio = (metrics.max_drawdown < 0.0)
         ? metrics.annualized_return / std::abs(metrics.max_drawdown)
         : 0.0;

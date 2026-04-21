@@ -38,6 +38,57 @@ namespace quant::detail {
     return result;
 }
 
+/// Rolling mean and sample std in one sliding pass. Caller-owned output
+/// buffers must each have size data.size(); the first (window - 1) slots
+/// are filled with NaN. Uses the sum-based mean recurrence of rolling_mean
+/// and the Welford m2 recurrence of rolling_std so the two outputs are
+/// bit-identical to those helpers in fp64.
+inline void rolling_mean_std(
+    std::span<const double> data,
+    int window,
+    std::span<double> mean_out,
+    std::span<double> std_out,
+    int ddof = 1)
+{
+    const auto n = static_cast<int>(data.size());
+    const double nan = std::numeric_limits<double>::quiet_NaN();
+
+    if (n < window || window < 1 || window <= ddof) {
+        std::fill(mean_out.begin(), mean_out.end(), nan);
+        std::fill(std_out.begin(), std_out.end(), nan);
+        return;
+    }
+
+    const auto warmup = static_cast<std::ptrdiff_t>(window - 1);
+    std::fill(mean_out.begin(), mean_out.begin() + warmup, nan);
+    std::fill(std_out.begin(), std_out.begin() + warmup, nan);
+
+    const double denom = static_cast<double>(window - ddof);
+
+    double sum = 0.0;
+    double w_mean = 0.0;
+    double m2 = 0.0;
+    for (int i = 0; i < window; ++i) {
+        sum += data[i];
+        double delta = data[i] - w_mean;
+        w_mean += delta / (i + 1);
+        m2 += delta * (data[i] - w_mean);
+    }
+    mean_out[window - 1] = sum / window;
+    std_out[window - 1] = std::sqrt(std::max(0.0, m2 / denom));
+
+    for (int i = window; i < n; ++i) {
+        double old_val = data[i - window];
+        double new_val = data[i];
+        sum += new_val - old_val;
+        double old_wmean = w_mean;
+        w_mean += (new_val - old_val) / window;
+        m2 += (new_val - old_val) * (new_val - w_mean + old_val - old_wmean);
+        mean_out[i] = sum / window;
+        std_out[i] = std::sqrt(std::max(0.0, m2 / denom));
+    }
+}
+
 /// Sliding-window rolling standard deviation using Welford's online algorithm.
 /// Numerically stable — avoids catastrophic cancellation from sum-of-squares formulas.
 /// @param ddof Degrees of freedom (1 = sample std, 0 = population std). Default 1 to match pandas.

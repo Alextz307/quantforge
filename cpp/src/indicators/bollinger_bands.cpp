@@ -1,5 +1,8 @@
 #include "quant/indicators/bollinger_bands.hpp"
 
+#include <algorithm>
+#include <cmath>
+#include <cstddef>
 #include <limits>
 #include <stdexcept>
 #include <string>
@@ -42,22 +45,52 @@ BollingerBands::BollingerBands(int period, double num_std)
     }
 }
 
-// TODO(Phase 6): rolling_mean and rolling_std both iterate the data independently.
-// Welford's algorithm already computes both mean and variance in one pass — a fused
-// rolling_mean_std() helper would halve the memory traffic for compute_all().
+// Keep the Welford recurrence below in sync with detail::rolling_mean_std;
+// inlined here so mid/upper/lower are emitted in the same sliding pass
+// with no std-deviation temp.
 BollingerResult BollingerBands::compute_all(std::span<const double> prices) const {
-    auto mid = detail::rolling_mean(prices, period_);
-    auto std_dev = detail::rolling_std(prices, period_);
-
     const auto n = prices.size();
-    BollingerResult result;
-    result.mid = std::move(mid);
-    result.upper.resize(n, std::numeric_limits<double>::quiet_NaN());
-    result.lower.resize(n, std::numeric_limits<double>::quiet_NaN());
+    const double nan = std::numeric_limits<double>::quiet_NaN();
 
-    for (size_t i = static_cast<size_t>(period_ - 1); i < n; ++i) {
-        result.upper[i] = result.mid[i] + num_std_ * std_dev[i];
-        result.lower[i] = result.mid[i] - num_std_ * std_dev[i];
+    BollingerResult result;
+    result.mid.resize(n, nan);
+    result.upper.resize(n, nan);
+    result.lower.resize(n, nan);
+
+    if (static_cast<int>(n) < period_) {
+        return result;
+    }
+
+    const double denom = static_cast<double>(period_ - 1);
+    double sum = 0.0;
+    double w_mean = 0.0;
+    double m2 = 0.0;
+    for (int i = 0; i < period_; ++i) {
+        sum += prices[i];
+        const double delta = prices[i] - w_mean;
+        w_mean += delta / (i + 1);
+        m2 += delta * (prices[i] - w_mean);
+    }
+    {
+        const double mean = sum / period_;
+        const double sd = std::sqrt(std::max(0.0, m2 / denom));
+        result.mid[period_ - 1] = mean;
+        result.upper[period_ - 1] = mean + num_std_ * sd;
+        result.lower[period_ - 1] = mean - num_std_ * sd;
+    }
+
+    for (std::size_t i = static_cast<std::size_t>(period_); i < n; ++i) {
+        const double old_val = prices[i - period_];
+        const double new_val = prices[i];
+        sum += new_val - old_val;
+        const double old_wmean = w_mean;
+        w_mean += (new_val - old_val) / period_;
+        m2 += (new_val - old_val) * (new_val - w_mean + old_val - old_wmean);
+        const double mean = sum / period_;
+        const double sd = std::sqrt(std::max(0.0, m2 / denom));
+        result.mid[i] = mean;
+        result.upper[i] = mean + num_std_ * sd;
+        result.lower[i] = mean - num_std_ * sd;
     }
 
     return result;

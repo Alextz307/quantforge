@@ -1,36 +1,9 @@
 #include "quant/indicators/macd.hpp"
 
-#include <cmath>
 #include <limits>
 #include <stdexcept>
 
 namespace quant {
-
-namespace {
-
-/// Compute EMA (adjust=False) seeded with the first value.
-/// alpha = 2 / (span + 1).
-/// TODO(Phase 6): compute() and compute_all() each allocate 2-3 temp EMA vectors.
-/// Fusing the fast/slow EMA into a single pass and writing the difference directly
-/// into the result would cut allocations from 3 to 1 and passes from 3 to 1.
-std::vector<double> ema(std::span<const double> data, int span) {
-    const auto n = static_cast<int>(data.size());
-    std::vector<double> result(data.size());
-
-    if (n == 0) return result;
-
-    const double alpha = 2.0 / (span + 1.0);
-    const double one_minus_alpha = 1.0 - alpha;
-
-    result[0] = data[0];
-    for (int i = 1; i < n; ++i) {
-        result[i] = alpha * data[i] + one_minus_alpha * result[i - 1];
-    }
-
-    return result;
-}
-
-}  // namespace
 
 MACD::MACD(int fast_period, int slow_period, int signal_period)
     : fast_period_(fast_period)
@@ -45,6 +18,9 @@ MACD::MACD(int fast_period, int slow_period, int signal_period)
     }
 }
 
+// Signal EMA is seeded at the first valid MACD (index slow_period_-1) and
+// the (adjust=False) recurrence advances from there; match this seed
+// convention if you ever factor out an ewm helper.
 MACDResult MACD::compute_all(std::span<const double> prices) const {
     const auto n = static_cast<int>(prices.size());
     const double nan = std::numeric_limits<double>::quiet_NaN();
@@ -58,27 +34,38 @@ MACDResult MACD::compute_all(std::span<const double> prices) const {
         return result;
     }
 
-    auto ema_fast = ema(prices, fast_period_);
-    auto ema_slow = ema(prices, slow_period_);
+    const double alpha_fast = 2.0 / (fast_period_ + 1.0);
+    const double alpha_slow = 2.0 / (slow_period_ + 1.0);
+    const double alpha_sig = 2.0 / (signal_period_ + 1.0);
+    const double one_minus_fast = 1.0 - alpha_fast;
+    const double one_minus_slow = 1.0 - alpha_slow;
+    const double one_minus_sig = 1.0 - alpha_sig;
 
-    // MACD line valid after slow EMA convergence
-    for (int i = slow_period_ - 1; i < n; ++i) {
-        result.macd_line[i] = ema_fast[i] - ema_slow[i];
-    }
+    double fast = prices[0];
+    double slow = prices[0];
+    double sig = 0.0;
+    int signal_valid = 0;
 
-    // Signal line = EMA of valid MACD values (zero-copy via span)
-    const int valid_start = slow_period_ - 1;
-    const int valid_count = n - valid_start;
+    for (int i = 1; i < n; ++i) {
+        const double p = prices[i];
+        fast = alpha_fast * p + one_minus_fast * fast;
+        slow = alpha_slow * p + one_minus_slow * slow;
 
-    if (valid_count >= signal_period_) {
-        auto valid_span = std::span(result.macd_line).subspan(valid_start);
-        auto signal_ema = ema(valid_span, signal_period_);
+        if (i >= slow_period_ - 1) {
+            const double macd = fast - slow;
+            result.macd_line[i] = macd;
 
-        const int signal_start = valid_start + signal_period_ - 1;
-        for (int i = signal_start; i < n; ++i) {
-            int offset = i - valid_start;
-            result.signal_line[i] = signal_ema[offset];
-            result.histogram[i] = result.macd_line[i] - result.signal_line[i];
+            if (signal_valid == 0) {
+                sig = macd;
+                signal_valid = 1;
+            } else {
+                sig = alpha_sig * macd + one_minus_sig * sig;
+                ++signal_valid;
+            }
+            if (signal_valid >= signal_period_) {
+                result.signal_line[i] = sig;
+                result.histogram[i] = macd - sig;
+            }
         }
     }
 
@@ -94,13 +81,21 @@ std::vector<double> MACD::compute(std::span<const double> prices) const {
         return result;
     }
 
-    // Dedicated path: only the two EMAs needed for the MACD line,
-    // avoiding signal/histogram allocation that compute_all() does.
-    auto ema_fast = ema(prices, fast_period_);
-    auto ema_slow = ema(prices, slow_period_);
+    const double alpha_fast = 2.0 / (fast_period_ + 1.0);
+    const double alpha_slow = 2.0 / (slow_period_ + 1.0);
+    const double one_minus_fast = 1.0 - alpha_fast;
+    const double one_minus_slow = 1.0 - alpha_slow;
 
-    for (int i = slow_period_ - 1; i < n; ++i) {
-        result[i] = ema_fast[i] - ema_slow[i];
+    double fast = prices[0];
+    double slow = prices[0];
+
+    for (int i = 1; i < n; ++i) {
+        const double p = prices[i];
+        fast = alpha_fast * p + one_minus_fast * fast;
+        slow = alpha_slow * p + one_minus_slow * slow;
+        if (i >= slow_period_ - 1) {
+            result[i] = fast - slow;
+        }
     }
 
     return result;
