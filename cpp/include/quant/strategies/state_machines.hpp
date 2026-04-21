@@ -6,7 +6,7 @@
 namespace quant::strategies {
 
 /// Run the mean-reversion Bollinger-band state machine used by
-/// `AdaptiveBollingerStrategy`. All five spans must have the same length;
+/// `AdaptiveBollingerStrategy`. All five input spans must have the same length;
 /// positions are {-1, 0, +1} with NaN for bars whose `mid`, `upper`, `lower`,
 /// or `trend_ma` is NaN (the previous position is carried, unobserved).
 ///
@@ -21,6 +21,15 @@ namespace quant::strategies {
     std::span<const double> lower,
     std::span<const double> trend_ma);
 
+/// Out-param overload: writes positions into ``out`` (same size as inputs).
+void run_mean_reversion_state_machine(
+    std::span<const double> close,
+    std::span<const double> mid,
+    std::span<const double> upper,
+    std::span<const double> lower,
+    std::span<const double> trend_ma,
+    std::span<double> out);
+
 /// Run the pairs-trading z-score state machine used by
 /// `PairsTradingStrategy`. NaN bars in `zscore` hold the previous position and
 /// emit NaN. `|z| >= stop_loss_zscore` forces flat. From flat, `z >= entry`
@@ -31,5 +40,13 @@ namespace quant::strategies {
     double entry_zscore,
     double exit_zscore,
     double stop_loss_zscore);
+
+/// Out-param overload: writes positions into ``out`` (same size as ``zscore``).
+void run_pairs_state_machine(
+    std::span<const double> zscore,
+    double entry_zscore,
+    double exit_zscore,
+    double stop_loss_zscore,
+    std::span<double> out);
 
 }  // namespace quant::strategies

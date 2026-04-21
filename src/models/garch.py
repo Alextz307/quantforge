@@ -141,22 +141,30 @@ class GARCHPredictor(IPredictor):
             mu=self._train_mu,
             backcast=self._train_backcast,
         )
-        self._train_returns = np.asarray(target.values, dtype=np.float64)
+        self._train_returns = np.asarray(target, dtype=np.float64)
         self._fitted = True
 
         self._training_metadata = TrainingMetadata.from_fit(
             train_data, self._interval, ("returns",)
         )
 
-    def predict(self, data: pd.DataFrame) -> pd.Series:
+    def predict(
+        self,
+        data: pd.DataFrame,
+        *,
+        returns: pd.Series | None = None,
+    ) -> pd.Series:
         """Produce annualized conditional volatility series.
 
-        Computes log returns internally from close prices via
-        ``compute_log_returns()``. The caller's ``target`` passed to
-        ``fit()`` must use the same log-return convention.
-
         Args:
-            data: DataFrame with 'close' column and DatetimeIndex.
+            data: DataFrame with 'close' column and DatetimeIndex — used for
+                output index alignment.
+            returns: Optional pre-computed log returns (dropna'd). Its index
+                must be a subset of ``data.index`` — typically
+                ``data.index[1:]`` when derived from the same frame, though
+                composites may pass a sub-range. Skips the internal
+                ``compute_log_returns(data["close"])`` derivation when
+                provided; defaults to deriving returns from ``data["close"]``.
 
         Returns:
             Series of annualized volatility forecasts.
@@ -164,19 +172,31 @@ class GARCHPredictor(IPredictor):
         if not self._fitted:
             raise RuntimeError("GARCHPredictor.predict() called before fit()")
 
-        log_returns = compute_log_returns(data["close"])
-        scaled = log_returns.dropna() * _SCALE_FACTOR
+        caller_returns = returns
+        if caller_returns is None:
+            returns_clean = compute_log_returns(data["close"]).dropna()
+        else:
+            returns_clean = caller_returns
 
-        cond_var = self._manual_garch_filter(np.asarray(scaled.values, dtype=np.float64))
+        scaled = np.asarray(returns_clean, dtype=np.float64) * _SCALE_FACTOR
+        cond_var = self._manual_garch_filter(scaled)
         cond_vol_daily = np.sqrt(cond_var) / _SCALE_FACTOR
+        cond_vol_annual = cond_vol_daily * math.sqrt(self._interval.annualization_factor())
 
-        ann_factor = math.sqrt(self._interval.annualization_factor())
-        cond_vol_annual = cond_vol_daily * ann_factor
+        # Fast path for the canonical "returns indexed at data.index[1:]" case:
+        # one NaN-filled leading row, every remaining bar has one entry.
+        # Positional slice-assign is O(N); reindex is O(N log N) hash. Both
+        # the ``returns=None`` default and composite callers that pass
+        # ``compute_log_returns(data["close"]).dropna()`` land here.
+        if caller_returns is None or returns_clean.index.equals(data.index[1:]):
+            arr = np.full(len(data), np.nan)
+            arr[1 : 1 + len(cond_vol_annual)] = cond_vol_annual
+            return pd.Series(arr, index=data.index, name="garch_vol").ffill()
 
-        # Align with original index: first row has NaN return, use ffill
-        arr = np.full(len(data), np.nan)
-        arr[1 : 1 + len(cond_vol_annual)] = cond_vol_annual
-        return pd.Series(arr, index=data.index, name="garch_vol").ffill()
+        # Caller-provided returns index an arbitrary subset of data.index;
+        # fall back to label alignment to stay correct.
+        vol_series = pd.Series(cond_vol_annual, index=returns_clean.index, name="garch_vol")
+        return vol_series.reindex(data.index).ffill()
 
     def predict_single(self, recent_window: pd.DataFrame) -> float:
         """Predict a single annualized volatility value from recent data."""
@@ -201,7 +221,7 @@ class GARCHPredictor(IPredictor):
 
         new_metadata = self._training_metadata.extend_from(new_data)
 
-        new_returns = np.asarray(target.values, dtype=np.float64)
+        new_returns = np.asarray(target, dtype=np.float64)
         combined = np.concatenate([self._train_returns, new_returns])
         scaled = combined * _SCALE_FACTOR
 
@@ -250,7 +270,7 @@ class GARCHPredictor(IPredictor):
             raise RuntimeError("GARCHPredictor.generate_vol_series() called before fit()")
 
         scaled = returns * _SCALE_FACTOR
-        cond_var = self._manual_garch_filter(np.asarray(scaled.values, dtype=np.float64))
+        cond_var = self._manual_garch_filter(np.asarray(scaled, dtype=np.float64))
         cond_vol_daily = np.sqrt(cond_var) / _SCALE_FACTOR
 
         ann_factor = math.sqrt(self._interval.annualization_factor())

@@ -1,9 +1,12 @@
 #include "quant/strategies/state_machines.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <cstddef>
 #include <limits>
 #include <stdexcept>
+
+#include "quant/core/validation.hpp"
 
 namespace quant::strategies {
 
@@ -24,14 +27,28 @@ std::vector<double> run_mean_reversion_state_machine(
     std::span<const double> lower,
     std::span<const double> trend_ma)
 {
+    std::vector<double> out(close.size());
+    run_mean_reversion_state_machine(close, mid, upper, lower, trend_ma, out);
+    return out;
+}
+
+void run_mean_reversion_state_machine(
+    std::span<const double> close,
+    std::span<const double> mid,
+    std::span<const double> upper,
+    std::span<const double> lower,
+    std::span<const double> trend_ma,
+    std::span<double> out)
+{
     const auto n = close.size();
     if (mid.size() != n || upper.size() != n || lower.size() != n ||
         trend_ma.size() != n) {
         throw std::invalid_argument(
             "run_mean_reversion_state_machine: input spans must all have the same length");
     }
+    detail::check_out_size(n, out.size(), "run_mean_reversion_state_machine");
 
-    std::vector<double> out(n, kNaN);
+    std::fill(out.begin(), out.end(), kNaN);
     double position = 0.0;
     for (std::size_t t = 0; t < n; ++t) {
         if (any_nan(mid[t], upper[t], lower[t], trend_ma[t])) {
@@ -55,7 +72,6 @@ std::vector<double> run_mean_reversion_state_machine(
         }
         out[t] = position;
     }
-    return out;
 }
 
 std::vector<double> run_pairs_state_machine(
@@ -64,8 +80,21 @@ std::vector<double> run_pairs_state_machine(
     double exit_zscore,
     double stop_loss_zscore)
 {
+    std::vector<double> out(zscore.size());
+    run_pairs_state_machine(zscore, entry_zscore, exit_zscore, stop_loss_zscore, out);
+    return out;
+}
+
+void run_pairs_state_machine(
+    std::span<const double> zscore,
+    double entry_zscore,
+    double exit_zscore,
+    double stop_loss_zscore,
+    std::span<double> out)
+{
     const auto n = zscore.size();
-    std::vector<double> out(n, kNaN);
+    detail::check_out_size(n, out.size(), "run_pairs_state_machine");
+    std::fill(out.begin(), out.end(), kNaN);
     double position = 0.0;
     for (std::size_t t = 0; t < n; ++t) {
         const double z = zscore[t];
@@ -86,7 +115,6 @@ std::vector<double> run_pairs_state_machine(
         }
         out[t] = position;
     }
-    return out;
 }
 
 }  // namespace quant::strategies

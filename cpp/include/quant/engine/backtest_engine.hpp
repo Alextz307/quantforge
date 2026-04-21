@@ -38,11 +38,6 @@ public:
     explicit BacktestEngine(Config config) noexcept : config_{config} {}
 
     /// Throws std::invalid_argument when bars.size() != signals.size().
-    // TODO(Phase 6): offer a result-buffer-taking overload so HPO sweeps can
-    // reuse a scratch BacktestResult (or a separate equity_curve buffer) across
-    // thousands of run() calls instead of allocating a fresh N-element vector
-    // per scenario. Mirrors the same Phase 6 candidate on
-    // MetricsCalculator::equity_to_returns.
     [[nodiscard]] BacktestResult run(
         std::span<const Bar> bars,
         std::span<const double> signals
@@ -55,6 +50,23 @@ public:
         std::span<const Bar> bars,
         std::span<const double> signals,
         const SlippageConfig& slippage_override
+    ) const;
+
+    /// Out-param overload: writes the full ``BacktestResult`` into ``out``,
+    /// reusing its ``equity_curve`` vector's capacity across calls. HPO
+    /// sweeps pass the same ``BacktestResult`` across every scenario to
+    /// amortize the per-scenario N-element allocation.
+    void run(
+        std::span<const Bar> bars,
+        std::span<const double> signals,
+        BacktestResult& out
+    ) const;
+
+    void run(
+        std::span<const Bar> bars,
+        std::span<const double> signals,
+        const SlippageConfig& slippage_override,
+        BacktestResult& out
     ) const;
 
 private:

@@ -20,15 +20,25 @@ class MACD final : public IIndicator {
 public:
     explicit MACD(int fast_period = 12, int slow_period = 26, int signal_period = 9);
 
-    /// Returns the MACD line only.
-    [[nodiscard]] std::vector<double> compute(
-        std::span<const double> prices) const override;
+    using IIndicator::compute;  // allocating overload from base
+
+    /// Writes MACD line into ``out`` (same size as ``prices``).
+    void compute(
+        std::span<const double> prices,
+        std::span<double> out) const override;
 
     [[nodiscard]] int warmup_period() const noexcept override;
     [[nodiscard]] std::string name() const override;
 
-    /// Returns MACD line, signal line, and histogram.
+    /// Returns MACD line, signal line, and histogram. Allocating convenience.
     [[nodiscard]] MACDResult compute_all(std::span<const double> prices) const;
+
+    /// Writes MACD line, signal line, and histogram into ``out``. The three
+    /// vectors of ``out`` must each have size ``prices.size()``; caller
+    /// reuses the same ``MACDResult`` across calls to amortize allocation.
+    void compute_all(
+        std::span<const double> prices,
+        MACDResult& out) const;
 
 private:
     int fast_period_;

@@ -19,6 +19,13 @@ struct PerformanceMetrics {
     double win_rate{};
 };
 
+/// Caller-owned scratch buffer for the buffer-reuse overloads of
+/// `MetricsCalculator::equity_to_returns`. HPO sweeps allocate one of these
+/// per worker and reuse it across thousands of `compute()` calls.
+struct MetricsBuffer {
+    std::vector<double> returns;
+};
+
 /// Pure static methods computing performance metrics from an equity curve or
 /// a return series. All building blocks are individually exposed for targeted
 /// testing and so Python bindings can pick the subset they need.
@@ -35,11 +42,21 @@ public:
     );
 
     /// Convert an equity curve to simple returns. Length = equity.size() - 1.
-    // TODO(Phase 6): offer a buffer-taking overload so HPO sweeps can reuse a
-    // scratch vector across thousands of `compute()` calls instead of
-    // allocating a fresh return series per scenario.
     [[nodiscard]] static std::vector<double> equity_to_returns(
         std::span<const double> equity_curve);
+
+    /// Out-param overload: writes returns into ``buffer.returns``.
+    /// The buffer is resized to ``equity_curve.size() - 1``; callers that
+    /// reuse the same ``MetricsBuffer`` across calls retain the capacity
+    /// across the resize. Returns a non-owning span over the populated slice.
+    ///
+    /// Lifetime: the returned span aliases ``buffer.returns`` — it is
+    /// invalidated by any subsequent resize, move, or destruction of
+    /// ``buffer``. The allocating overload above moves from this scratch
+    /// internally and thus discards any span captured at that call site.
+    [[nodiscard]] static std::span<const double> equity_to_returns(
+        std::span<const double> equity_curve,
+        MetricsBuffer& buffer);
 
     [[nodiscard]] static double sharpe_ratio(
         std::span<const double> returns,

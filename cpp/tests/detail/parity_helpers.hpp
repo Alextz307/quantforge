@@ -6,10 +6,13 @@
 
 #include <cmath>
 #include <cstddef>
+#include <cstdint>
 #include <random>
 #include <vector>
 
 #include <gtest/gtest.h>
+
+#include "quant/core/types.hpp"
 
 namespace quant::tests::detail {
 
@@ -39,6 +42,26 @@ inline std::vector<double> additive_random_walk(
         v[i] = v[i - 1] + dist(gen);
     }
     return v;
+}
+
+// Synthetic OHLC bars with hourly timestamps. Open is offset slightly below
+// close so the backtest engine's fill-at-open / mark-at-close distinction
+// is actually exercised; high/low bracket both values. Used by the
+// buffer-reuse and slice-view C++ test suites.
+inline std::vector<quant::Bar> make_synthetic_bars(
+    std::size_t n, unsigned seed, double start, double sigma)
+{
+    const auto closes = geometric_random_walk(n, seed, start, sigma);
+    std::vector<quant::Bar> bars;
+    bars.reserve(n);
+    for (std::size_t i = 0; i < n; ++i) {
+        const double c = closes[i];
+        const double o = c * 0.999;
+        bars.push_back(quant::Bar{
+            static_cast<int64_t>(1'700'000'000 + 3600 * static_cast<int64_t>(i)),
+            o, c * 1.01, o * 0.99, c, 1000.0});
+    }
+    return bars;
 }
 
 // EXPECT_EQ per element (not EXPECT_NEAR) because the kernels under test

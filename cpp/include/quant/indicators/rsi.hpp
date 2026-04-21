@@ -12,8 +12,11 @@ class RSI final : public IIndicator {
 public:
     explicit RSI(int period = 14);
 
-    [[nodiscard]] std::vector<double> compute(
-        std::span<const double> prices) const override;
+    using IIndicator::compute;  // allocating overload from base
+
+    void compute(
+        std::span<const double> prices,
+        std::span<double> out) const override;
 
     [[nodiscard]] int warmup_period() const noexcept override;
     [[nodiscard]] std::string name() const override;

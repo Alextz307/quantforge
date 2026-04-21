@@ -24,6 +24,17 @@ public:
         int trend_window = 100;
     };
 
+    /// Caller-owned scratch buffers for the fused-generate path. Reusing the
+    /// same ``Buffer`` across calls amortizes the four N-element allocations
+    /// (mid + trend MA + upper/lower bands) that the composition would
+    /// otherwise incur per call.
+    struct Buffer {
+        std::vector<double> mid;
+        std::vector<double> trend_ma;
+        std::vector<double> upper;
+        std::vector<double> lower;
+    };
+
     explicit AdaptiveBollingerStrategy(Config config);
 
     /// Produce {-1, 0, +1} position signals. Leading ``max(band_window,
@@ -33,6 +44,23 @@ public:
     [[nodiscard]] std::vector<double> generate_signals(
         std::span<const double> close,
         std::span<const double> cond_vol) const;
+
+    /// Out-param overload: writes signals into ``out`` (same size as inputs).
+    /// Internally allocates a fresh ``Buffer``; callers running in tight
+    /// inner loops should pass a reused ``Buffer`` via the five-argument
+    /// overload below.
+    void generate_signals(
+        std::span<const double> close,
+        std::span<const double> cond_vol,
+        std::span<double> out) const;
+
+    /// Fully reusable overload — writes signals into ``out`` and reuses the
+    /// four intermediate band/MA vectors held by ``scratch`` across calls.
+    void generate_signals(
+        std::span<const double> close,
+        std::span<const double> cond_vol,
+        std::span<double> out,
+        Buffer& scratch) const;
 
     [[nodiscard]] std::string name() const override;
     [[nodiscard]] int required_warmup() const noexcept override;

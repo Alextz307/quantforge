@@ -141,7 +141,7 @@ class LSTMPredictor(IPredictor):
 
         df = train_data.copy()
         target_col = "_target"
-        df[target_col] = target.values
+        df[target_col] = np.asarray(target, dtype=np.float64)
 
         split_idx = int(len(df) * (1.0 - self._val_split_ratio))
         train_df = df.iloc[:split_idx]
@@ -156,6 +156,13 @@ class LSTMPredictor(IPredictor):
             val_ds = TemporalDataset(val_df, target_col, self._lookback, self._feature_columns)
 
         train_loader = DataLoader(train_ds, batch_size=self._batch_size, shuffle=False)
+        # val_loader outlives the epoch loop: with shuffle=False, rebuilding
+        # per epoch would construct identical samplers.
+        val_loader = (
+            DataLoader(val_ds, batch_size=self._batch_size, shuffle=False)
+            if val_ds is not None
+            else None
+        )
 
         input_size = len(self._feature_columns)
         self._model = MarketLSTM(
@@ -192,8 +199,7 @@ class LSTMPredictor(IPredictor):
             avg_train_loss = epoch_loss / max(n_batches, 1)
             self._train_losses.append(avg_train_loss)
 
-            if val_ds is not None:
-                val_loader = DataLoader(val_ds, batch_size=self._batch_size, shuffle=False)
+            if val_loader is not None:
                 self._model.eval()
                 val_loss = 0.0
                 val_batches = 0
@@ -294,7 +300,7 @@ class LSTMPredictor(IPredictor):
 
         df = new_data.copy()
         target_col = "_target"
-        df[target_col] = target.values
+        df[target_col] = np.asarray(target, dtype=np.float64)
         train_ds = TemporalDataset(df, target_col, self._lookback, self._feature_columns)
         train_loader = DataLoader(train_ds, batch_size=self._batch_size, shuffle=False)
 

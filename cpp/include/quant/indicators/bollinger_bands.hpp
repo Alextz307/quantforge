@@ -20,15 +20,24 @@ class BollingerBands final : public IIndicator {
 public:
     explicit BollingerBands(int period = 20, double num_std = 2.0);
 
-    /// Returns the middle band (SMA) only.
-    [[nodiscard]] std::vector<double> compute(
-        std::span<const double> prices) const override;
+    using IIndicator::compute;  // allocating overload from base
+
+    /// Writes the middle band (SMA) into ``out`` (same size as ``prices``).
+    void compute(
+        std::span<const double> prices,
+        std::span<double> out) const override;
 
     [[nodiscard]] int warmup_period() const noexcept override;
     [[nodiscard]] std::string name() const override;
 
-    /// Returns upper, middle, and lower bands.
+    /// Returns upper, middle, and lower bands. Allocating convenience.
     [[nodiscard]] BollingerResult compute_all(std::span<const double> prices) const;
+
+    /// Writes upper/mid/lower bands into ``out``. The three vectors of
+    /// ``out`` must each have size ``prices.size()``.
+    void compute_all(
+        std::span<const double> prices,
+        BollingerResult& out) const;
 
 private:
     int period_;

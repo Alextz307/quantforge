@@ -7,6 +7,7 @@
 #include <stdexcept>
 #include <string>
 
+#include "quant/core/validation.hpp"
 #include "quant/indicators/detail/rolling.hpp"
 
 namespace quant {
@@ -45,20 +46,34 @@ BollingerBands::BollingerBands(int period, double num_std)
     }
 }
 
+BollingerResult BollingerBands::compute_all(std::span<const double> prices) const {
+    BollingerResult result;
+    result.mid.resize(prices.size());
+    result.upper.resize(prices.size());
+    result.lower.resize(prices.size());
+    compute_all(prices, result);
+    return result;
+}
+
 // Keep the Welford recurrence below in sync with detail::rolling_mean_std;
 // inlined here so mid/upper/lower are emitted in the same sliding pass
 // with no std-deviation temp.
-BollingerResult BollingerBands::compute_all(std::span<const double> prices) const {
+void BollingerBands::compute_all(
+    std::span<const double> prices,
+    BollingerResult& out) const
+{
+    detail::check_out_size(prices.size(), out.mid.size(), "BollingerBands::compute_all");
+    detail::check_out_size(prices.size(), out.upper.size(), "BollingerBands::compute_all");
+    detail::check_out_size(prices.size(), out.lower.size(), "BollingerBands::compute_all");
+
     const auto n = prices.size();
     const double nan = std::numeric_limits<double>::quiet_NaN();
-
-    BollingerResult result;
-    result.mid.resize(n, nan);
-    result.upper.resize(n, nan);
-    result.lower.resize(n, nan);
+    std::fill(out.mid.begin(), out.mid.end(), nan);
+    std::fill(out.upper.begin(), out.upper.end(), nan);
+    std::fill(out.lower.begin(), out.lower.end(), nan);
 
     if (static_cast<int>(n) < period_) {
-        return result;
+        return;
     }
 
     const double denom = static_cast<double>(period_ - 1);
@@ -74,9 +89,9 @@ BollingerResult BollingerBands::compute_all(std::span<const double> prices) cons
     {
         const double mean = sum / period_;
         const double sd = std::sqrt(std::max(0.0, m2 / denom));
-        result.mid[period_ - 1] = mean;
-        result.upper[period_ - 1] = mean + num_std_ * sd;
-        result.lower[period_ - 1] = mean - num_std_ * sd;
+        out.mid[period_ - 1] = mean;
+        out.upper[period_ - 1] = mean + num_std_ * sd;
+        out.lower[period_ - 1] = mean - num_std_ * sd;
     }
 
     for (std::size_t i = static_cast<std::size_t>(period_); i < n; ++i) {
@@ -88,16 +103,18 @@ BollingerResult BollingerBands::compute_all(std::span<const double> prices) cons
         m2 += (new_val - old_val) * (new_val - w_mean + old_val - old_wmean);
         const double mean = sum / period_;
         const double sd = std::sqrt(std::max(0.0, m2 / denom));
-        result.mid[i] = mean;
-        result.upper[i] = mean + num_std_ * sd;
-        result.lower[i] = mean - num_std_ * sd;
+        out.mid[i] = mean;
+        out.upper[i] = mean + num_std_ * sd;
+        out.lower[i] = mean - num_std_ * sd;
     }
-
-    return result;
 }
 
-std::vector<double> BollingerBands::compute(std::span<const double> prices) const {
-    return detail::rolling_mean(prices, period_);
+void BollingerBands::compute(
+    std::span<const double> prices,
+    std::span<double> out) const
+{
+    detail::check_out_size(prices.size(), out.size(), "BollingerBands::compute");
+    detail::rolling_mean(prices, period_, out);
 }
 
 int BollingerBands::warmup_period() const noexcept {

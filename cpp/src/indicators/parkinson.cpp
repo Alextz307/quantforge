@@ -1,9 +1,11 @@
 #include "quant/indicators/parkinson.hpp"
 
 #include <cmath>
+#include <cstddef>
 #include <numbers>
 #include <stdexcept>
 
+#include "quant/core/validation.hpp"
 #include "quant/indicators/detail/volatility_utils.hpp"
 
 namespace quant {
@@ -20,27 +22,28 @@ Parkinson::Parkinson(int window) : window_(window) {
     }
 }
 
-std::vector<double> Parkinson::compute(
+void Parkinson::compute(
     std::span<const double> open,
     std::span<const double> high,
     std::span<const double> low,
-    std::span<const double> close) const
+    std::span<const double> close,
+    std::span<double> out) const
 {
-    const auto n = static_cast<int>(high.size());
+    detail::check_out_size(open.size(), out.size(), "Parkinson::compute");
     detail::validate_ohlc_lengths(open, high, low, close, "Parkinson");
 
-    if (n == 0) return {};
+    const auto n = static_cast<int>(open.size());
+    if (n == 0) return;
 
     detail::validate_ohlc_prices(open, high, low, close, "Parkinson");
 
-    // Per-bar Parkinson variance proxy (uses only high/low)
-    std::vector<double> pk_daily(high.size());
+    // Per-bar Parkinson variance proxy (uses only high/low).
+    std::vector<double> pk_daily(static_cast<std::size_t>(n));
     for (int i = 0; i < n; ++i) {
         double log_hl = std::log(high[i] / low[i]);
         pk_daily[i] = kPKCoeff * log_hl * log_hl;
     }
-
-    return detail::annualize_rolling_variance(pk_daily, window_);
+    detail::annualize_rolling_variance(pk_daily, window_, out);
 }
 
 int Parkinson::warmup_period() const noexcept {

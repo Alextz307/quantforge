@@ -24,6 +24,15 @@ public:
         int zscore_lookback = 60;
     };
 
+    /// Caller-owned scratch buffers for the fused-generate path. Reusing the
+    /// same ``Buffer`` across calls amortizes the two N-element allocations
+    /// that the spread + rolling-z-score composition would otherwise incur
+    /// per call — meaningful under HPO sweeps or walk-forward folds.
+    struct Buffer {
+        std::vector<double> spread;
+        std::vector<double> zscore;
+    };
+
     explicit PairsTradingStrategy(Config config);
 
     /// Produce {-1, 0, +1} leg-a positions. Leading ``zscore_lookback - 1``
@@ -33,6 +42,25 @@ public:
         std::span<const double> prices_a,
         std::span<const double> prices_b,
         const statistics::CointegrationParams& coint) const;
+
+    /// Out-param overload: writes signals into ``out`` (same size as prices).
+    /// Internally allocates a fresh ``Buffer`` per call; callers that run
+    /// in tight inner loops should pass a reused ``Buffer`` via the
+    /// five-argument overload below.
+    void generate_signals(
+        std::span<const double> prices_a,
+        std::span<const double> prices_b,
+        const statistics::CointegrationParams& coint,
+        std::span<double> out) const;
+
+    /// Fully reusable overload — writes signals into ``out`` and reuses the
+    /// two intermediate vectors held by ``scratch`` across calls.
+    void generate_signals(
+        std::span<const double> prices_a,
+        std::span<const double> prices_b,
+        const statistics::CointegrationParams& coint,
+        std::span<double> out,
+        Buffer& scratch) const;
 
     [[nodiscard]] std::string name() const override;
     [[nodiscard]] int required_warmup() const noexcept override;

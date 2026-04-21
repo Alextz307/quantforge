@@ -1,8 +1,10 @@
 #include "quant/strategies/pairs_trading.hpp"
 
+#include <cstddef>
 #include <stdexcept>
 #include <string>
 
+#include "quant/core/validation.hpp"
 #include "quant/statistics/spread.hpp"
 #include "quant/strategies/state_machines.hpp"
 
@@ -30,19 +32,52 @@ PairsTradingStrategy::PairsTradingStrategy(Config config)
     }
 }
 
-// TODO(Phase 6): allocate output buffers from a caller-provided arena or
-// out-param to eliminate per-call heap allocation in walk-forward loops.
 std::vector<double> PairsTradingStrategy::generate_signals(
     std::span<const double> prices_a,
     std::span<const double> prices_b,
     const statistics::CointegrationParams& coint) const
 {
-    const auto spread = statistics::SpreadCalculator::compute_spread(
-        prices_a, prices_b, coint.hedge_ratio);
-    const auto zscore = statistics::SpreadCalculator::compute_zscore(
-        spread, config_.zscore_lookback);
-    return run_pairs_state_machine(
-        zscore, config_.entry_zscore, config_.exit_zscore, config_.stop_loss_zscore);
+    std::vector<double> out(prices_a.size());
+    Buffer scratch;
+    generate_signals(prices_a, prices_b, coint, out, scratch);
+    return out;
+}
+
+void PairsTradingStrategy::generate_signals(
+    std::span<const double> prices_a,
+    std::span<const double> prices_b,
+    const statistics::CointegrationParams& coint,
+    std::span<double> out) const
+{
+    Buffer scratch;
+    generate_signals(prices_a, prices_b, coint, out, scratch);
+}
+
+void PairsTradingStrategy::generate_signals(
+    std::span<const double> prices_a,
+    std::span<const double> prices_b,
+    const statistics::CointegrationParams& coint,
+    std::span<double> out,
+    Buffer& scratch) const
+{
+    if (prices_a.size() != prices_b.size()) {
+        throw std::invalid_argument(
+            "PairsTradingStrategy::generate_signals: prices_a and prices_b "
+            "must have the same length");
+    }
+    detail::check_out_size(
+        prices_a.size(), out.size(), "PairsTradingStrategy::generate_signals");
+
+    const auto n = prices_a.size();
+    scratch.spread.resize(n);
+    scratch.zscore.resize(n);
+    statistics::SpreadCalculator::compute_spread(
+        prices_a, prices_b, coint.hedge_ratio, scratch.spread);
+    statistics::SpreadCalculator::compute_zscore(
+        scratch.spread, config_.zscore_lookback, scratch.zscore);
+    run_pairs_state_machine(
+        scratch.zscore, config_.entry_zscore, config_.exit_zscore,
+        config_.stop_loss_zscore, out);
 }
 
 std::string PairsTradingStrategy::name() const {

@@ -113,8 +113,8 @@ class PairsTradingStrategy(IStrategy):
         self._spread_mean = result.spread_mean
         self._spread_std = result.spread_std
         self._is_cointegrated = True
-        self._train_close_a = np.asarray(train_data["close_a"].values, dtype=np.float64)
-        self._train_close_b = np.asarray(train_data["close_b"].values, dtype=np.float64)
+        self._train_close_a = np.asarray(train_data["close_a"], dtype=np.float64)
+        self._train_close_b = np.asarray(train_data["close_b"], dtype=np.float64)
         self._cpp_coint = self._build_coint_params()
 
         self._training_metadata = TrainingMetadata.from_fit(
@@ -191,8 +191,8 @@ class PairsTradingStrategy(IStrategy):
 
         new_metadata = self._training_metadata.extend_from(new_data)
 
-        new_a = np.asarray(new_data["close_a"].values, dtype=np.float64)
-        new_b = np.asarray(new_data["close_b"].values, dtype=np.float64)
+        new_a = np.asarray(new_data["close_a"], dtype=np.float64)
+        new_b = np.asarray(new_data["close_b"], dtype=np.float64)
         combined_a = np.concatenate([self._train_close_a, new_a])
         combined_b = np.concatenate([self._train_close_b, new_b])
 

@@ -147,3 +147,14 @@ class TestGARCHPredictor:
         params = GARCHPredictor.suggest_params(trial)
         assert "p_max" in params
         assert "q_max" in params
+
+    def test_predict_returns_kwarg_matches_default_path(
+        self, fitted_garch: GARCHPredictor, garch_df: pd.DataFrame
+    ) -> None:
+        # Passing the same ``returns`` the default path would derive must
+        # produce a bit-identical Series; regressions in the alignment
+        # logic (positional slice-assign vs reindex) would show up here.
+        default_vol = fitted_garch.predict(garch_df)
+        returns = compute_log_returns(garch_df["close"]).dropna()
+        explicit_vol = fitted_garch.predict(garch_df, returns=returns)
+        pd.testing.assert_series_equal(default_vol, explicit_vol)

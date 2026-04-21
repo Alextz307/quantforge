@@ -130,7 +130,7 @@ class ARMAPredictor(IPredictor):
         Returns:
             Best (p, q) pair.
         """
-        model = self._run_auto_arima(np.asarray(returns.values, dtype=np.float64))
+        model = self._run_auto_arima(np.asarray(returns, dtype=np.float64))
         order = model.order
         return order[0], order[2]
 
@@ -147,7 +147,7 @@ class ARMAPredictor(IPredictor):
             target: Log returns series to fit on.
             **kwargs: Unused (reserved for Optuna Trial passthrough).
         """
-        endog = np.asarray(target.values, dtype=np.float64)
+        endog = np.asarray(target, dtype=np.float64)
         pm_model = self._run_auto_arima(endog)
         order = pm_model.order
         arima_res = pm_model.arima_res_
@@ -169,17 +169,25 @@ class ARMAPredictor(IPredictor):
             train_data, self._interval, ("returns",)
         )
 
-    def predict(self, data: pd.DataFrame) -> pd.Series:
+    def predict(
+        self,
+        data: pd.DataFrame,
+        *,
+        returns: pd.Series | None = None,
+    ) -> pd.Series:
         """One-step-ahead forecasts using fixed ARMA parameters.
-
-        Computes log returns internally from close prices via
-        ``compute_log_returns()``. The caller's ``target`` passed to
-        ``fit()`` must use the same log-return convention.
 
         Does NOT re-estimate parameters.
 
         Args:
-            data: DataFrame with 'close' column and DatetimeIndex.
+            data: DataFrame with 'close' column and DatetimeIndex — used for
+                output index alignment.
+            returns: Optional pre-computed log returns (dropna'd). Its index
+                must be a subset of ``data.index`` — typically
+                ``data.index[1:]`` when derived from the same frame, though
+                composites may pass a sub-range. Skips the internal
+                ``compute_log_returns(data["close"])`` derivation when
+                provided; defaults to deriving returns from ``data["close"]``.
 
         Returns:
             Series of one-step-ahead return forecasts.
@@ -187,10 +195,13 @@ class ARMAPredictor(IPredictor):
         if not self._fitted or self._model is None:
             raise RuntimeError("ARMAPredictor.predict() called before fit()")
 
-        returns = compute_log_returns(data["close"]).dropna()
-        values = returns.values
+        caller_returns = returns
+        if caller_returns is None:
+            returns_clean = compute_log_returns(data["close"]).dropna()
+        else:
+            returns_clean = caller_returns
 
-        n = len(values)
+        n = len(returns_clean)
         predictions = np.empty(n)
 
         fitted_vals = self._model.predict_in_sample()
@@ -204,11 +215,19 @@ class ARMAPredictor(IPredictor):
             oos_forecasts = self._model.predict(n_periods=n_oos)
             predictions[n_fitted:] = oos_forecasts
 
-        # Offset by 1: the first row of `data` has no log return (it's NaN), so
-        # `predictions` starts at data.index[1], not data.index[0].
-        arr = np.full(len(data), np.nan)
-        arr[1 : 1 + len(predictions)] = predictions
-        return pd.Series(arr, index=data.index, name="arma_forecast").ffill()
+        # Fast path for the canonical "returns indexed at data.index[1:]" case
+        # — positional slice-assign is O(N); reindex is O(N log N) hash. Both
+        # the ``returns=None`` default and composite callers that pass
+        # ``compute_log_returns(data["close"]).dropna()`` land here.
+        if caller_returns is None or returns_clean.index.equals(data.index[1:]):
+            arr = np.full(len(data), np.nan)
+            arr[1 : 1 + len(predictions)] = predictions
+            return pd.Series(arr, index=data.index, name="arma_forecast").ffill()
+
+        # Caller-provided returns index an arbitrary subset of data.index;
+        # fall back to label alignment to stay correct.
+        forecast = pd.Series(predictions, index=returns_clean.index, name="arma_forecast")
+        return forecast.reindex(data.index).ffill()
 
     def predict_single(self, recent_window: pd.DataFrame) -> float:
         """Predict single one-step-ahead return forecast."""
@@ -238,7 +257,7 @@ class ARMAPredictor(IPredictor):
 
         new_metadata = self._training_metadata.extend_from(new_data)
 
-        new_endog = np.asarray(target.values, dtype=np.float64)
+        new_endog = np.asarray(target, dtype=np.float64)
         combined = np.concatenate([self._model.endog, new_endog])
         sm_result = SMARIMA(combined, order=self._model.order, trend=self._model.trend).fit()
         refitted_params = np.asarray(sm_result.params, dtype=np.float64)

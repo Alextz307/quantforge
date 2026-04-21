@@ -18,6 +18,7 @@
 #include <quant/strategies/state_machines.hpp>
 
 #include <cstdint>
+#include <memory>
 #include <span>
 #include <string>
 #include <utility>
@@ -34,13 +35,58 @@ using ContigI64 = py::array_t<int64_t, py::array::c_style | py::array::forcecast
     return {arr.data(), static_cast<size_t>(arr.size())};
 }
 
-// Copy a std::vector<double> into a fresh 1-D numpy f64 array.
-// Must be called with the GIL held (allocates a Python object).
-// TODO(Phase 6): eliminate the copy by returning a numpy array that owns the
-// vector via a pybind11 capsule (zero-copy); potentially significant under
-// Optuna HPO where indicators are called in inner sweep loops.
-[[nodiscard]] py::array_t<double> as_numpy(const std::vector<double>& v) {
-    return py::array_t<double>(static_cast<py::ssize_t>(v.size()), v.data());
+// The capsule holds the sole shared_ptr ref, keeping the vector alive for the
+// numpy array's lifetime; the shared_ptr releases when the capsule destructs.
+// Destructor touches no Python state, so no GIL acquire is needed.
+// Must be called with the GIL held — constructs a py::capsule (Python object).
+[[nodiscard]] py::array_t<double> wrap_vector_zero_copy(
+    std::shared_ptr<std::vector<double>> vec) {
+    double* data_ptr = vec->data();
+    const auto n = static_cast<py::ssize_t>(vec->size());
+    auto* raw_owner = new std::shared_ptr<std::vector<double>>(std::move(vec));
+    py::capsule owner(raw_owner, [](void* p) {
+        delete static_cast<std::shared_ptr<std::vector<double>>*>(p);
+    });
+    return py::array_t<double>({n}, {sizeof(double)}, data_ptr, owner);
+}
+
+// Zero-copy view into a ``std::vector<double>`` field of a pybind11-held
+// struct. Passing ``self_obj`` as the numpy array's ``base`` makes numpy
+// hold an inc_ref'd handle to the parent Python wrapper; storage stays
+// valid until the numpy array is GC'd. Cheaper than a capsule owning a
+// fresh ``py::object`` and sidesteps GIL-at-finalizer concerns (numpy
+// releases the base via the normal refcount path).
+[[nodiscard]] py::array_t<double> make_field_view(
+    py::handle self_obj, std::vector<double>& field) {
+    return py::array_t<double>(
+        {static_cast<py::ssize_t>(field.size())},
+        {sizeof(double)},
+        field.data(),
+        self_obj);
+}
+
+// Pointer-to-member factory: produces a property-reader lambda for a
+// ``std::vector<double>`` field on a pybind11-held struct. Collapses the
+// seven per-field copies across MACDResult / BollingerResult /
+// BacktestResult into a single declarative binding.
+template <typename T, std::vector<double> T::*FieldPtr>
+[[nodiscard]] auto field_view_reader() {
+    return [](py::object self_obj) {
+        return make_field_view(self_obj, self_obj.cast<T&>().*FieldPtr);
+    };
+}
+
+// Allocate a std::shared_ptr-owned vector, run the compute on it while holding
+// the GIL-released scope, and return a zero-copy numpy view. Shared path for
+// every single-output indicator binding.
+template <typename Fn>
+[[nodiscard]] py::array_t<double> allocate_and_compute(std::size_t n, Fn&& fn) {
+    auto buf = std::make_shared<std::vector<double>>(n);
+    {
+        py::gil_scoped_release release;
+        fn(std::span<double>(*buf));
+    }
+    return wrap_vector_zero_copy(std::move(buf));
 }
 
 [[nodiscard]] std::vector<quant::Bar> build_bars(
@@ -96,6 +142,11 @@ marshal_bars_and_signals(
     py::arg("timestamps"), py::arg("open"), py::arg("high"), py::arg("low"),   \
     py::arg("close"), py::arg("volume"), py::arg("signals")
 
+// Shared OHLC kwarg prefix for the volatility-estimator bindings
+// (Parkinson, GarmanKlass).
+#define QE_OHLC_KWARGS                                                         \
+    py::arg("open"), py::arg("high"), py::arg("low"), py::arg("close")
+
 PYBIND11_MODULE(quant_engine, m) {
     m.doc() = "C++ quantitative engine (backtesting, metrics) — Python bindings";
 
@@ -123,7 +174,12 @@ PYBIND11_MODULE(quant_engine, m) {
                        &quant::SlippageConfig::volume_impact_coeff);
 
     // ── BacktestResult ──
-    py::class_<quant::BacktestResult>(m, "BacktestResult")
+    // ``equity_curve`` is a zero-copy numpy view into the result's vector;
+    // the capsule keeps the BacktestResult instance alive so the view stays
+    // valid even if the Python-side BacktestResult handle is released after
+    // the property access.
+    py::class_<quant::BacktestResult, std::shared_ptr<quant::BacktestResult>>(
+        m, "BacktestResult")
         .def_readonly("total_return", &quant::BacktestResult::total_return)
         .def_readonly("annualized_return", &quant::BacktestResult::annualized_return)
         .def_readonly("annualized_volatility",
@@ -133,16 +189,9 @@ PYBIND11_MODULE(quant_engine, m) {
         .def_readonly("max_drawdown", &quant::BacktestResult::max_drawdown)
         .def_readonly("win_rate", &quant::BacktestResult::win_rate)
         .def_readonly("trade_count", &quant::BacktestResult::trade_count)
-        // TODO(Phase 6): zero-copy via pybind11 capsule keeping the
-        // BacktestResult alive. Current path copies the whole vector each
-        // access — fine for single-scenario runs, potentially hot under HPO.
         .def_property_readonly(
             "equity_curve",
-            [](const quant::BacktestResult& r) {
-                return py::array_t<double>(
-                    static_cast<py::ssize_t>(r.equity_curve.size()),
-                    r.equity_curve.data());
-            })
+            field_view_reader<quant::BacktestResult, &quant::BacktestResult::equity_curve>())
         .def_readonly("scenario_label", &quant::BacktestResult::scenario_label);
 
     // ── BacktestEngine ──
@@ -165,7 +214,12 @@ PYBIND11_MODULE(quant_engine, m) {
                const ContigF64& signals, const quant::SlippageConfig& slippage) {
                 const auto [bars, sig_span] = marshal_bars_and_signals(
                     timestamps, open, high, low, close, volume, signals);
-                return self.run(bars, sig_span, slippage);
+                auto result = std::make_shared<quant::BacktestResult>();
+                {
+                    py::gil_scoped_release release;
+                    self.run(bars, sig_span, slippage, *result);
+                }
+                return result;
             },
             QE_BARS_SIGNALS_KWARGS, py::arg("slippage"))
         .def(
@@ -175,15 +229,20 @@ PYBIND11_MODULE(quant_engine, m) {
                const ContigF64& close, const ContigF64& volume,
                const ContigF64& signals,
                const std::vector<quant::SlippageConfig>& scenarios) {
+                std::vector<std::shared_ptr<quant::BacktestResult>> results;
                 if (scenarios.empty()) {
-                    return std::vector<quant::BacktestResult>{};
+                    return results;
                 }
                 const auto [bars, sig_span] = marshal_bars_and_signals(
                     timestamps, open, high, low, close, volume, signals);
-                std::vector<quant::BacktestResult> results;
                 results.reserve(scenarios.size());
-                for (const auto& sc : scenarios) {
-                    results.push_back(self.run(bars, sig_span, sc));
+                {
+                    py::gil_scoped_release release;
+                    for (const auto& sc : scenarios) {
+                        auto r = std::make_shared<quant::BacktestResult>();
+                        self.run(bars, sig_span, sc, *r);
+                        results.push_back(std::move(r));
+                    }
                 }
                 return results;
             },
@@ -266,28 +325,26 @@ PYBIND11_MODULE(quant_engine, m) {
             "compute",
             [](const quant::RSI& self, const ContigF64& prices) {
                 const auto input = as_span(prices);
-                std::vector<double> out;
-                {
-                    py::gil_scoped_release release;
-                    out = self.compute(input);
-                }
-                return as_numpy(out);
+                return allocate_and_compute(input.size(),
+                    [&](std::span<double> out) { self.compute(input, out); });
             },
             py::arg("prices"))
         .def_property_readonly("warmup_period", &quant::RSI::warmup_period)
         .def_property_readonly("name", &quant::RSI::name);
 
-    // ── MACDResult ──
-    py::class_<quant::MACDResult>(m, "MACDResult")
+    // ── MACDResult ── three vectors owned by a shared_ptr-held MACDResult;
+    // each property returns a zero-copy numpy view with the MACDResult
+    // Python wrapper as its numpy base.
+    py::class_<quant::MACDResult, std::shared_ptr<quant::MACDResult>>(m, "MACDResult")
         .def_property_readonly(
             "macd_line",
-            [](const quant::MACDResult& r) { return as_numpy(r.macd_line); })
+            field_view_reader<quant::MACDResult, &quant::MACDResult::macd_line>())
         .def_property_readonly(
             "signal_line",
-            [](const quant::MACDResult& r) { return as_numpy(r.signal_line); })
+            field_view_reader<quant::MACDResult, &quant::MACDResult::signal_line>())
         .def_property_readonly(
             "histogram",
-            [](const quant::MACDResult& r) { return as_numpy(r.histogram); });
+            field_view_reader<quant::MACDResult, &quant::MACDResult::histogram>());
 
     // ── MACD ──
     py::class_<quant::MACD>(m, "MACD")
@@ -299,36 +356,40 @@ PYBIND11_MODULE(quant_engine, m) {
             "compute",
             [](const quant::MACD& self, const ContigF64& prices) {
                 const auto input = as_span(prices);
-                std::vector<double> out;
-                {
-                    py::gil_scoped_release release;
-                    out = self.compute(input);
-                }
-                return as_numpy(out);
+                return allocate_and_compute(input.size(),
+                    [&](std::span<double> out) { self.compute(input, out); });
             },
             py::arg("prices"))
         .def(
             "compute_all",
             [](const quant::MACD& self, const ContigF64& prices) {
                 const auto input = as_span(prices);
-                py::gil_scoped_release release;
-                return self.compute_all(input);
+                auto result = std::make_shared<quant::MACDResult>();
+                {
+                    py::gil_scoped_release release;
+                    result->macd_line.resize(input.size());
+                    result->signal_line.resize(input.size());
+                    result->histogram.resize(input.size());
+                    self.compute_all(input, *result);
+                }
+                return result;
             },
             py::arg("prices"))
         .def_property_readonly("warmup_period", &quant::MACD::warmup_period)
         .def_property_readonly("name", &quant::MACD::name);
 
-    // ── BollingerResult ──
-    py::class_<quant::BollingerResult>(m, "BollingerResult")
+    // ── BollingerResult ── same zero-copy pattern as MACDResult.
+    py::class_<quant::BollingerResult, std::shared_ptr<quant::BollingerResult>>(
+        m, "BollingerResult")
         .def_property_readonly(
             "upper",
-            [](const quant::BollingerResult& r) { return as_numpy(r.upper); })
+            field_view_reader<quant::BollingerResult, &quant::BollingerResult::upper>())
         .def_property_readonly(
             "mid",
-            [](const quant::BollingerResult& r) { return as_numpy(r.mid); })
+            field_view_reader<quant::BollingerResult, &quant::BollingerResult::mid>())
         .def_property_readonly(
             "lower",
-            [](const quant::BollingerResult& r) { return as_numpy(r.lower); });
+            field_view_reader<quant::BollingerResult, &quant::BollingerResult::lower>());
 
     // ── BollingerBands ──
     py::class_<quant::BollingerBands>(m, "BollingerBands")
@@ -338,20 +399,23 @@ PYBIND11_MODULE(quant_engine, m) {
             "compute",
             [](const quant::BollingerBands& self, const ContigF64& prices) {
                 const auto input = as_span(prices);
-                std::vector<double> out;
-                {
-                    py::gil_scoped_release release;
-                    out = self.compute(input);
-                }
-                return as_numpy(out);
+                return allocate_and_compute(input.size(),
+                    [&](std::span<double> out) { self.compute(input, out); });
             },
             py::arg("prices"))
         .def(
             "compute_all",
             [](const quant::BollingerBands& self, const ContigF64& prices) {
                 const auto input = as_span(prices);
-                py::gil_scoped_release release;
-                return self.compute_all(input);
+                auto result = std::make_shared<quant::BollingerResult>();
+                {
+                    py::gil_scoped_release release;
+                    result->upper.resize(input.size());
+                    result->mid.resize(input.size());
+                    result->lower.resize(input.size());
+                    self.compute_all(input, *result);
+                }
+                return result;
             },
             py::arg("prices"))
         .def_property_readonly("warmup_period",
@@ -370,14 +434,10 @@ PYBIND11_MODULE(quant_engine, m) {
                 const auto h = as_span(high);
                 const auto l = as_span(low);
                 const auto c = as_span(close);
-                std::vector<double> out;
-                {
-                    py::gil_scoped_release release;
-                    out = self.compute(o, h, l, c);
-                }
-                return as_numpy(out);
+                return allocate_and_compute(o.size(),
+                    [&](std::span<double> out) { self.compute(o, h, l, c, out); });
             },
-            py::arg("open"), py::arg("high"), py::arg("low"), py::arg("close"))
+            QE_OHLC_KWARGS)
         .def_property_readonly("warmup_period", &quant::Parkinson::warmup_period)
         .def_property_readonly("name", &quant::Parkinson::name);
 
@@ -393,16 +453,14 @@ PYBIND11_MODULE(quant_engine, m) {
                 const auto h = as_span(high);
                 const auto l = as_span(low);
                 const auto c = as_span(close);
-                std::vector<double> out;
-                {
-                    py::gil_scoped_release release;
-                    out = self.compute(o, h, l, c);
-                }
-                return as_numpy(out);
+                return allocate_and_compute(o.size(),
+                    [&](std::span<double> out) { self.compute(o, h, l, c, out); });
             },
-            py::arg("open"), py::arg("high"), py::arg("low"), py::arg("close"))
+            QE_OHLC_KWARGS)
         .def_property_readonly("warmup_period", &quant::GarmanKlass::warmup_period)
         .def_property_readonly("name", &quant::GarmanKlass::name);
+
+#undef QE_OHLC_KWARGS
 
     // ── GarchParams ──
     // Fields are read-only; GARCH parameters are frozen after the Python fit.
@@ -430,12 +488,12 @@ PYBIND11_MODULE(quant_engine, m) {
         [](const ContigF64& scaled_returns,
            const quant::filters::GarchParams& params) {
             const auto input = as_span(scaled_returns);
-            std::vector<double> out;
+            auto buf = std::make_shared<std::vector<double>>();
             {
                 py::gil_scoped_release release;
-                out = quant::filters::garch_filter(input, params);
+                *buf = quant::filters::garch_filter(input, params);
             }
-            return as_numpy(out);
+            return wrap_vector_zero_copy(std::move(buf));
         },
         py::arg("scaled_returns"), py::arg("params"),
         "Run the GARCH(p,q) recursion; returns conditional variances.");
@@ -450,13 +508,12 @@ PYBIND11_MODULE(quant_engine, m) {
             const auto upper_span = as_span(upper);
             const auto lower_span = as_span(lower);
             const auto trend_ma_span = as_span(trend_ma);
-            std::vector<double> out;
-            {
-                py::gil_scoped_release release;
-                out = quant::strategies::run_mean_reversion_state_machine(
-                    close_span, mid_span, upper_span, lower_span, trend_ma_span);
-            }
-            return as_numpy(out);
+            return allocate_and_compute(close_span.size(),
+                [&](std::span<double> out) {
+                    quant::strategies::run_mean_reversion_state_machine(
+                        close_span, mid_span, upper_span, lower_span,
+                        trend_ma_span, out);
+                });
         },
         py::arg("close"), py::arg("mid"), py::arg("upper"),
         py::arg("lower"), py::arg("trend_ma"),
@@ -467,13 +524,12 @@ PYBIND11_MODULE(quant_engine, m) {
         [](const ContigF64& zscore, double entry_zscore, double exit_zscore,
            double stop_loss_zscore) {
             const auto zscore_span = as_span(zscore);
-            std::vector<double> out;
-            {
-                py::gil_scoped_release release;
-                out = quant::strategies::run_pairs_state_machine(
-                    zscore_span, entry_zscore, exit_zscore, stop_loss_zscore);
-            }
-            return as_numpy(out);
+            return allocate_and_compute(zscore_span.size(),
+                [&](std::span<double> out) {
+                    quant::strategies::run_pairs_state_machine(
+                        zscore_span, entry_zscore, exit_zscore,
+                        stop_loss_zscore, out);
+                });
         },
         py::arg("zscore"), py::arg("entry_zscore"), py::arg("exit_zscore"),
         py::arg("stop_loss_zscore"),
@@ -503,26 +559,22 @@ PYBIND11_MODULE(quant_engine, m) {
             [](const ContigF64& a, const ContigF64& b, double hedge_ratio) {
                 const auto a_span = as_span(a);
                 const auto b_span = as_span(b);
-                std::vector<double> out;
-                {
-                    py::gil_scoped_release release;
-                    out = quant::statistics::SpreadCalculator::compute_spread(
-                        a_span, b_span, hedge_ratio);
-                }
-                return as_numpy(out);
+                return allocate_and_compute(a_span.size(),
+                    [&](std::span<double> out) {
+                        quant::statistics::SpreadCalculator::compute_spread(
+                            a_span, b_span, hedge_ratio, out);
+                    });
             },
             py::arg("a"), py::arg("b"), py::arg("hedge_ratio"))
         .def_static(
             "compute_zscore",
             [](const ContigF64& spread, int window) {
                 const auto spread_span = as_span(spread);
-                std::vector<double> out;
-                {
-                    py::gil_scoped_release release;
-                    out = quant::statistics::SpreadCalculator::compute_zscore(
-                        spread_span, window);
-                }
-                return as_numpy(out);
+                return allocate_and_compute(spread_span.size(),
+                    [&](std::span<double> out) {
+                        quant::statistics::SpreadCalculator::compute_zscore(
+                            spread_span, window, out);
+                    });
             },
             py::arg("spread"), py::arg("window"));
 
@@ -556,12 +608,10 @@ PYBIND11_MODULE(quant_engine, m) {
                const quant::statistics::CointegrationParams& coint) {
                 const auto a_span = as_span(prices_a);
                 const auto b_span = as_span(prices_b);
-                std::vector<double> out;
-                {
-                    py::gil_scoped_release release;
-                    out = self.generate_signals(a_span, b_span, coint);
-                }
-                return as_numpy(out);
+                return allocate_and_compute(a_span.size(),
+                    [&](std::span<double> out) {
+                        self.generate_signals(a_span, b_span, coint, out);
+                    });
             },
             py::arg("prices_a"), py::arg("prices_b"), py::arg("coint"))
         .def_property_readonly("name", &quant::strategies::PairsTradingStrategy::name)
@@ -593,12 +643,10 @@ PYBIND11_MODULE(quant_engine, m) {
                const ContigF64& close, const ContigF64& cond_vol) {
                 const auto close_span = as_span(close);
                 const auto cond_vol_span = as_span(cond_vol);
-                std::vector<double> out;
-                {
-                    py::gil_scoped_release release;
-                    out = self.generate_signals(close_span, cond_vol_span);
-                }
-                return as_numpy(out);
+                return allocate_and_compute(close_span.size(),
+                    [&](std::span<double> out) {
+                        self.generate_signals(close_span, cond_vol_span, out);
+                    });
             },
             py::arg("close"), py::arg("cond_vol"))
         .def_property_readonly("name", &quant::strategies::AdaptiveBollingerStrategy::name)

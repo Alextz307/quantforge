@@ -67,8 +67,8 @@ constexpr double kVolumeImpactCoeff = 100.0;
 // What these benches measure: each iteration includes the `equity_curve`
 // allocation inside `engine.run()` (one fresh N-element vector per call).
 // That mirrors what a single-shot caller pays, not what an HPO sweep pays —
-// see the `TODO(Phase 6)` on `BacktestEngine::run()` for the buffer-reuse
-// overload that would amortize that cost.
+// see `BacktestEngine::run(..., BacktestResult&)` for the buffer-reuse
+// overload that amortizes that cost.
 
 void BM_BacktestEngine_Run_NoSlippage(benchmark::State& state) {
     const auto n = static_cast<std::size_t>(state.range(0));

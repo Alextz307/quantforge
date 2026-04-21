@@ -52,23 +52,32 @@ public:
     /// Create a new TimeSeries containing records in [start_ts, end_ts].
     /// Uses binary search (O(log n)) since data is sorted by timestamp.
     /// @throws std::invalid_argument if the resulting slice is empty.
-    /// TODO(Phase 6): slice() deep-copies the selected range. For walk-forward
-    /// splitting on large datasets, consider adding a non-owning slice_view()
-    /// that returns a span or lightweight TimeSeriesView to avoid the copy.
     [[nodiscard]] TimeSeries<T> slice(int64_t start_ts, int64_t end_ts) const {
-        // Find first element with timestamp >= start_ts
+        const auto view_span = slice_view(start_ts, end_ts);
+        std::vector<T> result(view_span.begin(), view_span.end());
+        // Skip re-validation: data came from an already-validated, sorted parent
+        return TimeSeries<T>(std::move(result), SkipValidation{});
+    }
+
+    /// Non-owning span of records in [start_ts, end_ts]. Zero-copy alternative
+    /// to ``slice()`` for walk-forward evaluation: the returned span is valid
+    /// only as long as this ``TimeSeries`` instance outlives it.
+    /// @throws std::invalid_argument if the resulting slice is empty.
+    [[nodiscard]] std::span<const T> slice_view(
+        int64_t start_ts, int64_t end_ts) const
+    {
         auto begin_it = std::lower_bound(
             data_.begin(), data_.end(), start_ts,
             [](const T& item, int64_t ts) { return item.timestamp_epoch_s < ts; });
-
-        // Find first element with timestamp > end_ts
         auto end_it = std::upper_bound(
             begin_it, data_.end(), end_ts,
             [](int64_t ts, const T& item) { return ts < item.timestamp_epoch_s; });
-
-        std::vector<T> result(begin_it, end_it);
-        // Skip re-validation: data came from an already-validated, sorted parent
-        return TimeSeries<T>(std::move(result), SkipValidation{});
+        if (begin_it == end_it) {
+            throw std::invalid_argument("TimeSeries: slice produced empty result");
+        }
+        const auto offset = static_cast<size_t>(begin_it - data_.begin());
+        const auto count = static_cast<size_t>(end_it - begin_it);
+        return std::span<const T>(data_.data() + offset, count);
     }
 
     [[nodiscard]] size_t size() const noexcept { return data_.size(); }
@@ -79,15 +88,9 @@ public:
 private:
     struct SkipValidation {};
 
-    /// Private constructor that skips sorting validation.
-    /// Only used by slice(), where data is guaranteed sorted.
+    /// ``slice()`` has already confirmed non-empty + sorted via ``slice_view``.
     TimeSeries(std::vector<T> data, SkipValidation)
-        : data_(std::move(data))
-    {
-        if (data_.empty()) {
-            throw std::invalid_argument("TimeSeries: slice produced empty result");
-        }
-    }
+        : data_(std::move(data)) {}
 
     std::vector<T> data_;
 };

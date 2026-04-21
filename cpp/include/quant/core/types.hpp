@@ -19,6 +19,11 @@ inline constexpr double kMaxLeverage = 3.0;
 inline constexpr double kMinPosition = -1.0;
 inline constexpr double kMaxPosition = 3.0;
 
+// Default label a fresh BacktestResult carries when the caller runs a single
+// scenario without naming it. The out-param overload resets to this value so
+// reusing a BacktestResult across scenarios cannot leak a prior label.
+inline constexpr const char* kDefaultScenarioLabel = "normal";
+
 // ── Interval ──
 
 enum class Interval : uint8_t {
@@ -130,7 +135,7 @@ struct BacktestResult {
     double win_rate{};
     int trade_count{};
     std::vector<double> equity_curve;
-    std::string scenario_label{"normal"};
+    std::string scenario_label{kDefaultScenarioLabel};
 };
 
 }  // namespace quant

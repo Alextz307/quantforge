@@ -157,7 +157,7 @@ class HybridVolatilityModel(IPredictor):
         log_returns = compute_log_returns(train_data["close"]).dropna()
         self._garch.fit(train_data.loc[log_returns.index], log_returns)
 
-        garch_train_vol = self._garch.predict(train_data)
+        garch_train_vol = self._garch.predict(train_data, returns=log_returns)
         residuals = (target - garch_train_vol).dropna()
 
         self._scaler = StandardScaler()
@@ -187,14 +187,9 @@ class HybridVolatilityModel(IPredictor):
         if not self._fitted or self._scaler is None:
             raise RuntimeError("HybridVolatilityModel.predict() called before fit()")
 
-        # TODO(Phase 6): GARCH.predict() recomputes log returns from data["close"]
-        # — already computed during fit(). Add a leaf `predict_from_returns()` fast
-        # path to skip the recomputation in walk-forward / Optuna hot loops.
-        garch_vol = self._garch.predict(data)
+        log_returns = compute_log_returns(data["close"]).dropna()
+        garch_vol = self._garch.predict(data, returns=log_returns)
 
-        # TODO(Phase 6): wrapping the scaled ndarray as a DataFrame just so LSTM
-        # can call `.values` again is wasted allocation per fold. Add
-        # `LSTMPredictor.predict_array(scaled, index)` to accept ndarray directly.
         scaled_features = self._scale_to_frame(data[self._feature_columns])
 
         lstm_residual = self._lstm.predict(scaled_features)
@@ -244,11 +239,7 @@ class HybridVolatilityModel(IPredictor):
         new_returns = compute_log_returns(new_data["close"]).dropna()
         self._garch.update(new_data.loc[new_returns.index], new_returns)
 
-        # TODO(Phase 6): GARCH.predict(new_data) re-derives log returns from
-        # data["close"] internally — the array was just computed above. Extend
-        # the planned ``predict_from_returns(new_returns)`` fast path to cover
-        # the update-path residual derivation too.
-        new_garch_vol = self._garch.predict(new_data)
+        new_garch_vol = self._garch.predict(new_data, returns=new_returns)
         new_residuals = (target - new_garch_vol).dropna()
 
         feature_frame = new_data.loc[new_residuals.index, self._feature_columns]

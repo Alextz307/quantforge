@@ -8,33 +8,41 @@
 
 namespace quant::detail {
 
+/// Sliding-window rolling mean into a caller-owned buffer. ``out.size()``
+/// must equal ``data.size()``; first (window - 1) slots are NaN.
+inline void rolling_mean(
+    std::span<const double> data,
+    int window,
+    std::span<double> out)
+{
+    const auto n = static_cast<int>(data.size());
+    const double nan = std::numeric_limits<double>::quiet_NaN();
+    std::fill(out.begin(), out.end(), nan);
+
+    if (n < window || window < 1) {
+        return;
+    }
+
+    double sum = 0.0;
+    for (int i = 0; i < window; ++i) {
+        sum += data[i];
+    }
+    out[window - 1] = sum / window;
+
+    for (int i = window; i < n; ++i) {
+        sum += data[i] - data[i - window];
+        out[i] = sum / window;
+    }
+}
+
 /// Sliding-window rolling mean.
 /// First (window - 1) values are NaN.
 [[nodiscard]] inline std::vector<double> rolling_mean(
     std::span<const double> data,
     int window)
 {
-    const auto n = static_cast<int>(data.size());
-    const double nan = std::numeric_limits<double>::quiet_NaN();
-    std::vector<double> result(data.size(), nan);
-
-    if (n < window || window < 1) {
-        return result;
-    }
-
-    // Compute initial window sum
-    double sum = 0.0;
-    for (int i = 0; i < window; ++i) {
-        sum += data[i];
-    }
-    result[window - 1] = sum / window;
-
-    // Slide the window
-    for (int i = window; i < n; ++i) {
-        sum += data[i] - data[i - window];
-        result[i] = sum / window;
-    }
-
+    std::vector<double> result(data.size());
+    rolling_mean(data, window, result);
     return result;
 }
 

@@ -23,6 +23,25 @@ BacktestResult BacktestEngine::run(
     std::span<const double> signals,
     const SlippageConfig& slippage_override
 ) const {
+    BacktestResult out;
+    run(bars, signals, slippage_override, out);
+    return out;
+}
+
+void BacktestEngine::run(
+    std::span<const Bar> bars,
+    std::span<const double> signals,
+    BacktestResult& out
+) const {
+    run(bars, signals, config_.slippage, out);
+}
+
+void BacktestEngine::run(
+    std::span<const Bar> bars,
+    std::span<const double> signals,
+    const SlippageConfig& slippage_override,
+    BacktestResult& out
+) const {
     if (bars.size() != signals.size()) {
         throw std::invalid_argument(
             "BacktestEngine::run: bars.size() must equal signals.size()"
@@ -30,37 +49,39 @@ BacktestResult BacktestEngine::run(
     }
 
     const size_t n = bars.size();
-    BacktestResult result;
-    result.equity_curve.reserve(n);
+    // Preserve equity_curve capacity across scenarios by moving it out, then
+    // restoring after a default-reset of ``out``. Any new BacktestResult
+    // field gets reset for free via this swap, so the buffer-reuse path
+    // can't silently drift out of sync with the struct's defaults.
+    auto capacity_saver = std::move(out.equity_curve);
+    capacity_saver.clear();
+    out = BacktestResult{};
+    out.equity_curve = std::move(capacity_saver);
+    out.equity_curve.reserve(n);
 
+    if (n == 0) {
+        return;
+    }
+
+    const bool allow_short = config_.allow_short;
     double cash = config_.initial_capital;
     double shares = 0.0;
     int trade_count = 0;
 
-    if (n == 0) {
-        return result;  // BacktestResult is default-initialized (zeros)
-    }
-
     // Bar 0: no prior signal → no fill. Equity = starting cash.
-    result.equity_curve.push_back(cash);
+    double equity = cash;
+    out.equity_curve.push_back(equity);
 
-    // TODO(Phase 6): hoist config_.allow_short into a loop-local bool to avoid
-    // per-iteration field access (tiny, but the branch on line ~44 is the most
-    // predictable candidate in the hot path).
-    // TODO(Phase 6): when no trade fires, pre_fill_equity below recomputes
-    // `cash + shares * bars[i-1].close` — the same expression the previous
-    // iteration used to build equity_curve[i-1]. Carry it across instead.
-    // TODO(Phase 6): profile the switch inside SlippageConfig::apply. If
-    // production runs rarely change slippage mid-backtest, a specialized
-    // template instantiation or branch hint could cut one indirection per trade.
     for (size_t i = 1; i < n; ++i) {
         const double raw_signal = signals[i - 1];
         double target_leverage = std::isnan(raw_signal) ? 0.0 : raw_signal;
-        if (!config_.allow_short && target_leverage < 0.0) {
+        if (!allow_short && target_leverage < 0.0) {
             target_leverage = 0.0;
         }
 
-        const double pre_fill_equity = cash + shares * bars[i - 1].close;
+        // Carry forward the previous iteration's equity_curve tail instead
+        // of recomputing ``cash + shares * bars[i - 1].close``.
+        const double pre_fill_equity = equity;
         const double theoretical_price = bars[i].open;
         const double target_notional = target_leverage * pre_fill_equity;
         const double target_shares = (theoretical_price > 0.0)
@@ -79,17 +100,15 @@ BacktestResult BacktestEngine::run(
             ++trade_count;
         }
 
-        const double equity = cash + shares * bars[i].close;
-        result.equity_curve.push_back(equity);
+        equity = cash + shares * bars[i].close;
+        out.equity_curve.push_back(equity);
     }
 
-    const double final_equity = result.equity_curve.back();
-    result.total_return = (config_.initial_capital > 0.0)
+    const double final_equity = out.equity_curve.back();
+    out.total_return = (config_.initial_capital > 0.0)
         ? (final_equity / config_.initial_capital) - 1.0
         : 0.0;
-    result.trade_count = trade_count;
-
-    return result;
+    out.trade_count = trade_count;
 }
 
 }  // namespace quant

@@ -478,3 +478,65 @@ class TestGILRelease:
         assert len(results) == expected_count
         for out in results:
             np.testing.assert_array_equal(out, expected)
+
+
+# ════════════════════════════════════════════════════════════════
+# Zero-copy capsule lifetime
+# ════════════════════════════════════════════════════════════════
+
+
+def _macd_field(field: str) -> npt.NDArray[np.float64]:
+    close = make_synthetic_close_df()["close"].to_numpy()
+    result = qe.MACD().compute_all(close)
+    view: npt.NDArray[np.float64] = getattr(result, field)
+    return view
+
+
+def _bollinger_field(field: str) -> npt.NDArray[np.float64]:
+    close = make_synthetic_close_df()["close"].to_numpy()
+    result = qe.BollingerBands().compute_all(close)
+    view: npt.NDArray[np.float64] = getattr(result, field)
+    return view
+
+
+def _backtest_equity_curve(_field: str) -> npt.NDArray[np.float64]:
+    df = make_synthetic_ohlcv_df()
+    timestamps = (df.index.astype("int64") // 10**9).to_numpy()
+    signals = np.zeros(len(df), dtype=np.float64)
+    engine = qe.BacktestEngine()
+    result = engine.run(
+        timestamps=timestamps,
+        open=np.asarray(df["open"], dtype=np.float64),
+        high=np.asarray(df["high"], dtype=np.float64),
+        low=np.asarray(df["low"], dtype=np.float64),
+        close=np.asarray(df["close"], dtype=np.float64),
+        volume=np.asarray(df["volume"], dtype=np.float64),
+        signals=signals,
+        slippage=qe.SlippageConfig(),
+    )
+    return result.equity_curve
+
+
+@pytest.mark.parametrize(
+    ("view_factory", "field"),
+    [
+        (_macd_field, "macd_line"),
+        (_macd_field, "signal_line"),
+        (_macd_field, "histogram"),
+        (_bollinger_field, "upper"),
+        (_bollinger_field, "mid"),
+        (_bollinger_field, "lower"),
+        (_backtest_equity_curve, "equity_curve"),
+    ],
+)
+def test_zero_copy_view_survives_parent_gc(view_factory: object, field: str) -> None:
+    # The zero-copy binding returns numpy views whose numpy-base holds a
+    # strong ref to the parent wrapper. The factory drops its local handle
+    # on return; forcing GC must not dangle the view's storage.
+    import gc
+
+    assert callable(view_factory)
+    view = view_factory(field)
+    snapshot = np.asarray(view).copy()
+    gc.collect()
+    np.testing.assert_array_equal(np.asarray(view), snapshot)

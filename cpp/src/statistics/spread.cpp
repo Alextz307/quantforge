@@ -6,6 +6,8 @@
 #include <limits>
 #include <stdexcept>
 
+#include "quant/core/validation.hpp"
+
 namespace quant::statistics {
 
 namespace {
@@ -15,41 +17,58 @@ constexpr int kZScoreDDoF = 1;
 
 }  // namespace
 
-// TODO(Phase 6): allocate output buffers from a caller-provided arena or
-// out-param to eliminate per-call heap allocation in walk-forward loops.
 std::vector<double> SpreadCalculator::compute_spread(
     std::span<const double> a,
     std::span<const double> b,
     double hedge_ratio)
 {
+    std::vector<double> out(a.size());
+    compute_spread(a, b, hedge_ratio, out);
+    return out;
+}
+
+void SpreadCalculator::compute_spread(
+    std::span<const double> a,
+    std::span<const double> b,
+    double hedge_ratio,
+    std::span<double> out)
+{
     if (a.size() != b.size()) {
         throw std::invalid_argument(
             "SpreadCalculator::compute_spread: a and b must have the same length");
     }
+    detail::check_out_size(a.size(), out.size(), "SpreadCalculator::compute_spread");
     const auto n = a.size();
-    std::vector<double> out(n);
-    // TODO(Phase 6): verify auto-vectorization via -Rpass=loop-vectorize;
-    // straight-line fp64 fma is a prime SIMD target.
     for (std::size_t i = 0; i < n; ++i) {
         out[i] = a[i] - hedge_ratio * b[i];
     }
+}
+
+std::vector<double> SpreadCalculator::compute_zscore(
+    std::span<const double> spread,
+    int window)
+{
+    std::vector<double> out(spread.size());
+    compute_zscore(spread, window, out);
     return out;
 }
 
 // Keep the Welford recurrence below in sync with detail::rolling_mean_std.
 // NaN semantics diverge from pandas — see the header docstring.
-std::vector<double> SpreadCalculator::compute_zscore(
+void SpreadCalculator::compute_zscore(
     std::span<const double> spread,
-    int window)
+    int window,
+    std::span<double> out)
 {
     if (window < 2) {
         throw std::invalid_argument(
             "SpreadCalculator::compute_zscore: window must be >= 2");
     }
+    detail::check_out_size(spread.size(), out.size(), "SpreadCalculator::compute_zscore");
     const auto n = spread.size();
-    std::vector<double> out(n, kNaN);
+    std::fill(out.begin(), out.end(), kNaN);
     if (static_cast<int>(n) < window) {
-        return out;
+        return;
     }
 
     const double denom = static_cast<double>(window - kZScoreDDoF);
@@ -87,7 +106,6 @@ std::vector<double> SpreadCalculator::compute_zscore(
             out[i] = (new_val - mean) / sd;
         }
     }
-    return out;
 }
 
 }  // namespace quant::statistics

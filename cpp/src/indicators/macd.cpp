@@ -1,9 +1,16 @@
 #include "quant/indicators/macd.hpp"
 
+#include <algorithm>
 #include <limits>
 #include <stdexcept>
 
+#include "quant/core/validation.hpp"
+
 namespace quant {
+
+// Signal EMA is seeded at the first valid MACD (index slow_period_-1) and
+// the (adjust=False) recurrence advances from there; match this seed
+// convention if you ever factor out an ewm helper.
 
 MACD::MACD(int fast_period, int slow_period, int signal_period)
     : fast_period_(fast_period)
@@ -18,20 +25,32 @@ MACD::MACD(int fast_period, int slow_period, int signal_period)
     }
 }
 
-// Signal EMA is seeded at the first valid MACD (index slow_period_-1) and
-// the (adjust=False) recurrence advances from there; match this seed
-// convention if you ever factor out an ewm helper.
 MACDResult MACD::compute_all(std::span<const double> prices) const {
+    MACDResult result;
+    result.macd_line.resize(prices.size());
+    result.signal_line.resize(prices.size());
+    result.histogram.resize(prices.size());
+    compute_all(prices, result);
+    return result;
+}
+
+void MACD::compute_all(
+    std::span<const double> prices,
+    MACDResult& out) const
+{
     const auto n = static_cast<int>(prices.size());
     const double nan = std::numeric_limits<double>::quiet_NaN();
 
-    MACDResult result;
-    result.macd_line.resize(prices.size(), nan);
-    result.signal_line.resize(prices.size(), nan);
-    result.histogram.resize(prices.size(), nan);
+    detail::check_out_size(prices.size(), out.macd_line.size(), "MACD::compute_all");
+    detail::check_out_size(prices.size(), out.signal_line.size(), "MACD::compute_all");
+    detail::check_out_size(prices.size(), out.histogram.size(), "MACD::compute_all");
+
+    std::fill(out.macd_line.begin(), out.macd_line.end(), nan);
+    std::fill(out.signal_line.begin(), out.signal_line.end(), nan);
+    std::fill(out.histogram.begin(), out.histogram.end(), nan);
 
     if (n < slow_period_) {
-        return result;
+        return;
     }
 
     const double alpha_fast = 2.0 / (fast_period_ + 1.0);
@@ -53,7 +72,7 @@ MACDResult MACD::compute_all(std::span<const double> prices) const {
 
         if (i >= slow_period_ - 1) {
             const double macd = fast - slow;
-            result.macd_line[i] = macd;
+            out.macd_line[i] = macd;
 
             if (signal_valid == 0) {
                 sig = macd;
@@ -63,22 +82,25 @@ MACDResult MACD::compute_all(std::span<const double> prices) const {
                 ++signal_valid;
             }
             if (signal_valid >= signal_period_) {
-                result.signal_line[i] = sig;
-                result.histogram[i] = macd - sig;
+                out.signal_line[i] = sig;
+                out.histogram[i] = macd - sig;
             }
         }
     }
-
-    return result;
 }
 
-std::vector<double> MACD::compute(std::span<const double> prices) const {
+void MACD::compute(
+    std::span<const double> prices,
+    std::span<double> out) const
+{
+    detail::check_out_size(prices.size(), out.size(), "MACD::compute");
+
     const auto n = static_cast<int>(prices.size());
     const double nan = std::numeric_limits<double>::quiet_NaN();
-    std::vector<double> result(prices.size(), nan);
+    std::fill(out.begin(), out.end(), nan);
 
     if (n < slow_period_) {
-        return result;
+        return;
     }
 
     const double alpha_fast = 2.0 / (fast_period_ + 1.0);
@@ -94,11 +116,9 @@ std::vector<double> MACD::compute(std::span<const double> prices) const {
         fast = alpha_fast * p + one_minus_fast * fast;
         slow = alpha_slow * p + one_minus_slow * slow;
         if (i >= slow_period_ - 1) {
-            result[i] = fast - slow;
+            out[i] = fast - slow;
         }
     }
-
-    return result;
 }
 
 int MACD::warmup_period() const noexcept {

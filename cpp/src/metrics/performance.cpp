@@ -39,17 +39,26 @@ struct MeanStd {
 
 std::vector<double> MetricsCalculator::equity_to_returns(
     std::span<const double> equity_curve) {
-    std::vector<double> returns;
+    MetricsBuffer buf;
+    (void)equity_to_returns(equity_curve, buf);
+    return std::move(buf.returns);
+}
+
+std::span<const double> MetricsCalculator::equity_to_returns(
+    std::span<const double> equity_curve,
+    MetricsBuffer& buffer) {
+    auto& returns = buffer.returns;
     if (equity_curve.size() < 2) {
-        return returns;
+        returns.clear();
+        return {};
     }
-    returns.reserve(equity_curve.size() - 1);
+    returns.resize(equity_curve.size() - 1);
     for (size_t i = 1; i < equity_curve.size(); ++i) {
         const double prev = equity_curve[i - 1];
         const double next = equity_curve[i];
-        returns.push_back((prev > 0.0) ? (next / prev - 1.0) : 0.0);
+        returns[i - 1] = (prev > 0.0) ? (next / prev - 1.0) : 0.0;
     }
-    return returns;
+    return {returns};
 }
 
 double MetricsCalculator::sharpe_ratio(

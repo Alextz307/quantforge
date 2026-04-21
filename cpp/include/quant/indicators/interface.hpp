@@ -13,14 +13,22 @@ class IIndicator {
 public:
     virtual ~IIndicator() = default;
 
-    /// Compute indicator values from price data.
-    /// @param prices Input price array (e.g., close prices).
-    /// @return Vector of same length as input, NaN-padded for warmup period.
-    /// TODO(Phase 6): Add an output-buffer overload
-    ///   void compute(span<const double> prices, span<double> output) const
-    /// to let callers pre-allocate once and reuse across calls in the backtest loop.
-    [[nodiscard]] virtual std::vector<double> compute(
-        std::span<const double> prices) const = 0;
+    /// Compute indicator values into a caller-owned buffer. ``out.size()``
+    /// must equal ``prices.size()``; leading warmup slots are filled with NaN.
+    /// Derived classes implement this; the allocating convenience below
+    /// forwards here so inference loops can reuse a scratch buffer.
+    virtual void compute(
+        std::span<const double> prices,
+        std::span<double> out) const = 0;
+
+    /// Allocating convenience: size + forward to the out-param overload.
+    /// Kept non-virtual so there is a single implementation path.
+    [[nodiscard]] std::vector<double> compute(
+        std::span<const double> prices) const {
+        std::vector<double> out(prices.size());
+        compute(prices, out);
+        return out;
+    }
 
     /// Minimum number of bars before output is valid.
     [[nodiscard]] virtual int warmup_period() const noexcept = 0;

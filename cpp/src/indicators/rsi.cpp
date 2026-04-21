@@ -1,9 +1,12 @@
 #include "quant/indicators/rsi.hpp"
 
 #include <algorithm>
-#include <cmath>
+#include <cstddef>
 #include <limits>
 #include <stdexcept>
+#include <string>
+
+#include "quant/core/validation.hpp"
 
 namespace quant {
 
@@ -14,14 +17,19 @@ RSI::RSI(int period) : period_(period) {
     }
 }
 
-std::vector<double> RSI::compute(std::span<const double> prices) const {
+void RSI::compute(
+    std::span<const double> prices,
+    std::span<double> out) const
+{
+    detail::check_out_size(prices.size(), out.size(), "RSI::compute");
+
     const auto n = static_cast<int>(prices.size());
     const double nan = std::numeric_limits<double>::quiet_NaN();
-    std::vector<double> result(prices.size(), nan);
+    std::fill(out.begin(), out.end(), nan);
 
     // Need at least period + 1 prices to compute first RSI value
     if (n <= period_) {
-        return result;
+        return;
     }
 
     // Seed with SMA of first period deltas
@@ -38,10 +46,10 @@ std::vector<double> RSI::compute(std::span<const double> prices) const {
 
     // First RSI value at index = period
     if (avg_loss == 0.0) {
-        result[period_] = (avg_gain == 0.0) ? 50.0 : 100.0;
+        out[period_] = (avg_gain == 0.0) ? 50.0 : 100.0;
     } else {
         double rs = avg_gain / avg_loss;
-        result[period_] = 100.0 - 100.0 / (1.0 + rs);
+        out[period_] = 100.0 - 100.0 / (1.0 + rs);
     }
 
     // Wilder's smoothing for subsequent values
@@ -54,14 +62,12 @@ std::vector<double> RSI::compute(std::span<const double> prices) const {
         avg_loss = (avg_loss * (period_ - 1) + loss) / period_;
 
         if (avg_loss == 0.0) {
-            result[i] = (avg_gain == 0.0) ? 50.0 : 100.0;
+            out[i] = (avg_gain == 0.0) ? 50.0 : 100.0;
         } else {
             double rs = avg_gain / avg_loss;
-            result[i] = 100.0 - 100.0 / (1.0 + rs);
+            out[i] = 100.0 - 100.0 / (1.0 + rs);
         }
     }
-
-    return result;
 }
 
 int RSI::warmup_period() const noexcept {

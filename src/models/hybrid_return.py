@@ -24,6 +24,7 @@ from src.core.persistence import (
 from src.core.registry import model_registry
 from src.core.temporal import TrainingMetadata
 from src.core.types import Device, InformationCriterion, Interval, LossFunction
+from src.core.utils import compute_log_returns
 from src.models.arma import ARMAPredictor
 from src.models.interface import IPredictor
 from src.models.lstm import LSTMPredictor
@@ -156,7 +157,7 @@ class HybridReturnModel(IPredictor):
         target_clean = target.dropna()
         self._arma.fit(train_data.loc[target_clean.index], target_clean)
 
-        arma_train_pred = self._arma.predict(train_data)
+        arma_train_pred = self._arma.predict(train_data, returns=target_clean)
         residuals = (target_clean - arma_train_pred).dropna()
 
         self._scaler = StandardScaler()
@@ -185,14 +186,9 @@ class HybridReturnModel(IPredictor):
         if not self._fitted or self._scaler is None:
             raise RuntimeError("HybridReturnModel.predict() called before fit()")
 
-        # TODO(Phase 6): ARMA.predict() recomputes log returns from data["close"]
-        # — already computed during fit(). Add a leaf `predict_from_returns()` fast
-        # path to skip the recomputation in walk-forward / Optuna hot loops.
-        arma_pred = self._arma.predict(data)
+        log_returns = compute_log_returns(data["close"]).dropna()
+        arma_pred = self._arma.predict(data, returns=log_returns)
 
-        # TODO(Phase 6): wrapping the scaled ndarray as a DataFrame just so LSTM
-        # can call `.values` again is wasted allocation per fold. Add
-        # `LSTMPredictor.predict_array(scaled, index)` to accept ndarray directly.
         scaled_features = self._scale_to_frame(data[self._feature_columns])
 
         lstm_residual = self._lstm.predict(scaled_features)
@@ -236,7 +232,7 @@ class HybridReturnModel(IPredictor):
         target_clean = target.dropna()
         self._arma.update(new_data.loc[target_clean.index], target_clean)
 
-        arma_new_pred = self._arma.predict(new_data)
+        arma_new_pred = self._arma.predict(new_data, returns=target_clean)
         new_residuals = (target_clean - arma_new_pred).dropna()
 
         feature_frame = new_data.loc[new_residuals.index, self._feature_columns]

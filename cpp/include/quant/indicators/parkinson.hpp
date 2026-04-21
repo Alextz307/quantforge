@@ -14,11 +14,14 @@ class Parkinson final : public IVolatilityEstimator {
 public:
     explicit Parkinson(int window = 22);
 
-    [[nodiscard]] std::vector<double> compute(
+    using IVolatilityEstimator::compute;  // allocating overload from base
+
+    void compute(
         std::span<const double> open,
         std::span<const double> high,
         std::span<const double> low,
-        std::span<const double> close) const override;
+        std::span<const double> close,
+        std::span<double> out) const override;
 
     [[nodiscard]] int warmup_period() const noexcept override;
     [[nodiscard]] std::string name() const override;

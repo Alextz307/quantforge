@@ -15,6 +15,8 @@ add_executable(quant_tests
     test_bollinger_rolling_mean_std_parity.cpp
     test_metrics_fused_parity.cpp
     test_spread_welford_zscore_parity.cpp
+    test_buffer_reuse_overloads.cpp
+    test_time_series_slice_view.cpp
 )
 target_include_directories(quant_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(quant_tests
