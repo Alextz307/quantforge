@@ -10,6 +10,7 @@ from src.core.temporal import (
     PurgedGroupTimeSeriesSplit,
     TemporalSplit,
     WalkForwardValidator,
+    resolve_holdout_boundary,
 )
 from tests.conftest import make_daily_df
 
@@ -275,3 +276,115 @@ class TestPurgedGroupTimeSeriesSplit:
         splitter = PurgedGroupTimeSeriesSplit(n_groups=PG_LARGE_N_GROUPS)
         with pytest.raises(ValueError, match="too few"):
             list(splitter.split(df))
+
+
+# ---- resolve_holdout_boundary --------------------------------------------
+# Fixture sizes chosen so (N, pct) arithmetic is exact: e.g. 100 * 0.85 = 85,
+# no float rounding noise. Keeps the assertions readable.
+HB_DF_ROWS = 100
+HB_PCT = 0.15  # → cutoff index 85
+HB_CUTOFF = 85  # int(100 * (1 - 0.15))
+HB_TINY_DF_ROWS = 10
+HB_TINY_PCT_ALL = 0.99  # int(10 * 0.01) = 0 → empty dev
+# A pct so small that (1 - pct) rounds to exactly 1.0 in double precision,
+# so int(n * (1-pct)) == n (no holdout bars at all). Catches the
+# sub-per-bar-fraction edge case that would otherwise silently reserve
+# nothing.
+HB_FLOAT_EPS_PCT = 1e-20
+
+
+class TestResolveHoldoutBoundary:
+    """Exercises tripwire #2 of the holdout contract: boundary resolution.
+
+    The resolver is the single canonical place that turns the config's knobs
+    (pct or pinned timestamp) into the absolute timestamp the runner uses
+    to slice. Every failure mode documented on the helper is covered here.
+    """
+
+    def test_returns_none_when_neither_knob_set(self) -> None:
+        df = make_daily_df(HB_DF_ROWS)
+        assert resolve_holdout_boundary(df) is None
+
+    def test_pct_returns_cutoff_index_timestamp(self) -> None:
+        df = make_daily_df(HB_DF_ROWS)
+        boundary = resolve_holdout_boundary(df, holdout_pct=HB_PCT)
+        assert boundary == df.index[HB_CUTOFF]
+
+    def test_pct_split_dev_and_holdout_are_strictly_temporal(self) -> None:
+        """The returned boundary, used as documented, yields a clean split."""
+        df = make_daily_df(HB_DF_ROWS)
+        boundary = resolve_holdout_boundary(df, holdout_pct=HB_PCT)
+        assert boundary is not None
+        dev = df[df.index < boundary]
+        holdout = df[df.index >= boundary]
+        assert len(dev) + len(holdout) == len(df)
+        assert dev.index.max() < holdout.index.min()
+
+    def test_pct_composes_cleanly_with_temporal_split(self) -> None:
+        """Tripwire #3: TemporalSplit accepts the resolved boundary."""
+        df = make_daily_df(HB_DF_ROWS)
+        boundary = resolve_holdout_boundary(df, holdout_pct=HB_PCT)
+        assert boundary is not None
+        split = TemporalSplit(
+            train=df[df.index < boundary],
+            test=df[df.index >= boundary],
+            split_date=boundary,
+        )
+        assert len(split.train) == HB_CUTOFF
+        assert len(split.test) == HB_DF_ROWS - HB_CUTOFF
+
+    def test_pinned_timestamp_returned_when_in_df(self) -> None:
+        df = make_daily_df(HB_DF_ROWS)
+        pinned = df.index[HB_CUTOFF]
+        boundary = resolve_holdout_boundary(df, holdout_start=pinned)
+        assert boundary == pinned
+
+    def test_pinned_timestamp_not_in_df_raises_leakage(self) -> None:
+        """Tripwire #2: data drift detection.
+
+        A pinned timestamp that is no longer present in the fetched data
+        means the vendor adjusted / added / removed a bar since the
+        boundary was recorded in a manifest. Returning a nearest-neighbour
+        would silently shift bars across the dev / holdout line — the
+        exact leakage vector we're defending against.
+        """
+        df = make_daily_df(HB_DF_ROWS)
+        phantom = pd.Timestamp(df.index[0]) - pd.Timedelta(days=1)
+        with pytest.raises(LeakageError, match="not present in the fetched data"):
+            resolve_holdout_boundary(df, holdout_start=phantom)
+
+    def test_both_knobs_set_raises(self) -> None:
+        """Defense in depth: even if config validation is bypassed, the
+        helper refuses ambiguous input."""
+        df = make_daily_df(HB_DF_ROWS)
+        with pytest.raises(ValueError, match="at most one of holdout_pct / holdout_start"):
+            resolve_holdout_boundary(
+                df, holdout_pct=HB_PCT, holdout_start=pd.Timestamp(df.index[HB_CUTOFF])
+            )
+
+    def test_pct_too_large_empties_dev_raises(self) -> None:
+        df = make_daily_df(HB_TINY_DF_ROWS)
+        with pytest.raises(ValueError, match="empty dev region"):
+            resolve_holdout_boundary(df, holdout_pct=HB_TINY_PCT_ALL)
+
+    def test_pct_too_small_empties_holdout_raises(self) -> None:
+        """Sub-per-bar fractions round to cutoff == len(df)."""
+        df = make_daily_df(HB_TINY_DF_ROWS)
+        with pytest.raises(ValueError, match="empty holdout region"):
+            resolve_holdout_boundary(df, holdout_pct=HB_FLOAT_EPS_PCT)
+
+    def test_non_datetime_index_raises(self) -> None:
+        df = pd.DataFrame({"close": [1.0, 2.0, 3.0]})  # default RangeIndex
+        with pytest.raises(TypeError, match="DatetimeIndex"):
+            resolve_holdout_boundary(df, holdout_pct=HB_PCT)
+
+    def test_pinned_timestamp_resolves_same_boundary_as_matching_pct(self) -> None:
+        """Two runs of the SAME boundary — one via pct, one via pinned timestamp
+        derived from the pct's first run — yield identical results. This is
+        how the manifest round-trip is supposed to work in practice: dev run
+        records the derived timestamp, holdout eval reads it back pinned."""
+        df = make_daily_df(HB_DF_ROWS)
+        via_pct = resolve_holdout_boundary(df, holdout_pct=HB_PCT)
+        assert via_pct is not None
+        via_pinned = resolve_holdout_boundary(df, holdout_start=via_pct)
+        assert via_pct == via_pinned

@@ -1,14 +1,18 @@
 """Pure JSON read/write + typed field-extraction helpers.
 
-Intentionally free of any business-logic imports (sklearn, pandas, torch, our
-own ``TrainingMetadata`` etc.): this module is a generic namespace usable
-anywhere the codebase reads or writes JSON. Import it as a namespace:
+Intentionally free of domain imports (sklearn, torch, our own
+``TrainingMetadata`` etc.): this module is a generic namespace usable
+anywhere the codebase reads or writes JSON. ``pandas`` is imported solely
+for :func:`get_timestamp` — the JSON round-trip format for timestamps is
+ISO strings, and handing callers back a ``pd.Timestamp`` is the one place
+this module can't stay pandas-agnostic. Import as a namespace:
 
     from src.core import json_io
 
     data = json_io.read_dict(path)
     p_max = json_io.get_int(data, "p_max")
     alpha = json_io.get_float_list(data, "alpha")
+    ts = json_io.get_timestamp(data, "train_end")
 
 All ``get_*`` helpers raise ``KeyError`` with a named key on a missing field
 and ``ValueError`` with a named key on a wrong-type field, so load paths
@@ -19,6 +23,8 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+
+import pandas as pd
 
 
 def write(path: str | Path, obj: object) -> None:
@@ -140,3 +146,47 @@ def get_str_list(d: dict[str, object], key: str) -> list[str]:
         if not isinstance(item, str):
             raise ValueError(f"JSON field {key!r}[{i}] must be a string, got {type(item).__name__}")
     return [str(item) for item in raw]
+
+
+def get_dict(d: dict[str, object], key: str) -> dict[str, object]:
+    """Pull ``key`` out of ``d`` and require a nested object."""
+    if key not in d:
+        raise KeyError(f"missing required JSON field {key!r}")
+    value = d[key]
+    if not isinstance(value, dict):
+        raise ValueError(f"JSON field {key!r} must be an object, got {type(value).__name__}")
+    return value
+
+
+def get_list_of_dicts(d: dict[str, object], key: str) -> list[dict[str, object]]:
+    """Pull ``key`` out of ``d`` and require a list of nested objects.
+
+    Each element is validated to be a dict; callers can then hand them off
+    to a per-element ``from_dict`` without re-checking.
+    """
+    raw = _get_list(d, key)
+    for i, item in enumerate(raw):
+        if not isinstance(item, dict):
+            raise ValueError(
+                f"JSON field {key!r}[{i}] must be an object, got {type(item).__name__}"
+            )
+    return [item for item in raw if isinstance(item, dict)]
+
+
+def get_timestamp(d: dict[str, object], key: str) -> pd.Timestamp:
+    """Pull ``key`` out of ``d`` and parse as a ``pd.Timestamp``.
+
+    Accepts ISO strings (the canonical JSON round-trip format) and
+    pre-parsed ``pd.Timestamp`` instances for callers that pass already-
+    decoded dicts.
+    """
+    if key not in d:
+        raise KeyError(f"missing required JSON field {key!r}")
+    value = d[key]
+    if isinstance(value, pd.Timestamp):
+        return value
+    if not isinstance(value, str):
+        raise ValueError(
+            f"JSON field {key!r} must be an ISO timestamp string, got {type(value).__name__}"
+        )
+    return pd.Timestamp(value)

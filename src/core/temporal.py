@@ -3,8 +3,9 @@
 Provides TemporalSplit (frozen dataclass with overlap validation),
 TemporalTripleSplit (train/validation/holdout with embargo gaps),
 TrainingMetadata (immutable record of model training period),
-WalkForwardValidator (expanding/sliding window splits), and
-PurgedGroupTimeSeriesSplit (embargo-based purged CV).
+WalkForwardValidator (expanding/sliding window splits),
+PurgedGroupTimeSeriesSplit (embargo-based purged CV), and
+resolve_holdout_boundary (dev / holdout split timestamp resolver).
 """
 
 from __future__ import annotations
@@ -273,18 +274,16 @@ class TrainingMetadata:
     @staticmethod
     def from_dict(d: dict[str, object]) -> TrainingMetadata:
         """Deserialize from dict. Used when loading a saved model."""
+        from src.core import json_io
         from src.core.types import Interval
 
-        raw_cols = d["feature_columns"]
-        if not isinstance(raw_cols, list):
-            raise TypeError(f"feature_columns must be a list, got {type(raw_cols).__name__}")
         return TrainingMetadata(
-            train_start=pd.Timestamp(str(d["train_start"])),
-            train_end=pd.Timestamp(str(d["train_end"])),
-            n_train_samples=int(str(d["n_train_samples"])),
-            fit_timestamp=pd.Timestamp(str(d["fit_timestamp"])),
-            interval=Interval(str(d["interval"])),
-            feature_columns=tuple(raw_cols),
+            train_start=json_io.get_timestamp(d, "train_start"),
+            train_end=json_io.get_timestamp(d, "train_end"),
+            n_train_samples=json_io.get_int(d, "n_train_samples"),
+            fit_timestamp=json_io.get_timestamp(d, "fit_timestamp"),
+            interval=Interval(json_io.get_str(d, "interval")),
+            feature_columns=tuple(json_io.get_str_list(d, "feature_columns")),
         )
 
 
@@ -538,3 +537,95 @@ class PurgedGroupTimeSeriesSplit:
                 split_date=split_date,
                 fold_index=i,
             )
+
+
+def resolve_holdout_boundary(
+    df: pd.DataFrame,
+    *,
+    holdout_pct: float = 0.0,
+    holdout_start: pd.Timestamp | None = None,
+) -> pd.Timestamp | None:
+    """Resolve the absolute timestamp at which the holdout region begins.
+
+    The holdout contract is described at length on
+    :class:`src.core.config.ValidationConfig`; in short, it carves the END of
+    ``df`` off so walk-forward / HPO never see it. This helper is the single
+    canonical resolver used by the runner, so that every call site derives
+    the boundary identically (seed once, persist, re-read from manifest).
+
+    Inputs
+    ------
+    df:
+        The full fetched OHLCV frame. Must have a ``DatetimeIndex`` with at
+        least 2 rows.
+    holdout_pct:
+        Fraction of ``df`` to reserve as holdout, sliced from the end. The
+        cutoff index is ``int(len(df) * (1 - holdout_pct))`` and the boundary
+        is ``df.index[cutoff]``. Mutually exclusive with ``holdout_start``.
+    holdout_start:
+        Pinned absolute timestamp at which holdout begins. Must be present in
+        ``df.index`` (not merely in range). Mutually exclusive with
+        ``holdout_pct``.
+
+    Returns
+    -------
+    The first timestamp of the holdout region, or ``None`` if neither knob
+    requests a reservation. Runners slicing with this boundary should use
+    ``df[df.index < boundary]`` for ``dev`` and ``df[df.index >= boundary]``
+    for ``holdout`` — the returned timestamp is the first bar OF holdout,
+    not the last bar of dev.
+
+    Raises
+    ------
+    TypeError:
+        If ``df`` has no ``DatetimeIndex``.
+    ValueError:
+        If both knobs are non-default (caller should have validated at the
+        config layer; this is defense-in-depth). Also if ``holdout_pct`` on
+        ``len(df)`` rows would leave an empty dev or empty holdout.
+    LeakageError:
+        If ``holdout_start`` is not present in ``df.index``. The pinned
+        timestamp was presumably written into a manifest on a prior run; its
+        absence means the fetched data drifted (vendor adjustment, missing
+        bar, holiday reclassification). Refusing here prevents a silent shift
+        of the split boundary across runs — the exact leakage path ValidationConfig
+        tripwire #2 defends against.
+    """
+    if not isinstance(df.index, pd.DatetimeIndex):
+        raise TypeError(
+            "resolve_holdout_boundary requires a DataFrame with a DatetimeIndex; "
+            f"got {type(df.index).__name__}."
+        )
+    if holdout_pct > 0.0 and holdout_start is not None:
+        raise ValueError(
+            "resolve_holdout_boundary: at most one of holdout_pct / holdout_start "
+            "may be set (the ValidationConfig model_validator should have caught this)."
+        )
+
+    if holdout_start is not None:
+        ts = pd.Timestamp(holdout_start)
+        if ts not in df.index:
+            raise LeakageError(
+                f"pinned holdout_start {ts} is not present in the fetched data "
+                f"[{df.index[0]} .. {df.index[-1]}]; data may have drifted since "
+                f"the boundary was recorded. Refusing to resolve — a silent shift "
+                f"would move bars across the dev/holdout line."
+            )
+        return ts
+
+    if holdout_pct > 0.0:
+        n = len(df)
+        cutoff = int(n * (1.0 - holdout_pct))
+        if cutoff <= 0:
+            raise ValueError(
+                f"holdout_pct={holdout_pct} on {n} bars yields empty dev region "
+                f"(cutoff={cutoff}); shrink holdout_pct or fetch more data."
+            )
+        if cutoff >= n:
+            raise ValueError(
+                f"holdout_pct={holdout_pct} on {n} bars yields empty holdout region "
+                f"(cutoff={cutoff}); grow holdout_pct above the minimum per-bar fraction."
+            )
+        return pd.Timestamp(df.index[cutoff])
+
+    return None

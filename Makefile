@@ -9,7 +9,7 @@ test-cpp:
 	cd cpp/build && ctest --output-on-failure
 
 test-python:
-	pytest tests/ -v --tb=short
+	OMP_NUM_THREADS=1 pytest tests/ -v --tb=short
 
 typecheck:
 	mypy --strict src/ tests/ scripts/

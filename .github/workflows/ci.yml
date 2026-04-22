@@ -55,7 +55,7 @@ jobs:
         if: runner.os == 'macOS'
         run: brew install libomp
       - name: Install Python dependencies
-        run: pip install pytest pytest-cov pandas numpy pydantic pydantic-settings pyyaml torch xgboost arch statsmodels scikit-learn optuna pmdarima matplotlib yfinance click psutil pyarrow
+        run: pip install pytest pytest-cov pandas numpy pydantic pydantic-settings pyyaml torch xgboost arch statsmodels scikit-learn optuna scipy pmdarima matplotlib yfinance click psutil pyarrow
       # Build + install the `quant_engine` C++ extension so integration tests
       # can `import quant_engine`. scikit-build-core fetches its own build
       # deps in an isolated env.

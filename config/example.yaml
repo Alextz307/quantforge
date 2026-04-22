@@ -1,0 +1,49 @@
+# Reference ExperimentConfig. Every field documented; copy-and-edit for a new run.
+# Loaded via `load_experiment_config(path)` — see src/core/config.py.
+
+name: example_spy_adaptive_bollinger
+seed: 42
+
+# Data-fetch spec. For reusable universes, factor this block out into
+# config/universes/<name>.yaml and compose via the CLI (e.g. --universe spy_daily_5y).
+data:
+  source: yfinance          # registry name; can also be `{name: csv, params: {data_dir: ...}}`
+  tickers: [SPY]            # one ticker for single-asset, two for pairs
+  start: 2018-01-01
+  end: 2023-12-31           # set this to END OF DEV PERIOD; reserve later years via holdout_pct
+  interval: daily           # daily | hour | fifteen_minute | ...
+
+# Walk-forward split knobs + holdout reservation.
+#
+# Holdout contract (see ValidationConfig docstring for the full version):
+# - Holdout is the chunk at the END of (data.start, data.end) that no dev run,
+#   HPO trial, or model fit may touch. Reserved for a single post-thesis out-of-
+#   sample evaluation.
+# - Exactly one of `holdout_pct` / `holdout_start` may be set (or neither).
+#   Setting both raises a ValidationError.
+# - The runner resolves the boundary to an absolute timestamp at fetch time
+#   and persists it in the experiment manifest. Subsequent runs (e.g. the final
+#   holdout eval) read that manifest timestamp, NOT this config's percentage —
+#   so data-vendor drift can't silently shift bars across the dev/holdout line.
+validation:
+  n_splits: 4
+  test_size: 252            # bars per test fold
+  gap: 5                    # embargo bars (or trading days if snap_to_day=true) between train and test
+  expanding: true
+  snap_to_day: false
+  holdout_pct: 0.0          # declarative: reserve last N% of bars. 0.0 = no reservation.
+  # holdout_start: 2023-01-03  # alternative: pin an absolute timestamp (must be in fetched df)
+
+strategy:
+  name: AdaptiveBollinger
+  params:
+    window: 20
+    k: 2.0
+    trend_window: 100
+    garch_p_max: 3
+    garch_q_max: 3
+
+slippage:
+  scenario: normal          # zero | normal | high | extreme
+
+risk_free_rate: 0.0

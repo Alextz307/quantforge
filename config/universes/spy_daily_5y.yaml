@@ -1,0 +1,6 @@
+# Reusable DataConfig fragment — SPY daily bars, 5-year window ending just before the thesis holdout.
+source: yfinance
+tickers: [SPY]
+start: 2018-01-01
+end: 2022-12-31
+interval: daily

@@ -1,10 +1,18 @@
-"""Tests for ComponentRegistry."""
+"""Tests for ComponentRegistry + package auto-discovery completeness."""
 
 from __future__ import annotations
 
+from pkgutil import iter_modules
+from types import ModuleType
+
 import pytest
 
-from src.core.registry import ComponentRegistry
+from src.core.registry import (
+    ComponentRegistry,
+    data_source_registry,
+    feature_registry,
+    strategy_registry,
+)
 
 # Sentinel values used to confirm constructor args propagate through .create()
 SAMPLE_VALUE = 42
@@ -111,3 +119,42 @@ class TestComponentRegistry:
         assert Original.__name__ == "Original"
         direct = Original(value=DIRECT_INIT_VALUE)
         assert direct.value == DIRECT_INIT_VALUE
+
+
+def _count_non_interface_modules(pkg: ModuleType) -> int:
+    """Non-private modules in ``pkg`` excluding ``interface``."""
+    return sum(
+        1
+        for info in iter_modules(pkg.__path__)
+        if not info.name.startswith("_") and info.name != "interface"
+    )
+
+
+class TestPackageAutoDiscovery:
+    """Importing ``src.strategies`` / ``src.data`` / ``src.features`` populates
+    the matching registry. For ``src.strategies`` this is an exact-match check:
+    every non-interface module IS a concrete strategy, so the count of modules
+    must equal the registry size — a new strategy file without the
+    ``@strategy_registry.register`` decorator trips this immediately rather
+    than surfacing later as a cryptic ``ValidationError`` on config load.
+
+    For ``src.data`` / ``src.features`` the match is looser because those
+    packages mix concrete-source modules with stateless utilities (cache,
+    normalizer, validator). The loose check only asserts that auto-discovery
+    runs at all — which catches an empty ``__init__.py`` regression.
+    """
+
+    def test_strategies_registry_matches_package_contents_exactly(self) -> None:
+        import src.strategies
+
+        assert len(strategy_registry) == _count_non_interface_modules(src.strategies)
+
+    def test_data_sources_populated_after_package_import(self) -> None:
+        import src.data  # noqa: F401
+
+        assert len(data_source_registry) >= 1
+
+    def test_feature_pipelines_populated_after_package_import(self) -> None:
+        import src.features  # noqa: F401
+
+        assert len(feature_registry) >= 1
