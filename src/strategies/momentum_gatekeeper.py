@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Self
 
@@ -16,12 +16,13 @@ from src.core.persistence import (
     CONFIG_JSON,
     METADATA_JSON,
     PIPELINE_SCALER_JSON,
+    frozen_params_to_json,
     load_standard_scaler,
     save_model_skeleton,
     save_standard_scaler,
 )
 from src.core.registry import strategy_registry
-from src.core.temporal import TrainingMetadata
+from src.core.temporal import TrackedMetadata, TrainingMetadata, collect_metadata
 from src.core.types import Device, Interval
 from src.features.pipeline import FeatureEngineeringPipeline
 from src.models.xgboost_classifier import DirectionalClassifier
@@ -235,10 +236,10 @@ class MomentumGatekeeperStrategy(IStrategy):
         the final row has no ``t+1`` close so it's excluded. See
         :meth:`IStrategy.update` for the shared contract.
         """
-        if not self._fitted or self._classifier is None or self._training_metadata is None:
-            raise RuntimeError("MomentumGatekeeperStrategy.update() called before train()")
-
-        new_metadata = self._training_metadata.extend_from(new_data)
+        metadata = self._assert_fitted_with_metadata(caller="update")
+        # ``_classifier`` is set atomically with metadata in train() — assert for mypy.
+        assert self._classifier is not None
+        new_metadata = metadata.extend_from(new_data)
 
         features_ready, target_ready = self._build_classifier_batch(
             new_data, self._resolved_feature_columns
@@ -262,10 +263,9 @@ class MomentumGatekeeperStrategy(IStrategy):
         resolved at fit time, and on load we defer to the classifier's own
         device re-resolution.
         """
-        if not self._fitted or self._classifier is None:
-            raise RuntimeError("MomentumGatekeeperStrategy.save() called before train()")
-        if self._training_metadata is None:
-            raise RuntimeError("MomentumGatekeeperStrategy.save() missing training metadata")
+        metadata = self._assert_fitted_with_metadata(caller="save")
+        # ``_classifier`` is set atomically with metadata in train() — assert for mypy.
+        assert self._classifier is not None
 
         classifier = self._classifier
         pipeline_scaler = self._pipeline.scaler
@@ -282,24 +282,23 @@ class MomentumGatekeeperStrategy(IStrategy):
         save_model_skeleton(
             path,
             config=self._ctor_kwargs_as_json(),
-            training_metadata=self._training_metadata,
+            training_metadata=metadata,
             write_weights=write_weights,
         )
 
     def _ctor_kwargs_as_json(self) -> dict[str, object]:
         """Snapshot of this strategy's constructor kwargs as JSON-ready values.
 
-        Built from ``self._params`` (the frozen ctor bundle); ``device`` is
-        dropped (re-resolved on load via ``select_xgboost_device()``).
-        ``feature_columns`` persists ``_resolved_feature_columns`` — the list
-        the classifier was actually fit on (the ctor's ``feature_columns``
-        kwarg, when ``None``, resolves to the pipeline's full column set at
-        ``train()`` time). Post-fit the two are equivalent.
+        Delegates tuple→list + Enum→value conversions to
+        ``frozen_params_to_json``; ``device`` is dropped (re-resolved on load
+        via ``select_xgboost_device()``). ``feature_columns`` is overwritten
+        with ``_resolved_feature_columns`` — the list the classifier was
+        actually fit on (the ctor's ``feature_columns`` kwarg, when ``None``,
+        resolves to the pipeline's full column set at ``train()`` time).
+        Post-fit the two are equivalent.
         """
-        d: dict[str, object] = asdict(self._params)
-        d.pop("device")
+        d = frozen_params_to_json(self._params, omit=("device",))
         d["feature_columns"] = list(self._resolved_feature_columns)
-        d["interval"] = self._params.interval.value
         return d
 
     @classmethod
@@ -354,6 +353,16 @@ class MomentumGatekeeperStrategy(IStrategy):
     @property
     def required_warmup_bars(self) -> int:
         return max(self._params.ma_window, self._pipeline.hard_nan_warmup_bars)
+
+    def get_all_training_metadata(self) -> tuple[TrackedMetadata, ...]:
+        """Expose strategy + owned classifier metadata for the deep leakage check."""
+        classifier_meta = (
+            self._classifier.training_metadata if self._classifier is not None else None
+        )
+        return collect_metadata(
+            ("strategy", self._training_metadata),
+            ("classifier", classifier_meta),
+        )
 
     @staticmethod
     def suggest_params(trial: optuna.Trial) -> dict[str, object]:

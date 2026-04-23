@@ -11,12 +11,13 @@ floats + a tuple equity curve before anything touches disk.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 import pandas as pd
 
 from src.core import json_io
 from src.engine.walk_forward import FoldResult
+from src.orchestration.manifest import Manifest
 
 
 @dataclass(frozen=True)
@@ -107,25 +108,31 @@ class FoldRecord:
 
 @dataclass(frozen=True)
 class ExperimentResult:
-    """Root output of ``Experiment.run()``: experiment id + manifest + per-fold records."""
+    """Root output of ``Experiment.run()``: manifest + per-fold records.
+
+    ``experiment_id`` is exposed as a top-level field for convenience but is
+    ALSO carried inside ``manifest``; the two are always equal (the manifest
+    is the source of truth on disk, the top-level field is an in-memory
+    shortcut). Round-trip tests verify the equality.
+    """
 
     experiment_id: str
     folds: tuple[FoldRecord, ...]
-    manifest: dict[str, object] = field(default_factory=dict)
+    manifest: Manifest
 
     def to_dict(self) -> dict[str, object]:
         return {
             "experiment_id": self.experiment_id,
             "folds": [fold.to_dict() for fold in self.folds],
-            "manifest": dict(self.manifest),
+            "manifest": self.manifest.to_dict(),
         }
 
     @classmethod
     def from_dict(cls, d: dict[str, object]) -> ExperimentResult:
         raw_folds = json_io.get_list_of_dicts(d, "folds")
-        raw_manifest = json_io.get_dict(d, "manifest") if "manifest" in d else {}
+        raw_manifest = json_io.get_dict(d, "manifest")
         return cls(
             experiment_id=json_io.get_str(d, "experiment_id"),
             folds=tuple(FoldRecord.from_dict(f) for f in raw_folds),
-            manifest=dict(raw_manifest),
+            manifest=Manifest.from_dict(raw_manifest),
         )

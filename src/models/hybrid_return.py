@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Self, cast
 
@@ -17,12 +17,13 @@ from src.core.persistence import (
     LSTM_SUBDIR,
     METADATA_JSON,
     SCALER_JSON,
+    frozen_params_to_json,
     load_standard_scaler,
     save_model_skeleton,
     save_standard_scaler,
 )
 from src.core.registry import model_registry
-from src.core.temporal import TrainingMetadata
+from src.core.temporal import TrackedMetadata, TrainingMetadata, collect_metadata
 from src.core.types import Device, InformationCriterion, Interval, LossFunction
 from src.core.utils import compute_log_returns
 from src.models.arma import ARMAPredictor
@@ -224,10 +225,10 @@ class HybridReturnModel(IPredictor):
         fine-tune. The scaler fitted in ``fit()`` stays frozen. See
         :meth:`IPredictor.update` for the shared contract.
         """
-        if not self._fitted or self._scaler is None or self._training_metadata is None:
-            raise RuntimeError("HybridReturnModel.update() called before fit()")
-
-        new_metadata = self._training_metadata.extend_from(new_data)
+        metadata = self._assert_fitted_with_metadata(caller="update")
+        # ``_scaler`` is set atomically with metadata in fit() — assert for mypy.
+        assert self._scaler is not None
+        new_metadata = metadata.extend_from(new_data)
 
         target_clean = target.dropna()
         self._arma.update(new_data.loc[target_clean.index], target_clean)
@@ -247,10 +248,9 @@ class HybridReturnModel(IPredictor):
 
         Every ctor kwarg is persisted in the composite's own ``config.json``.
         """
-        if not self._fitted or self._scaler is None:
-            raise RuntimeError("HybridReturnModel.save() called before fit()")
-        if self._training_metadata is None:
-            raise RuntimeError("HybridReturnModel.save() missing training metadata")
+        metadata = self._assert_fitted_with_metadata(caller="save")
+        # ``_scaler`` is set atomically with metadata in fit() — assert for mypy.
+        assert self._scaler is not None
 
         scaler = self._scaler
 
@@ -262,25 +262,20 @@ class HybridReturnModel(IPredictor):
         save_model_skeleton(
             path,
             config=self._ctor_kwargs_as_json(),
-            training_metadata=self._training_metadata,
+            training_metadata=metadata,
             write_weights=write_weights,
         )
 
     def _ctor_kwargs_as_json(self) -> dict[str, object]:
         """Snapshot of this composite's constructor kwargs as JSON-ready values.
 
-        Built from ``self._params`` (the frozen ctor bundle). ``lstm_device``
-        is dropped (re-resolved on load via ``select_device()``). The drift
-        guard in ``tests/integration/test_strategy_save_load.py`` verifies
-        the output keys match ``__init__``'s parameter names.
+        ``frozen_params_to_json`` handles the tuple→list + Enum→value
+        conversions uniformly; ``lstm_device`` is dropped so the saved JSON
+        doesn't pin a device that may not exist on the loading machine. The
+        drift guard in ``tests/integration/test_strategy_save_load.py``
+        verifies the output keys match ``__init__``'s parameter names.
         """
-        d: dict[str, object] = asdict(self._params)
-        d.pop("lstm_device")
-        d["feature_columns"] = list(self._params.feature_columns)
-        d["arma_information_criterion"] = self._params.arma_information_criterion.value
-        d["lstm_loss_fn"] = self._params.lstm_loss_fn.value
-        d["interval"] = self._params.interval.value
-        return d
+        return frozen_params_to_json(self._params, omit=("lstm_device",))
 
     @classmethod
     def load(cls, path: str | Path) -> Self:
@@ -319,6 +314,14 @@ class HybridReturnModel(IPredictor):
         instance._training_metadata = TrainingMetadata.from_dict(metadata)
         instance._fitted = True
         return instance
+
+    def get_all_training_metadata(self) -> tuple[TrackedMetadata, ...]:
+        """Expose hybrid + owned ARMA + LSTM metadata for the deep leakage check."""
+        return collect_metadata(
+            ("hybrid_return", self._training_metadata),
+            ("arma", self._arma.training_metadata),
+            ("lstm", self._lstm.training_metadata),
+        )
 
     @staticmethod
     def suggest_params(trial: optuna.Trial) -> dict[str, object]:

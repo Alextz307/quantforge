@@ -1,4 +1,4 @@
-.PHONY: install test test-cpp test-python lint typecheck bench bench-cpp bench-baseline bench-report stubs clean
+.PHONY: install test test-cpp test-python lint typecheck bench bench-cpp bench-baseline bench-report experiment stubs clean
 
 install:
 	pip install -e ".[dev]"
@@ -31,6 +31,10 @@ bench-baseline:
 bench-report:
 	python -m scripts.benchmark run
 	@echo "Reports written under benchmark_results/reports/"
+
+experiment:
+	@test -n "$(CONFIG)" || { echo "usage: make experiment CONFIG=<path/to/config.yaml>"; exit 1; }
+	python -m scripts.experiment run --config $(CONFIG)
 
 stubs:
 	python scripts/regen_stubs.py

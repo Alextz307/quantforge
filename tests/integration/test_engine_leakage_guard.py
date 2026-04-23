@@ -91,10 +91,15 @@ def test_orchestrator_raises_on_overlapping_training_metadata() -> None:
 
 
 def test_orchestrator_raises_when_training_metadata_missing() -> None:
-    """Contract enforcement: train() must populate training_metadata."""
+    """Contract enforcement: train() must populate training_metadata.
+
+    The deep metadata check surfaces this as "no populated metadata" — a
+    component that never completed fit() produces a ``None`` entry in the
+    tracked-metadata list; if every entry is ``None`` the check raises.
+    """
     bars = make_synthetic_ohlcv_df(n_rows=LEAKAGE_N_ROWS)
 
-    with pytest.raises(RuntimeError, match="did not populate training_metadata"):
+    with pytest.raises(RuntimeError, match="no populated metadata"):
         evaluate_walk_forward(
             _ForgetfulStrategy(),
             bars,

@@ -17,7 +17,7 @@ from src.core.persistence import (
     save_model_skeleton,
 )
 from src.core.registry import strategy_registry
-from src.core.temporal import TrainingMetadata
+from src.core.temporal import TrackedMetadata, TrainingMetadata, collect_metadata
 from src.core.types import Device, InformationCriterion, Interval, LossFunction
 from src.core.utils import compute_log_returns
 from src.models.hybrid_return import HybridReturnModel
@@ -156,10 +156,8 @@ class ReturnForecastStrategy(IStrategy):
 
         See :meth:`IStrategy.update` for the shared contract.
         """
-        if not self._fitted or self._training_metadata is None:
-            raise RuntimeError("ReturnForecastStrategy.update() called before train()")
-
-        new_metadata = self._training_metadata.extend_from(new_data)
+        metadata = self._assert_fitted_with_metadata(caller="update")
+        new_metadata = metadata.extend_from(new_data)
 
         new_returns = compute_log_returns(new_data["close"]).dropna()
         aligned = new_data.loc[new_returns.index]
@@ -175,10 +173,7 @@ class ReturnForecastStrategy(IStrategy):
         device preference is NOT persisted (the hybrid subdir carries the
         fitted state; device re-resolves on load).
         """
-        if not self._fitted:
-            raise RuntimeError("ReturnForecastStrategy.save() called before train()")
-        if self._training_metadata is None:
-            raise RuntimeError("ReturnForecastStrategy.save() missing training metadata")
+        metadata = self._assert_fitted_with_metadata(caller="save")
 
         def write_weights(root: Path) -> None:
             self._hybrid_return.save(root / HYBRID_RETURN_SUBDIR)
@@ -186,7 +181,7 @@ class ReturnForecastStrategy(IStrategy):
         save_model_skeleton(
             path,
             config=self._ctor_kwargs_as_json(),
-            training_metadata=self._training_metadata,
+            training_metadata=metadata,
             write_weights=write_weights,
         )
 
@@ -259,6 +254,15 @@ class ReturnForecastStrategy(IStrategy):
     @property
     def required_warmup_bars(self) -> int:
         return self._lstm_lookback
+
+    def get_all_training_metadata(self) -> tuple[TrackedMetadata, ...]:
+        """Expose strategy + recursively-owned hybrid-return leaves (arma + lstm)."""
+        return (
+            collect_metadata(
+                ("strategy", self._training_metadata),
+            )
+            + self._hybrid_return.get_all_training_metadata()
+        )
 
     @staticmethod
     def suggest_params(trial: optuna.Trial) -> dict[str, object]:

@@ -216,10 +216,8 @@ class GARCHPredictor(IPredictor):
         full ``fit()`` when ``p_max == q_max == 5``. See :meth:`IPredictor.update`
         for the shared transactional-validation + metadata contract.
         """
-        if not self._fitted or self._training_metadata is None:
-            raise RuntimeError("GARCHPredictor.update() called before fit()")
-
-        new_metadata = self._training_metadata.extend_from(new_data)
+        metadata = self._assert_fitted_with_metadata(caller="update")
+        new_metadata = metadata.extend_from(new_data)
 
         new_returns = np.asarray(target, dtype=np.float64)
         combined = np.concatenate([self._train_returns, new_returns])
@@ -296,10 +294,7 @@ class GARCHPredictor(IPredictor):
         ``len(alpha)`` and ``len(beta)`` respectively, so storing them would
         introduce a silent consistency failure point.
         """
-        if not self._fitted:
-            raise RuntimeError("GARCHPredictor.save() called before fit()")
-        if self._training_metadata is None:
-            raise RuntimeError("GARCHPredictor.save() missing training metadata")
+        metadata = self._assert_fitted_with_metadata(caller="save")
 
         def write_weights(root: Path) -> None:
             json_io.write(
@@ -324,7 +319,7 @@ class GARCHPredictor(IPredictor):
                 "q_max": self._q_max,
                 "interval": self._interval.value,
             },
-            training_metadata=self._training_metadata,
+            training_metadata=metadata,
             write_weights=write_weights,
         )
 

@@ -143,6 +143,36 @@ class TemporalTripleSplit:
 
 
 @dataclass(frozen=True)
+class TrackedMetadata:
+    """A single ``TrainingMetadata`` tagged with the component that produced it.
+
+    Composite strategies own wrapped models (GARCH, LSTM, XGBoost, ARMA) — each
+    has its own ``_training_metadata``. When a fold's leakage tripwire fires,
+    the caller needs to know WHICH component drifted, not just "list index 2 of
+    4". The ``origin`` string ("strategy" / "garch" / "lstm" / ...) carries
+    that information from the composite's ``get_all_training_metadata()`` down
+    to the error message. ``metadata`` is ``None`` when a component never
+    completed ``fit()`` — downstream iteration logs a warning and skips.
+    """
+
+    origin: str
+    metadata: TrainingMetadata | None
+
+
+def collect_metadata(
+    *pairs: tuple[str, TrainingMetadata | None],
+) -> tuple[TrackedMetadata, ...]:
+    """Bundle ``(origin, metadata)`` pairs into a ``tuple[TrackedMetadata, ...]``.
+
+    Shared helper so every composite override reads as a flat list of
+    ``("<origin>", self._<leaf>.training_metadata)`` pairs rather than a
+    tuple-of-constructors. Centralises the ``None`` passthrough and keeps
+    callers from reinventing the shape.
+    """
+    return tuple(TrackedMetadata(origin=o, metadata=m) for o, m in pairs)
+
+
+@dataclass(frozen=True)
 class TrainingMetadata:
     """Immutable record of what a model saw during training.
 

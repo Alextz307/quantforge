@@ -8,6 +8,8 @@ from typing import TYPE_CHECKING, Self
 
 import pandas as pd
 
+from src.core.temporal import TrackedMetadata, collect_metadata
+
 if TYPE_CHECKING:
     from src.core.temporal import TrainingMetadata
 
@@ -47,6 +49,36 @@ class IStrategy(ABC):
     def training_metadata(self) -> TrainingMetadata | None:
         """Training period metadata, populated after train()."""
         return getattr(self, "_training_metadata", None)
+
+    def _assert_fitted_with_metadata(self, *, caller: str) -> TrainingMetadata:
+        """Return ``self.training_metadata`` narrowed to non-None, raising otherwise.
+
+        ``save()`` / ``update()`` overrides use this to collapse the
+        ``if self._training_metadata is None: raise ...`` guard + type-narrowing
+        dance into one call. The ``caller`` name reaches the error message so
+        tracebacks still point at the specific method.
+
+        ``_fitted`` remains a separate check on subclasses that maintain it —
+        it tracks a different invariant (weights / scaler / leaf-model presence)
+        that this helper deliberately does not touch.
+        """
+        meta = self.training_metadata
+        if meta is None:
+            raise RuntimeError(
+                f"{type(self).__name__}.{caller}() called before train() "
+                "completed; fix by calling strategy.train(df) first."
+            )
+        return meta
+
+    def get_all_training_metadata(self) -> tuple[TrackedMetadata, ...]:
+        """Every metadata object a fold's leakage check must validate.
+
+        Default: just the strategy's own metadata. Composite strategies
+        override to include each wrapped model's metadata tagged with an
+        ``origin`` label so a ``LeakageError`` names the exact component
+        that drifted (strategy vs garch vs lstm vs classifier).
+        """
+        return collect_metadata(("strategy", self.training_metadata))
 
     def update(self, new_data: pd.DataFrame, **kwargs: object) -> None:
         """Incrementally update the trained strategy with a new window.

@@ -20,7 +20,9 @@ The canonical directory layout under a model's save path:
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
+from dataclasses import asdict, is_dataclass
+from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -31,6 +33,7 @@ from src.core import json_io
 
 if TYPE_CHECKING:
     from src.core.temporal import TrainingMetadata
+    from src.orchestration.manifest import Manifest
 
 # Canonical filenames used by every model's save() / load(). Keeping them
 # together avoids silent drift when a format change touches multiple models.
@@ -60,6 +63,13 @@ HYBRID_RETURN_SUBDIR = "hybrid_return"
 # Momentum strategy's feature-pipeline scaler sits at the strategy root.
 PIPELINE_SCALER_JSON = "pipeline_scaler.json"
 
+# Experiment-run layout (orchestration output alongside per-model save dirs).
+EXPERIMENT_MANIFEST_JSON = "manifest.json"
+FOLD_RESULTS_JSONL = "fold_results.jsonl"
+EXPERIMENT_CONFIG_YAML = "config.yaml"
+EXPERIMENT_METRICS_JSON = "metrics.json"
+EXPERIMENT_STRATEGY_SUBDIR = "strategy_state"
+
 
 def ensure_model_dir(path: str | Path) -> Path:
     """Create ``path`` as an empty directory and return the Path.
@@ -84,6 +94,64 @@ def ensure_model_dir(path: str | Path) -> Path:
                 f"save path {p} already exists and is non-empty; choose a fresh path"
             ) from None
     return p
+
+
+def frozen_params_to_json(
+    params: object,
+    *,
+    omit: Iterable[str] = (),
+) -> dict[str, object]:
+    """Convert a frozen ctor-params dataclass to a JSON-safe dict.
+
+    Centralises three conversions that every composite's
+    ``_ctor_kwargs_as_json()`` would otherwise reinvent:
+
+    * ``tuple`` → ``list`` (JSON has no tuple; ``feature_columns`` is the
+      canonical victim).
+    * ``Enum`` / ``StrEnum`` → ``.value`` (so the saved config JSON is human-
+      readable and the load path can reconstruct via ``EnumClass(value)``).
+    * Fields in ``omit`` are dropped — used for non-persisted preferences
+      like ``device`` / ``lstm_device`` that re-resolve on load.
+
+    Intentionally narrow:
+    * Does NOT recurse into nested dataclasses (none of our ctor params
+      nest; adding recursion later is backwards-compatible).
+    * Accepts any dataclass instance by duck-typing (``is_dataclass``);
+      raises ``TypeError`` on anything else so misuse surfaces loudly.
+    """
+    if not is_dataclass(params) or isinstance(params, type):
+        raise TypeError(
+            f"frozen_params_to_json requires a dataclass INSTANCE, "
+            f"got {type(params).__name__}; fix by passing self._params, not the class."
+        )
+    raw: dict[str, object] = asdict(params)
+    for key in omit:
+        raw.pop(key, None)
+    # Python 3.7+ allows mutating dict values mid-iteration — we only rewrite
+    # existing keys, never add or remove, so ``.items()`` stays valid without
+    # materialising a ``list(...)`` snapshot.
+    for key, value in raw.items():
+        if isinstance(value, tuple):
+            raw[key] = list(value)
+        elif isinstance(value, Enum):
+            raw[key] = value.value
+    return raw
+
+
+def write_experiment_manifest(path: str | Path, manifest: Manifest) -> None:
+    """Write ``manifest.json`` under the experiment run directory.
+
+    The directory MUST already exist (the experiment runner creates it as
+    part of its own save skeleton). Centralised here so a future manifest
+    format change touches one function, not every caller.
+    """
+    p = Path(path)
+    if not p.is_dir():
+        raise FileNotFoundError(
+            f"experiment directory {p} does not exist; "
+            f"create it via ensure_model_dir() before writing the manifest."
+        )
+    json_io.write(p / EXPERIMENT_MANIFEST_JSON, manifest.to_dict())
 
 
 def save_model_skeleton(

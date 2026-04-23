@@ -23,17 +23,180 @@ implementation is contracted to reset its own fit state from scratch.
 
 from __future__ import annotations
 
+import random
+import secrets
+import subprocess
 from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import UTC, datetime
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
+import yaml
 
 from quant_engine import SlippageConfig
+from src.core import json_io
 from src.core.config import ExperimentConfig
-from src.core.temporal import WalkForwardValidator
+from src.core.logging import get_logger
+from src.core.persistence import (
+    EXPERIMENT_CONFIG_YAML,
+    EXPERIMENT_METRICS_JSON,
+    EXPERIMENT_STRATEGY_SUBDIR,
+    FOLD_RESULTS_JSONL,
+    ensure_model_dir,
+    write_experiment_manifest,
+)
+from src.core.temporal import WalkForwardValidator, resolve_holdout_boundary
+from src.data.fingerprint import fingerprint_bars
 from src.data.interface import IDataSource
 from src.engine.interface import IBacktestEngine
+from src.engine.walk_forward import FoldResult, evaluate_walk_forward
 from src.features.interface import IFeaturePipeline
-from src.orchestration.types import ExperimentResult
+from src.orchestration.manifest import Manifest
+from src.orchestration.types import ExperimentResult, FoldRecord
 from src.strategies.interface import IStrategy
+
+# ``StrategyReporter`` is lazy-imported inside ``run()`` when ``write_report``
+# is True — matplotlib's cold-import tree (~4s incl. pyplot + PIL + numpy
+# cascades) is substantial and `--no-report` runs (e.g. HPO trials where the
+# tuner drives reporting at the study level) shouldn't pay it. The lazy
+# import mirrors ``_seed_all``'s lazy torch import for the same reason.
+
+_module_logger = get_logger(__name__)
+
+_DEFAULT_STORE_ROOT = Path("experiment_results")
+_RUNS_SUBDIR = "runs"
+_EXPERIMENT_ID_SUFFIX_BYTES = 4  # → 8 hex chars, 2^32 combos; low collision risk at ≤10³ runs/s
+_GIT_SHA_UNKNOWN = "unknown"
+
+
+def _resolve_git_sha() -> str:
+    """Best-effort short git SHA; ``"unknown"`` when not in a git tree."""
+    try:
+        out = subprocess.run(
+            ["git", "rev-parse", "--short=7", "HEAD"],
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=2,
+        )
+        return out.stdout.strip() or _GIT_SHA_UNKNOWN
+    except (subprocess.SubprocessError, FileNotFoundError):
+        return _GIT_SHA_UNKNOWN
+
+
+def _make_experiment_id(strategy_name: str, created_at: datetime, git_sha: str) -> str:
+    """Compose a unique experiment id: ``{utc_ts}_{strategy}_{sha}_{rand}``.
+
+    Random suffix (hex-encoded cryptographic bytes) disambiguates two
+    invocations in the same second + same strategy + same sha — matters for
+    HPO parallelism and ``experiment compare`` subprocess fan-out.
+    """
+    ts = created_at.strftime("%Y%m%d_%H%M%S")
+    suffix = secrets.token_hex(_EXPERIMENT_ID_SUFFIX_BYTES)
+    return f"{ts}_{strategy_name}_{git_sha}_{suffix}"
+
+
+def _seed_all(seed: int) -> None:
+    """Seed numpy + torch + stdlib random so walk-forward output is reproducible.
+
+    Torch is imported locally because this module is consumed by the config
+    loader and we don't want a ~4s torch import to fire on every CLI startup
+    when the caller just wants to validate a YAML.
+    """
+    np.random.seed(seed)
+    random.seed(seed)
+    try:
+        import torch
+
+        torch.manual_seed(seed)
+        if torch.cuda.is_available():
+            torch.cuda.manual_seed_all(seed)
+    except ImportError:
+        pass
+
+
+def _fetch_bars(data_source: IDataSource, cfg: ExperimentConfig) -> pd.DataFrame:
+    """Fetch OHLCV bars for a single-ticker experiment.
+
+    Pairs-trading (two-ticker) wiring is deferred — the engine's
+    ``BacktestResult`` shape assumes a single-asset position series which
+    doesn't map cleanly to two-leg PnL. For now, any config with more than
+    one ticker is rejected with a pointed error.
+    """
+    tickers = cfg.data.tickers
+    if len(tickers) == 0:
+        raise ValueError(
+            "ExperimentConfig.data.tickers must be non-empty; fix by listing at least one ticker."
+        )
+    if len(tickers) > 1:
+        raise NotImplementedError(
+            f"Experiment.run() does not yet wire multi-ticker (pairs) strategies; "
+            f"got tickers={tickers}; fix by running with a single ticker until "
+            "pairs support lands."
+        )
+    return data_source.fetch(tickers[0], cfg.data.start, cfg.data.end, cfg.data.interval)
+
+
+def _slice_dev(bars: pd.DataFrame, boundary: pd.Timestamp | None) -> pd.DataFrame:
+    """Return the dev region — everything strictly before ``boundary``.
+
+    ``boundary`` is the first bar OF the holdout (see
+    ``resolve_holdout_boundary``). ``None`` disables the reservation.
+    """
+    if boundary is None:
+        return bars
+    return bars.loc[bars.index < boundary]
+
+
+def _aggregate_metrics(folds: tuple[FoldRecord, ...]) -> dict[str, object]:
+    """Mean / min / max of the key metrics, for the run-level ``metrics.json``.
+
+    Kept deliberately small here; richer aggregation (std, CI, by-regime)
+    lands with ``src/analysis/`` in a later batch. The fields here are the
+    minimum Chapter 7 needs to eyeball a run at a glance.
+    """
+    if not folds:
+        return {"n_folds": 0}
+    sharpes = [f.sharpe_ratio for f in folds]
+    sortinos = [f.sortino_ratio for f in folds]
+    calmars = [f.calmar_ratio for f in folds]
+    drawdowns = [f.max_drawdown for f in folds]
+    total_returns = [f.total_return for f in folds]
+    return {
+        "n_folds": len(folds),
+        "sharpe_mean": float(np.mean(sharpes)),
+        "sortino_mean": float(np.mean(sortinos)),
+        "calmar_mean": float(np.mean(calmars)),
+        "max_drawdown_worst": float(min(drawdowns)),
+        "total_return_mean": float(np.mean(total_returns)),
+    }
+
+
+def _write_fold_jsonl(path: Path, folds: tuple[FoldRecord, ...]) -> None:
+    """Write one JSON object per fold, newline-separated.
+
+    JSONL over one-big-JSON-array so ``tail -f`` works during long runs and
+    ``wc -l`` gives you the fold count without parsing.
+    """
+    import json
+
+    with path.open("w", encoding="utf-8") as f:
+        for fold in folds:
+            f.write(json.dumps(fold.to_dict(), sort_keys=True))
+            f.write("\n")
+
+
+def _write_frozen_config(path: Path, cfg: ExperimentConfig) -> None:
+    """Dump the validated config as YAML alongside the manifest.
+
+    Uses ``mode="json"`` so pydantic coerces ``datetime`` / ``Path`` /
+    enum values to JSON-safe primitives that ``yaml.safe_dump`` accepts.
+    """
+    payload = cfg.model_dump(mode="json")
+    with path.open("w", encoding="utf-8") as f:
+        yaml.safe_dump(payload, f, sort_keys=True)
 
 
 @dataclass(frozen=True)
@@ -52,8 +215,151 @@ class Experiment:
     slippage: SlippageConfig
     feature_pipeline_factory: Callable[[], IFeaturePipeline] | None = None
 
-    def run(self) -> ExperimentResult:
-        raise NotImplementedError(
-            f"{type(self).__name__}.run() not implemented — "
-            f"build_experiment currently only assembles components."
+    def run(
+        self,
+        *,
+        store_root: Path | None = None,
+        write_report: bool = True,
+    ) -> ExperimentResult:
+        """Execute the full walk-forward loop and persist every artifact.
+
+        Pipeline:
+        1. Seed numpy/torch/random deterministically from ``config.seed``.
+        2. Fetch bars via the wired ``IDataSource`` (with cache).
+        3. Resolve the holdout boundary per the config's ``validation`` block.
+        4. Slice dev (bars strictly before the boundary) — the walk-forward
+           splitter sees dev only. The holdout region is reserved for the
+           post-thesis OOS evaluation and is NEVER touched here.
+        5. Compute ``data_hash = fingerprint_bars(bars_full)`` so future
+           holdout-eval / forward-run commands can refuse on vendor drift.
+        6. Create ``store_root/runs/<experiment_id>/`` and write the frozen
+           ``config.yaml`` + ``manifest.json`` BEFORE any compute — so a
+           mid-run crash still leaves a record of what was attempted.
+        7. Run walk-forward (deep metadata check wired in per-fold via
+           ``evaluate_walk_forward``) and convert each ``FoldResult`` into a
+           serialisable ``FoldRecord``.
+        8. Write ``fold_results.jsonl`` + ``metrics.json`` +
+           ``strategy_state/`` (the last-fold strategy state; see caveat).
+        9. Return the ``ExperimentResult`` so in-memory callers (tests,
+           future ``compare`` command) don't have to re-read from disk.
+
+        Persistence notes
+        -----------------
+        ``strategy_state/`` holds the strategy state produced by the LAST
+        fold's ``train()`` call — not a canonical "final model". Holdout
+        eval / HPO materialisation deliberately re-train fresh from
+        ``best_config.yaml`` on the full dev region; the saved state here
+        is a convenience artifact for post-hoc inspection. A strategy whose
+        ``save()`` isn't implemented raises
+        ``NotImplementedError`` from inside the save call — caught here and
+        downgraded to a warning so the rest of the artifact tree still
+        lands on disk.
+        """
+        store = store_root if store_root is not None else _DEFAULT_STORE_ROOT
+        created_at = datetime.now(UTC)
+        git_sha = _resolve_git_sha()
+        experiment_id = _make_experiment_id(self.strategy.name, created_at, git_sha)
+        run_dir = Path(store) / _RUNS_SUBDIR / experiment_id
+
+        _seed_all(self.config.seed)
+
+        bars_full = _fetch_bars(self.data_source, self.config)
+        boundary = resolve_holdout_boundary(
+            bars_full,
+            holdout_pct=self.config.validation.holdout_pct,
+            holdout_start=(
+                pd.Timestamp(self.config.validation.holdout_start)
+                if self.config.validation.holdout_start is not None
+                else None
+            ),
         )
+        dev = _slice_dev(bars_full, boundary)
+        if len(dev) == 0:
+            raise ValueError(
+                "Experiment.run(): dev slice is empty after holdout reservation; "
+                "reduce validation.holdout_pct or widen data.start/end."
+            )
+
+        data_hash = fingerprint_bars(bars_full)
+        manifest = Manifest(
+            experiment_id=experiment_id,
+            name=self.config.name,
+            created_at=created_at,
+            git_sha=git_sha,
+            seed=self.config.seed,
+            data_hash=data_hash,
+            slippage_scenario=self.config.slippage.scenario,
+            holdout_start=boundary,
+        )
+
+        ensure_model_dir(run_dir)
+        _write_frozen_config(run_dir / EXPERIMENT_CONFIG_YAML, self.config)
+        write_experiment_manifest(run_dir, manifest)
+        logger = get_logger(__name__, experiment_id=experiment_id, strategy=self.strategy.name)
+        logger.info(
+            "fetched %d bars, dev=%d, holdout_start=%s",
+            len(bars_full),
+            len(dev),
+            boundary.isoformat() if boundary is not None else None,
+        )
+
+        fold_results: list[FoldResult] = evaluate_walk_forward(
+            strategy=self.strategy,
+            bars=dev,
+            validator=self.validator,
+            engine=self.engine,
+            slippage=self.slippage,
+            interval=self.config.data.interval,
+            risk_free_rate=self.config.risk_free_rate,
+            feature_pipeline_factory=self.feature_pipeline_factory,
+        )
+        folds = tuple(FoldRecord.from_fold_result(fr) for fr in fold_results)
+
+        _write_fold_jsonl(run_dir / FOLD_RESULTS_JSONL, folds)
+        json_io.write(run_dir / EXPERIMENT_METRICS_JSON, _aggregate_metrics(folds))
+        _maybe_save_strategy(self.strategy, run_dir / EXPERIMENT_STRATEGY_SUBDIR)
+
+        result = ExperimentResult(
+            experiment_id=experiment_id,
+            folds=folds,
+            manifest=manifest,
+        )
+
+        if write_report:
+            # Lazy: matplotlib's cold import is ~4s; paying it only when
+            # reports are actually requested keeps the no-report path light.
+            from src.visualization.strategy_reporter import StrategyReporter
+
+            StrategyReporter().generate_full_report(result, run_dir)
+            logger.info("report generated under %s", run_dir)
+
+        # Summary line after reports so the INFO trail reads
+        # "fetched → walked → reported → summary" in order.
+        if folds:
+            last_curve = folds[-1].equity_curve
+            logger.info(
+                "%d folds complete, last equity=%.4f",
+                len(folds),
+                last_curve[-1] if last_curve else float("nan"),
+            )
+
+        return result
+
+
+def _maybe_save_strategy(strategy: IStrategy, path: Path) -> None:
+    """Call ``strategy.save(path)`` if supported; log + skip on NotImplementedError.
+
+    Strategies without a ``save()`` override (and tests' ad-hoc strategies)
+    shouldn't block the rest of the artifact tree from landing.
+    The full strategy state is never the user's only handle — fold_results
+    + config are enough to reproduce via ``experiment run``.
+    """
+    try:
+        strategy.save(path)
+    except NotImplementedError:
+        _module_logger.warning(
+            "%s.save() not implemented — skipping strategy_state/ artifact.",
+            type(strategy).__name__,
+        )
+    except RuntimeError as e:
+        _module_logger.warning("strategy save failed (%s); continuing run.", e)

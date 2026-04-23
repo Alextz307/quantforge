@@ -9,12 +9,15 @@ is the worst time. Covered here: field-by-field construction + round-trip,
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any
 
 import numpy as np
 import pandas as pd
 import pytest
 
+from src.engine.scenarios import SlippageScenario
+from src.orchestration.manifest import Manifest
 from src.orchestration.types import ExperimentResult, FoldRecord
 
 _FOLD_INDEX = 3
@@ -33,6 +36,19 @@ _WIN_RATE = 0.55
 _TRADE_COUNT = 42
 _EQUITY_CURVE = (10_000.0, 10_100.5, 10_050.25, 10_200.0)
 _EXPERIMENT_ID = "20260422_143000_AdaptiveBollinger_abc1234"
+
+
+def _make_manifest(experiment_id: str = _EXPERIMENT_ID) -> Manifest:
+    return Manifest(
+        experiment_id=experiment_id,
+        name="types_test",
+        created_at=datetime(2026, 4, 22, 14, 30),
+        git_sha="abc1234",
+        seed=42,
+        data_hash="deadbeef",
+        slippage_scenario=SlippageScenario.NORMAL,
+        holdout_start=pd.Timestamp("2023-06-30T00:00:00"),
+    )
 
 
 def _make_record(**overrides: Any) -> FoldRecord:
@@ -178,35 +194,42 @@ class TestFoldRecordRoundTrip:
 
 class TestExperimentResultRoundTrip:
     def test_empty_folds_roundtrip(self) -> None:
-        result = ExperimentResult(experiment_id=_EXPERIMENT_ID, folds=())
+        result = ExperimentResult(experiment_id=_EXPERIMENT_ID, folds=(), manifest=_make_manifest())
         revived = ExperimentResult.from_dict(result.to_dict())
         assert revived == result
 
     def test_multi_fold_roundtrip_preserves_order(self) -> None:
         folds = tuple(_make_record(fold_index=i) for i in range(3))
-        manifest: dict[str, object] = {
-            "slippage_scenario": "normal",
-            "seed": 42,
-            "git_sha": "abc1234",
-        }
-        result = ExperimentResult(experiment_id=_EXPERIMENT_ID, folds=folds, manifest=manifest)
+        result = ExperimentResult(
+            experiment_id=_EXPERIMENT_ID, folds=folds, manifest=_make_manifest()
+        )
         revived = ExperimentResult.from_dict(result.to_dict())
 
         assert revived == result
         assert tuple(f.fold_index for f in revived.folds) == (0, 1, 2)
-        assert revived.manifest["slippage_scenario"] == "normal"
+        assert revived.manifest.slippage_scenario.value == "normal"
 
     def test_to_dict_folds_are_plain_dicts(self) -> None:
         """JSON-compatibility sanity check: every fold in ``.to_dict()`` is
         a JSON object (dict), not a dataclass instance."""
-        result = ExperimentResult(experiment_id=_EXPERIMENT_ID, folds=(_make_record(),))
+        result = ExperimentResult(
+            experiment_id=_EXPERIMENT_ID,
+            folds=(_make_record(),),
+            manifest=_make_manifest(),
+        )
         d = result.to_dict()
         assert isinstance(d["folds"], list)
         assert all(isinstance(f, dict) for f in d["folds"])
 
     def test_from_dict_rejects_non_list_folds(self) -> None:
         with pytest.raises(ValueError, match="folds"):
-            ExperimentResult.from_dict({"experiment_id": _EXPERIMENT_ID, "folds": "not_a_list"})
+            ExperimentResult.from_dict(
+                {
+                    "experiment_id": _EXPERIMENT_ID,
+                    "folds": "not_a_list",
+                    "manifest": _make_manifest().to_dict(),
+                }
+            )
 
     def test_from_dict_rejects_non_dict_manifest(self) -> None:
         with pytest.raises(ValueError, match="manifest"):

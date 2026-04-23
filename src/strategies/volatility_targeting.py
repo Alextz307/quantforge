@@ -20,7 +20,7 @@ from src.core.persistence import (
     save_model_skeleton,
 )
 from src.core.registry import strategy_registry
-from src.core.temporal import TrainingMetadata
+from src.core.temporal import TrackedMetadata, TrainingMetadata, collect_metadata
 from src.core.types import Device, Interval, LossFunction
 from src.models.hybrid_volatility import HybridVolatilityModel
 from src.strategies.interface import IStrategy
@@ -200,10 +200,8 @@ class VolatilityTargetingStrategy(IStrategy):
         the Garman-Klass estimator (same recipe as ``train()``). See
         :meth:`IStrategy.update` for the shared contract.
         """
-        if not self._fitted or self._training_metadata is None:
-            raise RuntimeError("VolatilityTargetingStrategy.update() called before train()")
-
-        new_metadata = self._training_metadata.extend_from(new_data)
+        metadata = self._assert_fitted_with_metadata(caller="update")
+        new_metadata = metadata.extend_from(new_data)
 
         realized_vol = self._compute_realized_vol(new_data)
         target = realized_vol.dropna()
@@ -218,10 +216,7 @@ class VolatilityTargetingStrategy(IStrategy):
         ``max_leverage``, ``bearish_exposure``, ``realized_vol_window``) are
         written alongside every passthrough ``_HybridVolParams`` field.
         """
-        if not self._fitted:
-            raise RuntimeError("VolatilityTargetingStrategy.save() called before train()")
-        if self._training_metadata is None:
-            raise RuntimeError("VolatilityTargetingStrategy.save() missing training metadata")
+        metadata = self._assert_fitted_with_metadata(caller="save")
 
         def write_weights(root: Path) -> None:
             self._hybrid_vol.save(root / HYBRID_VOL_SUBDIR)
@@ -229,7 +224,7 @@ class VolatilityTargetingStrategy(IStrategy):
         save_model_skeleton(
             path,
             config=self._ctor_kwargs_as_json(),
-            training_metadata=self._training_metadata,
+            training_metadata=metadata,
             write_weights=write_weights,
         )
 
@@ -306,6 +301,15 @@ class VolatilityTargetingStrategy(IStrategy):
     @property
     def required_warmup_bars(self) -> int:
         return max(self._trend_window, self._lstm_lookback, self._realized_vol_window)
+
+    def get_all_training_metadata(self) -> tuple[TrackedMetadata, ...]:
+        """Expose strategy + recursively-owned hybrid-vol leaves (garch + lstm)."""
+        return (
+            collect_metadata(
+                ("strategy", self._training_metadata),
+            )
+            + self._hybrid_vol.get_all_training_metadata()
+        )
 
     @staticmethod
     def suggest_params(trial: optuna.Trial) -> dict[str, object]:

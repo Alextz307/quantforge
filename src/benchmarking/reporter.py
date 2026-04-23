@@ -16,36 +16,33 @@ render identically on macOS / Linux / CI. Tables go through
     scaling.tex
 """
 
+# ruff: noqa: I001, E402
+# Import order is semantically load-bearing: ``src.visualization.plots`` pins
+# matplotlib's Agg backend at import time, and that MUST run before
+# ``matplotlib.pyplot`` is first imported in this process. Sorting these
+# alphabetically would let pyplot initialise with the default (GUI) backend.
 from __future__ import annotations
 
 import math
 from collections import defaultdict
 from pathlib import Path
 
-import matplotlib
+from src.visualization.plots import FIGURE_DPI, FIGURE_HEIGHT_IN, FIGURE_WIDTH_IN
 
-matplotlib.use("Agg")  # noqa: E402  # set backend before importing pyplot
+import matplotlib.pyplot as plt
+import pandas as pd
 
-import matplotlib.pyplot as plt  # noqa: E402
-import pandas as pd  # noqa: E402
-
-from src.benchmarking.analyzer import BenchmarkAnalyzer  # noqa: E402
-from src.benchmarking.comparator import BenchmarkComparator  # noqa: E402
-from src.benchmarking.types import (  # noqa: E402
+from src.benchmarking.analyzer import BenchmarkAnalyzer
+from src.benchmarking.comparator import BenchmarkComparator
+from src.benchmarking.types import (
     BenchmarkResult,
     BenchmarkRun,
     ComparisonReport,
     ScalingAnalysis,
 )
-
-FIGURE_WIDTH_IN = 6.5
-FIGURE_HEIGHT_IN = 4.0
-FIGURE_DPI = 150
-LATEX_FLOAT_FORMAT = "%.3f"
-
-
-def _ensure_parent(path: Path) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
+from src.core.fs import ensure_parent_dir
+from src.visualization.latex import LATEX_FLOAT_FORMAT
+from src.visualization.plots import save_png_and_svg
 
 
 def _ns_per_item(result: BenchmarkResult) -> float:
@@ -68,16 +65,13 @@ class BenchmarkReporter:
         ax.grid(True, which="both", alpha=0.3)
         ax.legend()
         fig.tight_layout()
-        _ensure_parent(out_path)
-        fig.savefig(out_path)
-        fig.savefig(out_path.with_suffix(".svg"))
+        save_png_and_svg(fig, out_path)
         plt.close(fig)
         return out_path
 
     def plot_regression_comparison(self, report: ComparisonReport, out_path: Path) -> Path | None:
         if not report.reports:
             return None
-        _ensure_parent(out_path)
         names = [r.name for r in report.reports]
         deltas = [r.pct_delta for r in report.reports]
         colors = [
@@ -93,6 +87,9 @@ class BenchmarkReporter:
         ax.set_xlabel("pct delta (current vs baseline)")
         ax.set_title(f"{report.current_run_id} vs {report.baseline_run_id}")
         fig.tight_layout()
+        # Dashboard plot — PNG only. Vector SVG is reserved for the scaling
+        # plots (which thesis Chapter 6 includes verbatim).
+        ensure_parent_dir(out_path)
         fig.savefig(out_path)
         plt.close(fig)
         return out_path
@@ -100,7 +97,6 @@ class BenchmarkReporter:
     def plot_component_breakdown(self, run: BenchmarkRun, out_path: Path) -> Path | None:
         if not run.results:
             return None
-        _ensure_parent(out_path)
         df = pd.DataFrame(
             {
                 "family": [r.family for r in run.results],
@@ -115,6 +111,8 @@ class BenchmarkReporter:
         ax.set_xlabel("ns per item (median across sizes)")
         ax.set_title(f"component cost breakdown — run {run.run_id}")
         fig.tight_layout()
+        # Dashboard plot — PNG only. Same rationale as plot_regression_comparison.
+        ensure_parent_dir(out_path)
         fig.savefig(out_path)
         plt.close(fig)
         return out_path
@@ -137,7 +135,7 @@ class BenchmarkReporter:
             caption=f"Benchmark summary — run {run.run_id}",
             label=f"tab:bench_summary_{run.run_id}",
         )
-        _ensure_parent(out_path)
+        ensure_parent_dir(out_path)
         out_path.write_text(latex, encoding="utf-8")
         return out_path
 
@@ -166,7 +164,7 @@ class BenchmarkReporter:
             caption=(f"Regression report: {report.current_run_id} vs {report.baseline_run_id}"),
             label=f"tab:bench_regression_{report.current_run_id}",
         )
-        _ensure_parent(out_path)
+        ensure_parent_dir(out_path)
         out_path.write_text(latex, encoding="utf-8")
         return out_path
 

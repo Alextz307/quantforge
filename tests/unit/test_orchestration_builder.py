@@ -141,11 +141,15 @@ class TestBuildExperiment:
         second = exp.feature_pipeline_factory()
         assert first is not second
 
-    def test_run_raises_not_implemented(self) -> None:
+    def test_run_is_callable(self) -> None:
+        """``Experiment.run()`` behaviour is covered end-to-end by
+        ``test_orchestration_experiment.py`` and the gated smoke test.
+        This builder-level check only asserts the method isn't a leftover
+        ``NotImplementedError`` stub.
+        """
         cfg = ExperimentConfig.model_validate(_cfg_dict())
         exp = build_experiment(cfg)
-        with pytest.raises(NotImplementedError, match="run\\(\\) not implemented"):
-            exp.run()
+        assert callable(exp.run)
 
 
 class TestBuilderSurfacesRegistryErrors:

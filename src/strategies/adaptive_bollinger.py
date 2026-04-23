@@ -19,7 +19,7 @@ from src.core.persistence import (
     save_model_skeleton,
 )
 from src.core.registry import strategy_registry
-from src.core.temporal import TrainingMetadata
+from src.core.temporal import TrackedMetadata, TrainingMetadata, collect_metadata
 from src.core.types import Interval
 from src.core.utils import compute_log_returns
 from src.models.garch import GARCHPredictor
@@ -109,10 +109,8 @@ class AdaptiveBollingerStrategy(IStrategy):
 
         See :meth:`IStrategy.update` for the shared contract.
         """
-        if not self._fitted or self._training_metadata is None:
-            raise RuntimeError("AdaptiveBollingerStrategy.update() called before train()")
-
-        new_metadata = self._training_metadata.extend_from(new_data)
+        metadata = self._assert_fitted_with_metadata(caller="update")
+        new_metadata = metadata.extend_from(new_data)
 
         new_returns = compute_log_returns(new_data["close"]).dropna()
         self._garch.update(new_data.loc[new_returns.index], new_returns)
@@ -120,10 +118,7 @@ class AdaptiveBollingerStrategy(IStrategy):
 
     def save(self, path: str | Path) -> None:
         """Persist AdaptiveBollinger config + nested GARCH to ``path``."""
-        if not self._fitted:
-            raise RuntimeError("AdaptiveBollingerStrategy.save() called before train()")
-        if self._training_metadata is None:
-            raise RuntimeError("AdaptiveBollingerStrategy.save() missing training metadata")
+        metadata = self._assert_fitted_with_metadata(caller="save")
 
         def write_weights(root: Path) -> None:
             self._garch.save(root / GARCH_SUBDIR)
@@ -131,7 +126,7 @@ class AdaptiveBollingerStrategy(IStrategy):
         save_model_skeleton(
             path,
             config=self._ctor_kwargs_as_json(),
-            training_metadata=self._training_metadata,
+            training_metadata=metadata,
             write_weights=write_weights,
         )
 
@@ -178,6 +173,13 @@ class AdaptiveBollingerStrategy(IStrategy):
     @property
     def required_warmup_bars(self) -> int:
         return max(self._window, self._trend_window)
+
+    def get_all_training_metadata(self) -> tuple[TrackedMetadata, ...]:
+        """Expose strategy + owned GARCH metadata for the deep leakage check."""
+        return collect_metadata(
+            ("strategy", self._training_metadata),
+            ("garch", self._garch.training_metadata),
+        )
 
     @staticmethod
     def suggest_params(trial: optuna.Trial) -> dict[str, object]:

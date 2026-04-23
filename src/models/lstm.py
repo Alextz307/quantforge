@@ -289,14 +289,15 @@ class LSTMPredictor(IPredictor):
         exception rolls back to the pre-update weights (leaf-level atomicity).
         See :meth:`IPredictor.update` for the shared contract.
         """
-        if not self._fitted or self._model is None or self._training_metadata is None:
-            raise RuntimeError("LSTMPredictor.update() called before fit()")
+        metadata = self._assert_fitted_with_metadata(caller="update")
+        # ``_model`` is set atomically with metadata in fit() — assert for mypy.
+        assert self._model is not None
         if len(new_data) <= self._lookback:
             raise ValueError(
                 f"LSTMPredictor.update() needs > lookback ({self._lookback}) "
                 f"rows of new_data, got {len(new_data)}"
             )
-        new_metadata = self._training_metadata.extend_from(new_data)
+        new_metadata = metadata.extend_from(new_data)
 
         df = new_data.copy()
         target_col = "_target"
@@ -353,11 +354,9 @@ class LSTMPredictor(IPredictor):
         via ``select_device()`` on load. ``torch.save`` writes CPU tensors to
         guarantee portability across CUDA / MPS / CPU.
         """
-        if not self._fitted or self._model is None:
-            raise RuntimeError("LSTMPredictor.save() called before fit()")
-        if self._training_metadata is None:
-            raise RuntimeError("LSTMPredictor.save() missing training metadata")
-
+        metadata = self._assert_fitted_with_metadata(caller="save")
+        # ``_model`` is set atomically with metadata in fit() — assert for mypy.
+        assert self._model is not None
         model = self._model
 
         def write_weights(root: Path) -> None:
@@ -382,7 +381,7 @@ class LSTMPredictor(IPredictor):
                 "update_lr_scale": self._update_lr_scale,
                 "interval": self._interval.value,
             },
-            training_metadata=self._training_metadata,
+            training_metadata=metadata,
             write_weights=write_weights,
         )
 

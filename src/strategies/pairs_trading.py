@@ -168,8 +168,7 @@ class PairsTradingStrategy(IStrategy):
         flip so the caller can pull the pair from the live book. See
         :meth:`IStrategy.update` for the shared contract.
         """
-        if not self._fitted or self._training_metadata is None:
-            raise RuntimeError("PairsTradingStrategy.update() called before train()")
+        metadata = self._assert_fitted_with_metadata(caller="update")
         if "close_a" not in new_data.columns or "close_b" not in new_data.columns:
             raise ValueError(
                 "PairsTradingStrategy.update() requires 'close_a' and 'close_b' columns"
@@ -189,7 +188,7 @@ class PairsTradingStrategy(IStrategy):
                 self._zscore_lookback,
             )
 
-        new_metadata = self._training_metadata.extend_from(new_data)
+        new_metadata = metadata.extend_from(new_data)
 
         new_a = np.asarray(new_data["close_a"], dtype=np.float64)
         new_b = np.asarray(new_data["close_b"], dtype=np.float64)
@@ -223,10 +222,7 @@ class PairsTradingStrategy(IStrategy):
 
     def save(self, path: str | Path) -> None:
         """Persist PairsTrading config + cointegration stats to ``path``."""
-        if not self._fitted:
-            raise RuntimeError("PairsTradingStrategy.save() called before train()")
-        if self._training_metadata is None:
-            raise RuntimeError("PairsTradingStrategy.save() missing training metadata")
+        metadata = self._assert_fitted_with_metadata(caller="save")
 
         def write_weights(root: Path) -> None:
             json_io.write(
@@ -249,7 +245,7 @@ class PairsTradingStrategy(IStrategy):
         save_model_skeleton(
             path,
             config=self._ctor_kwargs_as_json(),
-            training_metadata=self._training_metadata,
+            training_metadata=metadata,
             write_weights=write_weights,
         )
 

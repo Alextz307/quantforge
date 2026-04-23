@@ -163,10 +163,10 @@ class DirectionalClassifier(IClassifier):
         starting point; ``update_n_estimators`` additional rounds are trained
         on ``new_data``. See :meth:`IClassifier.update` for the shared contract.
         """
-        if not self._fitted or self._model is None or self._training_metadata is None:
-            raise RuntimeError("DirectionalClassifier.update() called before fit()")
-
-        new_metadata = self._training_metadata.extend_from(new_data)
+        metadata = self._assert_fitted_with_metadata(caller="update")
+        # ``_model`` is set atomically with metadata in fit() — assert for mypy.
+        assert self._model is not None
+        new_metadata = metadata.extend_from(new_data)
 
         existing_booster = self._model.get_booster()
         refreshed = xgb.XGBClassifier(
@@ -213,11 +213,9 @@ class DirectionalClassifier(IClassifier):
         the most version-stable option available. Device is NOT persisted; it
         is re-resolved on load via ``select_xgboost_device()``.
         """
-        if not self._fitted or self._model is None:
-            raise RuntimeError("DirectionalClassifier.save() called before fit()")
-        if self._training_metadata is None:
-            raise RuntimeError("DirectionalClassifier.save() missing training metadata")
-
+        metadata = self._assert_fitted_with_metadata(caller="save")
+        # ``_model`` is set atomically with metadata in fit() — assert for mypy.
+        assert self._model is not None
         model = self._model
 
         def write_weights(root: Path) -> None:
@@ -243,7 +241,7 @@ class DirectionalClassifier(IClassifier):
                 "update_n_estimators": self._update_n_estimators,
                 "interval": self._interval.value,
             },
-            training_metadata=self._training_metadata,
+            training_metadata=metadata,
             write_weights=write_weights,
         )
 

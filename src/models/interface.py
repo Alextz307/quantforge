@@ -8,6 +8,8 @@ from typing import TYPE_CHECKING, Self
 
 import pandas as pd
 
+from src.core.temporal import TrackedMetadata, collect_metadata
+
 if TYPE_CHECKING:
     from src.core.temporal import TrainingMetadata
 
@@ -67,6 +69,33 @@ class IPredictor(ABC):
     def training_metadata(self) -> TrainingMetadata | None:
         """Training period metadata, populated after fit()."""
         return getattr(self, "_training_metadata", None)
+
+    def _assert_fitted_with_metadata(self, *, caller: str) -> TrainingMetadata:
+        """Return ``self.training_metadata`` narrowed to non-None, raising otherwise.
+
+        Mirrors :meth:`IStrategy._assert_fitted_with_metadata` — see that
+        docstring for the rationale. Kept separate from ``_fitted`` /
+        ``_model`` / ``_scaler`` checks so composite predictors can still
+        gate on leaf presence independently.
+        """
+        meta = self.training_metadata
+        if meta is None:
+            raise RuntimeError(
+                f"{type(self).__name__}.{caller}() called before fit() "
+                "completed; fix by calling model.fit(...) first."
+            )
+        return meta
+
+    def get_all_training_metadata(self) -> tuple[TrackedMetadata, ...]:
+        """Every metadata object this predictor and its owned leaves expose.
+
+        Default: just the predictor's own metadata tagged with the class name
+        (lower-cased). Composites (HybridVolatility, HybridReturn) override to
+        include each wrapped leaf (GARCH / ARMA / LSTM) with an explicit
+        origin label so a caller's deep leakage check surfaces the exact
+        component that drifted.
+        """
+        return collect_metadata((type(self).__name__, self.training_metadata))
 
     def update(self, new_data: pd.DataFrame, target: pd.Series, **kwargs: object) -> None:
         """Incrementally update the fitted model with a new window.
@@ -135,6 +164,20 @@ class IClassifier(ABC):
     def training_metadata(self) -> TrainingMetadata | None:
         """Training period metadata, populated after fit()."""
         return getattr(self, "_training_metadata", None)
+
+    def _assert_fitted_with_metadata(self, *, caller: str) -> TrainingMetadata:
+        """Mirror of :meth:`IPredictor._assert_fitted_with_metadata` for classifiers."""
+        meta = self.training_metadata
+        if meta is None:
+            raise RuntimeError(
+                f"{type(self).__name__}.{caller}() called before fit() "
+                "completed; fix by calling classifier.fit(...) first."
+            )
+        return meta
+
+    def get_all_training_metadata(self) -> tuple[TrackedMetadata, ...]:
+        """Every metadata object this classifier and its owned leaves expose."""
+        return collect_metadata((type(self).__name__, self.training_metadata))
 
     def update(self, new_data: pd.DataFrame, target: pd.Series, **kwargs: object) -> None:
         """Incrementally update the fitted classifier with a new window.

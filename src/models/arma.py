@@ -252,10 +252,10 @@ class ARMAPredictor(IPredictor):
         ``predict()`` stays indifferent to fit-vs-update origin. See
         :meth:`IPredictor.update` for the shared contract.
         """
-        if not self._fitted or self._model is None or self._training_metadata is None:
-            raise RuntimeError("ARMAPredictor.update() called before fit()")
-
-        new_metadata = self._training_metadata.extend_from(new_data)
+        metadata = self._assert_fitted_with_metadata(caller="update")
+        # ``_model`` is set atomically with metadata in fit() — assert for mypy.
+        assert self._model is not None
+        new_metadata = metadata.extend_from(new_data)
 
         new_endog = np.asarray(target, dtype=np.float64)
         combined = np.concatenate([self._model.endog, new_endog])
@@ -277,11 +277,9 @@ class ARMAPredictor(IPredictor):
         (binary, pickle-free for float arrays) rather than JSON to keep the
         on-disk size manageable on large training windows.
         """
-        if not self._fitted or self._model is None:
-            raise RuntimeError("ARMAPredictor.save() called before fit()")
-        if self._training_metadata is None:
-            raise RuntimeError("ARMAPredictor.save() missing training metadata")
-
+        metadata = self._assert_fitted_with_metadata(caller="save")
+        # ``_model`` is set atomically with metadata in fit() — assert for mypy.
+        assert self._model is not None
         adapter = self._model
 
         def write_weights(root: Path) -> None:
@@ -304,7 +302,7 @@ class ARMAPredictor(IPredictor):
                 "information_criterion": self._information_criterion.value,
                 "interval": self._interval.value,
             },
-            training_metadata=self._training_metadata,
+            training_metadata=metadata,
             write_weights=write_weights,
         )
 
