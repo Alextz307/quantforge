@@ -12,9 +12,11 @@ floats + a tuple equity curve before anything touches disk.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
 
 import pandas as pd
 
+from src.analysis.metrics_aggregator import AggregateStats
 from src.core import json_io
 from src.engine.walk_forward import FoldResult
 from src.orchestration.manifest import Manifest
@@ -136,3 +138,47 @@ class ExperimentResult:
             folds=tuple(FoldRecord.from_dict(f) for f in raw_folds),
             manifest=Manifest.from_dict(raw_manifest),
         )
+
+
+@dataclass(frozen=True)
+class PairwiseSignificance:
+    """One pairwise Sharpe-differential bootstrap result.
+
+    The differential is ``sharpe(name_a) - sharpe(name_b)`` computed on
+    the concatenated per-fold returns of the two strategies. ``significant``
+    is the observable: ``True`` when the confidence interval excludes zero,
+    which is what the reporter's LaTeX cell displays.
+    """
+
+    name_a: str
+    name_b: str
+    point_differential: float
+    lower: float
+    upper: float
+    confidence: float
+    significant: bool
+
+
+@dataclass(frozen=True)
+class ComparisonReport:
+    """Aggregate output of :func:`run_comparison`.
+
+    Value object — not persisted whole. The comparison reporter writes
+    ``ranking.tex`` from ``ranking``, ``pairwise_significance.tex`` from
+    ``pairwise``, and a JSON manifest from the scalar identity fields;
+    ``per_strategy_stats`` is embedded in the JSON manifest as a
+    per-strategy ``to_dict()`` payload so the report directory is
+    self-contained.
+
+    ``per_strategy_experiment_id`` maps each strategy name back to the
+    run directory under ``experiment_results/runs/`` so a user can
+    drill into a specific strategy's fold records from the report.
+    """
+
+    out_name: str
+    created_at: datetime
+    git_sha: str
+    per_strategy_experiment_id: dict[str, str]
+    per_strategy_stats: dict[str, AggregateStats]
+    ranking: pd.DataFrame
+    pairwise: tuple[PairwiseSignificance, ...]

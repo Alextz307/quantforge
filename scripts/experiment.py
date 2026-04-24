@@ -8,13 +8,18 @@ Subcommands:
                    ``experiment_results/models/<name>/`` for later
                    injection via ``ExperimentConfig.pretrained_leaves``.
 * ``list-models``  Enumerate saved model artifacts for discovery.
+* ``tune``         Drive an Optuna study over a config's HPO space,
+                   persisting to ``experiment_results/hpo/<study>/``.
+* ``compare``      Run N configs, rank them, compute pairwise Sharpe
+                   significance, write the bundle to
+                   ``experiment_results/comparisons/<out_name>/``.
 
 The CLI deliberately mirrors ``scripts/benchmark.py`` (same ``click.group`` +
 ``--store-root`` convention + ``ClickException`` wrapping of runtime errors)
 so a user who knows ``make bench`` knows ``make experiment`` instantly.
 
-Future subcommands (``tune``, ``compare``, ``holdout-eval``, ``forward-run``)
-land in later batches — the group is extensible without breaking these.
+Future subcommands (``holdout-eval``, ``forward-run``) land in later
+batches — the group is extensible without breaking these.
 """
 
 from __future__ import annotations
@@ -36,6 +41,7 @@ from src.core.config import (
 from src.core.exceptions import LeakageError
 from src.core.hpo_config import HPOConfig, load_hpo_config
 from src.core.persistence import (
+    COMPARISONS_SUBDIR,
     HPO_SUBDIR,
     METADATA_JSON,
     MODEL_ARTIFACT_MANIFEST_JSON,
@@ -45,8 +51,10 @@ from src.core.persistence import (
 )
 from src.optimization.tuner import StrategyTuner
 from src.orchestration.builder import build_experiment
+from src.orchestration.comparison import SignificanceTest, run_comparison
 from src.orchestration.model_artifact import ModelArtifactManifest, save_model_artifact
 from src.orchestration.standalone_training import train_model_standalone
+from src.visualization.comparison_reporter import ComparisonReporter
 from src.visualization.hpo_reporter import HPOReporter
 
 DEFAULT_STORE_ROOT = Path("experiment_results")
@@ -365,6 +373,104 @@ def tune_cmd(
         click.echo(f"best_trial:  {best.number}")
     except ValueError:
         click.echo("best_value:  n/a (no completed trials)")
+
+
+@cli.command("compare")
+@click.option(
+    "--config",
+    "config_paths",
+    required=True,
+    multiple=True,
+    type=click.Path(exists=True, dir_okay=False, path_type=Path),
+    help="Path to an ExperimentConfig YAML. Pass multiple times for a multi-strategy compare.",
+)
+@click.option(
+    "--out-name",
+    required=True,
+    help="Directory name under experiment_results/comparisons/ for the report bundle.",
+)
+@click.option(
+    "--significance-test",
+    type=click.Choice(["bootstrap", "none"], case_sensitive=False),
+    default="bootstrap",
+    help="Pairwise Sharpe-differential test (paired stationary bootstrap) or skip.",
+)
+@click.option(
+    "--n-jobs",
+    default=1,
+    type=int,
+    help="1 = in-process sequential; >1 fans out via ProcessPoolExecutor.",
+)
+@click.option(
+    "--store-root",
+    default=str(DEFAULT_STORE_ROOT),
+    type=click.Path(file_okay=False, path_type=Path),
+    help="Override the experiment_results/ directory.",
+)
+@click.option(
+    "--report/--no-report",
+    "write_report",
+    default=True,
+    help="Write ranking.tex, pairwise_significance.tex, and equity overlay plot.",
+)
+def compare_cmd(
+    config_paths: tuple[Path, ...],
+    out_name: str,
+    significance_test: str,
+    n_jobs: int,
+    store_root: Path,
+    write_report: bool,
+) -> None:
+    """Run N configs, rank, optionally test pairwise significance.
+
+    The comparison directory is ``<store_root>/comparisons/<out_name>/``.
+    Each strategy's walk-forward results land under ``runs/`` inside
+    that directory (instead of the top-level ``experiment_results/runs/``)
+    so the comparison bundle is self-contained.
+    """
+    if len(config_paths) < 2:
+        raise click.ClickException(
+            f"compare needs at least 2 --config paths, got {len(config_paths)}; "
+            f"pass the option multiple times."
+        )
+
+    configs: list[ExperimentConfig] = []
+    for path in config_paths:
+        try:
+            configs.append(load_experiment_config(path))
+        except (ValidationError, FileNotFoundError, ValueError) as e:
+            raise click.ClickException(f"failed to load config {path}: {e}") from e
+
+    sig: SignificanceTest = "bootstrap" if significance_test.lower() == "bootstrap" else "none"
+    click.echo(
+        f"comparing {len(configs)} strategies under '{out_name}' "
+        f"(n_jobs={n_jobs}, significance={sig}) ..."
+    )
+    try:
+        report, folds_by_strategy = run_comparison(
+            configs,
+            out_name=out_name,
+            store_root=store_root,
+            n_jobs=n_jobs,
+            significance_test=sig,
+        )
+    except LeakageError as e:
+        raise click.ClickException(f"leakage tripwire fired: {e}") from e
+    except (NotImplementedError, ValueError, RuntimeError) as e:
+        raise click.ClickException(f"comparison failed: {e}") from e
+
+    cmp_dir = store_root / COMPARISONS_SUBDIR / out_name
+    if write_report:
+        ComparisonReporter().generate_full_report(
+            report, cmp_dir, folds_by_strategy=folds_by_strategy
+        )
+
+    click.echo(f"out_name:   {report.out_name}")
+    click.echo(f"artifacts:  {cmp_dir}")
+    click.echo(f"strategies: {', '.join(report.per_strategy_stats.keys())}")
+    if report.pairwise:
+        n_sig = sum(1 for p in report.pairwise if p.significant)
+        click.echo(f"pairwise:   {len(report.pairwise)} comparisons, {n_sig} significant")
 
 
 def _apply_hpo_overrides(cfg: HPOConfig, *, n_trials: int | None, n_jobs: int | None) -> HPOConfig:

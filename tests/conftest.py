@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
 
 import numpy as np
 import pandas as pd
@@ -12,6 +12,9 @@ from src.analysis.metrics_aggregator import AggregateStats
 from src.benchmarking.types import BenchmarkResult, BenchmarkRun, HardwareInfo
 from src.core.temporal import WalkForwardValidator
 from src.core.types import BarData, Interval
+from src.engine.scenarios import SlippageScenario
+from src.orchestration.manifest import Manifest
+from src.orchestration.types import ExperimentResult, FoldRecord
 
 # Deterministic seeds applied across all tests via the `deterministic_seed` fixture
 GLOBAL_NUMPY_SEED = 42
@@ -438,6 +441,66 @@ def make_benchmark_run(
         tags=tags,
         results=results,
         hardware=hardware if hardware is not None else make_benchmark_hardware(),
+    )
+
+
+_STUB_FOLD_START = pd.Timestamp("2020-01-01")
+_STUB_FOLD_END = pd.Timestamp("2020-12-31")
+
+
+def make_stub_fold_record(
+    fold_index: int,
+    *,
+    sharpe: float,
+    equity_curve: tuple[float, ...],
+    max_drawdown: float = -0.08,
+    total_return: float = 0.05,
+) -> FoldRecord:
+    """Build a :class:`FoldRecord` with the minimal fields every caller cares about."""
+    return FoldRecord(
+        fold_index=fold_index,
+        train_start=_STUB_FOLD_START,
+        train_end=_STUB_FOLD_END,
+        test_start=_STUB_FOLD_START,
+        test_end=_STUB_FOLD_END,
+        total_return=total_return,
+        annualized_return=total_return * 2,
+        annualized_volatility=0.15,
+        sharpe_ratio=sharpe,
+        sortino_ratio=sharpe * 1.05,
+        calmar_ratio=sharpe * 0.9,
+        max_drawdown=max_drawdown,
+        win_rate=0.55,
+        trade_count=30,
+        equity_curve=equity_curve,
+    )
+
+
+def make_stub_experiment_result(
+    name: str,
+    *,
+    folds: tuple[FoldRecord, ...],
+    seed: int = 42,
+) -> ExperimentResult:
+    """Build an :class:`ExperimentResult` with a minimal valid Manifest.
+
+    Callers control folds fully; the manifest is plausible scaffolding
+    (synthetic data hash, 'unknown' git sha). Used by cross-strategy
+    comparison tests that need aligned folds across strategies.
+    """
+    manifest = Manifest(
+        experiment_id=f"stub_{name}",
+        name=name,
+        created_at=datetime(2026, 1, 1, tzinfo=UTC),
+        git_sha="stubsha1",
+        seed=seed,
+        data_hash="a" * 64,
+        slippage_scenario=SlippageScenario.NORMAL,
+    )
+    return ExperimentResult(
+        experiment_id=f"stub_{name}",
+        folds=folds,
+        manifest=manifest,
     )
 
 

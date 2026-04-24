@@ -84,6 +84,7 @@ MODEL_ARTIFACT_WEIGHTS_SUBDIR = "weights"
 RUNS_SUBDIR = "runs"
 MODELS_SUBDIR = "models"
 HPO_SUBDIR = "hpo"
+COMPARISONS_SUBDIR = "comparisons"
 
 
 def ensure_model_dir(path: str | Path) -> Path:
