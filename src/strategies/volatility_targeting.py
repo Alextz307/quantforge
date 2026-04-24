@@ -3,16 +3,15 @@
 from __future__ import annotations
 
 import logging
-import math
+from collections.abc import Mapping
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Self
+from typing import TYPE_CHECKING, ClassVar, Self, cast
 
 import pandas as pd
 
-import quant_engine
 from src.core import json_io
-from src.core.constants import TRADING_DAYS_PER_YEAR
+from src.core.constants import DEFAULT_REALIZED_VOL_WINDOW
 from src.core.persistence import (
     CONFIG_JSON,
     HYBRID_VOL_SUBDIR,
@@ -20,9 +19,19 @@ from src.core.persistence import (
     save_model_skeleton,
 )
 from src.core.registry import strategy_registry
-from src.core.temporal import TrackedMetadata, TrainingMetadata, collect_metadata
+from src.core.temporal import (
+    TrackedMetadata,
+    TrainingMetadata,
+    collect_metadata,
+    mark_pretrained,
+)
 from src.core.types import Device, Interval, LossFunction
+from src.core.utils import annualized_garman_klass
 from src.models.hybrid_volatility import HybridVolatilityModel
+from src.orchestration.pretrained_leaves import (
+    normalize_pretrained_leaves,
+    validate_pretrained_leaf,
+)
 from src.strategies.interface import IStrategy
 
 if TYPE_CHECKING:
@@ -60,6 +69,9 @@ class _HybridVolParams:
     interval: Interval
 
 
+_LEAF_KEY_VOL_MODEL = "vol_model"
+
+
 @strategy_registry.register("VolatilityTargeting")
 class VolatilityTargetingStrategy(IStrategy):
     """Scale long exposure to hit a target portfolio volatility.
@@ -71,7 +83,16 @@ class VolatilityTargetingStrategy(IStrategy):
     The realized-volatility training target is the annualized Garman-Klass
     OHLC estimator over ``realized_vol_window`` bars. Input DataFrames must
     carry ``open``/``high``/``low``/``close`` columns.
+
+    Supports pretrained-leaf injection: passing
+    ``pretrained_leaves={"vol_model": loaded_hybrid}`` freezes the
+    HybridVolatilityModel across every ``train()``. Strategy-level
+    thresholds (``target_vol``, ``max_leverage``, ``bearish_exposure``,
+    ``trend_window``) are ctor-only, so a frozen leaf means ``train()``
+    updates only ``_training_metadata``.
     """
+
+    _leaf_keys: ClassVar[frozenset[str]] = frozenset({_LEAF_KEY_VOL_MODEL})
 
     def __init__(
         self,
@@ -81,7 +102,7 @@ class VolatilityTargetingStrategy(IStrategy):
         trend_window: int = 100,
         max_leverage: float = 1.5,
         bearish_exposure: float = 0.0,
-        realized_vol_window: int = 20,
+        realized_vol_window: int = DEFAULT_REALIZED_VOL_WINDOW,
         garch_p_max: int = 5,
         garch_q_max: int = 5,
         lstm_hidden_dim: int = 64,
@@ -97,6 +118,7 @@ class VolatilityTargetingStrategy(IStrategy):
         lstm_device: Device | None = None,
         min_vol: float = 1e-3,
         interval: Interval = Interval.DAILY,
+        pretrained_leaves: Mapping[str, object] | None = None,
     ) -> None:
         if target_vol <= 0:
             raise ValueError(f"target_vol must be > 0, got {target_vol}")
@@ -108,6 +130,10 @@ class VolatilityTargetingStrategy(IStrategy):
             raise ValueError(f"trend_window must be >= 2, got {trend_window}")
         if realized_vol_window < 2:
             raise ValueError(f"realized_vol_window must be >= 2, got {realized_vol_window}")
+
+        self._pretrained_leaves = normalize_pretrained_leaves(
+            pretrained_leaves, self._leaf_keys, type(self).__name__
+        )
 
         self._target_vol = target_vol
         self._trend_window = trend_window
@@ -136,7 +162,23 @@ class VolatilityTargetingStrategy(IStrategy):
             interval=interval,
         )
 
-        self._hybrid_vol = self._build_hybrid_vol()
+        if _LEAF_KEY_VOL_MODEL in self._pretrained_leaves:
+            injected = self._pretrained_leaves[_LEAF_KEY_VOL_MODEL]
+            validate_pretrained_leaf(
+                injected,
+                interval=interval,
+                feature_columns=self._hybrid_params.feature_columns,
+                lstm_lookback=lstm_lookback,
+            )
+            self._hybrid_vol = cast(HybridVolatilityModel, injected)
+            # Sync passthrough params from the frozen leaf so ``save()``
+            # round-trips to the real artifact. ``getattr`` fallback accepts
+            # test fakes that duck-type the leaf surface.
+            leaf_config = getattr(self._hybrid_vol, "params", None)
+            if leaf_config is not None:
+                self._hybrid_params = _HybridVolParams(**asdict(leaf_config))
+        else:
+            self._hybrid_vol = self._build_hybrid_vol()
         self._fitted = False
         self._training_metadata: TrainingMetadata | None = None
 
@@ -146,29 +188,25 @@ class VolatilityTargetingStrategy(IStrategy):
         return HybridVolatilityModel(**kwargs)
 
     def _compute_realized_vol(self, bars: pd.DataFrame) -> pd.Series:
-        """Annualized Garman-Klass realized volatility at the strategy's interval.
-
-        The underlying C++ estimator annualizes assuming daily bars; we rescale
-        so ``Interval.HOUR`` and friends land on the same annualized horizon as
-        the rest of the framework.
-        """
-        gk = quant_engine.GarmanKlass(self._realized_vol_window).compute(
-            bars["open"].to_numpy(dtype=float, copy=False),
-            bars["high"].to_numpy(dtype=float, copy=False),
-            bars["low"].to_numpy(dtype=float, copy=False),
-            bars["close"].to_numpy(dtype=float, copy=False),
+        """Annualized Garman-Klass realized volatility at the strategy's interval."""
+        return annualized_garman_klass(
+            bars, window=self._realized_vol_window, interval=self._interval
         )
-        interval_scale = math.sqrt(self._interval.annualization_factor() / TRADING_DAYS_PER_YEAR)
-        return pd.Series(gk * interval_scale, index=bars.index)
 
     def train(self, train_data: pd.DataFrame, **kwargs: object) -> None:
-        """Fit HybridVolatilityModel on an internally-computed realized-vol target."""
-        self._hybrid_vol = self._build_hybrid_vol()
-        realized_vol = self._compute_realized_vol(train_data)
-        target = realized_vol.dropna()
-        aligned = train_data.loc[target.index]
+        """Fit HybridVolatilityModel on an internally-computed realized-vol target.
 
-        self._hybrid_vol.fit(aligned, target, **kwargs)
+        When ``pretrained_leaves["vol_model"]`` was injected at ctor time,
+        the leaf stays frozen: neither rebuild nor ``fit()`` runs. Only
+        ``_training_metadata`` advances so the walk-forward deep metadata
+        check records the strategy's own fold window.
+        """
+        if _LEAF_KEY_VOL_MODEL not in self._pretrained_leaves:
+            self._hybrid_vol = self._build_hybrid_vol()
+            realized_vol = self._compute_realized_vol(train_data)
+            target = realized_vol.dropna()
+            aligned = train_data.loc[target.index]
+            self._hybrid_vol.fit(aligned, target, **kwargs)
 
         self._training_metadata = TrainingMetadata.from_fit(
             train_data, self._interval, self._hybrid_params.feature_columns
@@ -196,6 +234,11 @@ class VolatilityTargetingStrategy(IStrategy):
     def update(self, new_data: pd.DataFrame, **kwargs: object) -> None:
         """Delegate to HybridVolatilityModel's warm-start update.
 
+        When the leaf was pretrained-injected, the frozen-leaf contract
+        forbids mutating it: ``leaf.update()`` is skipped and only the
+        strategy's own ``_training_metadata`` advances. Without this guard
+        a forward-run loop silently drifts the "pinned" leaf fold by fold.
+
         Realized-vol target is computed internally from ``new_data`` OHLC via
         the Garman-Klass estimator (same recipe as ``train()``). See
         :meth:`IStrategy.update` for the shared contract.
@@ -203,10 +246,11 @@ class VolatilityTargetingStrategy(IStrategy):
         metadata = self._assert_fitted_with_metadata(caller="update")
         new_metadata = metadata.extend_from(new_data)
 
-        realized_vol = self._compute_realized_vol(new_data)
-        target = realized_vol.dropna()
-        aligned = new_data.loc[target.index]
-        self._hybrid_vol.update(aligned, target, **kwargs)
+        if _LEAF_KEY_VOL_MODEL not in self._pretrained_leaves:
+            realized_vol = self._compute_realized_vol(new_data)
+            target = realized_vol.dropna()
+            aligned = new_data.loc[target.index]
+            self._hybrid_vol.update(aligned, target, **kwargs)
         self._training_metadata = new_metadata
 
     def save(self, path: str | Path) -> None:
@@ -303,13 +347,17 @@ class VolatilityTargetingStrategy(IStrategy):
         return max(self._trend_window, self._lstm_lookback, self._realized_vol_window)
 
     def get_all_training_metadata(self) -> tuple[TrackedMetadata, ...]:
-        """Expose strategy + recursively-owned hybrid-vol leaves (garch + lstm)."""
-        return (
-            collect_metadata(
-                ("strategy", self._training_metadata),
-            )
-            + self._hybrid_vol.get_all_training_metadata()
-        )
+        """Expose strategy + recursively-owned hybrid-vol leaves (garch + lstm).
+
+        When ``vol_model`` was pretrained-injected, every entry from the
+        hybrid's own walk gets ``is_pretrained=True`` so the walk-forward
+        orchestrator enforces the strict-no-overlap invariant against the
+        fold's train window (not just its test window).
+        """
+        leaf_metadata = self._hybrid_vol.get_all_training_metadata()
+        if _LEAF_KEY_VOL_MODEL in self._pretrained_leaves:
+            leaf_metadata = mark_pretrained(leaf_metadata)
+        return collect_metadata(("strategy", self._training_metadata)) + leaf_metadata
 
     @staticmethod
     def suggest_params(trial: optuna.Trial) -> dict[str, object]:

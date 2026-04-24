@@ -55,20 +55,45 @@ class FoldResult:
     metrics: PerformanceMetrics
 
 
-def _validate_deep_metadata(strategy: IStrategy, test_data: pd.DataFrame) -> None:
-    """Run ``validate_no_overlap(test_data)`` across every tracked metadata
-    exposed by the strategy (composite leaves included).
+def _validate_deep_metadata(
+    strategy: IStrategy,
+    *,
+    train_data: pd.DataFrame,
+    test_data: pd.DataFrame,
+) -> None:
+    """Run the leakage invariant across every tracked metadata exposed by
+    the strategy (composite leaves included).
 
-    A ``LeakageError`` from any tracked origin is re-raised with the strategy
-    class name + origin prefixed so the failing component is obvious. A
-    ``None`` metadata entry means the component never completed ``fit()`` —
-    logged at WARN level and skipped, so the remaining tracked entries still
-    provide partial coverage rather than swallowing the whole check.
+    Two invariants, one per-entry:
+
+    * ``train_end < test_data.index[0]`` — always enforced. Catches the
+      canonical lookahead-leakage path: a leaf (or the strategy itself)
+      that trained through the fold's test window would have seen the
+      future it's now being evaluated on.
+    * ``train_end < train_data.index[0]`` — enforced ONLY when
+      ``tracked.is_pretrained``. A pretrained leaf frozen-injected by the
+      user should NOT have seen the strategy's fold train window: if it
+      did, strategy-level state fits on bars where the leaf is in-sample
+      and produces inflated backtest numbers at eval. Fresh (non-
+      pretrained) leaves legitimately train on the fold train window
+      every fold — skipping this check for them preserves the normal
+      walk-forward semantics.
+
+    A ``LeakageError`` is re-raised with the strategy class name + origin
+    prefixed so the failing component is obvious. A ``None`` metadata
+    entry means the component never completed ``fit()`` — logged at WARN
+    level and skipped, so the remaining tracked entries still provide
+    partial coverage rather than swallowing the whole check.
     """
     strategy_cls = type(strategy).__name__
+    # Hoist fold boundaries once; every tracked entry compares scalars
+    # rather than re-scanning the fold DataFrame inside ``validate_no_overlap``.
+    test_start: pd.Timestamp = test_data.index[0]
+    train_start: pd.Timestamp = train_data.index[0]
     saw_any = False
     for tracked in strategy.get_all_training_metadata():
-        if tracked.metadata is None:
+        meta = tracked.metadata
+        if meta is None:
             logger.warning(
                 "%s.%s has no training metadata — skipping leakage check for this component",
                 strategy_cls,
@@ -76,10 +101,19 @@ def _validate_deep_metadata(strategy: IStrategy, test_data: pd.DataFrame) -> Non
             )
             continue
         saw_any = True
-        try:
-            tracked.metadata.validate_no_overlap(test_data)
-        except LeakageError as e:
-            raise LeakageError(f"{strategy_cls}.{tracked.origin}: {e}") from e
+        if test_start <= meta.train_end:
+            raise LeakageError(
+                f"{strategy_cls}.{tracked.origin}: Evaluation data starts at "
+                f"{test_start} but model was trained through {meta.train_end}. "
+                f"This would constitute data leakage."
+            )
+        if tracked.is_pretrained and train_start <= meta.train_end:
+            raise LeakageError(
+                f"{strategy_cls}.{tracked.origin}: pretrained leaf overlaps "
+                f"fold train window (leaf.train_end={meta.train_end} >= "
+                f"fold.train_start={train_start}); fix by using a leaf whose "
+                f"train_end precedes this fold's train_start."
+            )
     if not saw_any:
         raise RuntimeError(
             f"{strategy_cls}.get_all_training_metadata() returned no populated "
@@ -147,7 +181,7 @@ def evaluate_walk_forward(
             test_frame = fold.test
 
         strategy.train(train_frame)
-        _validate_deep_metadata(strategy, test_frame)
+        _validate_deep_metadata(strategy, train_data=train_frame, test_data=test_frame)
 
         signals = strategy.generate_signals(test_frame)
         raw = engine.run(fold.test, signals, slippage)

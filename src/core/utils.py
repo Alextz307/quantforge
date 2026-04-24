@@ -2,8 +2,14 @@
 
 from __future__ import annotations
 
+import math
+
 import numpy as np
 import pandas as pd
+
+import quant_engine
+from src.core.constants import TRADING_DAYS_PER_YEAR
+from src.core.types import Interval
 
 
 def compute_log_returns(close: pd.Series[float]) -> pd.Series[float]:
@@ -20,3 +26,27 @@ def validate_open_unit_interval(value: float, name: str) -> None:
     """Ensure ``value`` lies in the open interval ``(0, 1)``; raise ``ValueError`` otherwise."""
     if not (0.0 < value < 1.0):
         raise ValueError(f"{name} must be in (0, 1), got {value}")
+
+
+def annualized_garman_klass(
+    bars: pd.DataFrame, *, window: int, interval: Interval
+) -> pd.Series[float]:
+    """Annualized Garman-Klass realized volatility at the caller's interval.
+
+    The underlying C++ estimator annualizes assuming daily bars; we rescale
+    so ``Interval.HOUR`` and friends land on the same annualized horizon as
+    the rest of the framework. Shared between ``VolatilityTargetingStrategy``
+    and the standalone training dispatcher so the two callsites cannot drift.
+
+    ``bars`` must carry ``open`` / ``high`` / ``low`` / ``close`` columns.
+    Leading ``window-1`` values are NaN (warmup); callers should ``.dropna()``
+    before using the result as a training target.
+    """
+    gk = quant_engine.GarmanKlass(window).compute(
+        bars["open"].to_numpy(dtype=float, copy=False),
+        bars["high"].to_numpy(dtype=float, copy=False),
+        bars["low"].to_numpy(dtype=float, copy=False),
+        bars["close"].to_numpy(dtype=float, copy=False),
+    )
+    interval_scale = math.sqrt(interval.annualization_factor() / TRADING_DAYS_PER_YEAR)
+    return pd.Series(gk * interval_scale, index=bars.index)

@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Mapping
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Self
+from typing import TYPE_CHECKING, ClassVar, Self, cast
 
 import pandas as pd
 
@@ -17,10 +18,19 @@ from src.core.persistence import (
     save_model_skeleton,
 )
 from src.core.registry import strategy_registry
-from src.core.temporal import TrackedMetadata, TrainingMetadata, collect_metadata
+from src.core.temporal import (
+    TrackedMetadata,
+    TrainingMetadata,
+    collect_metadata,
+    mark_pretrained,
+)
 from src.core.types import Device, InformationCriterion, Interval, LossFunction
 from src.core.utils import compute_log_returns
 from src.models.hybrid_return import HybridReturnModel
+from src.orchestration.pretrained_leaves import (
+    normalize_pretrained_leaves,
+    validate_pretrained_leaf,
+)
 from src.strategies.interface import IStrategy
 
 if TYPE_CHECKING:
@@ -58,6 +68,9 @@ class _HybridReturnParams:
     interval: Interval
 
 
+_LEAF_KEY_RETURN_MODEL = "return_model"
+
+
 @strategy_registry.register("ReturnForecast")
 class ReturnForecastStrategy(IStrategy):
     """Position = clip(``position_scale * forecast_return``, ±``max_leverage``).
@@ -65,7 +78,15 @@ class ReturnForecastStrategy(IStrategy):
     Uses ``HybridReturnModel`` (ARMA + LSTM residual) for the conditional-mean
     forecast of next-bar log returns. Positive forecast → long, negative
     forecast → short, scaled linearly and then clipped.
+
+    Supports pretrained-leaf injection: passing
+    ``pretrained_leaves={"return_model": loaded_hybrid}`` freezes the leaf
+    (skips rebuild + fit across every ``train()`` call). Strategy-level
+    state (``position_scale``, ``max_leverage``) is ctor-only, so a frozen
+    leaf means ``train()`` updates only ``_training_metadata``.
     """
+
+    _leaf_keys: ClassVar[frozenset[str]] = frozenset({_LEAF_KEY_RETURN_MODEL})
 
     def __init__(
         self,
@@ -88,11 +109,16 @@ class ReturnForecastStrategy(IStrategy):
         lstm_val_split_ratio: float = 0.2,
         lstm_device: Device | None = None,
         interval: Interval = Interval.DAILY,
+        pretrained_leaves: Mapping[str, object] | None = None,
     ) -> None:
         if position_scale <= 0:
             raise ValueError(f"position_scale must be > 0, got {position_scale}")
         if max_leverage <= 0:
             raise ValueError(f"max_leverage must be > 0, got {max_leverage}")
+
+        self._pretrained_leaves = normalize_pretrained_leaves(
+            pretrained_leaves, self._leaf_keys, type(self).__name__
+        )
 
         self._position_scale = position_scale
         self._max_leverage = max_leverage
@@ -118,7 +144,23 @@ class ReturnForecastStrategy(IStrategy):
             interval=interval,
         )
 
-        self._hybrid_return = self._build_hybrid_return()
+        if _LEAF_KEY_RETURN_MODEL in self._pretrained_leaves:
+            injected = self._pretrained_leaves[_LEAF_KEY_RETURN_MODEL]
+            validate_pretrained_leaf(
+                injected,
+                interval=interval,
+                feature_columns=self._hybrid_params.feature_columns,
+                lstm_lookback=lstm_lookback,
+            )
+            self._hybrid_return = cast(HybridReturnModel, injected)
+            # Sync passthrough params from the frozen leaf so ``save()``
+            # round-trips to the real artifact (not ctor defaults). ``getattr``
+            # fallback accepts test fakes that duck-type the leaf surface.
+            leaf_config = getattr(self._hybrid_return, "params", None)
+            if leaf_config is not None:
+                self._hybrid_params = _HybridReturnParams(**asdict(leaf_config))
+        else:
+            self._hybrid_return = self._build_hybrid_return()
         self._fitted = False
         self._training_metadata: TrainingMetadata | None = None
 
@@ -128,12 +170,18 @@ class ReturnForecastStrategy(IStrategy):
         return HybridReturnModel(**kwargs)
 
     def train(self, train_data: pd.DataFrame, **kwargs: object) -> None:
-        """Fit HybridReturnModel on training log returns."""
-        self._hybrid_return = self._build_hybrid_return()
-        log_returns = compute_log_returns(train_data["close"]).dropna()
-        aligned = train_data.loc[log_returns.index]
+        """Fit HybridReturnModel on training log returns.
 
-        self._hybrid_return.fit(aligned, log_returns, **kwargs)
+        When ``pretrained_leaves["return_model"]`` was injected at ctor time,
+        the leaf stays frozen: neither rebuild nor ``fit()`` runs. Only
+        ``_training_metadata`` advances so the walk-forward deep metadata
+        check records the strategy's own fold window.
+        """
+        if _LEAF_KEY_RETURN_MODEL not in self._pretrained_leaves:
+            self._hybrid_return = self._build_hybrid_return()
+            log_returns = compute_log_returns(train_data["close"]).dropna()
+            aligned = train_data.loc[log_returns.index]
+            self._hybrid_return.fit(aligned, log_returns, **kwargs)
 
         self._training_metadata = TrainingMetadata.from_fit(
             train_data, self._interval, self._hybrid_params.feature_columns
@@ -154,14 +202,20 @@ class ReturnForecastStrategy(IStrategy):
     def update(self, new_data: pd.DataFrame, **kwargs: object) -> None:
         """Delegate to HybridReturnModel's warm-start update.
 
+        When the leaf was pretrained-injected, the frozen-leaf contract
+        forbids mutating it: ``leaf.update()`` is skipped and only the
+        strategy's own ``_training_metadata`` advances. Without this guard
+        a forward-run loop silently drifts the "pinned" leaf fold by fold.
+
         See :meth:`IStrategy.update` for the shared contract.
         """
         metadata = self._assert_fitted_with_metadata(caller="update")
         new_metadata = metadata.extend_from(new_data)
 
-        new_returns = compute_log_returns(new_data["close"]).dropna()
-        aligned = new_data.loc[new_returns.index]
-        self._hybrid_return.update(aligned, new_returns, **kwargs)
+        if _LEAF_KEY_RETURN_MODEL not in self._pretrained_leaves:
+            new_returns = compute_log_returns(new_data["close"]).dropna()
+            aligned = new_data.loc[new_returns.index]
+            self._hybrid_return.update(aligned, new_returns, **kwargs)
         self._training_metadata = new_metadata
 
     def save(self, path: str | Path) -> None:
@@ -256,13 +310,17 @@ class ReturnForecastStrategy(IStrategy):
         return self._lstm_lookback
 
     def get_all_training_metadata(self) -> tuple[TrackedMetadata, ...]:
-        """Expose strategy + recursively-owned hybrid-return leaves (arma + lstm)."""
-        return (
-            collect_metadata(
-                ("strategy", self._training_metadata),
-            )
-            + self._hybrid_return.get_all_training_metadata()
-        )
+        """Expose strategy + recursively-owned hybrid-return leaves (arma + lstm).
+
+        When ``return_model`` was pretrained-injected, every entry from the
+        hybrid's own walk gets ``is_pretrained=True`` so the walk-forward
+        orchestrator enforces the strict-no-overlap invariant against the
+        fold's train window (not just its test window).
+        """
+        leaf_metadata = self._hybrid_return.get_all_training_metadata()
+        if _LEAF_KEY_RETURN_MODEL in self._pretrained_leaves:
+            leaf_metadata = mark_pretrained(leaf_metadata)
+        return collect_metadata(("strategy", self._training_metadata)) + leaf_metadata
 
     @staticmethod
     def suggest_params(trial: optuna.Trial) -> dict[str, object]:

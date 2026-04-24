@@ -1,0 +1,49 @@
+# Example ExperimentConfig — inject a pretrained HybridReturnModel into
+# ReturnForecastStrategy. Run after producing the artifact via:
+#   python -m scripts.experiment train-model \
+#       --config config/models/spy_hybrid_return.yaml
+#
+# then:
+#   python -m scripts.experiment run \
+#       --config config/strategies/return_forecast_pretrained.yaml
+
+name: spy_retfcst_pretrained
+seed: 42
+
+data:
+  source: yfinance
+  tickers: [SPY]
+  start: 2020-01-02
+  end: 2024-12-31
+  interval: daily
+
+strategy:
+  name: ReturnForecast
+  params:
+    # Strategy-level kwargs (user-tunable even with a frozen leaf):
+    position_scale: 20.0
+    max_leverage: 1.5
+    # Leaf-required kwargs that the strategy reads for its own metadata /
+    # warmup calculation — must match the frozen leaf's trained values.
+    # Mismatch is rejected at injection time by validate_pretrained_leaf.
+    feature_columns: [sma_20, rsi_14, volume_z]
+    lstm_lookback: 30
+    # Leaf-owned kwargs (arma_*, lstm_hidden_dim, etc.) MUST NOT appear
+    # here — the artifact pins them. Setting them would be rejected by
+    # the config cross-validator ``_validate_pretrained_leaves_config``.
+
+# Maps leaf_key → artifact directory. Builder loads each and injects via
+# the strategy ctor's ``pretrained_leaves`` kwarg.
+pretrained_leaves:
+  return_model: experiment_results/models/spy_hybrid_return_2024q4
+
+validation:
+  n_splits: 4
+  test_size: 252
+  gap: 5
+  expanding: true
+  # Reserve a holdout region for the final OOS evaluation.
+  holdout_pct: 0.15
+
+slippage:
+  scenario: normal

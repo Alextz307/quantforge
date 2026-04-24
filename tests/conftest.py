@@ -68,9 +68,13 @@ HOURLY_BASE_PRICE = 100.0
 FEATURE_NOISE_SEED = 11
 
 
-@pytest.fixture
-def deterministic_seed() -> None:
-    """Set deterministic random seeds for reproducibility."""
+def seed_globally() -> None:
+    """Plain callable wrapper around the deterministic seeding logic.
+
+    Use this inside tests that need to re-seed multiple times per test
+    body (e.g., to compare two runs with identical starting state). A
+    pytest fixture would only fire once per test.
+    """
     np.random.seed(GLOBAL_NUMPY_SEED)
     try:
         import torch
@@ -78,6 +82,12 @@ def deterministic_seed() -> None:
         torch.manual_seed(GLOBAL_TORCH_SEED)
     except ImportError:
         pass
+
+
+@pytest.fixture
+def deterministic_seed() -> None:
+    """Set deterministic random seeds for reproducibility."""
+    seed_globally()
 
 
 @pytest.fixture

@@ -42,6 +42,40 @@ from src.engine.scenarios import SlippageScenario
 
 
 @dataclass(frozen=True)
+class PretrainedLeafRecord:
+    """Per-leaf provenance entry on :class:`Manifest`.
+
+    Enough to reproduce holdout-eval / forward-run from the manifest
+    alone: ``path`` to the artifact, ``data_hash`` the artifact trained
+    on (cross-check against the artifact's own manifest for drift), and
+    the training window endpoint so downstream checks can validate
+    temporal separation without reloading the artifact.
+    """
+
+    key: str
+    path: str
+    data_hash: str
+    train_end: pd.Timestamp
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "key": self.key,
+            "path": self.path,
+            "data_hash": self.data_hash,
+            "train_end": self.train_end.isoformat(),
+        }
+
+    @classmethod
+    def from_dict(cls, d: dict[str, object]) -> PretrainedLeafRecord:
+        return cls(
+            key=json_io.get_str(d, "key"),
+            path=json_io.get_str(d, "path"),
+            data_hash=json_io.get_str(d, "data_hash"),
+            train_end=pd.Timestamp(json_io.get_str(d, "train_end")),
+        )
+
+
+@dataclass(frozen=True)
 class Manifest:
     """Canonical, round-tripable manifest for an experiment run."""
 
@@ -53,6 +87,7 @@ class Manifest:
     data_hash: str
     slippage_scenario: SlippageScenario
     holdout_start: pd.Timestamp | None = None
+    pretrained_leaves: tuple[PretrainedLeafRecord, ...] = ()
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -66,6 +101,7 @@ class Manifest:
             "holdout_start": (
                 self.holdout_start.isoformat() if self.holdout_start is not None else None
             ),
+            "pretrained_leaves": [r.to_dict() for r in self.pretrained_leaves],
         }
 
     @classmethod
@@ -79,6 +115,20 @@ class Manifest:
                     f"got {type(raw_holdout).__name__}"
                 )
             holdout = pd.Timestamp(raw_holdout)
+        raw_leaves = d.get("pretrained_leaves", [])
+        if not isinstance(raw_leaves, list):
+            raise ValueError(
+                f"JSON field 'pretrained_leaves' must be a list, got {type(raw_leaves).__name__}"
+            )
+        leaves_parsed: list[PretrainedLeafRecord] = []
+        for raw in raw_leaves:
+            if not isinstance(raw, dict):
+                raise ValueError(
+                    f"JSON field 'pretrained_leaves' entries must be dicts, "
+                    f"got {type(raw).__name__}"
+                )
+            leaves_parsed.append(PretrainedLeafRecord.from_dict(raw))
+        leaves = tuple(leaves_parsed)
         return cls(
             experiment_id=json_io.get_str(d, "experiment_id"),
             name=json_io.get_str(d, "name"),
@@ -88,4 +138,5 @@ class Manifest:
             data_hash=json_io.get_str(d, "data_hash"),
             slippage_scenario=SlippageScenario(json_io.get_str(d, "slippage_scenario")),
             holdout_start=holdout,
+            pretrained_leaves=leaves,
         )

@@ -70,6 +70,20 @@ EXPERIMENT_CONFIG_YAML = "config.yaml"
 EXPERIMENT_METRICS_JSON = "metrics.json"
 EXPERIMENT_STRATEGY_SUBDIR = "strategy_state"
 
+# Standalone model-artifact layout — `experiment_results/models/<name>/`.
+# Distinct symbols from EXPERIMENT_* so a future rename on one side doesn't
+# silently drag the other along; the string values coincide today because
+# both directories use the same manifest / config filenames.
+MODEL_ARTIFACT_MANIFEST_JSON = "manifest.json"
+MODEL_ARTIFACT_CONFIG_YAML = "config.yaml"
+MODEL_ARTIFACT_WEIGHTS_SUBDIR = "weights"
+
+# Top-level subdirectories of ``experiment_results/``. Single source of truth
+# used by the CLI + the runner; renaming one without the other would orphan
+# artifacts under a stale path.
+RUNS_SUBDIR = "runs"
+MODELS_SUBDIR = "models"
+
 
 def ensure_model_dir(path: str | Path) -> Path:
     """Create ``path`` as an empty directory and return the Path.

@@ -17,6 +17,12 @@ MAX_LEVERAGE: float = 3.0
 MIN_POSITION: float = -1.0  # Full short
 MAX_POSITION: float = 3.0  # 3x leveraged long
 
+# ── Realized-volatility estimator ──
+# Window (in bars) for the Garman-Klass realized-vol target. Shared by
+# ``VolatilityTargetingStrategy`` (ctor default) and the standalone
+# training dispatcher so the two callsites cannot silently drift apart.
+DEFAULT_REALIZED_VOL_WINDOW: int = 20
+
 # ── Bar shape ──
 # Canonical OHLCV column ordering. The tuple form is load-bearing in the
 # engine adapter (`_bars_to_arrays` indexes by position); set/dict consumers

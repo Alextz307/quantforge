@@ -23,9 +23,7 @@ implementation is contracted to reset its own fit state from scratch.
 
 from __future__ import annotations
 
-import random
 import secrets
-import subprocess
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -33,27 +31,29 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-import yaml
 
 from quant_engine import SlippageConfig
 from src.core import json_io
-from src.core.config import ExperimentConfig
+from src.core.config import ExperimentConfig, write_frozen_yaml
 from src.core.logging import get_logger
 from src.core.persistence import (
     EXPERIMENT_CONFIG_YAML,
     EXPERIMENT_METRICS_JSON,
     EXPERIMENT_STRATEGY_SUBDIR,
     FOLD_RESULTS_JSONL,
+    RUNS_SUBDIR,
     ensure_model_dir,
     write_experiment_manifest,
 )
+from src.core.seeding import seed_all
 from src.core.temporal import WalkForwardValidator, resolve_holdout_boundary
 from src.data.fingerprint import fingerprint_bars
 from src.data.interface import IDataSource
 from src.engine.interface import IBacktestEngine
 from src.engine.walk_forward import FoldResult, evaluate_walk_forward
 from src.features.interface import IFeaturePipeline
-from src.orchestration.manifest import Manifest
+from src.orchestration.git_info import read_git_sha
+from src.orchestration.manifest import Manifest, PretrainedLeafRecord
 from src.orchestration.types import ExperimentResult, FoldRecord
 from src.strategies.interface import IStrategy
 
@@ -61,29 +61,12 @@ from src.strategies.interface import IStrategy
 # is True — matplotlib's cold-import tree (~4s incl. pyplot + PIL + numpy
 # cascades) is substantial and `--no-report` runs (e.g. HPO trials where the
 # tuner drives reporting at the study level) shouldn't pay it. The lazy
-# import mirrors ``_seed_all``'s lazy torch import for the same reason.
+# import mirrors ``seed_all``'s lazy torch import for the same reason.
 
 _module_logger = get_logger(__name__)
 
 _DEFAULT_STORE_ROOT = Path("experiment_results")
-_RUNS_SUBDIR = "runs"
 _EXPERIMENT_ID_SUFFIX_BYTES = 4  # → 8 hex chars, 2^32 combos; low collision risk at ≤10³ runs/s
-_GIT_SHA_UNKNOWN = "unknown"
-
-
-def _resolve_git_sha() -> str:
-    """Best-effort short git SHA; ``"unknown"`` when not in a git tree."""
-    try:
-        out = subprocess.run(
-            ["git", "rev-parse", "--short=7", "HEAD"],
-            check=True,
-            capture_output=True,
-            text=True,
-            timeout=2,
-        )
-        return out.stdout.strip() or _GIT_SHA_UNKNOWN
-    except (subprocess.SubprocessError, FileNotFoundError):
-        return _GIT_SHA_UNKNOWN
 
 
 def _make_experiment_id(strategy_name: str, created_at: datetime, git_sha: str) -> str:
@@ -96,25 +79,6 @@ def _make_experiment_id(strategy_name: str, created_at: datetime, git_sha: str) 
     ts = created_at.strftime("%Y%m%d_%H%M%S")
     suffix = secrets.token_hex(_EXPERIMENT_ID_SUFFIX_BYTES)
     return f"{ts}_{strategy_name}_{git_sha}_{suffix}"
-
-
-def _seed_all(seed: int) -> None:
-    """Seed numpy + torch + stdlib random so walk-forward output is reproducible.
-
-    Torch is imported locally because this module is consumed by the config
-    loader and we don't want a ~4s torch import to fire on every CLI startup
-    when the caller just wants to validate a YAML.
-    """
-    np.random.seed(seed)
-    random.seed(seed)
-    try:
-        import torch
-
-        torch.manual_seed(seed)
-        if torch.cuda.is_available():
-            torch.cuda.manual_seed_all(seed)
-    except ImportError:
-        pass
 
 
 def _fetch_bars(data_source: IDataSource, cfg: ExperimentConfig) -> pd.DataFrame:
@@ -188,17 +152,6 @@ def _write_fold_jsonl(path: Path, folds: tuple[FoldRecord, ...]) -> None:
             f.write("\n")
 
 
-def _write_frozen_config(path: Path, cfg: ExperimentConfig) -> None:
-    """Dump the validated config as YAML alongside the manifest.
-
-    Uses ``mode="json"`` so pydantic coerces ``datetime`` / ``Path`` /
-    enum values to JSON-safe primitives that ``yaml.safe_dump`` accepts.
-    """
-    payload = cfg.model_dump(mode="json")
-    with path.open("w", encoding="utf-8") as f:
-        yaml.safe_dump(payload, f, sort_keys=True)
-
-
 @dataclass(frozen=True)
 class Experiment:
     """A fully-wired walk-forward experiment.
@@ -214,6 +167,7 @@ class Experiment:
     engine: IBacktestEngine
     slippage: SlippageConfig
     feature_pipeline_factory: Callable[[], IFeaturePipeline] | None = None
+    pretrained_leaf_records: tuple[PretrainedLeafRecord, ...] = ()
 
     def run(
         self,
@@ -257,11 +211,11 @@ class Experiment:
         """
         store = store_root if store_root is not None else _DEFAULT_STORE_ROOT
         created_at = datetime.now(UTC)
-        git_sha = _resolve_git_sha()
+        git_sha = read_git_sha()
         experiment_id = _make_experiment_id(self.strategy.name, created_at, git_sha)
-        run_dir = Path(store) / _RUNS_SUBDIR / experiment_id
+        run_dir = Path(store) / RUNS_SUBDIR / experiment_id
 
-        _seed_all(self.config.seed)
+        seed_all(self.config.seed)
 
         bars_full = _fetch_bars(self.data_source, self.config)
         boundary = resolve_holdout_boundary(
@@ -290,10 +244,11 @@ class Experiment:
             data_hash=data_hash,
             slippage_scenario=self.config.slippage.scenario,
             holdout_start=boundary,
+            pretrained_leaves=self.pretrained_leaf_records,
         )
 
         ensure_model_dir(run_dir)
-        _write_frozen_config(run_dir / EXPERIMENT_CONFIG_YAML, self.config)
+        write_frozen_yaml(run_dir / EXPERIMENT_CONFIG_YAML, self.config)
         write_experiment_manifest(run_dir, manifest)
         logger = get_logger(__name__, experiment_id=experiment_id, strategy=self.strategy.name)
         logger.info(

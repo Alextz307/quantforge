@@ -21,21 +21,25 @@ from typing import Self
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from src.core.leaf_keys import describe_supported_leaf_keys
 from src.core.registry import (
+    classifier_registry,
     data_source_registry,
     feature_registry,
+    model_registry,
     strategy_registry,
 )
-from src.core.types import Interval
+from src.core.types import Interval, ModelKind
 from src.engine.scenarios import SlippageScenario
 
 
 def _ensure_registries_populated() -> None:
-    """Import the three component packages so their registry decorators run.
+    """Import the component packages so their registry decorators run.
 
     Each package's ``__init__.py`` walks its own directory and imports every
     non-private, non-``interface`` module — so a new strategy / data source /
-    feature pipeline file registers itself automatically, with no edits here.
+    feature pipeline / model file registers itself automatically, with no
+    edits here.
 
     Deferred out of module scope because these package imports transitively
     pull in torch / xgboost / arch / statsmodels / pmdarima (~4 s on a cold
@@ -45,7 +49,54 @@ def _ensure_registries_populated() -> None:
     """
     import src.data  # noqa: F401
     import src.features  # noqa: F401
+    import src.models  # noqa: F401
     import src.strategies  # noqa: F401
+
+
+# Per-strategy list of ctor kwargs that a pretrained leaf OWNS: when the
+# leaf is frozen-injected, these hyperparameters are pinned by the artifact
+# and the user shouldn't also be setting them in strategy.params (the
+# artifact wins silently, which makes HPO vs. pretrained collisions a
+# silent-misfit debugging nightmare). ``feature_columns``, ``interval``,
+# and ``lstm_lookback`` are deliberately excluded — the strategy still
+# needs those even when the leaf is frozen, and ``validate_pretrained_leaf``
+# catches mismatches vs. the artifact at injection time.
+_LEAF_KEY_OWNED_PARAMS: dict[str, dict[str, tuple[str, ...]]] = {
+    "ReturnForecast": {
+        "return_model": (
+            "arma_p_max",
+            "arma_q_max",
+            "arma_information_criterion",
+            "lstm_hidden_dim",
+            "lstm_num_layers",
+            "lstm_dropout",
+            "lstm_lr",
+            "lstm_epochs",
+            "lstm_loss_fn",
+            "lstm_patience",
+            "lstm_batch_size",
+            "lstm_val_split_ratio",
+            "lstm_device",
+        ),
+    },
+    "VolatilityTargeting": {
+        "vol_model": (
+            "garch_p_max",
+            "garch_q_max",
+            "lstm_hidden_dim",
+            "lstm_num_layers",
+            "lstm_dropout",
+            "lstm_lr",
+            "lstm_epochs",
+            "lstm_loss_fn",
+            "lstm_patience",
+            "lstm_batch_size",
+            "lstm_val_split_ratio",
+            "lstm_device",
+            "min_vol",
+        ),
+    },
+}
 
 
 class ComponentConfig(BaseModel):
@@ -203,11 +254,99 @@ class SlippageConfigSpec(BaseModel):
     scenario: SlippageScenario = SlippageScenario.NORMAL
 
 
+class StandaloneModelConfig(BaseModel):
+    """Root config for ``experiment train-model`` — train one leaf standalone.
+
+    A sibling of :class:`ExperimentConfig`: same ``data`` / ``features`` /
+    ``seed`` fields, different output. Runs one ``model.fit()`` on the
+    data slice ``[train_start, train_end]`` (inclusive) and persists a
+    model artifact at ``experiment_results/models/<name>/`` that a later
+    ``experiment run`` can inject via ``pretrained_leaves``.
+
+    ``model_kind`` disambiguates the two model registries (predictor vs
+    classifier). Getting it wrong at config-load time fails loud with an
+    actionable error; getting it wrong at load-time silently dispatches
+    to the wrong registry, which has been a source of real bugs.
+
+    ``train_start`` / ``train_end`` default to ``None`` (use the full
+    fetched window). When set, they must bracket ``data.start`` /
+    ``data.end`` respectively — the data fetch fails otherwise and we
+    surface that at config-validate time instead of after fetching.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    name: str = Field(min_length=1)
+    seed: int = 42
+    data: DataConfig
+    features: ComponentConfig | None = None
+    model: ComponentConfig
+    model_kind: ModelKind = ModelKind.PREDICTOR
+    train_start: datetime | None = None
+    train_end: datetime | None = None
+
+    @model_validator(mode="after")
+    def _validate_model_registered_and_range(self) -> Self:
+        _ensure_registries_populated()
+        registry = model_registry if self.model_kind == ModelKind.PREDICTOR else classifier_registry
+        if self.model.name not in registry:
+            raise ValueError(
+                f"unknown {self.model_kind.value} '{self.model.name}'; "
+                f"available: {sorted(registry.list_all())}"
+            )
+        if self.features is not None and self.features.name not in feature_registry:
+            raise ValueError(
+                f"unknown feature pipeline '{self.features.name}'; "
+                f"available: {sorted(feature_registry.list_all())}"
+            )
+        if (
+            self.train_start is not None
+            and self.train_end is not None
+            and self.train_start >= self.train_end
+        ):
+            raise ValueError(
+                f"train_start ({self.train_start.isoformat()}) must be strictly "
+                f"before train_end ({self.train_end.isoformat()}); swap or widen."
+            )
+        # ``data.interval`` is the source of truth — the standalone trainer
+        # injects it into model.params before ctor. Accepting the same key
+        # under model.params silently lets a user's value get stomped. Reject
+        # at config time so the mismatch is visible at the boundary.
+        if "interval" in self.model.params:
+            raise ValueError(
+                "model.params must not set 'interval'; data.interval is the "
+                "canonical source and the standalone trainer forwards it to "
+                "the model ctor automatically. Remove 'interval' from "
+                "model.params."
+            )
+        return self
+
+
 class ExperimentConfig(BaseModel):
     """Root experiment config. Loaded from YAML, consumed by ``build_experiment``.
 
     ``features`` is optional: strategies that own their own feature engineering
-    (every Phase 2.5 strategy except hybrids) don't need a separate pipeline.
+    don't need a separate pipeline.
+
+    ``pretrained_leaves`` maps a strategy-specific leaf key (e.g.
+    ``"return_model"`` for ReturnForecast, ``"vol_model"`` for
+    VolatilityTargeting) to the directory of a previously-saved standalone
+    model artifact. The builder loads each artifact and injects it into
+    the strategy via its ``pretrained_leaves`` ctor kwarg; the leaf stays
+    frozen across folds while the strategy's own state re-fits each fold.
+
+    Config-layer validation (see ``_validate_pretrained_leaves_config``):
+
+    * Every key must appear in the target strategy's ``_leaf_keys``
+      ClassVar. Unknown keys raise with the supported set listed.
+    * Every path must exist as a directory (presence of ``manifest.json``
+      is left to load-time; config validation is file-system shallow).
+    * Leaf-specific params in ``strategy.params`` collide with a frozen
+      leaf — if ``pretrained_leaves`` pins ``"return_model"``, passing
+      e.g. ``arma_p_max`` in ``strategy.params`` is rejected: the artifact
+      owns those hyperparameters and silently ignoring user-supplied
+      values would confuse debugging. The per-leaf-key conflict set is
+      declared as a ClassVar ``_LEAF_KEY_OWNED_PARAMS`` below.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -217,6 +356,7 @@ class ExperimentConfig(BaseModel):
     data: DataConfig
     features: ComponentConfig | None = None
     strategy: ComponentConfig
+    pretrained_leaves: dict[str, Path] = Field(default_factory=dict)
     validation: ValidationConfig = Field(default_factory=ValidationConfig)
     slippage: SlippageConfigSpec = Field(default_factory=SlippageConfigSpec)
     risk_free_rate: float = 0.0
@@ -236,6 +376,95 @@ class ExperimentConfig(BaseModel):
             )
         return self
 
+    @model_validator(mode="after")
+    def _validate_pretrained_leaves_config(self) -> Self:
+        if not self.pretrained_leaves:
+            return self
+
+        _ensure_registries_populated()
+        # Pydantic v2 does not guarantee ordering between model_validator
+        # callbacks: if this runs before ``_validate_component_names`` on a
+        # config with an unknown strategy name, ``strategy_registry.get``
+        # raises ``KeyError`` that pydantic wraps into an unhelpful error.
+        # Defer to the other validator for the canonical "unknown strategy"
+        # message; the unknown-strategy case still fails validation.
+        if self.strategy.name not in strategy_registry:
+            return self
+        strategy_cls = strategy_registry.get(self.strategy.name)
+        supported_keys: frozenset[str] = getattr(strategy_cls, "_leaf_keys", frozenset())
+
+        unknown = set(self.pretrained_leaves) - supported_keys
+        if unknown:
+            raise ValueError(
+                f"pretrained_leaves contains unknown key(s) {sorted(unknown)!r} "
+                f"for strategy '{self.strategy.name}'; "
+                f"{describe_supported_leaf_keys(supported_keys, self.strategy.name)}."
+            )
+
+        for key, path in self.pretrained_leaves.items():
+            if not path.is_dir():
+                raise ValueError(
+                    f"pretrained_leaves['{key}'] path does not exist or is not a "
+                    f"directory: {path}; fix by running `experiment train-model` "
+                    f"first, or by pointing at an existing artifact directory."
+                )
+
+        collision_map = _LEAF_KEY_OWNED_PARAMS.get(self.strategy.name, {})
+        collisions: dict[str, list[str]] = {}
+        for key in self.pretrained_leaves:
+            owned = collision_map.get(key, ())
+            overlap = sorted(set(owned) & set(self.strategy.params))
+            if overlap:
+                collisions[key] = overlap
+        if collisions:
+            raise ValueError(
+                f"pretrained_leaves frozen leaf owns hyperparameters that are also "
+                f"set in strategy.params — artifact would win silently: {collisions}. "
+                f"Fix by removing those keys from strategy.params (the leaf already "
+                f"pins them)."
+            )
+        return self
+
+
+def write_frozen_yaml(path: str | Path, cfg: BaseModel, *, sort_keys: bool = True) -> None:
+    """Dump a validated pydantic config to YAML at ``path``.
+
+    ``mode="json"`` coerces ``datetime`` / ``Path`` / enum values to
+    JSON-safe primitives ``yaml.safe_dump`` accepts. Shared between the
+    experiment runner (frozen ``config.yaml`` alongside ``manifest.json``)
+    and the standalone-model artifact writer.
+    """
+    payload = cfg.model_dump(mode="json")
+    with Path(path).open("w", encoding="utf-8") as f:
+        yaml.safe_dump(payload, f, sort_keys=sort_keys)
+
+
+def _load_yaml_config[T: BaseModel](path: str | Path, cls: type[T], kind: str) -> T:
+    """Shared YAML-load pipeline for :class:`ExperimentConfig` and siblings.
+
+    Both ``experiment run`` and ``experiment train-model`` want identical
+    error framing for missing / empty / invalid config files — extracting
+    the common logic avoids drift in the error messages users actually
+    see.
+    """
+    config_path = Path(path)
+    try:
+        with open(config_path) as f:
+            raw: dict[str, object] | None = yaml.safe_load(f)
+    except FileNotFoundError:
+        raise FileNotFoundError(
+            f"{kind} config not found: {config_path}; "
+            f"check the --config path or create the file first."
+        ) from None
+
+    if raw is None:
+        raise ValueError(
+            f"Empty {kind} config: {config_path}; populate it with at minimum "
+            f"the fields required by {cls.__name__}."
+        )
+
+    return cls.model_validate(raw)
+
 
 def load_experiment_config(path: str | Path) -> ExperimentConfig:
     """Load and validate an :class:`ExperimentConfig` from YAML.
@@ -244,20 +473,14 @@ def load_experiment_config(path: str | Path) -> ExperimentConfig:
         FileNotFoundError: If ``path`` does not exist.
         ValueError: If the file is empty or pydantic validation fails.
     """
-    config_path = Path(path)
-    try:
-        with open(config_path) as f:
-            raw: dict[str, object] | None = yaml.safe_load(f)
-    except FileNotFoundError:
-        raise FileNotFoundError(
-            f"Experiment config not found: {config_path}; "
-            f"check the --config path or create the file first."
-        ) from None
+    return _load_yaml_config(path, ExperimentConfig, "experiment")
 
-    if raw is None:
-        raise ValueError(
-            f"Empty experiment config: {config_path}; "
-            f"populate it with at minimum `name`, `data`, and `strategy` sections."
-        )
 
-    return ExperimentConfig.model_validate(raw)
+def load_standalone_model_config(path: str | Path) -> StandaloneModelConfig:
+    """Load and validate a :class:`StandaloneModelConfig` from YAML.
+
+    Raises:
+        FileNotFoundError: If ``path`` does not exist.
+        ValueError: If the file is empty or pydantic validation fails.
+    """
+    return _load_yaml_config(path, StandaloneModelConfig, "standalone-model")

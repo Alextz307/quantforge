@@ -138,6 +138,13 @@ class HybridVolatilityModel(IPredictor):
         self._fitted = False
         self._training_metadata: TrainingMetadata | None = None
 
+    @property
+    def params(self) -> _HybridVolConfig:
+        """Frozen snapshot of every ctor kwarg — public so composites can
+        sync their own passthrough-params bundle off a pretrained leaf
+        without reaching into private state."""
+        return self._params
+
     def fit(
         self,
         train_data: pd.DataFrame,
