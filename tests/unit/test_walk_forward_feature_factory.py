@@ -78,6 +78,10 @@ class _PassThroughStrategy(IStrategy):
     def required_warmup_bars(self) -> int:
         return 0
 
+    @staticmethod
+    def suggest_params(trial: object) -> dict[str, object]:
+        return {}
+
 
 def _slippage_zero() -> SlippageConfig:
     return SlippageConfig(

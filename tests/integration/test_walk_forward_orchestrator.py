@@ -64,6 +64,10 @@ class _FlatLongStrategy(IStrategy):
     def required_warmup_bars(self) -> int:
         return 0
 
+    @staticmethod
+    def suggest_params(trial: object) -> dict[str, object]:
+        return {}
+
 
 @pytest.fixture(scope="module")
 def wf_bars() -> pd.DataFrame:

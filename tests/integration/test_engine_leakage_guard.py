@@ -55,6 +55,10 @@ class _LyingStrategy(IStrategy):
     def required_warmup_bars(self) -> int:
         return 0
 
+    @staticmethod
+    def suggest_params(trial: object) -> dict[str, object]:
+        return {}
+
 
 class _ForgetfulStrategy(IStrategy):
     """``train()`` runs but never populates ``_training_metadata``."""
@@ -72,6 +76,10 @@ class _ForgetfulStrategy(IStrategy):
     @property
     def required_warmup_bars(self) -> int:
         return 0
+
+    @staticmethod
+    def suggest_params(trial: object) -> dict[str, object]:
+        return {}
 
 
 def test_orchestrator_raises_on_overlapping_training_metadata() -> None:

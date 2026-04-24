@@ -11,6 +11,8 @@ import pandas as pd
 from src.core.temporal import TrackedMetadata, collect_metadata
 
 if TYPE_CHECKING:
+    import optuna
+
     from src.core.temporal import TrainingMetadata
 
 
@@ -44,6 +46,21 @@ class IStrategy(ABC):
     @abstractmethod
     def required_warmup_bars(self) -> int:
         """Number of initial bars needed before signals are valid."""
+
+    @staticmethod
+    @abstractmethod
+    def suggest_params(trial: optuna.Trial) -> dict[str, object]:
+        """Optuna search space for this strategy's ctor kwargs.
+
+        Every strategy declares the joint feature / model / strategy
+        hyperparameters it wants tuned — leaf knobs that pass through to
+        wrapped models (e.g. ``arma_p_max`` on ReturnForecast) are
+        flattened here, not resolved via a separate leaf ``suggest_params``
+        call. The ``StrategyTuner`` merges the returned dict into
+        ``ExperimentConfig.strategy.params`` per trial, with any keys
+        owned by pinned pretrained leaves filtered out by
+        :func:`src.optimization.sampling.sample_trial_params`.
+        """
 
     @property
     def training_metadata(self) -> TrainingMetadata | None:
