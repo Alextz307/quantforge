@@ -31,13 +31,6 @@ same holdout boundary so their folds line up bar-for-bar. We enforce
 this by verifying every :class:`ExperimentResult` has an identical
 ``fold_count`` and identical per-fold ``equity_curve`` length; a
 mismatch raises :class:`ValueError` before any bootstrap work begins.
-
-Significance mode
------------------
-``significance_test`` is presently ``{"bootstrap", "none"}``. A future
-``"dm"`` mode lands when strategies expose aligned point forecasts
-under a uniform API — today no single strategy accessor returns them,
-so DM across the full strategy set isn't a well-defined request.
 """
 
 from __future__ import annotations
