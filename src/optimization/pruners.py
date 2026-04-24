@@ -12,6 +12,8 @@ enum-typed end-to-end (no Optional plumbing in downstream signatures).
 
 from __future__ import annotations
 
+from typing import assert_never
+
 from optuna.pruners import (
     BasePruner,
     HyperbandPruner,
@@ -39,3 +41,5 @@ def build_pruner(kind: PrunerKind) -> BasePruner:
             return PercentilePruner(percentile=_DEFAULT_PERCENTILE_PRUNER_VALUE)
         case PrunerKind.NONE:
             return NopPruner()
+        case _ as unknown:
+            assert_never(unknown)

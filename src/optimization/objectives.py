@@ -86,7 +86,7 @@ class SortinoMinusDrawdownPenaltyObjective:
 
     Configurable via the ``penalty`` kwarg; ``build_objective`` uses the
     default. If a study needs a non-default penalty, construct the
-    objective directly and pass it into ``StrategyTuner`` (Batch 3.C).
+    objective directly and pass it into :class:`StrategyTuner`.
     """
 
     penalty: float = _DEFAULT_DRAWDOWN_PENALTY

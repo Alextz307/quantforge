@@ -43,21 +43,34 @@ BEST_CONFIG_YAML_NAME = "best_config.yaml"
 TRIALS_JSONL_NAME = "trials.jsonl"
 
 
-@dataclass(frozen=True)
+@dataclass
 class TrialCallback:
-    """Optuna ``callback`` wrapper — frozen so it's safe across worker threads."""
+    """Optuna ``callback`` wrapper invoked after every trial.
+
+    Not frozen: ``_last_best_value`` is a local cache that short-circuits
+    the O(n) ``study.best_trial`` scan on every COMPLETE trial that
+    fails to improve. On resume the first COMPLETE trial still pays one
+    scan to sync the cache with the study's historical best.
+    """
 
     experiment_cfg: ExperimentConfig
     study_dir: Path
+    _last_best_value: float | None = None
 
     def __call__(self, study: optuna.Study, trial: optuna.trial.FrozenTrial) -> None:
         self._append_trial_record(trial)
-        if trial.state != optuna.trial.TrialState.COMPLETE:
+        if trial.state != optuna.trial.TrialState.COMPLETE or trial.value is None:
+            return
+        if self._last_best_value is not None and trial.value <= self._last_best_value:
             return
         try:
             best = study.best_trial
         except ValueError:
             return  # no completed trials yet — nothing to checkpoint
+        # Sync the cache even when this trial isn't the new best (happens
+        # on the first COMPLETE of a resumed study: historical best exists
+        # but the cache is fresh).
+        self._last_best_value = best.value
         if best.number != trial.number:
             return
         self._refresh_best_config(best)

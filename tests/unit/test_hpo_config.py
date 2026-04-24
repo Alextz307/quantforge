@@ -123,5 +123,5 @@ class TestLoadHPOConfig:
     def test_empty_file_raises(self, tmp_path: Path) -> None:
         config_path = tmp_path / "empty.yaml"
         config_path.write_text("")
-        with pytest.raises(ValueError, match="is empty"):
+        with pytest.raises(ValueError, match="Empty hpo config"):
             load_hpo_config(config_path)

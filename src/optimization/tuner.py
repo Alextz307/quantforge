@@ -85,8 +85,11 @@ class StrategyTuner:
     """Drive one Optuna study against one :class:`ExperimentConfig`.
 
     Construction is deliberately minimal — the interesting work happens
-    in :meth:`run`. The tuner is frozen so passing the same instance to
-    multiple threads / worker pools is explicit about safety.
+    in :meth:`run`. Frozen because the tuner is pure configuration: once
+    built it's a read-only handle to a study, and accidental ctor-arg
+    reassignment mid-run (e.g. mutating ``store_root`` after ``study_dir``
+    has been memoised implicitly by logs / artefacts on disk) would be a
+    bug we'd rather not be able to write.
     """
 
     experiment_cfg: ExperimentConfig
@@ -181,6 +184,11 @@ class StrategyTuner:
         quietly edits a YAML and re-runs under the same study name gets
         a pointed error instead of studying under two different
         objectives.
+
+        Both files are written together — a crash that leaves only one
+        on disk is treated as a half-initialised study dir and the next
+        run re-writes whichever is missing, so the "both frozen yamls
+        present" invariant is always restored on a clean rerun.
         """
         exp_path = self.study_dir / EXPERIMENT_CONFIG_YAML
         hpo_path = self.study_dir / HPO_CONFIG_YAML
@@ -194,6 +202,12 @@ class StrategyTuner:
                     f"study_name, or by reverting the config at {exp_path} "
                     f"to its original content."
                 )
+            if hpo_path.exists():
+                return
+            # Partial init: experiment_config.yaml survived but hpo_config.yaml
+            # didn't. Rewrite the missing sibling so downstream readers see a
+            # complete study dir.
+            write_frozen_yaml(hpo_path, self.hpo_cfg)
             return
         write_frozen_yaml(exp_path, self.experiment_cfg)
         write_frozen_yaml(hpo_path, self.hpo_cfg)

@@ -170,3 +170,98 @@ class TestCallbackDirectInvocation:
 
         assert (tmp_path / TRIALS_JSONL_NAME).is_file()
         assert not (tmp_path / BEST_CONFIG_YAML_NAME).exists()
+
+
+class TestEndToEndPruning:
+    """Integration-lite: study.optimize with an objective that raises
+    ``TrialPruned`` mid-flight mirrors how the real LSTM/XGBoost leaves
+    abort trials under a live pruner. The callback must log the PRUNED
+    record without promoting it to best.
+    """
+
+    def test_pruned_exception_flows_through_callback(self, tmp_path: Path) -> None:
+        import json
+
+        from src.optimization.sampling import sample_trial_params
+
+        cfg = _base_cfg()
+        study = optuna.create_study(direction="maximize")
+        callback = _make_callback(tmp_path)
+
+        def objective(trial: optuna.Trial) -> float:
+            sample_trial_params(cfg, trial)
+            if trial.number == 0:
+                raise optuna.TrialPruned("fixture: prune trial 0")
+            return 0.3
+
+        study.optimize(objective, n_trials=2, callbacks=[callback])
+
+        lines = (tmp_path / TRIALS_JSONL_NAME).read_text().splitlines()
+        assert len(lines) == 2
+        states = [json.loads(line)["state"] for line in lines]
+        assert states == ["PRUNED", "COMPLETE"]
+        # Only the completed trial can define best_config
+        assert (tmp_path / BEST_CONFIG_YAML_NAME).is_file()
+
+
+class TestBestValueCache:
+    """Incremental best tracking avoids scanning ``study.best_trial`` on
+    every non-improving COMPLETE trial (would otherwise be O(n²) for a
+    study whose best improves often).
+    """
+
+    def test_cache_populated_after_first_complete_trial(self, tmp_path: Path) -> None:
+        callback = _make_callback(tmp_path)
+        _run_study_with_callback_from(tmp_path, [0.5], callback=callback)
+        assert callback._last_best_value == 0.5
+
+    def test_cache_advances_only_when_best_improves(self, tmp_path: Path) -> None:
+        callback = _make_callback(tmp_path)
+        _run_study_with_callback_from(tmp_path, [0.1, 0.5, 0.3, 0.4], callback=callback)
+        assert callback._last_best_value == 0.5
+
+    def test_non_improving_trial_skips_study_best_trial_scan(self, tmp_path: Path) -> None:
+        """After a best is seen, a worse COMPLETE trial must short-circuit
+        without touching ``study.best_trial`` — we detect this by patching
+        the study with a ``best_trial`` that raises if accessed.
+        """
+        callback = _make_callback(tmp_path)
+        # Seed the cache by running one complete trial first.
+        _run_study_with_callback_from(tmp_path, [0.5], callback=callback)
+        assert callback._last_best_value == 0.5
+
+        worse = optuna.trial.create_trial(
+            params={"bollinger_window": 20},
+            distributions={"bollinger_window": optuna.distributions.IntDistribution(10, 50)},
+            value=0.1,
+            state=optuna.trial.TrialState.COMPLETE,
+        )
+        object.__setattr__(worse, "datetime_start", datetime(2026, 1, 1, 12, 0))
+        object.__setattr__(worse, "datetime_complete", datetime(2026, 1, 1, 12, 5))
+
+        class _TrapStudy:
+            @property
+            def best_trial(self) -> optuna.trial.FrozenTrial:
+                raise AssertionError("callback should short-circuit without scanning best_trial")
+
+        callback(_TrapStudy(), worse)  # type: ignore[arg-type]
+
+
+def _run_study_with_callback_from(
+    tmp_path: Path, values: list[float], *, callback: TrialCallback
+) -> optuna.Study:
+    """Variant of ``_run_study_with_callback`` that takes a pre-built
+    callback — needed by tracker tests that read callback state after.
+    """
+    from src.optimization.sampling import sample_trial_params
+
+    cfg = _base_cfg()
+    study = optuna.create_study(direction="maximize")
+    value_iter = iter(values)
+
+    def objective(trial: optuna.Trial) -> float:
+        sample_trial_params(cfg, trial)
+        return next(value_iter)
+
+    study.optimize(objective, n_trials=len(values), callbacks=[callback])
+    return study

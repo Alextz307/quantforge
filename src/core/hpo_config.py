@@ -18,12 +18,13 @@ from enum import StrEnum
 from pathlib import Path
 from typing import Self
 
-import yaml
 from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+from src.core.config import load_yaml_config
 
 
 class SamplerKind(StrEnum):
-    """Optuna sampler selector for :func:`build_sampler` (Batch 3.B)."""
+    """Optuna sampler selector for :func:`build_sampler`."""
 
     TPE = "tpe"
     RANDOM = "random"
@@ -32,7 +33,7 @@ class SamplerKind(StrEnum):
 
 
 class PrunerKind(StrEnum):
-    """Optuna pruner selector for :func:`build_pruner` (Batch 3.B).
+    """Optuna pruner selector for :func:`build_pruner`.
 
     ``NONE`` maps to ``optuna.pruners.NopPruner`` — keeps the field
     uniformly enum-typed instead of carrying an ``Optional`` in every
@@ -49,8 +50,8 @@ class ObjectiveKind(StrEnum):
     """Which aggregate metric the study maximises.
 
     All three read from ``ExperimentResult.aggregate_metrics`` keys — the
-    objective layer in Batch 3.B is a thin adapter, no per-fold maths
-    lives in the tuner.
+    objective layer is a thin adapter, no per-fold maths lives in the
+    tuner.
     """
 
     SHARPE = "sharpe"
@@ -66,8 +67,8 @@ class HPOConfig(BaseModel):
     Resume works by re-running with the same ``study_name`` against the
     same SQLite file; Optuna replays completed trials automatically.
 
-    ``n_jobs`` is a positive integer. The CLI layer (Batch 3.C) resolves
-    a convenience ``-1`` / ``"auto"`` to ``os.cpu_count()`` before
+    ``n_jobs`` is a positive integer. The CLI layer resolves a
+    convenience ``-1`` / ``"auto"`` to ``os.cpu_count()`` before
     constructing this model — keeping the pydantic side strictly ``ge=1``
     means the in-process invariant "parallelism count is a known int"
     holds everywhere downstream.
@@ -102,23 +103,8 @@ class HPOConfig(BaseModel):
 def load_hpo_config(path: str | Path) -> HPOConfig:
     """Read a YAML file and validate it as an :class:`HPOConfig`.
 
-    Mirrors the error-framing convention used by
-    :func:`src.core.config.load_experiment_config` so users see
-    identical "file not found" / "empty file" / "validation failed"
-    messages across ``experiment run`` and ``experiment tune``.
+    Delegates to :func:`src.core.config.load_yaml_config` so the
+    "not found / empty / validation failed" framing stays identical
+    across every ``experiment`` subcommand.
     """
-    config_path = Path(path)
-    try:
-        with open(config_path) as f:
-            raw: dict[str, object] | None = yaml.safe_load(f)
-    except FileNotFoundError:
-        raise FileNotFoundError(
-            f"hpo config not found: {config_path}; "
-            f"check the --hpo-config path or create the file first."
-        ) from None
-    if raw is None:
-        raise ValueError(
-            f"hpo config at {config_path} is empty; "
-            f"populate it with at least study_name + n_trials."
-        )
-    return HPOConfig.model_validate(raw)
+    return load_yaml_config(path, HPOConfig, "hpo")

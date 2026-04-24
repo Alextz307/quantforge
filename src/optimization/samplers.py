@@ -11,6 +11,8 @@ tunable with any sampler".
 
 from __future__ import annotations
 
+from typing import assert_never
+
 from optuna.samplers import (
     BaseSampler,
     CmaEsSampler,
@@ -33,3 +35,5 @@ def build_sampler(kind: SamplerKind, seed: int) -> BaseSampler:
             return CmaEsSampler(seed=seed)
         case SamplerKind.QMC:
             return QMCSampler(seed=seed)
+        case _ as unknown:
+            assert_never(unknown)

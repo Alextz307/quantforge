@@ -233,6 +233,55 @@ class TestStrategyTunerResume:
         assert len(study.trials) == 5
 
 
+class TestStrategyTunerPruning:
+    """``optuna.TrialPruned`` raised from the objective (as LSTM/XGBoost
+    leaves do under a live pruner) must be caught by Optuna — marking the
+    trial PRUNED instead of FAILED — and must not short-circuit the rest
+    of the study.
+    """
+
+    def test_pruned_trial_recorded_and_study_continues(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        import src.optimization.tuner as tm
+
+        # Build a partial monkeypatch: trial 0 runs normally, trial 1
+        # raises TrialPruned from inside _aggregate_metrics (closest
+        # mid-trial stand-in without plumbing through a real model).
+        counter = {"n": 0}
+
+        def _fake_build(cfg: ExperimentConfig) -> _FakeExperiment:
+            return _FakeExperiment(experiment_id=f"prune_exp_{counter['n']}")
+
+        def _fake_aggregate(folds: tuple[object, ...]) -> dict[str, float]:
+            n = counter["n"]
+            counter["n"] += 1
+            if n == 1:
+                raise optuna.TrialPruned("fixture: prune trial 1")
+            return {
+                "n_folds": 1,
+                "sharpe_mean": 0.4,
+                "sortino_mean": 0.4,
+                "calmar_mean": 0.4,
+                "max_drawdown_worst": -0.05,
+                "total_return_mean": 0.02,
+            }
+
+        monkeypatch.setattr(tm, "build_experiment", _fake_build)
+        monkeypatch.setattr(tm, "_aggregate_metrics", _fake_aggregate)
+
+        tuner = StrategyTuner(
+            experiment_cfg=_build_base_cfg(),
+            hpo_cfg=_hpo_cfg("pruning", n_trials=3),
+            store_root=tmp_path,
+        )
+        study = tuner.run()
+        assert len(study.trials) == 3
+        states = [t.state for t in study.trials]
+        assert optuna.trial.TrialState.PRUNED in states
+        assert optuna.trial.TrialState.COMPLETE in states
+
+
 class TestStrategyTunerConfigDrift:
     def test_second_run_with_different_config_rejected(
         self, tmp_path: Path, mocked_tuner_env: Callable[[], None]

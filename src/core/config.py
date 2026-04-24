@@ -450,13 +450,13 @@ def write_frozen_yaml(path: str | Path, cfg: BaseModel, *, sort_keys: bool = Tru
         yaml.safe_dump(payload, f, sort_keys=sort_keys)
 
 
-def _load_yaml_config[T: BaseModel](path: str | Path, cls: type[T], kind: str) -> T:
+def load_yaml_config[T: BaseModel](path: str | Path, cls: type[T], kind: str) -> T:
     """Shared YAML-load pipeline for :class:`ExperimentConfig` and siblings.
 
-    Both ``experiment run`` and ``experiment train-model`` want identical
-    error framing for missing / empty / invalid config files — extracting
-    the common logic avoids drift in the error messages users actually
-    see.
+    ``experiment run`` / ``experiment train-model`` / ``experiment tune``
+    all want identical error framing for missing / empty / invalid config
+    files — extracting the common logic avoids drift in the error
+    messages users actually see.
     """
     config_path = Path(path)
     try:
@@ -484,7 +484,7 @@ def load_experiment_config(path: str | Path) -> ExperimentConfig:
         FileNotFoundError: If ``path`` does not exist.
         ValueError: If the file is empty or pydantic validation fails.
     """
-    return _load_yaml_config(path, ExperimentConfig, "experiment")
+    return load_yaml_config(path, ExperimentConfig, "experiment")
 
 
 def load_standalone_model_config(path: str | Path) -> StandaloneModelConfig:
@@ -494,4 +494,4 @@ def load_standalone_model_config(path: str | Path) -> StandaloneModelConfig:
         FileNotFoundError: If ``path`` does not exist.
         ValueError: If the file is empty or pydantic validation fails.
     """
-    return _load_yaml_config(path, StandaloneModelConfig, "standalone-model")
+    return load_yaml_config(path, StandaloneModelConfig, "standalone-model")
