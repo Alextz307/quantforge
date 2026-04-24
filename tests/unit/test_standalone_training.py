@@ -112,6 +112,41 @@ class TestTrainModelStandalone:
         r2 = train_model_standalone(cfg)
         assert r1.manifest.data_hash == r2.manifest.data_hash
 
+    def test_xgboost_directional_end_to_end(self, tmp_path: Path) -> None:
+        """``xgboost_directional`` dispatch: the target computer produces
+        next-bar direction and DirectionalClassifier fits cleanly through
+        the same pipeline as the hybrid leaves."""
+        seed_globally()
+        csv = _make_csv(tmp_path)
+        cfg = StandaloneModelConfig.model_validate(
+            {
+                "name": "xgb_dir_test",
+                "seed": _CONFIG_SEED,
+                "data": {
+                    "source": {"name": "csv", "params": {"data_dir": str(csv.parent)}},
+                    "tickers": [_TICKER],
+                    "start": "2020-01-02",
+                    "end": "2025-12-31",
+                    "interval": "daily",
+                },
+                "model": {
+                    "name": "xgboost_directional",
+                    "params": {
+                        "feature_columns": _FEATURES,
+                        "n_estimators": 5,
+                        "max_depth": 2,
+                    },
+                },
+                "model_kind": "classifier",
+            }
+        )
+        result = train_model_standalone(cfg)
+        assert result.model.training_metadata is not None
+        assert result.model.training_metadata.interval == Interval.DAILY
+        assert tuple(result.model.training_metadata.feature_columns) == tuple(_FEATURES)
+        assert result.manifest.model_name == "xgboost_directional"
+        assert result.manifest.model_kind == ModelKind.CLASSIFIER
+
     def test_unsupported_model_raises_not_implemented(self, tmp_path: Path) -> None:
         csv = _make_csv(tmp_path)
         cfg = StandaloneModelConfig.model_validate(

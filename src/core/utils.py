@@ -50,3 +50,16 @@ def annualized_garman_klass(
     )
     interval_scale = math.sqrt(interval.annualization_factor() / TRADING_DAYS_PER_YEAR)
     return pd.Series(gk * interval_scale, index=bars.index)
+
+
+def next_bar_direction(close: pd.Series[float]) -> pd.Series[int]:
+    """Binary next-bar-up target (1 = up, 0 = down); final row excluded.
+
+    Shared between ``DirectionalClassifier`` training targets (standalone
+    dispatcher and MomentumGatekeeperStrategy's in-strategy batch builder)
+    so the target formula cannot drift across call sites. The last row has
+    no ``t+1`` close — returning its comparison would be a leakage hazard
+    — so it's dropped, not filled.
+    """
+    direction: pd.Series[int] = (close.shift(-1) > close).astype(int).iloc[:-1]
+    return direction

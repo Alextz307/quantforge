@@ -7,12 +7,14 @@ pipeline, fit the model, and return ``(model, data_hash, manifest)`` so
 a caller (the ``experiment train-model`` CLI) can persist the artifact
 bundle via :func:`src.orchestration.model_artifact.save_model_artifact`.
 
-Currently supported models — the two composites whose owning strategies
-accept pretrained-leaf injection:
+Currently supported models — every leaf whose owning strategy accepts
+pretrained-leaf injection:
 
 * ``hybrid_return`` — ``HybridReturnModel`` trained on log returns
 * ``hybrid_volatility`` — ``HybridVolatilityModel`` trained on annualized
   Garman-Klass realized volatility
+* ``xgboost_directional`` — ``DirectionalClassifier`` trained on next-bar
+  direction (1 = up, 0 = down); the final row is dropped (no ``t+1``).
 
 Any other ``cfg.model.name`` raises :class:`NotImplementedError` with a
 pointer to the supported set. Extend the dispatch dict below when a new
@@ -37,7 +39,7 @@ from src.core.registry import (
 )
 from src.core.seeding import seed_all
 from src.core.types import ModelKind
-from src.core.utils import annualized_garman_klass, compute_log_returns
+from src.core.utils import annualized_garman_klass, compute_log_returns, next_bar_direction
 from src.data.fingerprint import fingerprint_bars
 from src.orchestration.git_info import read_git_sha
 from src.orchestration.model_artifact import (
@@ -111,9 +113,18 @@ def _target_for_hybrid_volatility(
     return bars.loc[target.index], target
 
 
+def _target_for_xgboost_directional(
+    bars: pd.DataFrame, _cfg: StandaloneModelConfig
+) -> tuple[pd.DataFrame, pd.Series]:
+    """Next-bar direction target (1 = up, 0 = down); final row dropped (no ``t+1``)."""
+    direction = next_bar_direction(bars["close"])
+    return bars.loc[direction.index], direction
+
+
 _TARGET_DISPATCH: dict[str, _TargetComputer] = {
     "hybrid_return": _target_for_hybrid_return,
     "hybrid_volatility": _target_for_hybrid_volatility,
+    "xgboost_directional": _target_for_xgboost_directional,
 }
 
 

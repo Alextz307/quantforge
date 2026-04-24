@@ -1,0 +1,58 @@
+# Example ExperimentConfig — inject a pretrained DirectionalClassifier into
+# MomentumGatekeeperStrategy. Run after producing the artifact via:
+#   python -m scripts.experiment train-model \
+#       --config config/models/spy_directional_classifier.yaml
+#
+# then:
+#   python -m scripts.experiment run \
+#       --config config/strategies/momentum_gatekeeper_pretrained.yaml
+#
+# Note on scaler scope: MomentumGatekeeper's FeatureEngineeringPipeline
+# sits OUTSIDE the leaf, so the StandardScaler re-fits per fold even when
+# the classifier is frozen. The classifier's decision boundaries are
+# pinned; only the numerical scaling of inputs shifts slightly per fold.
+# Strategies that need a fully-frozen feature distribution should use the
+# hybrid composites (ReturnForecast / VolatilityTargeting) where the scaler
+# is internal to the leaf.
+
+name: spy_momentum_pretrained
+seed: 42
+
+data:
+  source: yfinance
+  tickers: [SPY]
+  start: 2020-01-02
+  end: 2024-12-31
+  interval: daily
+
+strategy:
+  name: MomentumGatekeeper
+  params:
+    # Strategy-level kwargs (user-tunable even with a frozen classifier):
+    ma_window: 50
+    prob_threshold: 0.55
+    # feature_columns is optional — when omitted, the ctor auto-adopts
+    # the classifier's training_metadata.feature_columns so the user
+    # isn't forced to duplicate the list in two configs. Uncomment to
+    # be explicit (mismatches are rejected at injection time):
+    # feature_columns: [rsi_14, macd, macd_signal]
+    # Pipeline kwargs are NOT leaf-owned — tunable per fold even when
+    # the classifier is frozen. Leave at ctor defaults or override here.
+    # Classifier-owned kwargs (n_estimators, learning_rate, max_depth,
+    # subsample, colsample_bytree, val_split_ratio, device) MUST NOT
+    # appear here — the artifact pins them. Setting any would be
+    # rejected by the config cross-validator.
+
+pretrained_leaves:
+  directional_classifier: experiment_results/models/spy_xgb_directional_2024q4
+
+validation:
+  n_splits: 4
+  test_size: 252
+  gap: 5
+  expanding: true
+  # Reserve a holdout region for the final OOS evaluation.
+  holdout_pct: 0.15
+
+slippage:
+  scenario: normal

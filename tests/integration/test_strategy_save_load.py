@@ -299,7 +299,11 @@ _DRIFT_CASES: list[tuple[type, Callable[[], object], set[str]]] = [
         lambda: AdaptiveBollingerStrategy(),
         {"pretrained_leaves"},
     ),
-    (MomentumGatekeeperStrategy, lambda: MomentumGatekeeperStrategy(), {"device"}),
+    (
+        MomentumGatekeeperStrategy,
+        lambda: MomentumGatekeeperStrategy(),
+        {"device", "pretrained_leaves"},
+    ),
     (
         ReturnForecastStrategy,
         lambda: ReturnForecastStrategy(feature_columns=["x"]),

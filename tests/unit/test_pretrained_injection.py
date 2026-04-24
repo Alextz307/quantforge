@@ -30,6 +30,7 @@ import pytest
 from src.core.temporal import TrackedMetadata, TrainingMetadata
 from src.core.types import Interval
 from src.strategies.adaptive_bollinger import AdaptiveBollingerStrategy
+from src.strategies.momentum_gatekeeper import MomentumGatekeeperStrategy
 from src.strategies.pairs_trading import PairsTradingStrategy
 from src.strategies.return_forecast import ReturnForecastStrategy
 from src.strategies.volatility_targeting import VolatilityTargetingStrategy
@@ -39,6 +40,12 @@ if TYPE_CHECKING:
     pass
 
 _FEATURES: tuple[str, ...] = ("sma_20", "rsi_14", "volume_z")
+# MomentumGatekeeper owns a real FeatureEngineeringPipeline whose output
+# columns are fixed by the pipeline's formulas (not configurable). The
+# pretrained classifier's ``training_metadata.feature_columns`` must be
+# a subset of those produced columns; pick three with default periods so
+# the pipeline produces them at the ctor defaults.
+_MOMENTUM_FEATURES: tuple[str, ...] = ("rsi_14", "macd", "macd_signal")
 _INTERVAL = Interval.DAILY
 _LSTM_LOOKBACK = 10
 _TRAIN_ROWS = 80
@@ -49,14 +56,17 @@ _TRAIN_END = pd.Timestamp("2019-12-31")
 _LEAF_FIT_TIMESTAMP = pd.Timestamp("2020-01-05")
 
 
-def _leaf_metadata() -> TrainingMetadata:
+def _leaf_metadata(
+    feature_columns: tuple[str, ...] = _FEATURES,
+    interval: Interval = _INTERVAL,
+) -> TrainingMetadata:
     return TrainingMetadata(
         train_start=_TRAIN_START,
         train_end=_TRAIN_END,
         n_train_samples=_LEAF_N_TRAIN_SAMPLES,
         fit_timestamp=_LEAF_FIT_TIMESTAMP,
-        interval=_INTERVAL,
-        feature_columns=_FEATURES,
+        interval=interval,
+        feature_columns=feature_columns,
     )
 
 
@@ -98,6 +108,29 @@ class _FakeHybridLeaf:
         return self.training_metadata_entries
 
 
+@dataclass
+class _FakeClassifier:
+    """Duck-types the DirectionalClassifier surface MomentumGatekeeperStrategy
+    touches when the classifier is pretrained-injected. Different public API
+    than the hybrid leaves: ``predict_proba`` (not ``predict``) and no
+    recursive ``get_all_training_metadata`` — the strategy reads
+    ``training_metadata`` directly.
+    """
+
+    training_metadata: TrainingMetadata | None
+    fit_calls: int = 0
+    update_calls: int = 0
+
+    def fit(self, df: pd.DataFrame, target: pd.Series, **_: object) -> None:
+        self.fit_calls += 1
+
+    def update(self, df: pd.DataFrame, target: pd.Series, **_: object) -> None:
+        self.update_calls += 1
+
+    def predict_proba(self, df: pd.DataFrame) -> pd.Series:
+        return pd.Series([0.5] * len(df), index=df.index, name="up_prob")
+
+
 def _ohlcv_df() -> pd.DataFrame:
     df = make_synthetic_ohlcv_df(n_rows=_TRAIN_ROWS, seed=_OHLCV_SEED)
     for col in _FEATURES:
@@ -115,6 +148,13 @@ def fake_leaf() -> _FakeHybridLeaf:
     return _FakeHybridLeaf(
         training_metadata=_leaf_metadata(),
         _lstm=_FakeLstm(_lookback=_LSTM_LOOKBACK),
+    )
+
+
+@pytest.fixture
+def fake_classifier() -> _FakeClassifier:
+    return _FakeClassifier(
+        training_metadata=_leaf_metadata(feature_columns=_MOMENTUM_FEATURES),
     )
 
 
@@ -266,6 +306,90 @@ class TestVolatilityTargetingPretrainedInjection:
         assert s.training_metadata.train_end == pd.Timestamp(update_df.index[-1])
 
 
+class TestMomentumGatekeeperPretrainedInjection:
+    def test_ctor_stores_leaf_and_skips_build(self, fake_classifier: _FakeClassifier) -> None:
+        s = MomentumGatekeeperStrategy(
+            feature_columns=list(_MOMENTUM_FEATURES),
+            pretrained_leaves={"directional_classifier": fake_classifier},
+        )
+        # Typed as DirectionalClassifier but the runtime object is our fake —
+        # compare by id().
+        assert id(s._classifier) == id(fake_classifier)
+        assert "directional_classifier" in s._pretrained_leaves
+
+    def test_ctor_auto_adopts_feature_columns_from_leaf(
+        self, fake_classifier: _FakeClassifier
+    ) -> None:
+        """Default ``feature_columns=None`` + injected leaf → ctor copies
+        the leaf's ``training_metadata.feature_columns`` so the user isn't
+        forced to duplicate the list in both configs."""
+        s = MomentumGatekeeperStrategy(
+            pretrained_leaves={"directional_classifier": fake_classifier},
+        )
+        assert s._resolved_feature_columns == list(_MOMENTUM_FEATURES)
+
+    def test_train_does_not_refit_pretrained_leaf(
+        self, train_df: pd.DataFrame, fake_classifier: _FakeClassifier
+    ) -> None:
+        s = MomentumGatekeeperStrategy(
+            feature_columns=list(_MOMENTUM_FEATURES),
+            pretrained_leaves={"directional_classifier": fake_classifier},
+        )
+        s.train(train_df)
+        assert fake_classifier.fit_calls == 0
+        assert s._fitted is True
+        assert s.training_metadata is not None
+        assert s.training_metadata.train_end == pd.Timestamp(train_df.index[-1])
+
+    def test_get_all_training_metadata_marks_leaf_entries_pretrained(
+        self, train_df: pd.DataFrame, fake_classifier: _FakeClassifier
+    ) -> None:
+        s = MomentumGatekeeperStrategy(
+            feature_columns=list(_MOMENTUM_FEATURES),
+            pretrained_leaves={"directional_classifier": fake_classifier},
+        )
+        s.train(train_df)
+        tracked = s.get_all_training_metadata()
+        assert tracked[0].origin == "strategy"
+        assert tracked[0].is_pretrained is False
+        leaf_entries = tracked[1:]
+        assert len(leaf_entries) == 1
+        assert leaf_entries[0].origin == "classifier"
+        assert leaf_entries[0].is_pretrained is True
+
+    def test_interval_mismatch_rejected_at_ctor(self, fake_classifier: _FakeClassifier) -> None:
+        fake_classifier.training_metadata = _leaf_metadata(
+            feature_columns=_MOMENTUM_FEATURES, interval=Interval.HOUR
+        )
+        with pytest.raises(ValueError, match="interval mismatch"):
+            MomentumGatekeeperStrategy(
+                feature_columns=list(_MOMENTUM_FEATURES),
+                pretrained_leaves={"directional_classifier": fake_classifier},
+            )
+
+    def test_update_does_not_refit_pretrained_leaf(
+        self, train_df: pd.DataFrame, fake_classifier: _FakeClassifier
+    ) -> None:
+        """Frozen-leaf contract: ``strategy.update()`` must NOT call
+        ``classifier.update()`` when the leaf was pretrained-injected."""
+        s = MomentumGatekeeperStrategy(
+            feature_columns=list(_MOMENTUM_FEATURES),
+            pretrained_leaves={"directional_classifier": fake_classifier},
+        )
+        s.train(train_df)
+        assert fake_classifier.update_calls == 0
+        update_df = _ohlcv_df()
+        update_df.index = pd.date_range(
+            train_df.index[-1] + pd.Timedelta(days=1),
+            periods=len(update_df),
+            freq="B",
+        )
+        s.update(update_df)
+        assert fake_classifier.update_calls == 0
+        assert s.training_metadata is not None
+        assert s.training_metadata.train_end == pd.Timestamp(update_df.index[-1])
+
+
 class TestNonMLStrategiesRejectInjection:
     def test_adaptive_bollinger_rejects_any_key(self) -> None:
         with pytest.raises(ValueError, match="owns no ML leaves"):
@@ -300,6 +424,15 @@ class TestFreshLeafIsNotMarkedPretrained:
             lstm_num_layers=1,
             lstm_epochs=1,
             lstm_batch_size=8,
+        )
+        s.train(train_df)
+        tracked = s.get_all_training_metadata()
+        assert all(not t.is_pretrained for t in tracked)
+
+    def test_momentum_gatekeeper_fresh_leaves_not_pretrained(self, train_df: pd.DataFrame) -> None:
+        s = MomentumGatekeeperStrategy(
+            n_estimators=5,
+            max_depth=2,
         )
         s.train(train_df)
         tracked = s.get_all_training_metadata()

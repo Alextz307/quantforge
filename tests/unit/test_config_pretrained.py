@@ -123,6 +123,26 @@ class TestExperimentConfigPretrainedLeaves:
         with pytest.raises(ValueError, match="unknown strategy"):
             ExperimentConfig.model_validate(payload)
 
+    def test_momentum_gatekeeper_directional_classifier_key_accepted(self, tmp_path: Path) -> None:
+        leaf_dir = tmp_path / "xgb_dir"
+        leaf_dir.mkdir()
+        payload = _base_payload(tmp_path, strategy_name="MomentumGatekeeper")
+        payload["strategy"] = {"name": "MomentumGatekeeper", "params": {}}
+        payload["pretrained_leaves"] = {"directional_classifier": str(leaf_dir)}
+        cfg = ExperimentConfig.model_validate(payload)
+        assert cfg.pretrained_leaves == {"directional_classifier": leaf_dir}
+
+    def test_momentum_gatekeeper_xgb_param_collision_raises(self, tmp_path: Path) -> None:
+        """Setting ``n_estimators`` in ``strategy.params`` collides with a
+        frozen DirectionalClassifier — the artifact owns the booster size."""
+        leaf_dir = tmp_path / "xgb_dir"
+        leaf_dir.mkdir()
+        payload = _base_payload(tmp_path, strategy_name="MomentumGatekeeper")
+        payload["strategy"] = {"name": "MomentumGatekeeper", "params": {"n_estimators": 50}}
+        payload["pretrained_leaves"] = {"directional_classifier": str(leaf_dir)}
+        with pytest.raises(ValueError, match="frozen leaf owns hyperparameters"):
+            ExperimentConfig.model_validate(payload)
+
 
 class TestStandaloneModelConfig:
     def _base(self) -> dict[str, object]:
