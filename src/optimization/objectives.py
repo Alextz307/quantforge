@@ -1,12 +1,12 @@
-"""Objective adapters that map ``ExperimentResult.aggregate_metrics`` to a scalar.
+"""Objective adapters that map aggregate metrics to a scalar.
 
 The tuner hands each trial's aggregate-metrics dict to the selected
 objective and returns the scalar to Optuna. Keeping the adapter boundary
 at ``dict[str, object]`` (the exact shape
-:mod:`src.orchestration.experiment._aggregate_metrics` produces) means
-objectives stay mockable without depending on the full
-``ExperimentResult`` type graph — the tuner passes
-``result.aggregate_metrics`` directly.
+:meth:`src.analysis.metrics_aggregator.AggregateStats.to_dict` produces)
+means objectives stay mockable without depending on the full
+``AggregateStats`` type graph — the tuner converts via ``to_dict()``
+immediately before dispatch.
 
 Every objective is MAXIMIZED — Optuna studies are configured with
 ``direction="maximize"``. Drawdown / loss-style metrics are negated at

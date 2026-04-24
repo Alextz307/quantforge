@@ -1,8 +1,8 @@
 """Unit tests for :mod:`src.optimization.objectives`.
 
 Each objective is a pure function over the ``aggregate_metrics`` dict
-produced by :func:`src.orchestration.experiment._aggregate_metrics` —
-no strategy or walk-forward setup required. Fixture dicts mirror the
+produced by :meth:`src.analysis.metrics_aggregator.AggregateStats.to_dict`
+— no strategy or walk-forward setup required. Fixture dicts mirror the
 exact keys that module writes.
 """
 

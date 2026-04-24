@@ -42,6 +42,7 @@ from typing import TYPE_CHECKING
 import optuna
 import yaml
 
+from src.analysis.metrics_aggregator import aggregate_folds
 from src.core.config import (
     ExperimentConfig,
     load_experiment_config,
@@ -59,7 +60,6 @@ from src.optimization.pruners import build_pruner
 from src.optimization.samplers import build_sampler
 from src.optimization.sampling import sample_trial_params
 from src.orchestration.builder import build_experiment
-from src.orchestration.experiment import _aggregate_metrics
 
 if TYPE_CHECKING:
     from src.orchestration.types import ExperimentResult
@@ -166,7 +166,7 @@ class StrategyTuner:
             write_report=False,
         )
         trial.set_user_attr(USER_ATTR_EXPERIMENT_ID, result.experiment_id)
-        metrics = _aggregate_metrics(result.folds)
+        metrics = aggregate_folds(result.folds).to_dict()
         value = objective(metrics)
         _logger.info(
             "trial %d complete: value=%.6f experiment_id=%s",

@@ -1,6 +1,6 @@
 """StrategyTuner integration tests.
 
-Mocks ``build_experiment`` + ``_aggregate_metrics`` so the tuner's own
+Mocks ``build_experiment`` + ``aggregate_folds`` so the tuner's own
 logic (config materialisation, SQLite study creation, trial-to-objective
 plumbing, resume, best-config refresh) is exercised without paying for
 real ML training. The model/strategy layers have their own tests —
@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING
 import optuna
 import pytest
 
+from src.analysis.metrics_aggregator import AggregateStats
 from src.core.config import ExperimentConfig
 from src.core.hpo_config import HPOConfig, ObjectiveKind, SamplerKind
 from src.optimization import tuner as tuner_mod
@@ -25,6 +26,7 @@ from src.optimization.tuner import (
     USER_ATTR_EXPERIMENT_ID,
     StrategyTuner,
 )
+from tests.conftest import make_stub_aggregate_stats
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -86,7 +88,7 @@ def _hpo_cfg(study_name: str, n_trials: int) -> HPOConfig:
 def mocked_tuner_env(
     monkeypatch: pytest.MonkeyPatch,
 ) -> Callable[[], None]:
-    """Monkeypatch ``build_experiment`` + ``_aggregate_metrics``.
+    """Monkeypatch ``build_experiment`` + ``aggregate_folds``.
 
     Returns a callable that resets the per-test trial counter so each
     test starts from the same deterministic state.
@@ -96,22 +98,15 @@ def mocked_tuner_env(
     def _fake_build(cfg: ExperimentConfig) -> _FakeExperiment:
         return _FakeExperiment(experiment_id=f"fake_exp_{counter['n']}")
 
-    def _fake_aggregate(folds: tuple[object, ...]) -> dict[str, float]:
+    def _fake_aggregate(folds: tuple[object, ...]) -> AggregateStats:
         # Peaks at _TARGET_WINDOW — tuner should pick trials near it.
         trial_cfg_window = _window_for_trial(counter["n"])
         sharpe = 1.0 - abs(trial_cfg_window - _TARGET_WINDOW) * _SHARPE_PENALTY_PER_UNIT
         counter["n"] += 1
-        return {
-            "n_folds": 1,
-            "sharpe_mean": sharpe,
-            "sortino_mean": sharpe,
-            "calmar_mean": sharpe,
-            "max_drawdown_worst": -0.1,
-            "total_return_mean": 0.05,
-        }
+        return make_stub_aggregate_stats(sharpe=sharpe)
 
     monkeypatch.setattr(tuner_mod, "build_experiment", _fake_build)
-    monkeypatch.setattr(tuner_mod, "_aggregate_metrics", _fake_aggregate)
+    monkeypatch.setattr(tuner_mod, "aggregate_folds", _fake_aggregate)
 
     def _reset() -> None:
         counter["n"] = 0
@@ -246,29 +241,24 @@ class TestStrategyTunerPruning:
         import src.optimization.tuner as tm
 
         # Build a partial monkeypatch: trial 0 runs normally, trial 1
-        # raises TrialPruned from inside _aggregate_metrics (closest
+        # raises TrialPruned from inside aggregate_folds (closest
         # mid-trial stand-in without plumbing through a real model).
         counter = {"n": 0}
 
         def _fake_build(cfg: ExperimentConfig) -> _FakeExperiment:
             return _FakeExperiment(experiment_id=f"prune_exp_{counter['n']}")
 
-        def _fake_aggregate(folds: tuple[object, ...]) -> dict[str, float]:
+        def _fake_aggregate(folds: tuple[object, ...]) -> AggregateStats:
             n = counter["n"]
             counter["n"] += 1
             if n == 1:
                 raise optuna.TrialPruned("fixture: prune trial 1")
-            return {
-                "n_folds": 1,
-                "sharpe_mean": 0.4,
-                "sortino_mean": 0.4,
-                "calmar_mean": 0.4,
-                "max_drawdown_worst": -0.05,
-                "total_return_mean": 0.02,
-            }
+            return make_stub_aggregate_stats(
+                sharpe=0.4, max_drawdown_worst=-0.05, total_return_mean=0.02
+            )
 
         monkeypatch.setattr(tm, "build_experiment", _fake_build)
-        monkeypatch.setattr(tm, "_aggregate_metrics", _fake_aggregate)
+        monkeypatch.setattr(tm, "aggregate_folds", _fake_aggregate)
 
         tuner = StrategyTuner(
             experiment_cfg=_build_base_cfg(),

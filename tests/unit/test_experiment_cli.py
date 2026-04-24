@@ -24,10 +24,12 @@ from scripts.experiment import (
     _override_standalone,
     cli,
 )
+from src.analysis.metrics_aggregator import AggregateStats
 from src.core.config import ExperimentConfig, StandaloneModelConfig
 from src.optimization import tuner as tuner_mod
 from src.optimization.checkpointing import BEST_CONFIG_YAML_NAME, TRIALS_JSONL_NAME
 from tests.conftest import (
+    make_stub_aggregate_stats,
     make_synthetic_ohlcv_df,
     seed_globally,
 )
@@ -200,7 +202,7 @@ class TestListModelsSubcommand:
 def _write_experiment_config(tmp_path: Path, *, name: str = "cli_tune") -> Path:
     """Write a minimal :class:`ExperimentConfig` YAML that the tuner
     accepts. Data source / walk-forward knobs are never actually touched —
-    the tune test monkeypatches ``build_experiment`` + ``_aggregate_metrics``.
+    the tune test monkeypatches ``build_experiment`` + ``aggregate_folds``.
     """
     payload = {
         "name": name,
@@ -264,7 +266,7 @@ class TestTuneSubcommand:
     """End-to-end CLI smoke for ``experiment tune``.
 
     Monkeypatches the per-trial ML work (``build_experiment`` +
-    ``_aggregate_metrics``) so the test stays in CLI-glue territory:
+    ``aggregate_folds``) so the test stays in CLI-glue territory:
     option parsing, CLI-to-StrategyTuner wiring, HPOReporter invocation,
     artifact layout under ``<store_root>/hpo/<study_name>/``.
     """
@@ -275,22 +277,15 @@ class TestTuneSubcommand:
         def _fake_build(cfg: ExperimentConfig) -> _StubExperiment:
             return _StubExperiment(experiment_id=f"cli_tune_exp_{counter['n']}")
 
-        def _fake_aggregate(folds: tuple[object, ...]) -> dict[str, float]:
+        def _fake_aggregate(folds: tuple[object, ...]) -> AggregateStats:
             # Deterministic decreasing series so trial 0 wins — we only
             # care that best_config.yaml materialises.
             sharpe = 1.0 - counter["n"] * 0.1
             counter["n"] += 1
-            return {
-                "n_folds": 1,
-                "sharpe_mean": sharpe,
-                "sortino_mean": sharpe,
-                "calmar_mean": sharpe,
-                "max_drawdown_worst": -0.1,
-                "total_return_mean": 0.01,
-            }
+            return make_stub_aggregate_stats(sharpe=sharpe, total_return_mean=0.01)
 
         monkeypatch.setattr(tuner_mod, "build_experiment", _fake_build)
-        monkeypatch.setattr(tuner_mod, "_aggregate_metrics", _fake_aggregate)
+        monkeypatch.setattr(tuner_mod, "aggregate_folds", _fake_aggregate)
 
     def test_tune_smoke_produces_study_artifacts(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch

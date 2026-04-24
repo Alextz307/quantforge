@@ -29,10 +29,10 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 
-import numpy as np
 import pandas as pd
 
 from quant_engine import SlippageConfig
+from src.analysis.metrics_aggregator import aggregate_folds
 from src.core import json_io
 from src.core.config import ExperimentConfig, write_frozen_yaml
 from src.core.logging import get_logger
@@ -112,30 +112,6 @@ def _slice_dev(bars: pd.DataFrame, boundary: pd.Timestamp | None) -> pd.DataFram
     if boundary is None:
         return bars
     return bars.loc[bars.index < boundary]
-
-
-def _aggregate_metrics(folds: tuple[FoldRecord, ...]) -> dict[str, object]:
-    """Mean / min / max of the key metrics, for the run-level ``metrics.json``.
-
-    Kept deliberately small here; richer aggregation (std, CI, by-regime)
-    lands with ``src/analysis/`` in a later batch. The fields here are the
-    minimum Chapter 7 needs to eyeball a run at a glance.
-    """
-    if not folds:
-        return {"n_folds": 0}
-    sharpes = [f.sharpe_ratio for f in folds]
-    sortinos = [f.sortino_ratio for f in folds]
-    calmars = [f.calmar_ratio for f in folds]
-    drawdowns = [f.max_drawdown for f in folds]
-    total_returns = [f.total_return for f in folds]
-    return {
-        "n_folds": len(folds),
-        "sharpe_mean": float(np.mean(sharpes)),
-        "sortino_mean": float(np.mean(sortinos)),
-        "calmar_mean": float(np.mean(calmars)),
-        "max_drawdown_worst": float(min(drawdowns)),
-        "total_return_mean": float(np.mean(total_returns)),
-    }
 
 
 def _write_fold_jsonl(path: Path, folds: tuple[FoldRecord, ...]) -> None:
@@ -271,7 +247,7 @@ class Experiment:
         folds = tuple(FoldRecord.from_fold_result(fr) for fr in fold_results)
 
         _write_fold_jsonl(run_dir / FOLD_RESULTS_JSONL, folds)
-        json_io.write(run_dir / EXPERIMENT_METRICS_JSON, _aggregate_metrics(folds))
+        json_io.write(run_dir / EXPERIMENT_METRICS_JSON, aggregate_folds(folds).to_dict())
         _maybe_save_strategy(self.strategy, run_dir / EXPERIMENT_STRATEGY_SUBDIR)
 
         result = ExperimentResult(

@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from src.analysis.metrics_aggregator import AggregateStats
 from src.benchmarking.types import BenchmarkResult, BenchmarkRun, HardwareInfo
 from src.core.temporal import WalkForwardValidator
 from src.core.types import BarData, Interval
@@ -437,4 +438,41 @@ def make_benchmark_run(
         tags=tags,
         results=results,
         hardware=hardware if hardware is not None else make_benchmark_hardware(),
+    )
+
+
+def make_stub_aggregate_stats(
+    *,
+    sharpe: float,
+    max_drawdown_worst: float = -0.1,
+    total_return_mean: float = 0.05,
+) -> AggregateStats:
+    """Build a single-fold :class:`AggregateStats` from a scalar Sharpe.
+
+    Used by tuner / CLI tests that monkeypatch ``aggregate_folds`` and only
+    care about the objective-driving sharpe/sortino/calmar fields — every
+    other numeric field mirrors ``sharpe`` so the dict emitted by
+    ``to_dict()`` is a well-formed superset regardless of which objective
+    the test happens to select.
+    """
+    return AggregateStats(
+        n_folds=1,
+        sharpe_mean=sharpe,
+        sharpe_std=0.0,
+        sharpe_ci95_low=sharpe,
+        sharpe_ci95_high=sharpe,
+        sortino_mean=sharpe,
+        sortino_std=0.0,
+        sortino_ci95_low=sharpe,
+        sortino_ci95_high=sharpe,
+        calmar_mean=sharpe,
+        calmar_std=0.0,
+        calmar_ci95_low=sharpe,
+        calmar_ci95_high=sharpe,
+        max_drawdown_worst=max_drawdown_worst,
+        max_drawdown_mean=max_drawdown_worst,
+        total_return_mean=total_return_mean,
+        total_return_std=0.0,
+        win_rate_mean=0.5,
+        trade_count_total=1,
     )
