@@ -49,7 +49,7 @@ class IStrategy(ABC):
 
     @staticmethod
     @abstractmethod
-    def suggest_params(trial: optuna.Trial) -> dict[str, object]:
+    def suggest_params(trial: optuna.trial.BaseTrial) -> dict[str, object]:
         """Optuna search space for this strategy's ctor kwargs.
 
         Every strategy declares the joint feature / model / strategy

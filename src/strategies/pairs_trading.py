@@ -321,7 +321,7 @@ class PairsTradingStrategy(IStrategy):
         return self._zscore_lookback
 
     @staticmethod
-    def suggest_params(trial: optuna.Trial) -> dict[str, object]:
+    def suggest_params(trial: optuna.trial.BaseTrial) -> dict[str, object]:
         """Optuna search space for PairsTrading hyperparameters."""
         return {
             "entry_zscore": trial.suggest_float("pairs_entry_z", 1.5, 3.0),

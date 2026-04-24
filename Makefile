@@ -36,6 +36,12 @@ experiment:
 	@test -n "$(CONFIG)" || { echo "usage: make experiment CONFIG=<path/to/config.yaml>"; exit 1; }
 	python -m scripts.experiment run --config $(CONFIG)
 
+tune:
+	@test -n "$(CONFIG)" || { echo "usage: make tune CONFIG=<cfg.yaml> HPO=<hpo.yaml> [TRIALS=n] [NJOBS=n]"; exit 1; }
+	@test -n "$(HPO)" || { echo "usage: make tune CONFIG=<cfg.yaml> HPO=<hpo.yaml> [TRIALS=n] [NJOBS=n]"; exit 1; }
+	python -m scripts.experiment tune --config $(CONFIG) --hpo-config $(HPO) \
+		$(if $(TRIALS),--trials $(TRIALS)) $(if $(NJOBS),--n-jobs $(NJOBS))
+
 stubs:
 	python scripts/regen_stubs.py
 

@@ -436,7 +436,7 @@ class MomentumGatekeeperStrategy(IStrategy):
         return collect_metadata(("strategy", self._training_metadata)) + classifier_tracked
 
     @staticmethod
-    def suggest_params(trial: optuna.Trial) -> dict[str, object]:
+    def suggest_params(trial: optuna.trial.BaseTrial) -> dict[str, object]:
         """Optuna search space for MomentumGatekeeper hyperparameters."""
         macd_fast = trial.suggest_int("momentum_macd_fast", 8, 16)
         macd_slow = trial.suggest_int("momentum_macd_slow", macd_fast + 4, 40)

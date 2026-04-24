@@ -83,6 +83,7 @@ MODEL_ARTIFACT_WEIGHTS_SUBDIR = "weights"
 # artifacts under a stale path.
 RUNS_SUBDIR = "runs"
 MODELS_SUBDIR = "models"
+HPO_SUBDIR = "hpo"
 
 
 def ensure_model_dir(path: str | Path) -> Path:

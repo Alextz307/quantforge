@@ -43,7 +43,7 @@ if TYPE_CHECKING:
     from src.core.config import ExperimentConfig
 
 
-def sample_trial_params(cfg: ExperimentConfig, trial: optuna.Trial) -> dict[str, object]:
+def sample_trial_params(cfg: ExperimentConfig, trial: optuna.trial.BaseTrial) -> dict[str, object]:
     """Draw one set of strategy ctor kwargs for ``trial``.
 
     Delegates to the registered ``strategy_cls.suggest_params(trial)``,

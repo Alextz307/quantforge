@@ -195,7 +195,7 @@ class AdaptiveBollingerStrategy(IStrategy):
         )
 
     @staticmethod
-    def suggest_params(trial: optuna.Trial) -> dict[str, object]:
+    def suggest_params(trial: optuna.trial.BaseTrial) -> dict[str, object]:
         """Optuna search space for AdaptiveBollinger hyperparameters."""
         return {
             "window": trial.suggest_int("bollinger_window", 10, 50),

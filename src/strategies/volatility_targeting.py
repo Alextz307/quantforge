@@ -360,7 +360,7 @@ class VolatilityTargetingStrategy(IStrategy):
         return collect_metadata(("strategy", self._training_metadata)) + leaf_metadata
 
     @staticmethod
-    def suggest_params(trial: optuna.Trial) -> dict[str, object]:
+    def suggest_params(trial: optuna.trial.BaseTrial) -> dict[str, object]:
         """Optuna search space for VolatilityTargeting hyperparameters."""
         return {
             "target_vol": trial.suggest_float("volt_target_vol", 0.05, 0.30),

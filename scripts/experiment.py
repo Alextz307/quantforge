@@ -20,6 +20,7 @@ land in later batches — the group is extensible without breaking these.
 from __future__ import annotations
 
 import logging
+import os
 from pathlib import Path
 
 import click
@@ -33,16 +34,20 @@ from src.core.config import (
     load_standalone_model_config,
 )
 from src.core.exceptions import LeakageError
+from src.core.hpo_config import HPOConfig, load_hpo_config
 from src.core.persistence import (
+    HPO_SUBDIR,
     METADATA_JSON,
     MODEL_ARTIFACT_MANIFEST_JSON,
     MODEL_ARTIFACT_WEIGHTS_SUBDIR,
     MODELS_SUBDIR,
     RUNS_SUBDIR,
 )
+from src.optimization.tuner import StrategyTuner
 from src.orchestration.builder import build_experiment
 from src.orchestration.model_artifact import ModelArtifactManifest, save_model_artifact
 from src.orchestration.standalone_training import train_model_standalone
+from src.visualization.hpo_reporter import HPOReporter
 
 DEFAULT_STORE_ROOT = Path("experiment_results")
 
@@ -260,6 +265,126 @@ def list_models_cmd(store_root: Path) -> None:
     click.echo("  ".join("-" * w for w in widths))
     for row in rows:
         click.echo("  ".join(c.ljust(w) for c, w in zip(row, widths, strict=True)))
+
+
+@cli.command("tune")
+@click.option(
+    "--config",
+    "config_path",
+    required=True,
+    type=click.Path(exists=True, dir_okay=False, path_type=Path),
+    help="Path to an ExperimentConfig YAML (the base config HPO searches over).",
+)
+@click.option(
+    "--hpo-config",
+    "hpo_config_path",
+    required=True,
+    type=click.Path(exists=True, dir_okay=False, path_type=Path),
+    help="Path to an HPOConfig YAML (study_name, n_trials, sampler, objective, ...).",
+)
+@click.option(
+    "--trials",
+    "n_trials_override",
+    default=None,
+    type=click.IntRange(min=1),
+    help="Override hpo.n_trials for this invocation.",
+)
+@click.option(
+    "--n-jobs",
+    "n_jobs_override",
+    default=None,
+    type=int,
+    help="Override hpo.n_jobs. Pass -1 for os.cpu_count().",
+)
+@click.option(
+    "--store-root",
+    default=str(DEFAULT_STORE_ROOT),
+    type=click.Path(file_okay=False, path_type=Path),
+    help="Override the experiment_results/ directory.",
+)
+@click.option(
+    "--report/--no-report",
+    "write_report",
+    default=True,
+    help="Generate HPO convergence + top-trials report after the study finishes.",
+)
+def tune_cmd(
+    config_path: Path,
+    hpo_config_path: Path,
+    n_trials_override: int | None,
+    n_jobs_override: int | None,
+    store_root: Path,
+    write_report: bool,
+) -> None:
+    """Run an Optuna study over an ExperimentConfig's hyperparameter space.
+
+    The study is persisted to a SQLite file under
+    ``<store_root>/hpo/<study_name>/optuna_study.db`` — re-running with
+    the same ``--config`` + ``--hpo-config`` resumes from the last
+    completed trial (Optuna's semantics: ``n_trials`` is the number of
+    NEW trials to run each invocation, not a cap on total trials).
+    """
+    try:
+        experiment_cfg = load_experiment_config(config_path)
+    except (ValidationError, FileNotFoundError, ValueError) as e:
+        raise click.ClickException(f"failed to load experiment config {config_path}: {e}") from e
+    try:
+        hpo_cfg = load_hpo_config(hpo_config_path)
+    except (ValidationError, FileNotFoundError, ValueError) as e:
+        raise click.ClickException(f"failed to load hpo config {hpo_config_path}: {e}") from e
+
+    hpo_cfg = _apply_hpo_overrides(hpo_cfg, n_trials=n_trials_override, n_jobs=n_jobs_override)
+
+    tuner = StrategyTuner(
+        experiment_cfg=experiment_cfg,
+        hpo_cfg=hpo_cfg,
+        store_root=store_root,
+    )
+
+    click.echo(
+        f"tuning '{experiment_cfg.strategy.name}' on study '{hpo_cfg.study_name}' "
+        f"for {hpo_cfg.n_trials} trial(s) (n_jobs={hpo_cfg.n_jobs}) ..."
+    )
+    try:
+        study = tuner.run()
+    except LeakageError as e:
+        raise click.ClickException(f"leakage tripwire fired: {e}") from e
+    except (NotImplementedError, ValueError, RuntimeError) as e:
+        raise click.ClickException(f"tuning failed: {e}") from e
+
+    if write_report:
+        HPOReporter().generate_full_report(study, tuner.study_dir)
+
+    study_dir = store_root / HPO_SUBDIR / hpo_cfg.study_name
+    click.echo(f"study_name:  {study.study_name}")
+    click.echo(f"artifacts:   {study_dir}")
+    click.echo(f"trials:      {len(study.trials)}")
+    try:
+        best = study.best_trial
+        click.echo(f"best_value:  {best.value}")
+        click.echo(f"best_trial:  {best.number}")
+    except ValueError:
+        click.echo("best_value:  n/a (no completed trials)")
+
+
+def _apply_hpo_overrides(cfg: HPOConfig, *, n_trials: int | None, n_jobs: int | None) -> HPOConfig:
+    """Rebuild the HPO config with CLI overrides, re-running validators."""
+    if n_trials is None and n_jobs is None:
+        return cfg
+    payload = cfg.model_dump(mode="json")
+    if n_trials is not None:
+        payload["n_trials"] = n_trials
+    if n_jobs is not None:
+        if n_jobs == -1:
+            resolved = os.cpu_count() or 1
+        elif n_jobs < 1:
+            raise click.ClickException(
+                f"--n-jobs must be -1 (auto) or a positive int; got {n_jobs}."
+            )
+        else:
+            resolved = n_jobs
+        payload["n_jobs"] = resolved
+    return HPOConfig.model_validate(payload)
 
 
 def _override[CfgT: (ExperimentConfig, StandaloneModelConfig)](

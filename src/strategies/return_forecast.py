@@ -323,7 +323,7 @@ class ReturnForecastStrategy(IStrategy):
         return collect_metadata(("strategy", self._training_metadata)) + leaf_metadata
 
     @staticmethod
-    def suggest_params(trial: optuna.Trial) -> dict[str, object]:
+    def suggest_params(trial: optuna.trial.BaseTrial) -> dict[str, object]:
         """Optuna search space for ReturnForecast hyperparameters."""
         return {
             "position_scale": trial.suggest_float("retf_position_scale", 5.0, 50.0),
