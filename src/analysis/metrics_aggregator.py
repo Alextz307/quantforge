@@ -6,15 +6,6 @@ run-wide scalars (worst drawdown, total trades). :meth:`AggregateStats.to_dict`
 returns a flat ``dict[str, object]`` — the shape the objective adapters and
 ``metrics.json`` readers rely on.
 
-Backward-compat note
---------------------
-This module replaces ``src.orchestration.experiment._aggregate_metrics``.
-The dict emitted by :meth:`to_dict` is a STRICT SUPERSET of the previous
-shape — every prior key (``n_folds``, ``sharpe_mean``, ``sortino_mean``,
-``calmar_mean``, ``max_drawdown_worst``, ``total_return_mean``) is still
-present with the same semantics. New keys land alongside rather than
-renaming existing ones so downstream readers keep working.
-
 CI semantics
 ------------
 Per-metric 95% CIs come from an IID percentile bootstrap over the FOLD
@@ -36,6 +27,8 @@ from typing import TYPE_CHECKING
 import numpy as np
 import numpy.typing as npt
 
+from src.analysis.significance import percentile_ci
+
 if TYPE_CHECKING:
     from src.orchestration.types import FoldRecord
 
@@ -45,6 +38,11 @@ _FloatArray = npt.NDArray[np.float64]
 # stability of the 2.5 / 97.5 percentiles on the fold-count range we
 # realistically see (3-20 folds).
 _BOOTSTRAP_N_RESAMPLES = 2000
+
+# Hardcoded 95% CI matches the ``*_ci95_*`` field names on AggregateStats —
+# changing this would mean renaming a public field. Held as a constant so
+# the percentile_ci call below has a labeled argument instead of 0.95 magic.
+_BOOTSTRAP_CONFIDENCE = 0.95
 
 # Fixed seed so ``metrics.json`` is reproducible across invocations. Users
 # who want a different seed can call ``aggregate_folds(folds, rng=...)``
@@ -231,6 +229,5 @@ def _mean_std_ci(
         return point, std, float("nan"), float("nan")
     idx = rng.integers(0, n, size=(_BOOTSTRAP_N_RESAMPLES, n))
     resample_means = values[idx].mean(axis=1)
-    lo = float(np.percentile(resample_means, 2.5))
-    hi = float(np.percentile(resample_means, 97.5))
+    lo, hi = percentile_ci(resample_means, _BOOTSTRAP_CONFIDENCE)
     return point, std, lo, hi

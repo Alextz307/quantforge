@@ -40,13 +40,18 @@ from src.orchestration.types import (
     StrategyComparisonReport,
 )
 from src.visualization.latex import write_booktabs_table
-from src.visualization.plots import FIGURE_DPI, FIGURE_HEIGHT_IN, FIGURE_WIDTH_IN, save_png_and_svg
+from src.visualization.plots import (
+    FIGURE_DPI,
+    FIGURE_HEIGHT_IN,
+    FIGURE_WIDTH_IN,
+    MANIFEST_FILENAME,
+    PLOTS_SUBDIR,
+    TABLES_SUBDIR,
+    save_png_and_svg,
+)
 
 _logger = get_logger(__name__)
 
-_PLOTS_SUBDIR = "plots"
-_TABLES_SUBDIR = "tables"
-_MANIFEST_FILENAME = "manifest.json"
 _RANKING_FILENAME = "ranking.tex"
 _PAIRWISE_FILENAME = "pairwise_significance.tex"
 _EQUITY_OVERLAY_FILENAME = "equity_overlay.png"
@@ -72,8 +77,8 @@ class ComparisonReporter:
         records why.
         """
         out_dir.mkdir(parents=True, exist_ok=True)
-        plots_dir = out_dir / _PLOTS_SUBDIR
-        tables_dir = out_dir / _TABLES_SUBDIR
+        plots_dir = out_dir / PLOTS_SUBDIR
+        tables_dir = out_dir / TABLES_SUBDIR
 
         _logger.info(
             "generating comparison report '%s' with %d strategies, %d pairwise entries",
@@ -82,7 +87,7 @@ class ComparisonReporter:
             len(report.pairwise),
         )
 
-        json_io.write(out_dir / _MANIFEST_FILENAME, _build_manifest_dict(report))
+        json_io.write(out_dir / MANIFEST_FILENAME, _build_manifest_dict(report))
 
         write_booktabs_table(
             report.ranking,

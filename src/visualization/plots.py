@@ -26,6 +26,14 @@ FIGURE_WIDTH_IN = 6.5
 FIGURE_HEIGHT_IN = 4.0
 FIGURE_DPI = 150
 
+# Shared report-bundle layout. Every reporter under this package writes
+# under ``out_dir / PLOTS_SUBDIR`` and ``out_dir / TABLES_SUBDIR`` and
+# emits its identity sidecar at ``out_dir / MANIFEST_FILENAME`` so a
+# rename here moves all four reporters in lockstep.
+PLOTS_SUBDIR = "plots"
+TABLES_SUBDIR = "tables"
+MANIFEST_FILENAME = "manifest.json"
+
 
 def save_png_and_svg(fig: Figure, png_path: Path) -> Path:
     """Save ``fig`` as both PNG (at ``png_path``) and SVG (``png_path`` with

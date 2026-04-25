@@ -455,8 +455,6 @@ def compare_cmd(
         except (ValidationError, FileNotFoundError, ValueError) as e:
             raise click.ClickException(f"failed to load config {path}: {e}") from e
 
-    # click ``Choice(case_sensitive=False)`` already returns the canonical
-    # lowercase form of the choice, so ``SignificanceTest(...)`` round-trips.
     sig = SignificanceTest(significance_test)
     click.echo(
         f"comparing {len(configs)} strategies under '{out_name}' "

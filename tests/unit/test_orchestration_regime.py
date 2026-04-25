@@ -7,13 +7,12 @@ import pandas as pd
 import pytest
 
 from src.orchestration.regime import (
-    UNCLASSIFIED_LABEL,
     PeriodRegimeDetector,
     TrendRegimeDetector,
     VolatilityRegimeDetector,
     regime_registry,
 )
-from src.orchestration.types import RegimeKind, RegimeSlice
+from src.orchestration.types import UNCLASSIFIED_LABEL, RegimeKind, RegimeSlice
 
 # Synthetic-data parameters shared across detector tests.
 N_BARS = 600

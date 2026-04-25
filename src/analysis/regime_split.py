@@ -26,7 +26,7 @@ from typing import TYPE_CHECKING
 
 import pandas as pd
 
-from src.orchestration.types import MIXED_REGIME_LABEL, FoldRecord
+from src.orchestration.types import MIXED_REGIME_LABEL, UNCLASSIFIED_LABEL, FoldRecord
 
 if TYPE_CHECKING:
     from src.orchestration.regime import IRegimeDetector
@@ -98,8 +98,6 @@ def split_folds_by_regime(
             )
         # Drop unclassified bars BEFORE majority math so trend / vol warmup
         # at the head of the first fold doesn't dilute every regime share.
-        from src.orchestration.regime import UNCLASSIFIED_LABEL
-
         classified = window_tags[window_tags != UNCLASSIFIED_LABEL]
         if len(classified) == 0:
             mixed.append(fold)

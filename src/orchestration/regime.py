@@ -40,7 +40,7 @@ import numpy as np
 import pandas as pd
 
 from src.core.registry import ComponentRegistry
-from src.orchestration.types import RegimeKind, RegimeSlice
+from src.orchestration.types import UNCLASSIFIED_LABEL, RegimeKind, RegimeSlice
 
 _TREND_DEFAULT_WINDOW = 200
 _VOLATILITY_DEFAULT_WINDOW = 20
@@ -69,13 +69,6 @@ class IRegimeDetector(Protocol):
     def tag(self, bars: pd.DataFrame) -> pd.Series: ...
 
     def slices(self, bars: pd.DataFrame) -> list[RegimeSlice]: ...
-
-
-# Reserved label for bars the detector cannot classify (trend warmup,
-# vol warmup). Distinct from ``MIXED_REGIME_LABEL`` (which is a
-# fold-level concept). Excluded from per-regime stats — surfaced only in
-# the slices list so a debugger can see the warmup gap.
-UNCLASSIFIED_LABEL = "unclassified"
 
 
 def _rle_slices(tagged: pd.Series) -> list[RegimeSlice]:

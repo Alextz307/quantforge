@@ -20,6 +20,7 @@ from src.orchestration.regime import (
     TrendRegimeDetector,
 )
 from src.orchestration.types import FoldRecord
+from tests.conftest import make_stub_fold_record
 
 N_BARS = 600
 START_DATE = "2019-06-01"
@@ -45,28 +46,23 @@ def _bars(n: int = N_BARS) -> pd.DataFrame:
     )
 
 
+_TRAIN_LOOKBACK_DAYS = 200
+
+
 def _make_fold(
     fold_index: int,
     test_start: pd.Timestamp,
     test_end: pd.Timestamp,
 ) -> FoldRecord:
     """Minimal fold record with the only fields the splitter cares about."""
-    return FoldRecord(
-        fold_index=fold_index,
-        train_start=test_start - pd.Timedelta(days=200),
+    return make_stub_fold_record(
+        fold_index,
+        sharpe=0.5,
+        equity_curve=(1.0, 1.01),
+        train_start=test_start - pd.Timedelta(days=_TRAIN_LOOKBACK_DAYS),
         train_end=test_start,
         test_start=test_start,
         test_end=test_end,
-        total_return=0.01,
-        annualized_return=0.05,
-        annualized_volatility=0.15,
-        sharpe_ratio=0.5,
-        sortino_ratio=0.6,
-        calmar_ratio=0.4,
-        max_drawdown=-0.05,
-        win_rate=0.55,
-        trade_count=10,
-        equity_curve=(1.0, 1.01),
     )
 
 

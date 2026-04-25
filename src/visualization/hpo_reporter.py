@@ -31,13 +31,13 @@ from src.visualization.plots import (
     FIGURE_DPI,
     FIGURE_HEIGHT_IN,
     FIGURE_WIDTH_IN,
+    PLOTS_SUBDIR,
+    TABLES_SUBDIR,
     save_png_and_svg,
 )
 
 _logger = get_logger(__name__)
 
-_PLOTS_SUBDIR = "plots"
-_TABLES_SUBDIR = "tables"
 _CONVERGENCE_FILENAME = "convergence.png"
 _IMPORTANCE_FILENAME = "param_importance.png"
 _TOP_TRIALS_FILENAME = "top_trials.tex"
@@ -53,8 +53,8 @@ class HPOReporter:
     def generate_full_report(self, study: optuna.Study, out_dir: Path) -> Path:
         """Write every artifact under ``out_dir/{plots,tables}/`` and return ``out_dir``."""
         out_dir.mkdir(parents=True, exist_ok=True)
-        plots_dir = out_dir / _PLOTS_SUBDIR
-        tables_dir = out_dir / _TABLES_SUBDIR
+        plots_dir = out_dir / PLOTS_SUBDIR
+        tables_dir = out_dir / TABLES_SUBDIR
 
         completed = [t for t in study.trials if t.state == TrialState.COMPLETE]
         _logger.info(

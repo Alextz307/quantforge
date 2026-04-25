@@ -158,7 +158,7 @@ def bootstrap_sharpe_ci(
         rng=rng_actual,
     )
 
-    lo, hi = _percentile_ci(sharpes, confidence)
+    lo, hi = percentile_ci(sharpes, confidence)
     return BootstrapCI(
         point_estimate=point,
         lower=lo,
@@ -210,7 +210,7 @@ def paired_bootstrap_sharpe_differential(
         rng=rng_actual,
     )
 
-    lo, hi = _percentile_ci(diffs, confidence)
+    lo, hi = percentile_ci(diffs, confidence)
     return BootstrapCI(
         point_estimate=point,
         lower=lo,
@@ -309,7 +309,7 @@ def _run_block_bootstrap(
     bootstraps: each iteration draws a length-``n`` Politis-Romano index
     vector and feeds it to ``statistic_at_idx`` (which closes over the
     underlying return arrays). Returning a 1-D float array lets callers
-    pipe straight into :func:`_percentile_ci`.
+    pipe straight into :func:`percentile_ci`.
     """
     out = np.empty(n_resamples, dtype=np.float64)
     for r in range(n_resamples):
@@ -378,7 +378,7 @@ def _newey_west_long_run_var(d: _FloatArray, mean_d: float, *, lag: int) -> floa
     return long_run
 
 
-def _percentile_ci(samples: _FloatArray, confidence: float) -> tuple[float, float]:
+def percentile_ci(samples: _FloatArray, confidence: float) -> tuple[float, float]:
     """Symmetric percentile CI from a bootstrap sample distribution."""
     alpha = 1.0 - confidence
     lo = float(np.percentile(samples, 100 * alpha / 2.0))

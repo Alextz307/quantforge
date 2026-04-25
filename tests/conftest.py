@@ -455,14 +455,24 @@ def make_stub_fold_record(
     equity_curve: tuple[float, ...],
     max_drawdown: float = -0.08,
     total_return: float = 0.05,
+    train_start: pd.Timestamp | None = None,
+    train_end: pd.Timestamp | None = None,
+    test_start: pd.Timestamp | None = None,
+    test_end: pd.Timestamp | None = None,
 ) -> FoldRecord:
-    """Build a :class:`FoldRecord` with the minimal fields every caller cares about."""
+    """Build a :class:`FoldRecord` with the minimal fields every caller cares about.
+
+    The ``*_start`` / ``*_end`` kwargs default to a fixed 2020 calendar window
+    so callers that only care about metric aggregation can stay terse; regime-
+    splitter tests pass real fold windows so the bar-level tagging math has
+    something to work against.
+    """
     return FoldRecord(
         fold_index=fold_index,
-        train_start=_STUB_FOLD_START,
-        train_end=_STUB_FOLD_END,
-        test_start=_STUB_FOLD_START,
-        test_end=_STUB_FOLD_END,
+        train_start=train_start if train_start is not None else _STUB_FOLD_START,
+        train_end=train_end if train_end is not None else _STUB_FOLD_END,
+        test_start=test_start if test_start is not None else _STUB_FOLD_START,
+        test_end=test_end if test_end is not None else _STUB_FOLD_END,
         total_return=total_return,
         annualized_return=total_return * 2,
         annualized_volatility=0.15,
@@ -480,7 +490,7 @@ def make_stub_experiment_result(
     name: str,
     *,
     folds: tuple[FoldRecord, ...],
-    seed: int = 42,
+    seed: int = GLOBAL_NUMPY_SEED,
 ) -> ExperimentResult:
     """Build an :class:`ExperimentResult` with a minimal valid Manifest.
 

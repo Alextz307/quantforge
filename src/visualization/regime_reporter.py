@@ -44,13 +44,18 @@ from src.core import json_io
 from src.core.logging import get_logger
 from src.orchestration.types import MIXED_REGIME_LABEL, RegimeReport, RegimeSlice
 from src.visualization.latex import write_booktabs_table
-from src.visualization.plots import FIGURE_DPI, FIGURE_HEIGHT_IN, FIGURE_WIDTH_IN, save_png_and_svg
+from src.visualization.plots import (
+    FIGURE_DPI,
+    FIGURE_HEIGHT_IN,
+    FIGURE_WIDTH_IN,
+    MANIFEST_FILENAME,
+    PLOTS_SUBDIR,
+    TABLES_SUBDIR,
+    save_png_and_svg,
+)
 
 _logger = get_logger(__name__)
 
-_PLOTS_SUBDIR = "plots"
-_TABLES_SUBDIR = "tables"
-_MANIFEST_FILENAME = "manifest.json"
 _SUMMARY_FILENAME = "regime_summary.tex"
 _HEATMAP_FILENAME = "regime_metric_heatmap.png"
 _TIMELINE_FILENAME = "regime_timeline.png"
@@ -85,8 +90,8 @@ class RegimeReporter:
         through ``RegimeReport.slices``. Defaults to ``report.slices``.
         """
         out_dir.mkdir(parents=True, exist_ok=True)
-        plots_dir = out_dir / _PLOTS_SUBDIR
-        tables_dir = out_dir / _TABLES_SUBDIR
+        plots_dir = out_dir / PLOTS_SUBDIR
+        tables_dir = out_dir / TABLES_SUBDIR
 
         n_real_regimes = len(report.per_regime_stats) - (
             1 if MIXED_REGIME_LABEL in report.per_regime_stats else 0
@@ -99,7 +104,7 @@ class RegimeReporter:
             len(report.mixed_fold_indices),
         )
 
-        json_io.write(out_dir / _MANIFEST_FILENAME, _build_manifest_dict(report))
+        json_io.write(out_dir / MANIFEST_FILENAME, _build_manifest_dict(report))
 
         write_booktabs_table(
             _build_summary_df(report.per_regime_stats),

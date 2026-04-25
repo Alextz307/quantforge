@@ -29,12 +29,17 @@ import pandas as pd
 from src.core.logging import get_logger
 from src.orchestration.types import ExperimentResult, FoldRecord
 from src.visualization.latex import write_booktabs_table
-from src.visualization.plots import FIGURE_DPI, FIGURE_HEIGHT_IN, FIGURE_WIDTH_IN, save_png_and_svg
+from src.visualization.plots import (
+    FIGURE_DPI,
+    FIGURE_HEIGHT_IN,
+    FIGURE_WIDTH_IN,
+    PLOTS_SUBDIR,
+    TABLES_SUBDIR,
+    save_png_and_svg,
+)
 
 _logger = get_logger(__name__)
 
-_PLOTS_SUBDIR = "plots"
-_TABLES_SUBDIR = "tables"
 _EQUITY_FILENAME = "equity_curves.png"
 _STABILITY_FILENAME = "fold_stability.png"
 _METRICS_FILENAME = "metrics_summary.tex"
@@ -56,8 +61,8 @@ class StrategyReporter:
         consuming command doesn't silently produce an empty directory.
         """
         out_dir.mkdir(parents=True, exist_ok=True)
-        plots_dir = out_dir / _PLOTS_SUBDIR
-        tables_dir = out_dir / _TABLES_SUBDIR
+        plots_dir = out_dir / PLOTS_SUBDIR
+        tables_dir = out_dir / TABLES_SUBDIR
 
         metrics_df = self._build_metrics_dataframe(result.folds)
         write_booktabs_table(

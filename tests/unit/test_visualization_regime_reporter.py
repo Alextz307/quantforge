@@ -18,27 +18,11 @@ from src.orchestration.types import (
     RegimeSlice,
 )
 from src.visualization.regime_reporter import RegimeReporter
+from tests.conftest import make_stub_fold_record
 
 
 def _stub_fold(fold_index: int, sharpe: float) -> FoldRecord:
-    base = pd.Timestamp("2020-01-01")
-    return FoldRecord(
-        fold_index=fold_index,
-        train_start=base,
-        train_end=base + pd.Timedelta(days=30),
-        test_start=base + pd.Timedelta(days=31),
-        test_end=base + pd.Timedelta(days=60),
-        total_return=0.05,
-        annualized_return=0.10,
-        annualized_volatility=0.15,
-        sharpe_ratio=sharpe,
-        sortino_ratio=sharpe * 1.05,
-        calmar_ratio=sharpe * 0.9,
-        max_drawdown=-0.07,
-        win_rate=0.55,
-        trade_count=20,
-        equity_curve=(1.0, 1.05),
-    )
+    return make_stub_fold_record(fold_index, sharpe=sharpe, equity_curve=(1.0, 1.05))
 
 
 def _stub_report(*, with_mixed: bool, with_empty: bool = False) -> RegimeReport:

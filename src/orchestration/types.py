@@ -227,6 +227,12 @@ class RegimeKind(StrEnum):
 # reports rather than silently dropped.
 MIXED_REGIME_LABEL = "mixed"
 
+# Reserved label for bars the detector cannot classify (trend / volatility
+# warmup, period-detector gap days). Distinct from :data:`MIXED_REGIME_LABEL`
+# (which is a fold-level concept). Excluded from per-regime stats and from
+# the bar-count majority math in :func:`split_folds_by_regime`.
+UNCLASSIFIED_LABEL = "unclassified"
+
 
 @dataclass(frozen=True)
 class RegimeSlice:
