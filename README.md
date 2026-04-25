@@ -2,7 +2,7 @@
 
 A thesis-grade, bifurcated C++/Python quantitative trading framework with strict anti-leakage guarantees, temporal contracts, and a clean separation between computation (C++) and orchestration (Python). Built around walk-forward validation, typed interfaces, and end-to-end hyperparameter tuning.
 
-**Current state:** a Python orchestration layer built on top of a C++ core. Implemented and under test: the typed temporal contracts, data layer, ML leaf models (GARCH, ARMA, LSTM, XGBoost), hybrid residual models, five trading strategies, the feature pipeline, a C++ indicator suite (RSI, MACD, Bollinger, Garman-Klass, Parkinson), a GARCH inference filter, two strategy state machines and two full `IStrategy` C++ classes (pairs trading + adaptive bollinger) with a shared `SpreadCalculator` primitive, and the C++ backtest engine + performance metrics — all bridged through a `pybind11` module (`quant_engine`) with the GIL released on every compute call. Every model and strategy round-trips through directory-based `save()` / `load()` (JSON configs + metadata + native binary weights, zero pickle) and supports warm-start `update()` so walk-forward folds extend the training window cheaply. `WalkForwardValidator` supports an optional `snap_to_day` mode that keeps every train/test boundary on a daily close, honouring the intraday day-boundary rule. CI is green on Linux and macOS with **643 Python tests**, **214 C++ tests**, `mypy --strict` clean on 110 source files, and `ruff` clean across the whole repo.
+**Current state:** a Python orchestration layer built on top of a C++ core. Implemented and under test: the typed temporal contracts, data layer, ML leaf models (GARCH, ARMA, LSTM, XGBoost), hybrid residual models, five trading strategies, the feature pipeline, a C++ indicator suite (RSI, MACD, Bollinger, Garman-Klass, Parkinson), a GARCH inference filter, two strategy state machines and two full `IStrategy` C++ classes (pairs trading + adaptive bollinger) with a shared `SpreadCalculator` primitive, and the C++ backtest engine + performance metrics — all bridged through a `pybind11` module (`quant_engine`) with the GIL released on every compute call. Every model and strategy round-trips through directory-based `save()` / `load()` (JSON configs + metadata + native binary weights, zero pickle). `WalkForwardValidator` supports an optional `snap_to_day` mode that keeps every train/test boundary on a daily close, honouring the intraday day-boundary rule. CI is green on Linux and macOS with **643 Python tests**, **214 C++ tests**, `mypy --strict` clean on 110 source files, and `ruff` clean across the whole repo.
 
 ## Architecture
 
@@ -15,7 +15,7 @@ graph TB
         leaf["Leaf models<br/>GARCH · ARMA · LSTM · XGBoost<br/>(GARCH inference uses C++ filter)"]
         hyb["Hybrid models<br/>GARCH+LSTM · ARMA+LSTM"]
         strat["Strategies (5)<br/>Bollinger · Pairs · Momentum · VolTgt · RetFcst<br/>(Bollinger + Pairs rule-path in C++)"]
-        persist["save / load · update<br/>directory-based · JSON + .pt + .ubj"]
+        persist["save / load<br/>directory-based · JSON + .pt + .ubj"]
         wforch["WalkForwardValidator<br/>+ evaluate_walk_forward orchestrator<br/>+ snap_to_day (day-boundary splits)"]
         hpo["Optuna HPO<br/>suggest_params on every model + strategy"]
         data --> feat --> leaf --> hyb --> strat
@@ -67,7 +67,7 @@ Anything that runs inside the backtest hot loop (bar iteration, indicators, metr
 
 ## Design Principles
 
-- **Anti-leakage by construction.** No `.bfill()`, no `.fillna(0)`. Fit-once guards on scalers (a second `fit()` raises `LeakageError`), frozen params after `fit()` on GARCH and ARMA, `TrainingMetadata` populated on every model and checked at runtime by the backtest engine via `validate_no_overlap()`, and an intraday day-boundary rule so that even on hourly bars the training cutoff is always a daily close (enforced by `WalkForwardValidator(snap_to_day=True)` for intraday folds). `update()` extends `train_end` without rewinding `fit_timestamp`, so the provenance of the initial fit is never clobbered.
+- **Anti-leakage by construction.** No `.bfill()`, no `.fillna(0)`. Fit-once guards on scalers (a second `fit()` raises `LeakageError`), frozen params after `fit()` on GARCH and ARMA, `TrainingMetadata` populated on every model and checked at runtime by the backtest engine via `validate_no_overlap()`, and an intraday day-boundary rule so that even on hourly bars the training cutoff is always a daily close (enforced by `WalkForwardValidator(snap_to_day=True)` for intraday folds).
 - **Temporal contracts.** `TemporalSplit`, `TemporalTripleSplit`, and `WalkForwardValidator` enforce train-then-test ordering with embargo gaps. The holdout set is reserved for final thesis evaluation and is never touched during development or HPO.
 - **Strict typing.** `mypy --strict` across `src/`, `tests/`, and `scripts/`. No `Any` at internal boundaries. `**kwargs: object` rather than `**kwargs: Any`. Public APIs use pure `Enum` types — no `Enum | str` weak unions. CI enforces this on every push.
 - **Performance, measured.** C++ uses `std::span<const double>` interfaces, SoA layouts, and Welford's algorithm for rolling mean/std fused in one pass. Every hot-path indicator, metric, engine, and strategy exposes both an allocating convenience overload and a buffer-reuse (`out`-param / `Buffer&`) overload so HPO inner loops reuse scratch across scenarios. `TimeSeries::slice_view` returns a non-owning `std::span` for zero-copy walk-forward splitting. Pybind11 bindings emit zero-copy numpy views over C++-owned buffers via pybind11 `py::capsule` and `handle base` ownership — no `memcpy` at the Python↔C++ boundary. Release builds compile with `-O3 -march=native -flto`; rolling kernels are `noexcept` to unblock inlining + vectorization. C++ benchmarks emit wall time alongside `Cycles` / `CyclesPerItem` (and `Instructions` / `IPC` on PMU-capable hosts) so optimization is driven by measurement, not intuition.
@@ -173,21 +173,21 @@ The holdout split is reserved for the final thesis evaluation — it is never to
 - **`evaluate_walk_forward` orchestrator.** Loops over `WalkForwardValidator` folds, retrains the strategy per fold, runs `validate_no_overlap()` as a runtime tripwire, and returns a list of `FoldResult` carrying both the raw `BacktestResult` and the `PerformanceMetrics`.
 
 ### Python ML layer (`src/`)
-- **Leaf models.** `GARCHPredictor` (AIC grid search, params frozen post-fit, inference loop delegates to C++ `garch_filter`), `ARMAPredictor` (`pmdarima.auto_arima`, order and coefficients frozen; on reload reconstructed as a statsmodels `ARIMA` with the fitted order so `pmdarima` is a fit-time tool only), `MarketLSTM` + `LSTMPredictor` (configurable loss, temporal 80/20 validation split, early stopping, device auto-select), `DirectionalClassifier` (XGBoost binary direction). Every leaf implements `save(path)` / `load(path)` round-trip (JSON config + metadata, native binary weights for torch / XGBoost) and a warm-start `update(new_data)` — GARCH reuses the cached `(p, q)` and previous params as `starting_values`, ARMA does a fixed-order refit, LSTM fine-tunes on the new window at `lr / 10` without resetting optimizer state, XGBoost continues boosting with `xgb_model=existing_booster`.
-- **Hybrid residual models.** `HybridVolatilityModel` (GARCH + LSTM residual correction → conditional variance) and `HybridReturnModel` (ARMA + LSTM residual correction → conditional mean). Strict black-box composition — the leaves' anti-leakage guarantees are preserved at the composite level for free. `save` / `load` recurse into each leaf under `<root>/{garch,arma,lstm}/` subdirectories plus a root `scaler.json`; `update` delegates to every leaf's warm-start path.
+- **Leaf models.** `GARCHPredictor` (AIC grid search, params frozen post-fit, inference loop delegates to C++ `garch_filter`), `ARMAPredictor` (`pmdarima.auto_arima`, order and coefficients frozen; on reload reconstructed as a statsmodels `ARIMA` with the fitted order so `pmdarima` is a fit-time tool only), `MarketLSTM` + `LSTMPredictor` (configurable loss, temporal 80/20 validation split, early stopping, device auto-select), `DirectionalClassifier` (XGBoost binary direction). Every leaf implements `save(path)` / `load(path)` round-trip (JSON config + metadata, native binary weights for torch / XGBoost).
+- **Hybrid residual models.** `HybridVolatilityModel` (GARCH + LSTM residual correction → conditional variance) and `HybridReturnModel` (ARMA + LSTM residual correction → conditional mean). Strict black-box composition — the leaves' anti-leakage guarantees are preserved at the composite level for free. `save` / `load` recurse into each leaf under `<root>/{garch,arma,lstm}/` subdirectories plus a root `scaler.json`.
 - **Feature pipeline.** `FeatureEngineeringPipeline` produces log returns, RSI, MACD (+ signal and histogram), rolling volatility, MA ratio, and short/long return features. RSI and MACD delegate to the `quant_engine` bindings (Wilder smoothing for RSI, single-pass EMA fast/slow/signal for MACD). Every period is a ctor parameter and appears in `suggest_params`.
 - **Cointegration.** `CointegrationTester` implements the Engle-Granger two-step procedure with hedge ratio and spread statistics.
-- **Strategies.** All implement `IStrategy` with `train()` + `generate_signals()` + `update()` + `save()` + `load()` + `suggest_params()`:
+- **Strategies.** All implement `IStrategy` with `train()` + `generate_signals()` + `save()` + `load()` + `suggest_params()`:
   - `AdaptiveBollingerStrategy` — mean-reversion bands scaled by GARCH forecast volatility, gated by a trend filter; the whole rule path (rolling mid, trend MA, position carry) runs in C++ via `quant_engine.AdaptiveBollingerStrategy`.
   - `PairsTradingStrategy` — Engle-Granger cointegrated spread z-score with configurable entry, exit, and stop-loss thresholds; the whole rule path (spread, rolling z-score, state machine) runs in C++ via `quant_engine.PairsTradingStrategy` with cached `CointegrationParams`.
   - `MomentumGatekeeperStrategy` — XGBoost directional classifier on the feature pipeline output, gated by a trend filter.
   - `VolatilityTargetingStrategy` — hybrid volatility forecast driving continuous leverage, with bearish-regime attenuation. Realized-vol training target is the annualized Garman-Klass OHLC estimator computed via `quant_engine.GarmanKlass`.
   - `ReturnForecastStrategy` — hybrid return forecast driving a bounded continuous position.
-  Strategy persistence delegates to the owned leaves (e.g. `<root>/classifier/` for Momentum, `<root>/hybrid_vol/` for VolatilityTargeting) with a root `config.json` + `metadata.json`. `update()` extends `training_metadata.train_end` without rewinding `fit_timestamp`.
+  Strategy persistence delegates to the owned leaves (e.g. `<root>/classifier/` for Momentum, `<root>/hybrid_vol/` for VolatilityTargeting) with a root `config.json` + `metadata.json`.
 
 ### Infrastructure
 - **Device selection** (`src/core/device.py`). Auto-picks CUDA > MPS > CPU for PyTorch and CUDA > CPU for XGBoost (MPS is explicitly rejected). Every model accepts `device: Device | None`. On `load()`, device is re-resolved against the current environment — `.pt` weights are loaded with `map_location` set to the host device rather than trusting the stored device string.
-- **Temporal infrastructure.** `TemporalSplit`, `TemporalTripleSplit`, `WalkForwardValidator`, `TrainingMetadata` with `from_fit()` / `to_dict()` / `from_dict()` / `extend_from()` and runtime overlap validation. `WalkForwardValidator` accepts `snap_to_day: bool = False`; when true, every fold's `train_end` snaps back to a day close and `test_start` is pushed forward by `gap` **trading days** (not bars), so intraday walk-forward folds never straddle a day boundary.
+- **Temporal infrastructure.** `TemporalSplit`, `TemporalTripleSplit`, `WalkForwardValidator`, `TrainingMetadata` with `from_fit()` / `to_dict()` / `from_dict()` and runtime overlap validation. `WalkForwardValidator` accepts `snap_to_day: bool = False`; when true, every fold's `train_end` snaps back to a day close and `test_start` is pushed forward by `gap` **trading days** (not bars), so intraday walk-forward folds never straddle a day boundary.
 - **Persistence layout** (`src/core/persistence.py`). Directory-based: `<root>/config.json`, `<root>/metadata.json` (from `TrainingMetadata.to_dict()`), and model-specific weight files — `weights.json` for GARCH and ARMA, `weights.pt` for LSTM, `model.ubj` for XGBoost, `scaler.json` for `StandardScaler`. No pickle, no joblib. `ensure_model_dir` refuses non-empty targets so a stale directory never silently shadows a fresh save.
 - **Data layer.** `CSVSource`, `DataNormalizer` (handles both yfinance and polygon column conventions), `DataCache`, and a `validate_bars` ingestion-time quality check (NaN, non-positive prices, OHLC ordering, duplicate timestamps) that runs once per fetch before the cache write so bad data never reaches the strategies or the C++ engine.
 - **Registries.** `model_registry`, `classifier_registry`, `strategy_registry`, `data_source_registry`.
@@ -271,11 +271,9 @@ signals = strategy.generate_signals(eval_df)      # pd.Series in {-1, 0, +1}
 strategy.save("/tmp/ab_model")                    # metadata + config + GARCH subdir
 reloaded = AdaptiveBollingerStrategy.load("/tmp/ab_model")
 # reloaded.generate_signals(eval_df) is bit-identical to strategy.generate_signals(eval_df)
-
-strategy.update(new_bars)                         # warm-start: extends train_end, reuses GARCH params
 ```
 
-Every strategy exposes the same five-verb API — `train(data)`, `generate_signals(data)`, `update(new_data)`, `save(path)`, `load(path)` — plus a static `suggest_params(trial)` so Optuna can tune the entire stack (feature periods, model hyperparameters, and strategy thresholds) end to end.
+Every strategy exposes the same four-verb API — `train(data)`, `generate_signals(data)`, `save(path)`, `load(path)` — plus a static `suggest_params(trial)` so Optuna can tune the entire stack (feature periods, model hyperparameters, and strategy thresholds) end to end.
 
 ## Project Structure
 
@@ -300,8 +298,8 @@ src/
   core/                  Types, constants, temporal contracts, registry, device selection, exceptions, persistence helpers
   data/                  Sources (CSV), normalizer, cache, loader
   features/              FeatureEngineeringPipeline
-  models/                GARCH, ARMA, LSTM, XGBoost classifier, hybrids, cointegration, dataset (each with save / load / update)
-  strategies/            Five strategies + IStrategy interface (each with save / load / update)
+  models/                GARCH, ARMA, LSTM, XGBoost classifier, hybrids, cointegration, dataset (each with save / load)
+  strategies/            Five strategies + IStrategy interface (each with save / load)
   engine/                CppBacktestEngine adapter, slippage scenarios, walk-forward orchestrator
   quant_engine/          pybind11 module re-exports + checked-in mypy stubs
   optimization/          Reserved for HPO orchestration

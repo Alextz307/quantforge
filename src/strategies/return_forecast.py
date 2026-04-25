@@ -169,7 +169,13 @@ class ReturnForecastStrategy(IStrategy):
         kwargs["feature_columns"] = list(self._hybrid_params.feature_columns)
         return HybridReturnModel(**kwargs)
 
-    def train(self, train_data: pd.DataFrame, **kwargs: object) -> None:
+    def train(
+        self,
+        train_data: pd.DataFrame,
+        *,
+        checkpoint_path: Path | None = None,
+        **kwargs: object,
+    ) -> None:
         """Fit HybridReturnModel on training log returns.
 
         When ``pretrained_leaves["return_model"]`` was injected at ctor time,
@@ -181,7 +187,7 @@ class ReturnForecastStrategy(IStrategy):
             self._hybrid_return = self._build_hybrid_return()
             log_returns = compute_log_returns(train_data["close"]).dropna()
             aligned = train_data.loc[log_returns.index]
-            self._hybrid_return.fit(aligned, log_returns, **kwargs)
+            self._hybrid_return.fit(aligned, log_returns, checkpoint_path=checkpoint_path, **kwargs)
 
         self._training_metadata = TrainingMetadata.from_fit(
             train_data, self._interval, self._hybrid_params.feature_columns
@@ -198,25 +204,6 @@ class ReturnForecastStrategy(IStrategy):
         position = raw_position.clip(lower=-self._max_leverage, upper=self._max_leverage)
         position.name = "return_forecast_signal"
         return position
-
-    def update(self, new_data: pd.DataFrame, **kwargs: object) -> None:
-        """Delegate to HybridReturnModel's warm-start update.
-
-        When the leaf was pretrained-injected, the frozen-leaf contract
-        forbids mutating it: ``leaf.update()`` is skipped and only the
-        strategy's own ``_training_metadata`` advances. Without this guard
-        a forward-run loop silently drifts the "pinned" leaf fold by fold.
-
-        See :meth:`IStrategy.update` for the shared contract.
-        """
-        metadata = self._assert_fitted_with_metadata(caller="update")
-        new_metadata = metadata.extend_from(new_data)
-
-        if _LEAF_KEY_RETURN_MODEL not in self._pretrained_leaves:
-            new_returns = compute_log_returns(new_data["close"]).dropna()
-            aligned = new_data.loc[new_returns.index]
-            self._hybrid_return.update(aligned, new_returns, **kwargs)
-        self._training_metadata = new_metadata
 
     def save(self, path: str | Path) -> None:
         """Persist ReturnForecast config + nested HybridReturn to ``path``.

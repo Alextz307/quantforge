@@ -53,6 +53,7 @@ from src.core.config import ExperimentConfig
 from src.core.logging import get_logger
 from src.core.persistence import COMPARISONS_SUBDIR
 from src.orchestration.builder import build_experiment
+from src.orchestration.experiment import RunOptions
 from src.orchestration.git_info import read_git_sha
 from src.orchestration.types import (
     ExperimentResult,
@@ -180,7 +181,7 @@ def _run_one_experiment(cfg: ExperimentConfig, cmp_dir: Path) -> ExperimentResul
     everything travels together.
     """
     experiment = build_experiment(cfg)
-    return experiment.run(store_root=cmp_dir, write_report=False)
+    return experiment.run(RunOptions(store_root=cmp_dir, write_report=False))
 
 
 def _validate_inputs(configs: Sequence[ExperimentConfig]) -> _ComparisonInputs:

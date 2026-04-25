@@ -26,8 +26,19 @@ class IStrategy(ABC):
     """
 
     @abstractmethod
-    def train(self, train_data: pd.DataFrame, **kwargs: object) -> None:
-        """Learn parameters from historical data. Called once before backtesting."""
+    def train(
+        self,
+        train_data: pd.DataFrame,
+        *,
+        checkpoint_path: Path | None = None,
+        **kwargs: object,
+    ) -> None:
+        """Learn parameters from historical data. Called once before backtesting.
+
+        ``checkpoint_path`` is forwarded to NN-style leaves for best-state
+        checkpointing during ``fit()``; strategies without such leaves
+        accept the kwarg and ignore it. ``None`` disables checkpointing.
+        """
 
     @abstractmethod
     def generate_signals(self, data: pd.DataFrame) -> pd.Series:
@@ -70,7 +81,7 @@ class IStrategy(ABC):
     def _assert_fitted_with_metadata(self, *, caller: str) -> TrainingMetadata:
         """Return ``self.training_metadata`` narrowed to non-None, raising otherwise.
 
-        ``save()`` / ``update()`` overrides use this to collapse the
+        ``save()`` overrides use this to collapse the
         ``if self._training_metadata is None: raise ...`` guard + type-narrowing
         dance into one call. The ``caller`` name reaches the error message so
         tracebacks still point at the specific method.
@@ -96,23 +107,6 @@ class IStrategy(ABC):
         that drifted (strategy vs garch vs lstm vs classifier).
         """
         return collect_metadata(("strategy", self.training_metadata))
-
-    def update(self, new_data: pd.DataFrame, **kwargs: object) -> None:
-        """Incrementally update the trained strategy with a new window.
-
-        Default: full retrain. Subclasses override by delegating to the
-        internal model's ``update()`` (or, for ``PairsTradingStrategy``,
-        re-testing cointegration on the extended window). Every override is
-        transactional — ``_training_metadata`` is produced via
-        ``extend_from(new_data)`` *before* any leaf mutation so a
-        ``LeakageError`` on overlapping ``new_data`` leaves the strategy
-        untouched.
-
-        Post-update invariants: ``fit_timestamp`` stays frozen (provenance —
-        only ``train()`` sets it); ``train_end`` and ``n_train_samples``
-        advance.
-        """
-        self.train(new_data, **kwargs)
 
     def save(self, path: str | Path) -> None:
         """Persist the trained strategy to a directory at ``path``.

@@ -15,8 +15,7 @@ Why not ``df.to_parquet`` + hash, or ``pd.util.hash_pandas_object``?
 
 Both fail the property we need: ``fingerprint_bars(df)`` from one run must
 equal the stored ``data_hash`` from a different run ON THE SAME DATA, so
-``experiment holdout-eval`` / ``forward-run`` can refuse to proceed on
-vendor-drifted data.
+``experiment holdout-eval`` can refuse to proceed on vendor-drifted data.
 """
 
 from __future__ import annotations

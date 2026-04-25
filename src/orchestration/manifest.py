@@ -1,7 +1,7 @@
 """Typed manifest for a persisted experiment run.
 
 Every field below is the answer to a question a post-run consumer
-(holdout-eval, forward-run, HPO resume) MUST answer to run safely. A
+(holdout-eval, HPO resume) MUST answer to run safely. A
 typed dataclass over a ``dict[str, object]`` catches typos like
 ``holdoutStart`` vs ``holdout_start`` at static-check time rather than
 after hours of HPO compute.
@@ -45,11 +45,11 @@ from src.engine.scenarios import SlippageScenario
 class PretrainedLeafRecord:
     """Per-leaf provenance entry on :class:`Manifest`.
 
-    Enough to reproduce holdout-eval / forward-run from the manifest
-    alone: ``path`` to the artifact, ``data_hash`` the artifact trained
-    on (cross-check against the artifact's own manifest for drift), and
-    the training window endpoint so downstream checks can validate
-    temporal separation without reloading the artifact.
+    Enough to reproduce holdout-eval from the manifest alone: ``path`` to
+    the artifact, ``data_hash`` the artifact trained on (cross-check
+    against the artifact's own manifest for drift), and the training
+    window endpoint so downstream checks can validate temporal separation
+    without reloading the artifact.
     """
 
     key: str

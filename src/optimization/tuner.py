@@ -34,7 +34,10 @@ shape, so we check equality by content hash before appending.
 from __future__ import annotations
 
 import hashlib
+import logging
+import time
 from dataclasses import dataclass
+from functools import cached_property
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -60,6 +63,7 @@ from src.optimization.pruners import build_pruner
 from src.optimization.samplers import build_sampler
 from src.optimization.sampling import sample_trial_params
 from src.orchestration.builder import build_experiment
+from src.orchestration.experiment import RunOptions
 
 if TYPE_CHECKING:
     from src.orchestration.types import ExperimentResult
@@ -101,6 +105,11 @@ class StrategyTuner:
         store = self.store_root if self.store_root is not None else _DEFAULT_STORE_ROOT
         return store / HPO_SUBDIR / self.hpo_cfg.study_name
 
+    @cached_property
+    def _study_logger(self) -> logging.LoggerAdapter:  # type: ignore[type-arg]
+        """Per-study context-bound logger; built once, reused across trials."""
+        return get_logger(__name__, study=self.hpo_cfg.study_name)
+
     @property
     def storage_url(self) -> str:
         """SQLite URL Optuna stores the study under.
@@ -112,13 +121,15 @@ class StrategyTuner:
         db_path = (self.study_dir / _STUDY_DB_FILENAME).resolve()
         return f"sqlite:///{db_path}"
 
-    def run(self) -> optuna.Study:
+    def run(self, *, progress: bool = False) -> optuna.Study:
         """Run the study end-to-end, returning the completed study.
 
         Creates ``study_dir`` if missing, persists configs on first run,
         builds sampler/pruner from the HPO config, and drives Optuna's
         optimize loop with a :class:`TrialCallback` that refreshes
-        ``best_config.yaml`` after every completed trial.
+        ``best_config.yaml`` after every completed trial. When
+        ``progress=True``, Optuna's built-in ``show_progress_bar`` renders a
+        per-trial bar to TTY (silently disabled in non-interactive runs).
         """
         self.study_dir.mkdir(parents=True, exist_ok=True)
         self._persist_configs()
@@ -154,25 +165,46 @@ class StrategyTuner:
             n_jobs=self.hpo_cfg.n_jobs,
             timeout=self.hpo_cfg.timeout_s,
             callbacks=[callback],
+            show_progress_bar=progress,
         )
         return study
 
     def _objective(self, trial: optuna.Trial, objective: IObjective) -> float:
+        start = time.monotonic()
         sampled = sample_trial_params(self.experiment_cfg, trial)
         trial_cfg = _materialize_trial_config(self.experiment_cfg, sampled)
         experiment = build_experiment(trial_cfg)
         result: ExperimentResult = experiment.run(
-            store_root=self.study_dir / _TRIAL_ARTIFACTS_SUBDIR,
-            write_report=False,
+            RunOptions(
+                store_root=self.study_dir / _TRIAL_ARTIFACTS_SUBDIR,
+                write_report=False,
+            )
         )
         trial.set_user_attr(USER_ATTR_EXPERIMENT_ID, result.experiment_id)
         metrics = aggregate_folds(result.folds).to_dict()
         value = objective(metrics)
-        _logger.info(
-            "trial %d complete: value=%.6f experiment_id=%s",
-            trial.number,
-            value,
+        elapsed = time.monotonic() - start
+        # ``best_trial`` is direction-aware (Optuna picks max for "maximize"
+        # and min for "minimize"); using it instead of a hand-rolled compare
+        # keeps the log honest if the study direction ever changes. It raises
+        # ValueError before any trial completes — only the very first trial
+        # hits that branch and there's nothing better than itself yet.
+        try:
+            best = trial.study.best_trial
+            best_value = best.value if best.value is not None else value
+            best_number = best.number
+        except ValueError:
+            best_value = value
+            best_number = trial.number
+        self._study_logger.info(
+            "trial %d/%d experiment_id=%s value=%.6f best=%.6f (trial %d) elapsed=%.1fs",
+            trial.number + 1,
+            self.hpo_cfg.n_trials,
             result.experiment_id,
+            value,
+            best_value,
+            best_number,
+            elapsed,
         )
         return value
 

@@ -26,6 +26,7 @@ from src.optimization.tuner import (
     USER_ATTR_EXPERIMENT_ID,
     StrategyTuner,
 )
+from src.orchestration.experiment import RunOptions
 from tests.conftest import make_stub_aggregate_stats
 
 if TYPE_CHECKING:
@@ -49,7 +50,7 @@ class _FakeExperiment:
     def __init__(self, experiment_id: str) -> None:
         self._experiment_id = experiment_id
 
-    def run(self, *, store_root: Path, write_report: bool) -> object:
+    def run(self, options: RunOptions | None = None) -> object:
         class _Result:
             experiment_id = self._experiment_id
             folds: tuple[object, ...] = ()

@@ -37,6 +37,7 @@ from src.core import json_io
 from src.core.config import ExperimentConfig, write_frozen_yaml
 from src.core.logging import get_logger
 from src.core.persistence import (
+    EXPERIMENT_CHECKPOINTS_SUBDIR,
     EXPERIMENT_CONFIG_YAML,
     EXPERIMENT_METRICS_JSON,
     EXPERIMENT_STRATEGY_SUBDIR,
@@ -129,6 +130,21 @@ def _write_fold_jsonl(path: Path, folds: tuple[FoldRecord, ...]) -> None:
 
 
 @dataclass(frozen=True)
+class RunOptions:
+    """Per-invocation knobs for :meth:`Experiment.run`.
+
+    Bundled so the run() signature doesn't grow a flag per concern. Defaults
+    match the no-arguments behaviour: write to ``experiment_results/``, emit
+    the strategy report, no progress bar, no per-fold checkpoints.
+    """
+
+    store_root: Path | None = None
+    write_report: bool = True
+    progress: bool = False
+    checkpoint: bool = False
+
+
+@dataclass(frozen=True)
 class Experiment:
     """A fully-wired walk-forward experiment.
 
@@ -145,12 +161,7 @@ class Experiment:
     feature_pipeline_factory: Callable[[], IFeaturePipeline] | None = None
     pretrained_leaf_records: tuple[PretrainedLeafRecord, ...] = ()
 
-    def run(
-        self,
-        *,
-        store_root: Path | None = None,
-        write_report: bool = True,
-    ) -> ExperimentResult:
+    def run(self, options: RunOptions | None = None) -> ExperimentResult:
         """Execute the full walk-forward loop and persist every artifact.
 
         Pipeline:
@@ -161,7 +172,7 @@ class Experiment:
            splitter sees dev only. The holdout region is reserved for the
            post-thesis OOS evaluation and is NEVER touched here.
         5. Compute ``data_hash = fingerprint_bars(bars_full)`` so future
-           holdout-eval / forward-run commands can refuse on vendor drift.
+           holdout-eval commands can refuse on vendor drift.
         6. Create ``store_root/runs/<experiment_id>/`` and write the frozen
            ``config.yaml`` + ``manifest.json`` BEFORE any compute — so a
            mid-run crash still leaves a record of what was attempted.
@@ -185,7 +196,8 @@ class Experiment:
         downgraded to a warning so the rest of the artifact tree still
         lands on disk.
         """
-        store = store_root if store_root is not None else _DEFAULT_STORE_ROOT
+        opts = options if options is not None else RunOptions()
+        store = opts.store_root if opts.store_root is not None else _DEFAULT_STORE_ROOT
         created_at = datetime.now(UTC)
         git_sha = read_git_sha()
         experiment_id = _make_experiment_id(self.strategy.name, created_at, git_sha)
@@ -234,6 +246,10 @@ class Experiment:
             boundary.isoformat() if boundary is not None else None,
         )
 
+        # Mid-fit checkpoints land under ``<run_dir>/checkpoints/fold_<i>/``
+        # only when the caller opts in — most runs don't need them and skip
+        # the per-epoch / per-round disk writes entirely.
+        checkpoint_root = run_dir / EXPERIMENT_CHECKPOINTS_SUBDIR if opts.checkpoint else None
         fold_results: list[FoldResult] = evaluate_walk_forward(
             strategy=self.strategy,
             bars=dev,
@@ -243,6 +259,8 @@ class Experiment:
             interval=self.config.data.interval,
             risk_free_rate=self.config.risk_free_rate,
             feature_pipeline_factory=self.feature_pipeline_factory,
+            progress=opts.progress,
+            checkpoint_root=checkpoint_root,
         )
         folds = tuple(FoldRecord.from_fold_result(fr) for fr in fold_results)
 
@@ -256,7 +274,7 @@ class Experiment:
             manifest=manifest,
         )
 
-        if write_report:
+        if opts.write_report:
             # Lazy: matplotlib's cold import is ~4s; paying it only when
             # reports are actually requested keeps the no-report path light.
             from src.visualization.strategy_reporter import StrategyReporter

@@ -15,6 +15,7 @@ from src.core import json_io
 from src.core.device import select_device
 from src.core.logging import get_logger
 from src.core.persistence import (
+    BEST_STATE_PT,
     CONFIG_JSON,
     METADATA_JSON,
     WEIGHTS_PT,
@@ -89,18 +90,12 @@ class LSTMPredictor(IPredictor):
         patience: int = 10,
         batch_size: int = 32,
         val_split_ratio: float = 0.2,
-        update_epochs: int = 3,
-        update_lr_scale: float = 0.1,
         device: Device | None = None,
         interval: Interval = Interval.DAILY,
     ) -> None:
         if not feature_columns:
             raise ValueError("LSTMPredictor requires a non-empty feature_columns list")
         validate_open_unit_interval(val_split_ratio, "val_split_ratio")
-        if update_epochs < 1:
-            raise ValueError(f"update_epochs must be >= 1, got {update_epochs}")
-        if update_lr_scale <= 0:
-            raise ValueError(f"update_lr_scale must be > 0, got {update_lr_scale}")
 
         self._hidden_dim = hidden_dim
         self._num_layers = num_layers
@@ -112,8 +107,6 @@ class LSTMPredictor(IPredictor):
         self._patience = patience
         self._batch_size = batch_size
         self._val_split_ratio = val_split_ratio
-        self._update_epochs = update_epochs
-        self._update_lr_scale = update_lr_scale
         self._device = select_device(device)
         self._interval = interval
 
@@ -128,6 +121,8 @@ class LSTMPredictor(IPredictor):
         self,
         train_data: pd.DataFrame,
         target: pd.Series,
+        *,
+        checkpoint_path: Path | None = None,
         **kwargs: object,
     ) -> None:
         """Train LSTM with early stopping on temporal validation split.
@@ -135,9 +130,18 @@ class LSTMPredictor(IPredictor):
         Args:
             train_data: DataFrame with features and DatetimeIndex.
             target: Target series aligned with train_data.
+            checkpoint_path: When set, write the best (lowest val loss) state
+                to ``<checkpoint_path>/<BEST_STATE_PT>`` after every epoch
+                where val loss improves. The directory is created on first
+                write so a mid-fit ``KeyboardInterrupt`` leaves the best-so-far
+                weights recoverable via ``torch.load(...)``. No-op when the
+                dataset is too short for a validation split.
             **kwargs: If 'trial' key present, used for Optuna pruning.
         """
         trial = cast("optuna.Trial | None", kwargs.get("trial"))
+        if checkpoint_path is not None:
+            checkpoint_path = Path(checkpoint_path)
+            checkpoint_path.mkdir(parents=True, exist_ok=True)
 
         df = train_data.copy()
         target_col = "_target"
@@ -212,23 +216,44 @@ class LSTMPredictor(IPredictor):
                         val_batches += 1
                 avg_val_loss = val_loss / max(val_batches, 1)
                 self._val_losses.append(avg_val_loss)
+            else:
+                avg_val_loss = None
 
-                if trial is not None:
-                    trial.report(avg_val_loss, epoch)
-                    if trial.should_prune():
-                        from optuna.exceptions import TrialPruned
+            val_suffix = f" val_loss={avg_val_loss:.4f}" if avg_val_loss is not None else ""
+            logger.info(
+                "epoch %d/%d train_loss=%.4f%s",
+                epoch + 1,
+                self._epochs,
+                avg_train_loss,
+                val_suffix,
+            )
 
-                        raise TrialPruned()
+            if avg_val_loss is None:
+                continue
 
-                if avg_val_loss < best_val_loss:
-                    best_val_loss = avg_val_loss
-                    best_state = {k: v.clone() for k, v in self._model.state_dict().items()}
-                    patience_counter = 0
-                else:
-                    patience_counter += 1
-                    if patience_counter >= self._patience:
-                        logger.info("LSTM early stopping at epoch %d", epoch + 1)
-                        break
+            if trial is not None:
+                trial.report(avg_val_loss, epoch)
+                if trial.should_prune():
+                    from optuna.exceptions import TrialPruned
+
+                    raise TrialPruned()
+
+            if avg_val_loss < best_val_loss:
+                best_val_loss = avg_val_loss
+                # Materialise the snapshot once on CPU: the in-memory rollback
+                # target and the on-disk checkpoint share one allocation, and
+                # ``load_state_dict`` handles the device transfer back to
+                # ``self._device`` on restore. CPU also keeps checkpoint files
+                # portable across CUDA / MPS / CPU runtimes.
+                best_state = {k: v.detach().cpu() for k, v in self._model.state_dict().items()}
+                patience_counter = 0
+                if checkpoint_path is not None:
+                    torch.save(best_state, checkpoint_path / BEST_STATE_PT)
+            else:
+                patience_counter += 1
+                if patience_counter >= self._patience:
+                    logger.info("LSTM early stopping at epoch %d", epoch + 1)
+                    break
 
         if best_state is not None and self._model is not None:
             self._model.load_state_dict(best_state)
@@ -271,63 +296,6 @@ class LSTMPredictor(IPredictor):
             predictions[self._lookback : self._lookback + n_windows] = preds
 
         return pd.Series(predictions, index=data.index, name="lstm_pred")
-
-    def update(
-        self,
-        new_data: pd.DataFrame,
-        target: pd.Series,
-        **kwargs: object,
-    ) -> None:
-        """Fine-tune on ``new_data`` only — no concat, no scaler refit.
-
-        Short optimization loop (``update_epochs``, default 3) at a reduced
-        learning rate (``lr * update_lr_scale``, default 1e-4 vs 1e-3). No
-        validation split, no early stopping — ``new_data`` is assumed to be
-        the incremental walk-forward bar count (~tens of rows) where a full
-        80/20 split would leave the val fold below the lookback threshold.
-        Parameter snapshots are taken before the loop so a mid-fine-tune
-        exception rolls back to the pre-update weights (leaf-level atomicity).
-        See :meth:`IPredictor.update` for the shared contract.
-        """
-        metadata = self._assert_fitted_with_metadata(caller="update")
-        # ``_model`` is set atomically with metadata in fit() — assert for mypy.
-        assert self._model is not None
-        if len(new_data) <= self._lookback:
-            raise ValueError(
-                f"LSTMPredictor.update() needs > lookback ({self._lookback}) "
-                f"rows of new_data, got {len(new_data)}"
-            )
-        new_metadata = metadata.extend_from(new_data)
-
-        df = new_data.copy()
-        target_col = "_target"
-        df[target_col] = np.asarray(target, dtype=np.float64)
-        train_ds = TemporalDataset(df, target_col, self._lookback, self._feature_columns)
-        train_loader = DataLoader(train_ds, batch_size=self._batch_size, shuffle=False)
-
-        criterion = _LOSS_FUNCTIONS[self._loss_fn]()
-        optimizer = torch.optim.Adam(self._model.parameters(), lr=self._lr * self._update_lr_scale)
-
-        # ``optimizer.step()`` mutates parameters in-place; snapshotting first
-        # lets the except-branch roll back a half-updated model if the loop
-        # raises (OOM, NaN gradients). Composite callers rely on leaf atomicity.
-        original_state = {k: v.detach().clone() for k, v in self._model.state_dict().items()}
-        try:
-            self._model.train()
-            for _ in range(self._update_epochs):
-                for features, targets in train_loader:
-                    features = features.to(self._device)
-                    targets = targets.to(self._device)
-                    optimizer.zero_grad()
-                    preds = self._model(features).squeeze(-1)
-                    loss = criterion(preds, targets)
-                    loss.backward()
-                    optimizer.step()
-        except BaseException:
-            self._model.load_state_dict(original_state)
-            raise
-
-        self._training_metadata = new_metadata
 
     def predict_single(self, recent_window: pd.DataFrame) -> float:
         """Predict single value from a recent data window."""
@@ -377,8 +345,6 @@ class LSTMPredictor(IPredictor):
                 "patience": self._patience,
                 "batch_size": self._batch_size,
                 "val_split_ratio": self._val_split_ratio,
-                "update_epochs": self._update_epochs,
-                "update_lr_scale": self._update_lr_scale,
                 "interval": self._interval.value,
             },
             training_metadata=metadata,
@@ -408,8 +374,6 @@ class LSTMPredictor(IPredictor):
             patience=json_io.get_int(config, "patience"),
             batch_size=json_io.get_int(config, "batch_size"),
             val_split_ratio=json_io.get_float(config, "val_split_ratio"),
-            update_epochs=json_io.get_int(config, "update_epochs"),
-            update_lr_scale=json_io.get_float(config, "update_lr_scale"),
             interval=Interval(json_io.get_str(config, "interval")),
         )
         model = MarketLSTM(

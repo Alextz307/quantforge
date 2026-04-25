@@ -17,6 +17,7 @@ import pytest
 from src.core.config import ExperimentConfig
 from src.orchestration import comparison as comparison_mod
 from src.orchestration.comparison import SignificanceTest, run_comparison
+from src.orchestration.experiment import RunOptions
 from src.orchestration.types import ExperimentResult, StrategyComparisonReport
 from tests.conftest import (
     comparison_curve_seed,
@@ -68,8 +69,9 @@ class _StubExperiment:
         self._name = name
         self._sharpe = sharpe
 
-    def run(self, *, store_root: Path, write_report: bool) -> ExperimentResult:
-        assert write_report is False  # comparison opts out of per-experiment reports
+    def run(self, options: RunOptions | None = None) -> ExperimentResult:
+        opts = options if options is not None else RunOptions()
+        assert opts.write_report is False  # comparison opts out of per-experiment reports
         return _stub_result(self._name, self._sharpe)
 
 
@@ -198,7 +200,7 @@ class TestRunComparisonAlignment:
                 def __init__(self, cfg_name: str) -> None:
                     self._cfg_name = cfg_name
 
-                def run(self, *, store_root: Path, write_report: bool) -> ExperimentResult:
+                def run(self, options: RunOptions | None = None) -> ExperimentResult:
                     # Alpha has 3 folds, Bravo has only 2 — alignment violated.
                     n = 3 if self._cfg_name == "Alpha" else 2
                     folds = tuple(

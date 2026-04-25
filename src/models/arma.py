@@ -35,17 +35,17 @@ logger = get_logger(__name__)
 class _StatsmodelsARMAAdapter:
     """Pmdarima-ARIMA-compatible adapter backed by statsmodels.
 
-    Produced by every ``ARMAPredictor`` write path (``fit``, ``update``,
-    ``load``) so the rest of the predictor can treat ``self._model`` as a
-    single surface. ``predict_in_sample()`` returns the statsmodels fitted
-    values as a plain numpy array; ``predict(n_periods)`` returns the numpy
-    array of out-of-sample forecasts — both match the shapes
-    ``ARMAPredictor.predict`` expected from the original pmdarima path.
+    Produced by every ``ARMAPredictor`` write path (``fit``, ``load``) so
+    the rest of the predictor can treat ``self._model`` as a single surface.
+    ``predict_in_sample()`` returns the statsmodels fitted values as a plain
+    numpy array; ``predict(n_periods)`` returns the numpy array of
+    out-of-sample forecasts — both match the shapes ``ARMAPredictor.predict``
+    expected from the original pmdarima path.
 
     Public attributes (``order``, ``trend``, ``endog``, ``params``) are the
-    single source of truth for ``save()`` and ``update()``. ``_results`` is
-    the filtered SARIMAX state used for in-sample fitted values and
-    out-of-sample forecasts.
+    single source of truth for ``save()``. ``_results`` is the filtered
+    SARIMAX state used for in-sample fitted values and out-of-sample
+    forecasts.
     """
 
     def __init__(
@@ -99,8 +99,8 @@ class ARMAPredictor(IPredictor):
         self._fitted = False
         # ``self._model`` is always a ``_StatsmodelsARMAAdapter`` once fit. Its
         # public attributes (``order``, ``trend``, ``endog``, ``params``) are
-        # the single source of truth for ``update()`` and ``save()``; pmdarima
-        # is only used transiently inside ``fit()`` to pick the order.
+        # the single source of truth for ``save()``; pmdarima is only used
+        # transiently inside ``fit()`` to pick the order.
         self._model: _StatsmodelsARMAAdapter | None = None
         self._training_metadata: TrainingMetadata | None = None
 
@@ -138,6 +138,8 @@ class ARMAPredictor(IPredictor):
         self,
         train_data: pd.DataFrame,
         target: pd.Series,
+        *,
+        checkpoint_path: Path | None = None,  # noqa: ARG002
         **kwargs: object,
     ) -> None:
         """Fit ARMA on training returns.
@@ -158,8 +160,8 @@ class ARMAPredictor(IPredictor):
         trend = trend_raw if isinstance(trend_raw, str) else "n"
         params = np.asarray(arima_res.params, dtype=np.float64)
 
-        # Wrap into the adapter so every post-fit code path (predict, update,
-        # save) sees the same ``_StatsmodelsARMAAdapter`` surface.
+        # Wrap into the adapter so every post-fit code path (predict, save)
+        # sees the same ``_StatsmodelsARMAAdapter`` surface.
         self._model = _StatsmodelsARMAAdapter(endog, order, params, trend)
 
         logger.info("ARMA fit: best order %s", order)
@@ -237,37 +239,6 @@ class ARMAPredictor(IPredictor):
         forecast = self._model.predict(n_periods=1)
         return float(forecast[0])
 
-    def update(
-        self,
-        new_data: pd.DataFrame,
-        target: pd.Series,
-        **kwargs: object,
-    ) -> None:
-        """Fixed-order refit on the training window extended by ``new_data``.
-
-        Skips ``pmdarima.auto_arima`` — re-runs statsmodels MLE on the combined
-        endog with the cached ``(p, d, q)`` and trend spec. The order stays
-        frozen; coefficients move. The refitted model is stored as a
-        ``_StatsmodelsARMAAdapter`` (same shape as post-``load()``) so
-        ``predict()`` stays indifferent to fit-vs-update origin. See
-        :meth:`IPredictor.update` for the shared contract.
-        """
-        metadata = self._assert_fitted_with_metadata(caller="update")
-        # ``_model`` is set atomically with metadata in fit() — assert for mypy.
-        assert self._model is not None
-        new_metadata = metadata.extend_from(new_data)
-
-        new_endog = np.asarray(target, dtype=np.float64)
-        combined = np.concatenate([self._model.endog, new_endog])
-        sm_result = SMARIMA(combined, order=self._model.order, trend=self._model.trend).fit()
-        refitted_params = np.asarray(sm_result.params, dtype=np.float64)
-
-        # Commit: pure assignments below cannot raise.
-        self._model = _StatsmodelsARMAAdapter(
-            combined, self._model.order, refitted_params, self._model.trend
-        )
-        self._training_metadata = new_metadata
-
     def save(self, path: str | Path) -> None:
         """Persist fitted ARMA params + training endog to ``path``.
 
@@ -311,7 +282,7 @@ class ARMAPredictor(IPredictor):
         """Reconstruct a fitted ARMAPredictor from ``path``.
 
         The loaded ``_model`` is a ``_StatsmodelsARMAAdapter`` — same shape
-        as the post-fit and post-update paths.
+        as the post-fit path.
         """
         root = Path(path)
         config = json_io.read_dict(root / CONFIG_JSON)

@@ -87,7 +87,6 @@ class _FakeHybridLeaf:
     training_metadata: TrainingMetadata | None
     _lstm: _FakeLstm
     fit_calls: int = 0
-    update_calls: int = 0
     training_metadata_entries: tuple[TrackedMetadata, ...] = field(
         default_factory=lambda: (
             TrackedMetadata(origin="arma", metadata=_leaf_metadata()),
@@ -97,9 +96,6 @@ class _FakeHybridLeaf:
 
     def fit(self, df: pd.DataFrame, target: pd.Series, **_: object) -> None:
         self.fit_calls += 1
-
-    def update(self, df: pd.DataFrame, target: pd.Series, **_: object) -> None:
-        self.update_calls += 1
 
     def predict(self, df: pd.DataFrame) -> pd.Series:
         return pd.Series([0.0] * len(df), index=df.index)
@@ -119,13 +115,9 @@ class _FakeClassifier:
 
     training_metadata: TrainingMetadata | None
     fit_calls: int = 0
-    update_calls: int = 0
 
     def fit(self, df: pd.DataFrame, target: pd.Series, **_: object) -> None:
         self.fit_calls += 1
-
-    def update(self, df: pd.DataFrame, target: pd.Series, **_: object) -> None:
-        self.update_calls += 1
 
     def predict_proba(self, df: pd.DataFrame) -> pd.Series:
         return pd.Series([0.5] * len(df), index=df.index, name="up_prob")
@@ -218,33 +210,6 @@ class TestReturnForecastPretrainedInjection:
                 pretrained_leaves={"return_model": fake_leaf},
             )
 
-    def test_update_does_not_refit_pretrained_leaf(
-        self, train_df: pd.DataFrame, fake_leaf: _FakeHybridLeaf
-    ) -> None:
-        """Frozen-leaf contract: ``strategy.update()`` must NOT call
-        ``leaf.update()`` when the leaf was pretrained-injected. Otherwise
-        a forward-run loop silently mutates GARCH/ARMA/LSTM params and
-        advances the leaf's own ``training_metadata`` fold by fold.
-        """
-        s = ReturnForecastStrategy(
-            feature_columns=list(_FEATURES),
-            lstm_lookback=_LSTM_LOOKBACK,
-            pretrained_leaves={"return_model": fake_leaf},
-        )
-        s.train(train_df)
-        assert fake_leaf.update_calls == 0
-        # Disjoint update window strictly after train_end (extend() rejects overlap)
-        update_df = _ohlcv_df()
-        update_df.index = pd.date_range(
-            train_df.index[-1] + pd.Timedelta(days=1),
-            periods=len(update_df),
-            freq="B",
-        )
-        s.update(update_df)
-        assert fake_leaf.update_calls == 0
-        assert s.training_metadata is not None
-        assert s.training_metadata.train_end == pd.Timestamp(update_df.index[-1])
-
 
 class TestVolatilityTargetingPretrainedInjection:
     def test_ctor_stores_leaf_and_skips_build(self, fake_leaf: _FakeHybridLeaf) -> None:
@@ -280,30 +245,6 @@ class TestVolatilityTargetingPretrainedInjection:
         leaf_entries = tracked[1:]
         assert len(leaf_entries) > 0
         assert all(t.is_pretrained for t in leaf_entries)
-
-    def test_update_does_not_refit_pretrained_leaf(
-        self, train_df: pd.DataFrame, fake_leaf: _FakeHybridLeaf
-    ) -> None:
-        """Frozen-leaf contract: ``strategy.update()`` must NOT call
-        ``leaf.update()`` when the leaf was pretrained-injected.
-        """
-        s = VolatilityTargetingStrategy(
-            feature_columns=list(_FEATURES),
-            lstm_lookback=_LSTM_LOOKBACK,
-            pretrained_leaves={"vol_model": fake_leaf},
-        )
-        s.train(train_df)
-        assert fake_leaf.update_calls == 0
-        update_df = _ohlcv_df()
-        update_df.index = pd.date_range(
-            train_df.index[-1] + pd.Timedelta(days=1),
-            periods=len(update_df),
-            freq="B",
-        )
-        s.update(update_df)
-        assert fake_leaf.update_calls == 0
-        assert s.training_metadata is not None
-        assert s.training_metadata.train_end == pd.Timestamp(update_df.index[-1])
 
 
 class TestMomentumGatekeeperPretrainedInjection:
@@ -366,28 +307,6 @@ class TestMomentumGatekeeperPretrainedInjection:
                 feature_columns=list(_MOMENTUM_FEATURES),
                 pretrained_leaves={"directional_classifier": fake_classifier},
             )
-
-    def test_update_does_not_refit_pretrained_leaf(
-        self, train_df: pd.DataFrame, fake_classifier: _FakeClassifier
-    ) -> None:
-        """Frozen-leaf contract: ``strategy.update()`` must NOT call
-        ``classifier.update()`` when the leaf was pretrained-injected."""
-        s = MomentumGatekeeperStrategy(
-            feature_columns=list(_MOMENTUM_FEATURES),
-            pretrained_leaves={"directional_classifier": fake_classifier},
-        )
-        s.train(train_df)
-        assert fake_classifier.update_calls == 0
-        update_df = _ohlcv_df()
-        update_df.index = pd.date_range(
-            train_df.index[-1] + pd.Timedelta(days=1),
-            periods=len(update_df),
-            freq="B",
-        )
-        s.update(update_df)
-        assert fake_classifier.update_calls == 0
-        assert s.training_metadata is not None
-        assert s.training_metadata.train_end == pd.Timestamp(update_df.index[-1])
 
 
 class TestNonMLStrategiesRejectInjection:

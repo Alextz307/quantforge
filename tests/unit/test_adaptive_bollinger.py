@@ -134,33 +134,6 @@ class TestAdaptiveBollingerStrategy:
         s2 = fitted_strategy.generate_signals(train_df)
         pd.testing.assert_series_equal(s1, s2)
 
-    def test_update_extends_training_window(
-        self, train_df: pd.DataFrame, eval_df: pd.DataFrame
-    ) -> None:
-        """``update()`` advances ``train_end`` + ``n_train_samples`` while
-        preserving ``train_start`` and ``fit_timestamp``."""
-        s = AdaptiveBollingerStrategy(
-            window=BOLLINGER_WINDOW,
-            k=BOLLINGER_K,
-            trend_window=BOLLINGER_TREND_WINDOW,
-            garch_p_max=COMPACT_GARCH_P_MAX,
-            garch_q_max=COMPACT_GARCH_Q_MAX,
-        )
-        s.train(train_df)
-        first_meta = s.training_metadata
-        assert first_meta is not None
-        assert first_meta.n_train_samples == len(train_df)
-
-        s.update(eval_df)
-        second_meta = s.training_metadata
-        assert second_meta is not None
-        assert second_meta.n_train_samples == len(train_df) + len(eval_df)
-        assert second_meta.train_start == first_meta.train_start
-        assert second_meta.train_end == pd.Timestamp(eval_df.index[-1])
-        assert second_meta.fit_timestamp == first_meta.fit_timestamp
-        signals = s.generate_signals(eval_df)
-        assert isinstance(signals, pd.Series)
-
     def test_bearish_regime_shorts_only(self, fitted_strategy: AdaptiveBollingerStrategy) -> None:
         """In a declining-trend window, non-zero signals must be short (-1), never long (+1)."""
         df = make_declining_close_df()

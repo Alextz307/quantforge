@@ -92,7 +92,13 @@ class AdaptiveBollingerStrategy(IStrategy):
             )
         )
 
-    def train(self, train_data: pd.DataFrame, **kwargs: object) -> None:
+    def train(
+        self,
+        train_data: pd.DataFrame,
+        *,
+        checkpoint_path: Path | None = None,  # noqa: ARG002
+        **kwargs: object,
+    ) -> None:
         """Fit the GARCH volatility model on training log returns."""
         log_returns = compute_log_returns(train_data["close"]).dropna()
         aligned = train_data.loc[log_returns.index]
@@ -116,18 +122,6 @@ class AdaptiveBollingerStrategy(IStrategy):
             cond_vol=np.asarray(daily_price_sigma, dtype=np.float64),
         )
         return pd.Series(signal, index=data.index, name="adaptive_bollinger_signal")
-
-    def update(self, new_data: pd.DataFrame, **kwargs: object) -> None:
-        """Delegate to GARCH's warm-start refit on the extended return series.
-
-        See :meth:`IStrategy.update` for the shared contract.
-        """
-        metadata = self._assert_fitted_with_metadata(caller="update")
-        new_metadata = metadata.extend_from(new_data)
-
-        new_returns = compute_log_returns(new_data["close"]).dropna()
-        self._garch.update(new_data.loc[new_returns.index], new_returns)
-        self._training_metadata = new_metadata
 
     def save(self, path: str | Path) -> None:
         """Persist AdaptiveBollinger config + nested GARCH to ``path``."""

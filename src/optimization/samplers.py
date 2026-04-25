@@ -11,8 +11,10 @@ tunable with any sampler".
 
 from __future__ import annotations
 
+import warnings
 from typing import assert_never
 
+from optuna.exceptions import ExperimentalWarning
 from optuna.samplers import (
     BaseSampler,
     CmaEsSampler,
@@ -34,6 +36,12 @@ def build_sampler(kind: SamplerKind, seed: int) -> BaseSampler:
         case SamplerKind.CMAES:
             return CmaEsSampler(seed=seed)
         case SamplerKind.QMC:
-            return QMCSampler(seed=seed)
+            # QMCSampler emits an ExperimentalWarning on construction; QMC is
+            # intentionally a first-class option in ``SamplerKind``, so the
+            # upstream "interface may change" notice is noise both in tests and
+            # in CLI output. Silenced narrowly around the constructor only.
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", ExperimentalWarning)
+                return QMCSampler(seed=seed)
         case _ as unknown:
             assert_never(unknown)

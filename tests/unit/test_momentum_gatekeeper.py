@@ -166,32 +166,6 @@ class TestMomentumGatekeeperStrategy:
         s2 = fitted_strategy.generate_signals(train_df)
         pd.testing.assert_series_equal(s1, s2)
 
-    def test_update_extends_training_window(
-        self, train_df: pd.DataFrame, eval_df: pd.DataFrame
-    ) -> None:
-        """``update()`` advances ``train_end`` + ``n_train_samples`` while
-        preserving ``train_start`` and ``fit_timestamp``."""
-        s = MomentumGatekeeperStrategy(
-            ma_window=MA_WINDOW,
-            prob_threshold=PROB_THRESHOLD,
-            n_estimators=COMPACT_N_ESTIMATORS,
-            max_depth=COMPACT_MAX_DEPTH,
-        )
-        s.train(train_df)
-        first_meta = s.training_metadata
-        assert first_meta is not None
-        assert first_meta.n_train_samples == len(train_df)
-
-        s.update(eval_df)
-        second_meta = s.training_metadata
-        assert second_meta is not None
-        assert second_meta.n_train_samples == len(train_df) + len(eval_df)
-        assert second_meta.train_start == first_meta.train_start
-        assert second_meta.train_end == pd.Timestamp(eval_df.index[-1])
-        assert second_meta.fit_timestamp == first_meta.fit_timestamp
-        signals = s.generate_signals(eval_df)
-        assert isinstance(signals, pd.Series)
-
     def test_invalid_feature_subset_raises(self, train_df: pd.DataFrame) -> None:
         s = MomentumGatekeeperStrategy(
             feature_columns=["does_not_exist"],

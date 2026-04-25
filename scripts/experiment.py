@@ -20,9 +20,6 @@ Subcommands:
 The CLI deliberately mirrors ``scripts/benchmark.py`` (same ``click.group`` +
 ``--store-root`` convention + ``ClickException`` wrapping of runtime errors)
 so a user who knows ``make bench`` knows ``make experiment`` instantly.
-
-Future subcommands (``holdout-eval``, ``forward-run``) land in later
-batches — the group is extensible without breaking these.
 """
 
 from __future__ import annotations
@@ -56,6 +53,7 @@ from src.core.persistence import (
 from src.core.regime_config import load_regime_config
 from src.orchestration.builder import build_experiment
 from src.orchestration.comparison import SignificanceTest, run_comparison
+from src.orchestration.experiment import RunOptions
 from src.orchestration.model_artifact import ModelArtifactManifest, save_model_artifact
 from src.orchestration.regime_run import resolve_run_dir, run_regime_report
 from src.orchestration.standalone_training import train_model_standalone
@@ -117,12 +115,30 @@ def cli(log_level: str) -> None:
     default=True,
     help="Generate strategy_reporter artifacts (plots + LaTeX tables) under the run dir.",
 )
+@click.option(
+    "--progress/--no-progress",
+    "progress",
+    default=False,
+    help="Show a tqdm progress bar over the walk-forward fold loop (TTY only).",
+)
+@click.option(
+    "--checkpoint/--no-checkpoint",
+    "checkpoint",
+    default=False,
+    help=(
+        "Per-fold mid-fit best-state checkpoints under <run>/checkpoints/fold_N/. "
+        "Useful for long LSTM/XGBoost fits where Ctrl+C should leave the best-so-far "
+        "weights recoverable. HPO trials never checkpoint regardless of this flag."
+    ),
+)
 def run_cmd(
     config_path: Path,
     name: str | None,
     seed: int | None,
     store_root: Path,
     write_report: bool,
+    progress: bool,
+    checkpoint: bool,
 ) -> None:
     """Execute a single walk-forward experiment end-to-end."""
     try:
@@ -140,7 +156,14 @@ def run_cmd(
 
     click.echo(f"running experiment '{cfg.name}' ({cfg.strategy.name} × {cfg.data.tickers[0]}) ...")
     try:
-        result = experiment.run(store_root=store_root, write_report=write_report)
+        result = experiment.run(
+            RunOptions(
+                store_root=store_root,
+                write_report=write_report,
+                progress=progress,
+                checkpoint=checkpoint,
+            )
+        )
     except LeakageError as e:
         raise click.ClickException(f"leakage tripwire fired: {e}") from e
     except (NotImplementedError, ValueError, RuntimeError) as e:
@@ -325,6 +348,12 @@ def list_models_cmd(store_root: Path) -> None:
     default=True,
     help="Generate HPO convergence + top-trials report after the study finishes.",
 )
+@click.option(
+    "--progress/--no-progress",
+    "progress",
+    default=False,
+    help="Show Optuna's per-trial progress bar (TTY only).",
+)
 def tune_cmd(
     config_path: Path,
     hpo_config_path: Path,
@@ -332,6 +361,7 @@ def tune_cmd(
     n_jobs_override: int | None,
     store_root: Path,
     write_report: bool,
+    progress: bool,
 ) -> None:
     """Run an Optuna study over an ExperimentConfig's hyperparameter space.
 
@@ -367,7 +397,7 @@ def tune_cmd(
         f"for {hpo_cfg.n_trials} trial(s) (n_jobs={hpo_cfg.n_jobs}) ..."
     )
     try:
-        study = tuner.run()
+        study = tuner.run(progress=progress)
     except LeakageError as e:
         raise click.ClickException(f"leakage tripwire fired: {e}") from e
     except (NotImplementedError, ValueError, RuntimeError) as e:

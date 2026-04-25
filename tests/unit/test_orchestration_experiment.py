@@ -29,6 +29,7 @@ from src.core.persistence import (
 )
 from src.engine.scenarios import SlippageScenario
 from src.orchestration.builder import build_experiment
+from src.orchestration.experiment import RunOptions
 from src.orchestration.manifest import Manifest
 from src.orchestration.types import ExperimentResult
 from tests.conftest import make_synthetic_ohlcv_df
@@ -97,7 +98,7 @@ def run_result(cfg_dict: dict[str, Any], tmp_path: Path) -> tuple[Path, Experime
     cfg = ExperimentConfig.model_validate(cfg_dict)
     exp = build_experiment(cfg)
     store = tmp_path / "experiment_results"
-    result = exp.run(store_root=store)
+    result = exp.run(RunOptions(store_root=store))
     return store, result
 
 
@@ -209,7 +210,7 @@ class TestNoReportFlag:
         cfg = ExperimentConfig.model_validate(cfg_dict)
         exp = build_experiment(cfg)
         store = tmp_path / "experiment_results"
-        result = exp.run(store_root=store, write_report=False)
+        result = exp.run(RunOptions(store_root=store, write_report=False))
         run_dir = store / "runs" / result.experiment_id
         # Core runtime artifacts still land.
         assert (run_dir / FOLD_RESULTS_JSONL).is_file()
@@ -227,8 +228,8 @@ class TestExperimentIdUniqueness:
         """Suffix disambiguates two invocations in the same second."""
         cfg = ExperimentConfig.model_validate(cfg_dict)
         store = tmp_path / "experiment_results"
-        r1 = build_experiment(cfg).run(store_root=store)
-        r2 = build_experiment(cfg).run(store_root=store)
+        r1 = build_experiment(cfg).run(RunOptions(store_root=store))
+        r2 = build_experiment(cfg).run(RunOptions(store_root=store))
         assert r1.experiment_id != r2.experiment_id
 
 
@@ -253,4 +254,4 @@ class TestMultiTickerRejected:
         }
         cfg = ExperimentConfig.model_validate(cfg_dict_copy)
         with pytest.raises(NotImplementedError, match="multi-ticker"):
-            build_experiment(cfg).run(store_root=tmp_path / "experiment_results")
+            build_experiment(cfg).run(RunOptions(store_root=tmp_path / "experiment_results"))

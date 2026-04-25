@@ -149,6 +149,8 @@ class HybridVolatilityModel(IPredictor):
         self,
         train_data: pd.DataFrame,
         target: pd.Series,
+        *,
+        checkpoint_path: Path | None = None,
         **kwargs: object,
     ) -> None:
         """Fit GARCH on log returns, then fit LSTM on realized-vol residuals.
@@ -158,6 +160,8 @@ class HybridVolatilityModel(IPredictor):
                 ``feature_columns``. DatetimeIndex required.
             target: Annualized realized volatility series aligned with
                 ``train_data`` (caller computes via e.g. Garman-Klass).
+            checkpoint_path: Forwarded to ``LSTMPredictor.fit`` for best-state
+                checkpointing of the residual-correction leaf.
             **kwargs: Forwarded to LSTM fit — supports Optuna ``trial``.
         """
         guard_scaler_fit_once(self._scaler, "HybridVolatilityModel")
@@ -177,7 +181,7 @@ class HybridVolatilityModel(IPredictor):
             columns=self._feature_columns,
         )
 
-        self._lstm.fit(scaled_features, residuals, **kwargs)
+        self._lstm.fit(scaled_features, residuals, checkpoint_path=checkpoint_path, **kwargs)
 
         self._fitted = True
         self._training_metadata = TrainingMetadata.from_fit(
@@ -222,39 +226,6 @@ class HybridVolatilityModel(IPredictor):
         if not self._fitted:
             raise RuntimeError("HybridVolatilityModel.predict_single() called before fit()")
         return float(self.predict(recent_window).iloc[-1])
-
-    def update(
-        self,
-        new_data: pd.DataFrame,
-        target: pd.Series,
-        **kwargs: object,
-    ) -> None:
-        """Update both leaves — no scaler re-fit (anti-leakage).
-
-        GARCH warm-starts on the extended return series; the updated GARCH
-        then emits fresh residuals for ``new_data`` which feed the LSTM's
-        fine-tune. The scaler fitted in ``fit()`` stays frozen so new-window
-        features are scaled against the original training distribution. Each
-        leaf is itself atomic under ``extend_from``-first validation; a
-        mid-leaf crash won't half-update its internal state. See
-        :meth:`IPredictor.update` for the shared contract.
-        """
-        metadata = self._assert_fitted_with_metadata(caller="update")
-        # ``_scaler`` is set atomically with metadata in fit() — assert for mypy.
-        assert self._scaler is not None
-        new_metadata = metadata.extend_from(new_data)
-
-        new_returns = compute_log_returns(new_data["close"]).dropna()
-        self._garch.update(new_data.loc[new_returns.index], new_returns)
-
-        new_garch_vol = self._garch.predict(new_data, returns=new_returns)
-        new_residuals = (target - new_garch_vol).dropna()
-
-        feature_frame = new_data.loc[new_residuals.index, self._feature_columns]
-        scaled_features = self._scale_to_frame(feature_frame)
-        self._lstm.update(scaled_features, new_residuals, **kwargs)
-
-        self._training_metadata = new_metadata
 
     def save(self, path: str | Path) -> None:
         """Persist HybridVolatility to ``path`` as ``<path>/garch/`` +

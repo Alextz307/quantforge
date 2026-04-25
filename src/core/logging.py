@@ -38,8 +38,7 @@ class _ContextAdapter(logging.LoggerAdapter):  # type: ignore[type-arg]
 
     # ``msg``/``kwargs`` use ``Any`` because the parent ``LoggerAdapter.process``
     # signature does; narrowing would violate Liskov substitution and break
-    # legitimate callers who pass LogRecord-compatible objects. This is the
-    # single justified ``Any`` in the codebase — a stdlib-contract override.
+    # legitimate callers who pass LogRecord-compatible objects.
     def process(
         self,
         msg: Any,

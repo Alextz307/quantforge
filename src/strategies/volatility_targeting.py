@@ -193,7 +193,13 @@ class VolatilityTargetingStrategy(IStrategy):
             bars, window=self._realized_vol_window, interval=self._interval
         )
 
-    def train(self, train_data: pd.DataFrame, **kwargs: object) -> None:
+    def train(
+        self,
+        train_data: pd.DataFrame,
+        *,
+        checkpoint_path: Path | None = None,
+        **kwargs: object,
+    ) -> None:
         """Fit HybridVolatilityModel on an internally-computed realized-vol target.
 
         When ``pretrained_leaves["vol_model"]`` was injected at ctor time,
@@ -206,7 +212,7 @@ class VolatilityTargetingStrategy(IStrategy):
             realized_vol = self._compute_realized_vol(train_data)
             target = realized_vol.dropna()
             aligned = train_data.loc[target.index]
-            self._hybrid_vol.fit(aligned, target, **kwargs)
+            self._hybrid_vol.fit(aligned, target, checkpoint_path=checkpoint_path, **kwargs)
 
         self._training_metadata = TrainingMetadata.from_fit(
             train_data, self._interval, self._hybrid_params.feature_columns
@@ -230,28 +236,6 @@ class VolatilityTargetingStrategy(IStrategy):
         gated = gated.where(trend_ma.notna())
         gated.name = "vol_target_signal"
         return gated
-
-    def update(self, new_data: pd.DataFrame, **kwargs: object) -> None:
-        """Delegate to HybridVolatilityModel's warm-start update.
-
-        When the leaf was pretrained-injected, the frozen-leaf contract
-        forbids mutating it: ``leaf.update()`` is skipped and only the
-        strategy's own ``_training_metadata`` advances. Without this guard
-        a forward-run loop silently drifts the "pinned" leaf fold by fold.
-
-        Realized-vol target is computed internally from ``new_data`` OHLC via
-        the Garman-Klass estimator (same recipe as ``train()``). See
-        :meth:`IStrategy.update` for the shared contract.
-        """
-        metadata = self._assert_fitted_with_metadata(caller="update")
-        new_metadata = metadata.extend_from(new_data)
-
-        if _LEAF_KEY_VOL_MODEL not in self._pretrained_leaves:
-            realized_vol = self._compute_realized_vol(new_data)
-            target = realized_vol.dropna()
-            aligned = new_data.loc[target.index]
-            self._hybrid_vol.update(aligned, target, **kwargs)
-        self._training_metadata = new_metadata
 
     def save(self, path: str | Path) -> None:
         """Persist VolatilityTargeting config + nested HybridVolatility.

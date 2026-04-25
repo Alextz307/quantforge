@@ -28,6 +28,7 @@ from src.analysis.metrics_aggregator import AggregateStats
 from src.core.config import ExperimentConfig, StandaloneModelConfig
 from src.optimization import tuner as tuner_mod
 from src.optimization.checkpointing import BEST_CONFIG_YAML_NAME, TRIALS_JSONL_NAME
+from src.orchestration.experiment import RunOptions
 from tests.conftest import (
     make_stub_aggregate_stats,
     make_synthetic_ohlcv_df,
@@ -258,7 +259,7 @@ class _StubExperiment:
     def __init__(self, experiment_id: str) -> None:
         self._experiment_id = experiment_id
 
-    def run(self, *, store_root: Path, write_report: bool) -> _StubExperimentResult:
+    def run(self, options: RunOptions | None = None) -> _StubExperimentResult:
         return _StubExperimentResult(experiment_id=self._experiment_id)
 
 

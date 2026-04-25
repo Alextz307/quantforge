@@ -24,6 +24,7 @@ dependencies = [
     "yfinance>=0.2",
     "click>=8.1",
     "psutil>=5.9",
+    "tqdm>=4.66",
 ]
 
 [project.optional-dependencies]

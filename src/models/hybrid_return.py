@@ -148,6 +148,8 @@ class HybridReturnModel(IPredictor):
         self,
         train_data: pd.DataFrame,
         target: pd.Series,
+        *,
+        checkpoint_path: Path | None = None,
         **kwargs: object,
     ) -> None:
         """Fit ARMA on log returns, then fit LSTM on return residuals.
@@ -158,6 +160,8 @@ class HybridReturnModel(IPredictor):
             target: Log returns series (may include leading NaN — it is
                 dropped internally). Same convention as
                 ``compute_log_returns(train_data["close"])``.
+            checkpoint_path: Forwarded to ``LSTMPredictor.fit`` for best-state
+                checkpointing of the residual-correction leaf.
             **kwargs: Forwarded to LSTM fit — supports Optuna ``trial``.
         """
         guard_scaler_fit_once(self._scaler, "HybridReturnModel")
@@ -177,7 +181,7 @@ class HybridReturnModel(IPredictor):
             columns=self._feature_columns,
         )
 
-        self._lstm.fit(scaled_features, residuals, **kwargs)
+        self._lstm.fit(scaled_features, residuals, checkpoint_path=checkpoint_path, **kwargs)
 
         self._fitted = True
         self._training_metadata = TrainingMetadata.from_fit(
@@ -218,36 +222,6 @@ class HybridReturnModel(IPredictor):
         scaler = cast(StandardScaler, self._scaler)
         scaled = scaler.transform(feature_frame)
         return pd.DataFrame(scaled, index=feature_frame.index, columns=self._feature_columns)
-
-    def update(
-        self,
-        new_data: pd.DataFrame,
-        target: pd.Series,
-        **kwargs: object,
-    ) -> None:
-        """Update both leaves — no scaler re-fit (anti-leakage).
-
-        ARMA refits with fixed order on the extended endog; the updated ARMA
-        then emits fresh residuals for ``new_data`` which feed the LSTM's
-        fine-tune. The scaler fitted in ``fit()`` stays frozen. See
-        :meth:`IPredictor.update` for the shared contract.
-        """
-        metadata = self._assert_fitted_with_metadata(caller="update")
-        # ``_scaler`` is set atomically with metadata in fit() — assert for mypy.
-        assert self._scaler is not None
-        new_metadata = metadata.extend_from(new_data)
-
-        target_clean = target.dropna()
-        self._arma.update(new_data.loc[target_clean.index], target_clean)
-
-        arma_new_pred = self._arma.predict(new_data, returns=target_clean)
-        new_residuals = (target_clean - arma_new_pred).dropna()
-
-        feature_frame = new_data.loc[new_residuals.index, self._feature_columns]
-        scaled_features = self._scale_to_frame(feature_frame)
-        self._lstm.update(scaled_features, new_residuals, **kwargs)
-
-        self._training_metadata = new_metadata
 
     def save(self, path: str | Path) -> None:
         """Persist HybridReturn to ``path`` as ``<path>/arma/`` +

@@ -18,6 +18,7 @@ from scripts.experiment import cli
 from src.core.config import ExperimentConfig
 from src.core.persistence import COMPARISONS_SUBDIR
 from src.orchestration import comparison as comparison_mod
+from src.orchestration.experiment import RunOptions
 from src.orchestration.types import ExperimentResult
 from tests.conftest import (
     comparison_curve_seed,
@@ -72,7 +73,7 @@ class _StubExperiment:
         self._name = name
         self._sharpe = sharpe
 
-    def run(self, *, store_root: Path, write_report: bool) -> ExperimentResult:
+    def run(self, options: RunOptions | None = None) -> ExperimentResult:
         return _stub_result(self._name, self._sharpe)
 
 

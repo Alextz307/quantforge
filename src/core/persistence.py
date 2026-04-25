@@ -44,12 +44,12 @@ SCALER_JSON = "scaler.json"
 WEIGHTS_PT = "weights.pt"
 MODEL_UBJ = "model.ubj"
 ENDOG_NPY = "endog.npy"
-# Cached training targets used by warm-start update() overrides. GARCH
-# concatenates with new returns to refit with fixed (p,q); PairsTrading
-# concatenates with new prices to re-test cointegration. ARMA reuses
-# ENDOG_NPY (already persisted for the statsmodels filter).
-TRAIN_RETURNS_NPY = "train_returns.npy"
-TRAIN_PAIR_NPZ = "train_pair.npz"
+# Best-state checkpoints written mid-fit so a Ctrl+C between epochs / boosting
+# rounds leaves the best-so-far weights recoverable. Distinct filenames from
+# the canonical save outputs (``WEIGHTS_PT`` / ``MODEL_UBJ``) so a checkpoint
+# directory and a save directory can sit side-by-side without collision.
+BEST_STATE_PT = "best_state.pt"
+BEST_ITERATION_UBJ = "best_iteration.ubj"
 
 # Canonical subdirectory names for composite save layouts. Centralized so a
 # strategy that persists a GARCH subdir and the GARCHPredictor it delegates to
@@ -69,6 +69,11 @@ FOLD_RESULTS_JSONL = "fold_results.jsonl"
 EXPERIMENT_CONFIG_YAML = "config.yaml"
 EXPERIMENT_METRICS_JSON = "metrics.json"
 EXPERIMENT_STRATEGY_SUBDIR = "strategy_state"
+# Per-fold mid-fit best-state snapshots land under ``<run>/checkpoints/fold_N/``
+# when ``Experiment.run(checkpoint=True)``. Walk-forward creates the per-fold
+# subdir; the leaf fit() call writes ``BEST_STATE_PT`` / ``BEST_ITERATION_UBJ``.
+EXPERIMENT_CHECKPOINTS_SUBDIR = "checkpoints"
+FOLD_DIR_PREFIX = "fold_"
 
 # Standalone model-artifact layout — `experiment_results/models/<name>/`.
 # Distinct symbols from EXPERIMENT_* so a future rename on one side doesn't

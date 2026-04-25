@@ -106,8 +106,8 @@ class TestWalkForwardDeepCheck:
 
         This models the failure mode the deep check exists to catch —
         ``strategy.training_metadata`` looks fine, but a wrapped model's
-        metadata drifted forward (e.g. an update() bug) so its training
-        region overlaps the incoming fold's test window.
+        metadata drifted forward so its training region overlaps the
+        incoming fold's test window.
         """
         s = AdaptiveBollingerStrategy(
             window=_BOLLINGER_WINDOW,

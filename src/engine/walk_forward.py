@@ -20,8 +20,9 @@ computed performance metrics so callers don't need to recompute.
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
+from pathlib import Path
 
 import pandas as pd
 
@@ -33,7 +34,8 @@ from quant_engine import (
 )
 from src.core.exceptions import LeakageError
 from src.core.logging import get_logger
-from src.core.temporal import WalkForwardValidator
+from src.core.persistence import FOLD_DIR_PREFIX
+from src.core.temporal import TemporalSplit, WalkForwardValidator
 from src.core.types import Interval
 from src.engine.interface import IBacktestEngine
 from src.features.interface import IFeaturePipeline
@@ -132,6 +134,8 @@ def evaluate_walk_forward(
     risk_free_rate: float = 0.0,
     *,
     feature_pipeline_factory: Callable[[], IFeaturePipeline] | None = None,
+    progress: bool = False,
+    checkpoint_root: Path | None = None,
 ) -> list[FoldResult]:
     """Run train → leakage check → signals → engine → metrics, per fold.
 
@@ -155,6 +159,11 @@ def evaluate_walk_forward(
             scaler's statistics across folds or trigger the fit-once
             scaler guard on the second fold; the factory shape makes the
             per-fold refit explicit.
+        checkpoint_root: When set, the strategy's ``train()`` is called
+            with ``checkpoint_path=<checkpoint_root>/fold_<i>`` so any
+            wrapped LSTM / XGBoost leaf can dump best-so-far weights
+            mid-fit. ``None`` disables mid-fit checkpointing entirely
+            (the strategy's ``train()`` call is unaffected).
 
     Returns:
         One ``FoldResult`` per validator fold, in fold order.
@@ -168,8 +177,24 @@ def evaluate_walk_forward(
             metadata after ``train()`` (contract violation).
     """
     annualization = interval.annualization_factor()
+    n_folds = validator.n_splits
     results: list[FoldResult] = []
-    for fold in validator.split(bars):
+    fold_iter: Iterable[TemporalSplit] = validator.split(bars)
+    if progress:
+        # ``disable=None`` lets tqdm auto-detect non-TTY environments and
+        # silently no-op (e.g. CI logs, redirected output).
+        from tqdm.auto import tqdm
+
+        fold_iter = tqdm(fold_iter, total=n_folds, desc="folds", disable=None)
+    for fold in fold_iter:
+        fold_logger = get_logger(__name__, fold=f"{fold.fold_index + 1}/{n_folds}")
+        fold_logger.info(
+            "train=[%s..%s] test=[%s..%s]",
+            fold.train.index[0],
+            fold.train.index[-1],
+            fold.test.index[0],
+            fold.test.index[-1],
+        )
         if feature_pipeline_factory is not None:
             pipeline = feature_pipeline_factory()
             # fit_transform(train) does the fit AND the train-window transform
@@ -180,7 +205,11 @@ def evaluate_walk_forward(
             train_frame = fold.train
             test_frame = fold.test
 
-        strategy.train(train_frame)
+        if checkpoint_root is not None:
+            fold_ckpt: Path | None = checkpoint_root / f"{FOLD_DIR_PREFIX}{fold.fold_index + 1}"
+        else:
+            fold_ckpt = None
+        strategy.train(train_frame, checkpoint_path=fold_ckpt)
         _validate_deep_metadata(strategy, train_data=train_frame, test_data=test_frame)
 
         signals = strategy.generate_signals(test_frame)
@@ -189,6 +218,12 @@ def evaluate_walk_forward(
             raw.equity_curve,
             annualization,
             risk_free_rate,
+        )
+        fold_logger.info(
+            "done sharpe=%.4f ann_return=%.4f max_dd=%.4f",
+            metrics.sharpe_ratio,
+            metrics.annualized_return,
+            metrics.max_drawdown,
         )
         results.append(
             FoldResult(
