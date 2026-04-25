@@ -11,8 +11,10 @@ floats + a tuple equity curve before anything touches disk.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
+from types import MappingProxyType
 
 import pandas as pd
 
@@ -160,7 +162,7 @@ class PairwiseSignificance:
 
 
 @dataclass(frozen=True)
-class ComparisonReport:
+class StrategyComparisonReport:
     """Aggregate output of :func:`run_comparison`.
 
     Value object — not persisted whole. The comparison reporter writes
@@ -173,12 +175,31 @@ class ComparisonReport:
     ``per_strategy_experiment_id`` maps each strategy name back to the
     run directory under ``experiment_results/runs/`` so a user can
     drill into a specific strategy's fold records from the report.
+
+    Distinct from :class:`src.benchmarking.types.ComparisonReport` (which
+    compares perf benchmark runs); the qualified name keeps the two from
+    colliding when both packages are imported in the same module.
     """
 
     out_name: str
     created_at: datetime
     git_sha: str
-    per_strategy_experiment_id: dict[str, str]
-    per_strategy_stats: dict[str, AggregateStats]
+    per_strategy_experiment_id: Mapping[str, str]
+    per_strategy_stats: Mapping[str, AggregateStats]
     ranking: pd.DataFrame
     pairwise: tuple[PairwiseSignificance, ...]
+
+    def __post_init__(self) -> None:
+        # Frozen dataclass freezes the bindings, not the dict objects
+        # themselves. Wrap in MappingProxyType so callers can't mutate
+        # the maps in place after the report is constructed.
+        object.__setattr__(
+            self,
+            "per_strategy_experiment_id",
+            MappingProxyType(dict(self.per_strategy_experiment_id)),
+        )
+        object.__setattr__(
+            self,
+            "per_strategy_stats",
+            MappingProxyType(dict(self.per_strategy_stats)),
+        )

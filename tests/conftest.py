@@ -504,6 +504,40 @@ def make_stub_experiment_result(
     )
 
 
+def make_log_return_equity_curve(
+    sharpe: float,
+    *,
+    n: int,
+    seed: int,
+    sigma: float = 0.01,
+) -> tuple[float, ...]:
+    """Equity curve whose per-bar log-returns have approximately the target Sharpe.
+
+    Used by cross-strategy comparison tests: each fold needs a stable,
+    seed-deterministic curve whose downstream Sharpe is recognisable to
+    ``aggregate_folds`` so ranking + pairwise bootstrap behave predictably.
+    """
+    rng = np.random.default_rng(seed)
+    log_rets = rng.normal(sharpe * sigma, sigma, size=n - 1)
+    curve = np.exp(np.concatenate([[0.0], np.cumsum(log_rets)]))
+    return tuple(curve.tolist())
+
+
+def comparison_curve_seed(name: str, fold_index: int) -> int:
+    """Stable, process-independent seed for a (strategy, fold) pair.
+
+    Avoids ``hash((name, i))`` whose value is randomised per Python process
+    when ``PYTHONHASHSEED`` is not pinned — that randomness would let two
+    test invocations see different equity curves and re-flake otherwise.
+
+    Layout: a 16-bit name anchor (positional sum of ``ord(char)``) packed
+    into the high half, fold index into the low half. Reserves a 65k-fold
+    window per name without collisions.
+    """
+    name_anchor = sum((i + 1) * ord(c) for i, c in enumerate(name)) & 0xFFFF
+    return (name_anchor << 16) | (fold_index & 0xFFFF)
+
+
 def make_stub_aggregate_stats(
     *,
     sharpe: float,

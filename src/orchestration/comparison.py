@@ -1,7 +1,7 @@
 """Multi-strategy comparison orchestrator.
 
 Composes multiple :class:`ExperimentConfig` runs into a single
-:class:`ComparisonReport`: ranked per-strategy stats, pairwise Sharpe
+:class:`StrategyComparisonReport`: ranked per-strategy stats, pairwise Sharpe
 significance, concatenated-equity view. Parallelism is opt-in via
 ``n_jobs`` — ``n_jobs=1`` runs in-process (simplest, no pickle pain),
 ``n_jobs>1`` fans out via :class:`ProcessPoolExecutor` so each experiment
@@ -39,8 +39,9 @@ from collections.abc import Sequence
 from concurrent.futures import ProcessPoolExecutor
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from enum import StrEnum
+from itertools import combinations
 from pathlib import Path
-from typing import Literal
 
 import numpy as np
 import numpy.typing as npt
@@ -54,22 +55,27 @@ from src.core.persistence import COMPARISONS_SUBDIR
 from src.orchestration.builder import build_experiment
 from src.orchestration.git_info import read_git_sha
 from src.orchestration.types import (
-    ComparisonReport,
     ExperimentResult,
     FoldRecord,
     PairwiseSignificance,
+    StrategyComparisonReport,
 )
 
 _logger = get_logger(__name__)
 
 _DEFAULT_STORE_ROOT = Path("experiment_results")
 
-SignificanceTest = Literal["bootstrap", "none"]
+# Pairwise bootstrap default. 5k resamples keeps the wall clock tolerable
+# for a 10-strategy comparison (45 pairs) while still landing 2-decimal-stable
+# percentiles. Callers can override via ``n_resamples`` for tighter precision.
+_DEFAULT_PAIRWISE_N_RESAMPLES = 5_000
 
-# Bootstrap used in pairwise significance. 5k resamples keeps the wall
-# clock tolerable for a 10-strategy comparison (45 pairs) while still
-# landing 2-decimal-stable percentiles.
-_PAIRWISE_N_RESAMPLES = 5_000
+
+class SignificanceTest(StrEnum):
+    """Pairwise Sharpe-differential test selector for :func:`run_comparison`."""
+
+    BOOTSTRAP = "bootstrap"
+    NONE = "none"
 
 
 @dataclass(frozen=True)
@@ -91,18 +97,17 @@ def run_comparison(
     out_name: str,
     store_root: Path | None = None,
     n_jobs: int = 1,
-    significance_test: SignificanceTest = "bootstrap",
-) -> tuple[ComparisonReport, dict[str, tuple[FoldRecord, ...]]]:
+    significance_test: SignificanceTest = SignificanceTest.BOOTSTRAP,
+    n_resamples: int = _DEFAULT_PAIRWISE_N_RESAMPLES,
+) -> tuple[StrategyComparisonReport, dict[str, tuple[FoldRecord, ...]]]:
     """Run every config, aggregate, rank, optionally pairwise-test.
 
     Returns ``(report, folds_by_strategy)`` — the in-memory
-    :class:`ComparisonReport` plus a per-strategy mapping of fold
-    records. The reporter's equity-overlay plot consumes the folds;
-    the comparison bundle itself stores per-fold data under each
-    strategy's ``runs/<experiment_id>/fold_results.jsonl`` so the
-    folds dict is a zero-copy hand-off rather than a new persisted
-    artifact. Callers that don't need the overlay can discard the
-    second tuple element.
+    :class:`StrategyComparisonReport` plus a per-strategy mapping of fold
+    records. The reporter's equity-overlay plot consumes the folds; the
+    comparison bundle also stores per-fold data under each strategy's
+    ``runs/<experiment_id>/fold_results.jsonl`` so callers that have already
+    persisted the report can rebuild the dict from disk if they discard it.
     """
     inputs = _validate_inputs(configs)
     store = store_root if store_root is not None else _DEFAULT_STORE_ROOT
@@ -136,14 +141,16 @@ def run_comparison(
         for name, result in zip(inputs.strategy_names, results, strict=True)
     }
 
-    ranking = rank_strategies(per_strategy_stats, by="sharpe")
+    ranking = rank_strategies(per_strategy_stats)
 
-    if significance_test == "bootstrap":
-        pairwise = _compute_pairwise_bootstrap(inputs.strategy_names, results)
+    if significance_test is SignificanceTest.BOOTSTRAP:
+        pairwise = _compute_pairwise_bootstrap(
+            inputs.strategy_names, results, n_resamples=n_resamples
+        )
     else:
         pairwise = ()
 
-    report = ComparisonReport(
+    report = StrategyComparisonReport(
         out_name=out_name,
         created_at=datetime.now(UTC),
         git_sha=read_git_sha(),
@@ -162,8 +169,8 @@ def _run_one_experiment(cfg: ExperimentConfig, cmp_dir: Path) -> ExperimentResul
     """Worker entry point — module-level so ProcessPoolExecutor can pickle it.
 
     ``write_report=False``: per-strategy reporting is redundant with the
-    cross-strategy ComparisonReport and triples the wall clock on a
-    five-strategy comparison. Users who want per-strategy plots re-run
+    cross-strategy StrategyComparisonReport and triples the wall clock on
+    a five-strategy comparison. Users who want per-strategy plots re-run
     the underlying config via ``experiment run``.
 
     ``store_root=cmp_dir`` routes per-strategy artifacts under
@@ -209,20 +216,31 @@ def _run_parallel(
         # as_completed would give incremental progress but breaks input→output
         # ordering; we need ordered results so the caller's strategy_names tuple
         # lines up with the returned ExperimentResults.
-        return [f.result() for f in futures]
+        results: list[ExperimentResult] = []
+        try:
+            for f in futures:
+                results.append(f.result())
+        except BaseException:
+            # First failure: stop spending CPU on the rest. Without this,
+            # ProcessPoolExecutor's __exit__ still waits on every submitted
+            # future before re-raising, so an early crash burns the full
+            # remaining wall clock for nothing.
+            pool.shutdown(wait=False, cancel_futures=True)
+            raise
+        return results
 
 
 def _compute_pairwise_bootstrap(
     strategy_names: tuple[str, ...],
     results: list[ExperimentResult],
+    *,
+    n_resamples: int,
 ) -> tuple[PairwiseSignificance, ...]:
     """Compute the upper-triangular pairwise Sharpe-differential matrix.
 
-    Skips silently when only one strategy is present (the validator
-    already blocks that path but a one-strategy comparison has no
-    pairwise work). Raises if fold counts or per-fold curve lengths
-    differ between any two strategies — that's an alignment violation
-    and pairing the bootstrap indices would produce meaningless results.
+    Raises if fold counts or per-fold curve lengths differ between any
+    two strategies — that's an alignment violation and pairing the
+    bootstrap indices would produce meaningless results.
     """
     _validate_fold_alignment(strategy_names, results)
     per_strategy_returns = {
@@ -231,26 +249,23 @@ def _compute_pairwise_bootstrap(
     }
 
     pairwise: list[PairwiseSignificance] = []
-    for i in range(len(strategy_names)):
-        for j in range(i + 1, len(strategy_names)):
-            name_a = strategy_names[i]
-            name_b = strategy_names[j]
-            ci = paired_bootstrap_sharpe_differential(
-                per_strategy_returns[name_a],
-                per_strategy_returns[name_b],
-                n_resamples=_PAIRWISE_N_RESAMPLES,
+    for name_a, name_b in combinations(strategy_names, 2):
+        ci = paired_bootstrap_sharpe_differential(
+            per_strategy_returns[name_a],
+            per_strategy_returns[name_b],
+            n_resamples=n_resamples,
+        )
+        pairwise.append(
+            PairwiseSignificance(
+                name_a=name_a,
+                name_b=name_b,
+                point_differential=ci.point_estimate,
+                lower=ci.lower,
+                upper=ci.upper,
+                confidence=ci.confidence,
+                significant=ci.excludes(0.0),
             )
-            pairwise.append(
-                PairwiseSignificance(
-                    name_a=name_a,
-                    name_b=name_b,
-                    point_differential=ci.point_estimate,
-                    lower=ci.lower,
-                    upper=ci.upper,
-                    confidence=ci.confidence,
-                    significant=ci.excludes(0.0),
-                )
-            )
+        )
     return tuple(pairwise)
 
 
@@ -278,7 +293,7 @@ def _concatenated_log_returns(
                 f"dropping the degenerate fold or reviewing the strategy for "
                 f"blow-up behaviour."
             )
-        pieces.append(np.diff(np.log(curve)))
+        pieces.append(np.log(curve[1:] / curve[:-1]))
     if not pieces:
         return np.array([], dtype=np.float64)
     return np.concatenate(pieces)

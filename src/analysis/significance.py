@@ -40,8 +40,9 @@ a seeded generator to vary the bootstrap across runs.
 from __future__ import annotations
 
 import math
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Literal
+from enum import StrEnum
 
 import numpy as np
 import numpy.typing as npt
@@ -59,6 +60,25 @@ _DEFAULT_RNG_SEED = 17
 # widely-accepted default for 2-decimal stability of 2.5 / 97.5
 # percentiles; trivial on any modern CPU for n <= a few thousand bars.
 _DEFAULT_N_RESAMPLES = 10_000
+
+
+class DMLoss(StrEnum):
+    """Per-observation loss for the Diebold-Mariano test."""
+
+    MSE = "mse"
+    MAE = "mae"
+
+
+class DMDirection(StrEnum):
+    """Sign of the Diebold-Mariano mean loss differential.
+
+    ``A`` / ``B`` indicate which of the two forecasts has the smaller
+    expected loss; ``TIE`` is the exact-zero degenerate case.
+    """
+
+    A = "a"
+    B = "b"
+    TIE = "tie"
 
 
 @dataclass(frozen=True)
@@ -89,17 +109,18 @@ class DMResult:
     """Diebold-Mariano test outcome.
 
     ``direction`` reports the sign of the mean loss differential
-    (``d = L(e_a) - L(e_b)``): ``"b"`` if ``mean(d) > 0`` (b's loss is
-    smaller, so b forecasts better), ``"a"`` if ``mean(d) < 0``,
-    ``"tie"`` on an exact zero. Significance is up to the caller —
-    compare ``p_value`` against the desired alpha.
+    (``d = L(e_a) - L(e_b)``): :attr:`DMDirection.B` if ``mean(d) > 0``
+    (b's loss is smaller, so b forecasts better), :attr:`DMDirection.A`
+    if ``mean(d) < 0``, :attr:`DMDirection.TIE` on an exact zero.
+    Significance is up to the caller — compare ``p_value`` against the
+    desired alpha.
     """
 
     statistic: float
     p_value: float
-    direction: Literal["a", "b", "tie"]
+    direction: DMDirection
     h: int
-    loss: Literal["mse", "mae"]
+    loss: DMLoss
 
 
 def bootstrap_sharpe_ci(
@@ -129,10 +150,13 @@ def bootstrap_sharpe_ci(
     block = _resolve_block_size(block_size, len(arr))
 
     point = _sharpe(arr)
-    sharpes = np.empty(n_resamples, dtype=np.float64)
-    for r in range(n_resamples):
-        idx = _stationary_bootstrap_indices(len(arr), block, rng_actual)
-        sharpes[r] = _sharpe(arr[idx])
+    sharpes = _run_block_bootstrap(
+        lambda idx: _sharpe(arr[idx]),
+        len(arr),
+        n_resamples=n_resamples,
+        block=block,
+        rng=rng_actual,
+    )
 
     lo, hi = _percentile_ci(sharpes, confidence)
     return BootstrapCI(
@@ -178,10 +202,13 @@ def paired_bootstrap_sharpe_differential(
     block = _resolve_block_size(block_size, len(a))
 
     point = _sharpe(a) - _sharpe(b)
-    diffs = np.empty(n_resamples, dtype=np.float64)
-    for r in range(n_resamples):
-        idx = _stationary_bootstrap_indices(len(a), block, rng_actual)
-        diffs[r] = _sharpe(a[idx]) - _sharpe(b[idx])
+    diffs = _run_block_bootstrap(
+        lambda idx: _sharpe(a[idx]) - _sharpe(b[idx]),
+        len(a),
+        n_resamples=n_resamples,
+        block=block,
+        rng=rng_actual,
+    )
 
     lo, hi = _percentile_ci(diffs, confidence)
     return BootstrapCI(
@@ -200,7 +227,7 @@ def diebold_mariano_test(
     actual: _FloatArray,
     *,
     h: int = 1,
-    loss: Literal["mse", "mae"] = "mse",
+    loss: DMLoss = DMLoss.MSE,
 ) -> DMResult:
     """Harvey-Leybourne-Newbold-corrected Diebold-Mariano (1995) test.
 
@@ -231,23 +258,21 @@ def diebold_mariano_test(
         )
     if h < 1:
         raise ValueError(f"h must be >= 1 (forecast horizon in bars), got {h}.")
-    if loss not in {"mse", "mae"}:
-        raise ValueError(f"loss must be 'mse' or 'mae', got {loss!r}.")
     n = len(a)
     if n < 2:
         raise ValueError(f"DM test needs n >= 2 aligned observations, got {n}.")
 
     errors_a = y - a
     errors_b = y - b
-    loss_a = errors_a * errors_a if loss == "mse" else np.abs(errors_a)
-    loss_b = errors_b * errors_b if loss == "mse" else np.abs(errors_b)
+    loss_a = errors_a * errors_a if loss is DMLoss.MSE else np.abs(errors_a)
+    loss_b = errors_b * errors_b if loss is DMLoss.MSE else np.abs(errors_b)
     d = loss_a - loss_b
     mean_d = float(np.mean(d))
 
     long_run_var = _newey_west_long_run_var(d, mean_d, lag=h - 1)
     if long_run_var <= 0.0:
         # Identical-loss sequences: DM stat undefined (0/0). Report tie.
-        return DMResult(statistic=0.0, p_value=1.0, direction="tie", h=h, loss=loss)
+        return DMResult(statistic=0.0, p_value=1.0, direction=DMDirection.TIE, h=h, loss=loss)
 
     dm_stat = mean_d / math.sqrt(long_run_var / n)
     hln_factor = math.sqrt((n + 1 - 2 * h + h * (h - 1) / n) / n)
@@ -255,11 +280,11 @@ def diebold_mariano_test(
     p_value = 2.0 * (1.0 - float(scipy_stats.t.cdf(abs(dm_stat_corrected), df=n - 1)))
 
     if mean_d > 0:
-        direction: Literal["a", "b", "tie"] = "b"
+        direction = DMDirection.B
     elif mean_d < 0:
-        direction = "a"
+        direction = DMDirection.A
     else:
-        direction = "tie"
+        direction = DMDirection.TIE
 
     return DMResult(
         statistic=float(dm_stat_corrected),
@@ -268,6 +293,29 @@ def diebold_mariano_test(
         h=h,
         loss=loss,
     )
+
+
+def _run_block_bootstrap(
+    statistic_at_idx: Callable[[_IntArray], float],
+    n: int,
+    *,
+    n_resamples: int,
+    block: int,
+    rng: np.random.Generator,
+) -> _FloatArray:
+    """Drive ``n_resamples`` stationary-bootstrap draws of a scalar statistic.
+
+    Single source of truth for both the single-series and paired Sharpe
+    bootstraps: each iteration draws a length-``n`` Politis-Romano index
+    vector and feeds it to ``statistic_at_idx`` (which closes over the
+    underlying return arrays). Returning a 1-D float array lets callers
+    pipe straight into :func:`_percentile_ci`.
+    """
+    out = np.empty(n_resamples, dtype=np.float64)
+    for r in range(n_resamples):
+        idx = _stationary_bootstrap_indices(n, block, rng)
+        out[r] = statistic_at_idx(idx)
+    return out
 
 
 def _stationary_bootstrap_indices(n: int, block_size: int, rng: np.random.Generator) -> _IntArray:

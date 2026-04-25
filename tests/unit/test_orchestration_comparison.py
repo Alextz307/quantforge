@@ -12,14 +12,18 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import numpy as np
 import pytest
 
 from src.core.config import ExperimentConfig
 from src.orchestration import comparison as comparison_mod
-from src.orchestration.comparison import run_comparison
-from src.orchestration.types import ComparisonReport, ExperimentResult
-from tests.conftest import make_stub_experiment_result, make_stub_fold_record
+from src.orchestration.comparison import SignificanceTest, run_comparison
+from src.orchestration.types import ExperimentResult, StrategyComparisonReport
+from tests.conftest import (
+    comparison_curve_seed,
+    make_log_return_equity_curve,
+    make_stub_experiment_result,
+    make_stub_fold_record,
+)
 
 _SPY_DATA = {
     "source": "csv",
@@ -43,25 +47,14 @@ def _build_cfg(name: str) -> ExperimentConfig:
     )
 
 
-def _synthetic_curve(sharpe: float, *, n: int = _FOLD_CURVE_LENGTH, seed: int) -> tuple[float, ...]:
-    """Equity curve whose log-returns have roughly the target Sharpe.
-
-    Scale is per-bar (unannualised) so sharpe ≈ mean / std after diff(log(curve)).
-    """
-    rng = np.random.default_rng(seed)
-    sigma = 0.01
-    mu = sharpe * sigma
-    log_rets = rng.normal(mu, sigma, size=n - 1)
-    curve = np.exp(np.concatenate([[0.0], np.cumsum(log_rets)]))
-    return tuple(curve.tolist())
-
-
 def _stub_result(name: str, sharpe: float) -> ExperimentResult:
     folds = tuple(
         make_stub_fold_record(
             i,
             sharpe=sharpe,
-            equity_curve=_synthetic_curve(sharpe, seed=hash((name, i)) & 0xFFFFFFFF),
+            equity_curve=make_log_return_equity_curve(
+                sharpe, n=_FOLD_CURVE_LENGTH, seed=comparison_curve_seed(name, i)
+            ),
         )
         for i in range(_N_FOLDS)
     )
@@ -108,7 +101,7 @@ class TestRunComparisonBasic:
             store_root=tmp_path,
         )
 
-        assert isinstance(report, ComparisonReport)
+        assert isinstance(report, StrategyComparisonReport)
         assert set(report.per_strategy_stats.keys()) == {"Alpha", "Bravo"}
         assert set(folds.keys()) == {"Alpha", "Bravo"}
         assert all(len(fold_tuple) == _N_FOLDS for fold_tuple in folds.values())
@@ -143,7 +136,7 @@ class TestRunComparisonPairwise:
             [_build_cfg("Alpha"), _build_cfg("Bravo"), _build_cfg("Charlie")],
             out_name="pairwise",
             store_root=tmp_path,
-            significance_test="bootstrap",
+            significance_test=SignificanceTest.BOOTSTRAP,
         )
         # 3 choose 2 = 3 pairs
         assert len(report.pairwise) == 3
@@ -158,7 +151,7 @@ class TestRunComparisonPairwise:
             [_build_cfg("Alpha"), _build_cfg("Bravo")],
             out_name="nopair",
             store_root=tmp_path,
-            significance_test="none",
+            significance_test=SignificanceTest.NONE,
         )
         assert report.pairwise == ()
 
@@ -212,7 +205,9 @@ class TestRunComparisonAlignment:
                         make_stub_fold_record(
                             i,
                             sharpe=1.0,
-                            equity_curve=_synthetic_curve(1.0, seed=i),
+                            equity_curve=make_log_return_equity_curve(
+                                1.0, n=_FOLD_CURVE_LENGTH, seed=i
+                            ),
                         )
                         for i in range(n)
                     )
@@ -227,5 +222,5 @@ class TestRunComparisonAlignment:
                 [_build_cfg("Alpha"), _build_cfg("Bravo")],
                 out_name="mismatch",
                 store_root=tmp_path,
-                significance_test="bootstrap",
+                significance_test=SignificanceTest.BOOTSTRAP,
             )

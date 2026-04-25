@@ -15,6 +15,8 @@ import pytest
 
 from src.analysis.significance import (
     BootstrapCI,
+    DMDirection,
+    DMLoss,
     DMResult,
     bootstrap_sharpe_ci,
     diebold_mariano_test,
@@ -107,19 +109,19 @@ class TestDieboldMariano:
         y = rng.normal(size=_N_BARS)
         result = diebold_mariano_test(y, y, y)
         assert isinstance(result, DMResult)
-        assert result.direction == "tie"
+        assert result.direction is DMDirection.TIE
         assert result.p_value == 1.0
 
     def test_biased_forecast_a_detected_as_worse(self) -> None:
         """Forecaster a has a large additive bias; b has zero error.
-        DM should reject equality with direction="b" (b forecasts better).
+        DM should reject equality with direction=B (b forecasts better).
         """
         rng = np.random.default_rng(505)
         y = rng.normal(size=_N_BARS)
         b = y.copy()  # perfect forecaster
         a = y + 0.5  # constant bias
-        result = diebold_mariano_test(a, b, y, h=1, loss="mse")
-        assert result.direction == "b"
+        result = diebold_mariano_test(a, b, y, h=1, loss=DMLoss.MSE)
+        assert result.direction is DMDirection.B
         assert result.p_value < 0.01
 
     def test_rejects_unaligned_shapes(self) -> None:
@@ -128,11 +130,6 @@ class TestDieboldMariano:
         y = np.array([0.1, 0.1, 0.1])
         with pytest.raises(ValueError, match="aligned"):
             diebold_mariano_test(a, b, y)
-
-    def test_rejects_invalid_loss(self) -> None:
-        y = np.zeros(_N_BARS)
-        with pytest.raises(ValueError, match="loss"):
-            diebold_mariano_test(y, y, y, loss="hinge")  # type: ignore[arg-type]
 
     def test_rejects_non_positive_horizon(self) -> None:
         y = np.zeros(_N_BARS)
@@ -148,6 +145,6 @@ class TestDieboldMariano:
         y = rng.normal(size=_N_BARS)
         a = y + 0.5
         b = y.copy()
-        mae_result = diebold_mariano_test(a, b, y, loss="mae")
-        assert mae_result.direction == "b"
+        mae_result = diebold_mariano_test(a, b, y, loss=DMLoss.MAE)
+        assert mae_result.direction is DMDirection.B
         assert mae_result.p_value < 0.01

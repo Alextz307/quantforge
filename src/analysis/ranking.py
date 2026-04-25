@@ -10,13 +10,20 @@ invocations so the LaTeX output is diffable.
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Literal
+from enum import StrEnum
 
 import pandas as pd
 
 from src.analysis.metrics_aggregator import AggregateStats
 
-RankingMetric = Literal["sharpe", "sortino", "calmar"]
+
+class RankingMetric(StrEnum):
+    """Primary axis to sort strategies by in :func:`rank_strategies`."""
+
+    SHARPE = "sharpe"
+    SORTINO = "sortino"
+    CALMAR = "calmar"
+
 
 _DISPLAY_COLUMNS: tuple[str, ...] = (
     "rank",
@@ -28,28 +35,21 @@ _DISPLAY_COLUMNS: tuple[str, ...] = (
     "n_folds",
 )
 
-# Tiebreaker pick: a strategy's secondary view of the same phenomenon.
-# If the primary is Sharpe, fall back to Sortino (reward/downside-risk);
-# if primary is Sortino, fall back to Sharpe; for Calmar (reward/drawdown)
-# Sortino is the sharpest secondary. Keeps ties deterministic with a
-# clear narrative instead of alphabetical-only.
-_TIEBREAKER: Mapping[RankingMetric, str] = {
-    "sharpe": "sortino_mean",
-    "sortino": "sharpe_mean",
-    "calmar": "sortino_mean",
-}
-
-_PRIMARY_COLUMN: Mapping[RankingMetric, str] = {
-    "sharpe": "sharpe_mean",
-    "sortino": "sortino_mean",
-    "calmar": "calmar_mean",
+# (primary_column, tiebreaker_column) per metric. Tiebreaker is a secondary
+# view of the same phenomenon — Sharpe ↔ Sortino, Calmar → Sortino — so a
+# tied primary still resolves to a meaningful runner-up rather than just
+# alphabetical-by-name.
+_SORT_KEYS: Mapping[RankingMetric, tuple[str, str]] = {
+    RankingMetric.SHARPE: ("sharpe_mean", "sortino_mean"),
+    RankingMetric.SORTINO: ("sortino_mean", "sharpe_mean"),
+    RankingMetric.CALMAR: ("calmar_mean", "sortino_mean"),
 }
 
 
 def rank_strategies(
     per_strategy_stats: Mapping[str, AggregateStats],
     *,
-    by: RankingMetric = "sharpe",
+    by: RankingMetric = RankingMetric.SHARPE,
 ) -> pd.DataFrame:
     """Rank strategies by the chosen metric, break ties deterministically.
 
@@ -65,8 +65,7 @@ def rank_strategies(
     if not per_strategy_stats:
         return pd.DataFrame(columns=list(_DISPLAY_COLUMNS))
 
-    primary_col = _PRIMARY_COLUMN[by]
-    secondary_col = _TIEBREAKER[by]
+    primary_col, secondary_col = _SORT_KEYS[by]
     rows: list[dict[str, object]] = [
         {
             "name": name,

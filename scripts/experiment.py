@@ -49,13 +49,16 @@ from src.core.persistence import (
     MODELS_SUBDIR,
     RUNS_SUBDIR,
 )
-from src.optimization.tuner import StrategyTuner
 from src.orchestration.builder import build_experiment
 from src.orchestration.comparison import SignificanceTest, run_comparison
 from src.orchestration.model_artifact import ModelArtifactManifest, save_model_artifact
 from src.orchestration.standalone_training import train_model_standalone
-from src.visualization.comparison_reporter import ComparisonReporter
-from src.visualization.hpo_reporter import HPOReporter
+
+# ``optuna`` is deferred into ``tune_cmd`` so it does not load on every CLI
+# invocation (e.g., ``--help`` or ``compare``). The visualization reporters
+# import matplotlib transitively, but matplotlib already lands at top-level
+# via ``pmdarima`` (model registry side-effect import), so deferring them
+# here only saves the wrapper modules — kept lazy for symmetry with optuna.
 
 DEFAULT_STORE_ROOT = Path("experiment_results")
 
@@ -332,6 +335,10 @@ def tune_cmd(
     completed trial (Optuna's semantics: ``n_trials`` is the number of
     NEW trials to run each invocation, not a cap on total trials).
     """
+    # Defer optuna so unrelated subcommands don't pay its import cost.
+    from src.optimization.tuner import StrategyTuner
+    from src.visualization.hpo_reporter import HPOReporter
+
     try:
         experiment_cfg = load_experiment_config(config_path)
     except (ValidationError, FileNotFoundError, ValueError) as e:
@@ -391,8 +398,8 @@ def tune_cmd(
 )
 @click.option(
     "--significance-test",
-    type=click.Choice(["bootstrap", "none"], case_sensitive=False),
-    default="bootstrap",
+    type=click.Choice([m.value for m in SignificanceTest], case_sensitive=False),
+    default=SignificanceTest.BOOTSTRAP.value,
     help="Pairwise Sharpe-differential test (paired stationary bootstrap) or skip.",
 )
 @click.option(
@@ -428,6 +435,8 @@ def compare_cmd(
     that directory (instead of the top-level ``experiment_results/runs/``)
     so the comparison bundle is self-contained.
     """
+    from src.visualization.comparison_reporter import ComparisonReporter
+
     if len(config_paths) < 2:
         raise click.ClickException(
             f"compare needs at least 2 --config paths, got {len(config_paths)}; "
@@ -441,10 +450,12 @@ def compare_cmd(
         except (ValidationError, FileNotFoundError, ValueError) as e:
             raise click.ClickException(f"failed to load config {path}: {e}") from e
 
-    sig: SignificanceTest = "bootstrap" if significance_test.lower() == "bootstrap" else "none"
+    # click ``Choice(case_sensitive=False)`` already returns the canonical
+    # lowercase form of the choice, so ``SignificanceTest(...)`` round-trips.
+    sig = SignificanceTest(significance_test)
     click.echo(
         f"comparing {len(configs)} strategies under '{out_name}' "
-        f"(n_jobs={n_jobs}, significance={sig}) ..."
+        f"(n_jobs={n_jobs}, significance={sig.value}) ..."
     )
     try:
         report, folds_by_strategy = run_comparison(

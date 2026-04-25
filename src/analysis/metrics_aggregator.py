@@ -115,11 +115,12 @@ class AggregateStats:
 
     @classmethod
     def empty(cls) -> AggregateStats:
-        """Zero-fold sentinel: every stat ``NaN``, trade-count 0.
+        """Zero-fold sentinel: every numeric stat ``NaN``, trade-count 0.
 
-        ``to_dict()`` short-circuits this to ``{"n_folds": 0}``; the NaN
-        fields exist so in-process consumers can still access attributes
-        without a branch — the sentinel is distinguishable via ``n_folds``.
+        Discriminate via ``n_folds == 0`` before reading other fields —
+        ``to_dict()`` short-circuits the dict view to ``{"n_folds": 0}``,
+        but in-process callers that read attributes directly will see NaN
+        and should treat that as "no aggregate available."
         """
         nan = float("nan")
         return cls(

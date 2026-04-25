@@ -10,7 +10,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import numpy as np
 import pytest
 import yaml
 from click.testing import CliRunner
@@ -20,7 +19,12 @@ from src.core.config import ExperimentConfig
 from src.core.persistence import COMPARISONS_SUBDIR
 from src.orchestration import comparison as comparison_mod
 from src.orchestration.types import ExperimentResult
-from tests.conftest import make_stub_experiment_result, make_stub_fold_record
+from tests.conftest import (
+    comparison_curve_seed,
+    make_log_return_equity_curve,
+    make_stub_experiment_result,
+    make_stub_fold_record,
+)
 
 _TICKER = "SPY"
 _N_FOLDS = 3
@@ -49,18 +53,14 @@ def _write_cfg(tmp_path: Path, name: str) -> Path:
     return path
 
 
-def _curve(sharpe: float, *, seed: int) -> tuple[float, ...]:
-    rng = np.random.default_rng(seed)
-    sigma = 0.01
-    log_rets = rng.normal(sharpe * sigma, sigma, size=_CURVE_LENGTH - 1)
-    curve = np.exp(np.concatenate([[0.0], np.cumsum(log_rets)]))
-    return tuple(curve.tolist())
-
-
 def _stub_result(name: str, sharpe: float) -> ExperimentResult:
     folds = tuple(
         make_stub_fold_record(
-            i, sharpe=sharpe, equity_curve=_curve(sharpe, seed=hash((name, i)) & 0xFFFFFFFF)
+            i,
+            sharpe=sharpe,
+            equity_curve=make_log_return_equity_curve(
+                sharpe, n=_CURVE_LENGTH, seed=comparison_curve_seed(name, i)
+            ),
         )
         for i in range(_N_FOLDS)
     )

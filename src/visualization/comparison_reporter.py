@@ -1,6 +1,6 @@
 """Cross-strategy comparison report generator.
 
-Consumes an in-memory :class:`ComparisonReport` and writes:
+Consumes an in-memory :class:`StrategyComparisonReport` and writes:
 
 * ``manifest.json``               — scalar identity (out_name, timestamp,
                                     git sha) + per-strategy stats + the
@@ -35,9 +35,9 @@ import pandas as pd
 from src.core import json_io
 from src.core.logging import get_logger
 from src.orchestration.types import (
-    ComparisonReport,
     FoldRecord,
     PairwiseSignificance,
+    StrategyComparisonReport,
 )
 from src.visualization.latex import write_booktabs_table
 from src.visualization.plots import FIGURE_DPI, FIGURE_HEIGHT_IN, FIGURE_WIDTH_IN, save_png_and_svg
@@ -57,7 +57,7 @@ class ComparisonReporter:
 
     def generate_full_report(
         self,
-        report: ComparisonReport,
+        report: StrategyComparisonReport,
         out_dir: Path,
         *,
         folds_by_strategy: dict[str, tuple[FoldRecord, ...]] | None = None,
@@ -65,10 +65,11 @@ class ComparisonReporter:
         """Write every artifact under ``out_dir`` and return ``out_dir``.
 
         ``folds_by_strategy`` feeds the equity overlay — it lives
-        alongside :class:`ComparisonReport` rather than inside it because
-        fold records are heavy and the comparison orchestrator already
-        has them in hand. If ``None`` (report loaded from disk without
-        fold data), the overlay plot is skipped and a log line records why.
+        alongside :class:`StrategyComparisonReport` rather than inside it
+        because fold records are heavy and the comparison orchestrator
+        already has them in hand. If ``None`` (report loaded from disk
+        without fold data), the overlay plot is skipped and a log line
+        records why.
         """
         out_dir.mkdir(parents=True, exist_ok=True)
         plots_dir = out_dir / _PLOTS_SUBDIR
@@ -170,8 +171,8 @@ class ComparisonReporter:
         return out_path
 
 
-def _build_manifest_dict(report: ComparisonReport) -> dict[str, object]:
-    """Flatten :class:`ComparisonReport` identity + stats for ``manifest.json``.
+def _build_manifest_dict(report: StrategyComparisonReport) -> dict[str, object]:
+    """Flatten :class:`StrategyComparisonReport` identity + stats for ``manifest.json``.
 
     DataFrames (``ranking``) and heavy per-fold data are deliberately
     omitted — the ranking is covered by ``ranking.tex`` and fold-level
@@ -190,12 +191,7 @@ def _build_manifest_dict(report: ComparisonReport) -> dict[str, object]:
 
 def _unique_names(pairwise: tuple[PairwiseSignificance, ...]) -> list[str]:
     """Preserve first-seen order from the pairwise list (matches comparison order)."""
-    seen: list[str] = []
-    for p in pairwise:
-        for n in (p.name_a, p.name_b):
-            if n not in seen:
-                seen.append(n)
-    return seen
+    return list(dict.fromkeys(name for p in pairwise for name in (p.name_a, p.name_b)))
 
 
 def _concatenated_equity_normalised(
