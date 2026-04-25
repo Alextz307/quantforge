@@ -43,6 +43,7 @@ from src.core.config import (
 )
 from src.core.exceptions import LeakageError
 from src.core.hpo_config import HPOConfig, load_hpo_config
+from src.core.logging import get_logger
 from src.core.persistence import (
     COMPARISONS_SUBDIR,
     HPO_SUBDIR,
@@ -67,7 +68,7 @@ from src.orchestration.standalone_training import train_model_standalone
 
 DEFAULT_STORE_ROOT = Path("experiment_results")
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 @click.group()

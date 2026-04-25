@@ -34,7 +34,6 @@ shape, so we check equality by content hash before appending.
 from __future__ import annotations
 
 import hashlib
-import logging
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -49,6 +48,7 @@ from src.core.config import (
     write_frozen_yaml,
 )
 from src.core.hpo_config import HPOConfig
+from src.core.logging import get_logger
 from src.core.persistence import HPO_SUBDIR
 from src.optimization.checkpointing import (
     BEST_CONFIG_YAML_NAME,
@@ -64,7 +64,7 @@ from src.orchestration.builder import build_experiment
 if TYPE_CHECKING:
     from src.orchestration.types import ExperimentResult
 
-_logger = logging.getLogger(__name__)
+_logger = get_logger(__name__)
 
 _DEFAULT_STORE_ROOT = Path("experiment_results")
 _TRIAL_ARTIFACTS_SUBDIR = "trials_artifacts"

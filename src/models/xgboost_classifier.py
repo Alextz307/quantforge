@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Self
 
@@ -11,6 +10,7 @@ import xgboost as xgb
 
 from src.core import json_io
 from src.core.device import select_xgboost_device
+from src.core.logging import get_logger
 from src.core.persistence import (
     CONFIG_JSON,
     METADATA_JSON,
@@ -26,7 +26,7 @@ from src.models.interface import IClassifier
 if TYPE_CHECKING:
     import optuna
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 @classifier_registry.register("xgboost_directional")

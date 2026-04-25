@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Self, cast
 
@@ -14,6 +13,7 @@ from torch.utils.data import DataLoader
 
 from src.core import json_io
 from src.core.device import select_device
+from src.core.logging import get_logger
 from src.core.persistence import (
     CONFIG_JSON,
     METADATA_JSON,
@@ -30,7 +30,7 @@ from src.models.interface import IPredictor
 if TYPE_CHECKING:
     import optuna
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 _LOSS_FUNCTIONS: dict[LossFunction, type[nn.Module]] = {
     LossFunction.MSE: nn.MSELoss,

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import logging
 import random
 import time
 from datetime import datetime
@@ -11,13 +10,14 @@ import pandas as pd
 import yfinance as yf
 
 from src.core.exceptions import DataQualityError
+from src.core.logging import get_logger
 from src.core.registry import data_source_registry
 from src.core.types import Interval
 from src.data.cache import DataCache
 from src.data.interface import IDataSource
 from src.data.normalizer import DataNormalizer
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 _MAX_RETRIES = 3
 _BASE_DELAY = 1.0

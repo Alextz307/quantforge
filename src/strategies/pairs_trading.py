@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import logging
 from collections.abc import Mapping
 from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar, Self
@@ -12,6 +11,7 @@ import pandas as pd
 
 import quant_engine
 from src.core import json_io
+from src.core.logging import get_logger
 from src.core.persistence import (
     CONFIG_JSON,
     METADATA_JSON,
@@ -29,7 +29,7 @@ from src.strategies.interface import IStrategy
 if TYPE_CHECKING:
     import optuna
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 _STRATEGY_NAME = "PairsTrading"
 

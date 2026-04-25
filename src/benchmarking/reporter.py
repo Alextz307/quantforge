@@ -50,6 +50,15 @@ def _ns_per_item(result: BenchmarkResult) -> float:
 
 
 class BenchmarkReporter:
+    """Materialises plots + LaTeX tables from :class:`BenchmarkAnalyzer` output.
+
+    Each public method emits one artifact (PNG + SVG for plots, ``.tex``
+    for tables); :meth:`generate_full_report` chains them into a single
+    timestamped bundle suitable for thesis appendix inclusion. Defaults
+    to a fresh analyzer when none is injected, so callers can drive
+    reports off ad-hoc :class:`BenchmarkRun` inputs without wiring.
+    """
+
     def __init__(self, analyzer: BenchmarkAnalyzer | None = None) -> None:
         self._analyzer = analyzer if analyzer is not None else BenchmarkAnalyzer()
 

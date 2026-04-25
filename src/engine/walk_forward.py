@@ -20,7 +20,6 @@ computed performance metrics so callers don't need to recompute.
 
 from __future__ import annotations
 
-import logging
 from collections.abc import Callable
 from dataclasses import dataclass
 
@@ -33,13 +32,14 @@ from quant_engine import (
     SlippageConfig,
 )
 from src.core.exceptions import LeakageError
+from src.core.logging import get_logger
 from src.core.temporal import WalkForwardValidator
 from src.core.types import Interval
 from src.engine.interface import IBacktestEngine
 from src.features.interface import IFeaturePipeline
 from src.strategies.interface import IStrategy
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 @dataclass(frozen=True)

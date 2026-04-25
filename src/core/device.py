@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
-import logging
-
 import torch
 
+from src.core.logging import get_logger
 from src.core.types import Device
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 _ALLOWED_PREFERENCES = tuple(d.value for d in Device)
 _XGBOOST_ALLOWED = (Device.AUTO.value, Device.CUDA.value, Device.CPU.value)

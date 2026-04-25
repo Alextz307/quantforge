@@ -21,7 +21,6 @@ holds the best config so far" is worth more than the tiny disk churn.
 from __future__ import annotations
 
 import json
-import logging
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -29,12 +28,13 @@ from typing import TYPE_CHECKING
 import optuna
 
 from src.core.config import write_frozen_yaml
+from src.core.logging import get_logger
 from src.optimization.sampling import sample_trial_params
 
 if TYPE_CHECKING:
     from src.core.config import ExperimentConfig
 
-_logger = logging.getLogger(__name__)
+_logger = get_logger(__name__)
 
 # Files written under the study directory.  Both are referenced by the
 # tuner (to find the latest best config / to tail the log) so they live

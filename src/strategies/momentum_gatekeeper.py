@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import logging
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
@@ -12,6 +11,7 @@ import numpy as np
 import pandas as pd
 
 from src.core import json_io
+from src.core.logging import get_logger
 from src.core.persistence import (
     CLASSIFIER_SUBDIR,
     CONFIG_JSON,
@@ -42,7 +42,7 @@ from src.strategies.interface import IStrategy
 if TYPE_CHECKING:
     import optuna
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 @dataclass(frozen=True)

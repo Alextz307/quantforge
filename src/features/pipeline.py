@@ -2,18 +2,17 @@
 
 from __future__ import annotations
 
-import logging
-
 import numpy as np
 import pandas as pd
 from sklearn.preprocessing import StandardScaler
 
 import quant_engine
 from src.core.exceptions import guard_scaler_fit_once
+from src.core.logging import get_logger
 from src.core.registry import feature_registry
 from src.features.interface import IFeaturePipeline
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def _compute_rsi(close: pd.Series[float], period: int = 14) -> pd.Series[float]:

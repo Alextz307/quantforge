@@ -11,6 +11,8 @@ See :mod:`src.benchmarking.runner` for the CLI entrypoint driver
 * :mod:`.comparator` — presentation glue over ``analyzer.detect_regressions``.
 """
 
+from __future__ import annotations
+
 from src.benchmarking.analyzer import BenchmarkAnalyzer
 from src.benchmarking.comparator import BenchmarkComparator
 from src.benchmarking.reporter import BenchmarkReporter

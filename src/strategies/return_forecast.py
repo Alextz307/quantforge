@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import logging
 from collections.abc import Mapping
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -11,6 +10,7 @@ from typing import TYPE_CHECKING, ClassVar, Self, cast
 import pandas as pd
 
 from src.core import json_io
+from src.core.logging import get_logger
 from src.core.persistence import (
     CONFIG_JSON,
     HYBRID_RETURN_SUBDIR,
@@ -36,7 +36,7 @@ from src.strategies.interface import IStrategy
 if TYPE_CHECKING:
     import optuna
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 @dataclass(frozen=True)

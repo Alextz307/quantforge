@@ -23,7 +23,6 @@ strategy gains pretrained-leaf support.
 
 from __future__ import annotations
 
-import logging
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
@@ -31,6 +30,7 @@ from typing import TYPE_CHECKING
 import pandas as pd
 
 from src.core.constants import DEFAULT_REALIZED_VOL_WINDOW
+from src.core.logging import get_logger
 from src.core.registry import (
     classifier_registry,
     data_source_registry,
@@ -51,7 +51,7 @@ if TYPE_CHECKING:
     from src.core.config import StandaloneModelConfig
     from src.models.interface import IClassifier, IPredictor
 
-_logger = logging.getLogger(__name__)
+_logger = get_logger(__name__)
 
 
 @dataclass(frozen=True)

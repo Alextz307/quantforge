@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import logging
 import math
 from pathlib import Path
 from typing import TYPE_CHECKING, Self, cast
@@ -13,6 +12,7 @@ from arch import arch_model
 
 import quant_engine
 from src.core import json_io
+from src.core.logging import get_logger
 from src.core.persistence import (
     CONFIG_JSON,
     METADATA_JSON,
@@ -30,7 +30,7 @@ if TYPE_CHECKING:
     import optuna
     from arch.univariate.base import ARCHModelResult
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 _SCALE_FACTOR = 100.0
 

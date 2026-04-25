@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Self
 
@@ -12,6 +11,7 @@ import pmdarima as pm
 from statsmodels.tsa.arima.model import ARIMA as SMARIMA
 
 from src.core import json_io
+from src.core.logging import get_logger
 from src.core.persistence import (
     CONFIG_JSON,
     ENDOG_NPY,
@@ -29,7 +29,7 @@ if TYPE_CHECKING:
     import optuna
     from pmdarima.arima import ARIMA
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class _StatsmodelsARMAAdapter:

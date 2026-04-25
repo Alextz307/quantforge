@@ -29,6 +29,14 @@ BASELINES_DIR = "baselines"
 
 
 class BenchmarkStore:
+    """Filesystem-backed persistence for :class:`BenchmarkRun` objects.
+
+    Routes ephemeral runs to ``runs/`` and durable thesis anchors to
+    ``baselines/`` under the same root. Baseline writes refuse to clobber
+    an existing file unless ``overwrite=True`` is passed, so a stale rerun
+    cannot silently invalidate a regression report.
+    """
+
     def __init__(self, root: Path) -> None:
         self._root = Path(root)
         self._runs = self._root / RUNS_DIR
