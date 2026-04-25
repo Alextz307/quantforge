@@ -1,0 +1,10 @@
+# Trend-based regime split: bull when close >= 200-bar MA, bear otherwise.
+#
+# The 200-bar window is the textbook long-term moving average for daily
+# bars; on hourly bars it works out to ~30 trading days, also a sensible
+# regime-classification horizon. The MA is right-aligned with
+# ``min_periods = window`` so the first 200 bars are unclassified.
+detector:
+  name: trend
+  params:
+    window: 200

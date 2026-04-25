@@ -85,6 +85,7 @@ RUNS_SUBDIR = "runs"
 MODELS_SUBDIR = "models"
 HPO_SUBDIR = "hpo"
 COMPARISONS_SUBDIR = "comparisons"
+REGIME_REPORTS_SUBDIR = "regime_reports"
 
 
 def ensure_model_dir(path: str | Path) -> Path:

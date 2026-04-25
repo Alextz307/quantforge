@@ -1,0 +1,19 @@
+# Calendar-based regime split centered on the COVID market shock.
+#
+# Boundaries are inclusive-start, exclusive-end (the convention every
+# pandas timestamp slice in this codebase uses). Bars outside every
+# boundary fall through to ``unclassified`` and are dropped from
+# per-regime aggregation.
+detector:
+  name: period
+  params:
+    boundaries:
+      - label: pre_covid
+        start: "2015-01-01"
+        end: "2020-02-20"
+      - label: covid_shock
+        start: "2020-02-20"
+        end: "2020-12-31"
+      - label: post_covid
+        start: "2020-12-31"
+        end: "2030-01-01"
