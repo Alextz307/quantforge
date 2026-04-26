@@ -1,0 +1,46 @@
+# Standalone PairsTrading experiment on the GLD / SLV (gold / silver)
+# cointegrated pair. Now runnable end-to-end:
+#
+#   python -m scripts.experiment run --config config/strategies/pairs_trading.yaml
+#
+# How the pieces fit together:
+# * ``data.tickers`` lists exactly two symbols. ``_fetch_bars`` inner-joins
+#   the two leg fetches and re-suffixes columns to ``open_a / close_a /
+#   ... / volume_b`` — the wide format the C++ pairs engine consumes.
+# * The strategy reads ``close_a`` and ``close_b`` for cointegration and
+#   z-score signal generation. The hedge ratio is fit per fold and exposed
+#   to the engine via ``strategy.hedge_ratio``.
+# * The walk-forward orchestrator dispatches to ``engine.run_pairs`` when
+#   it sees ``strategy.is_pairs_strategy``; PnL is computed across both
+#   legs simultaneously and summed to one equity curve.
+# * No ``features:`` block — pairs strategies operate directly on price
+#   columns; the builder rejects features+PairsTrading at config time.
+
+name: gld_slv_pairs_trading
+seed: 42
+
+data:
+  source: yfinance
+  tickers: [GLD, SLV]
+  start: 2018-01-02
+  end: 2024-12-31
+  interval: daily
+
+strategy:
+  name: PairsTrading
+  params:
+    entry_zscore: 2.0
+    exit_zscore: 0.5
+    stop_loss_zscore: 4.0
+    zscore_lookback: 60
+    p_value_threshold: 0.05
+
+validation:
+  n_splits: 4
+  test_size: 252
+  gap: 5
+  expanding: true
+  holdout_pct: 0.15
+
+slippage:
+  scenario: normal

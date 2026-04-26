@@ -1,0 +1,17 @@
+# HPO study config for PairsTrading.
+#
+# Pair with config/strategies/pairs_trading.yaml:
+#   python -m scripts.experiment tune \
+#       --config config/strategies/pairs_trading.yaml \
+#       --hpo-config config/hpo/pairs_trading.yaml
+#
+# n_jobs=2 is conservative — pairs trials are CPU-light (no LSTM); raise
+# to ``-1`` on the CLI for full saturation.
+
+study_name: gld_slv_pairs_sharpe
+n_trials: 30
+n_jobs: 2
+sampler: tpe
+pruner: median
+objective: sharpe
+seed: 42

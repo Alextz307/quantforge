@@ -1,0 +1,56 @@
+# Standalone MomentumGatekeeper experiment — full HPO from scratch, no
+# pretrained leaf. The strategy owns its own FeatureEngineeringPipeline
+# internally (the StandardScaler refits per fold), so this YAML does NOT
+# set a top-level ``features:`` block.
+#
+# Runnable today:
+#   python -m scripts.experiment run --config config/strategies/momentum_gatekeeper.yaml
+#
+# For the pretrained-leaf workflow (frozen XGBoost classifier), see the
+# sibling ``momentum_gatekeeper_pretrained.yaml`` instead.
+
+name: spy_momentum_gatekeeper
+seed: 42
+
+data:
+  source: yfinance
+  tickers: [SPY]
+  start: 2018-01-02
+  end: 2024-12-31
+  interval: daily
+
+strategy:
+  name: MomentumGatekeeper
+  params:
+    # Strategy-level knobs.
+    ma_window: 50
+    prob_threshold: 0.55
+    # ``feature_columns`` defaults to None → the strategy adopts every
+    # column the internal pipeline emits. Set explicitly to subset.
+    # feature_columns: [rsi_14, macd, macd_signal, ma_ratio]
+    # Pipeline knobs (per-fold; not leaf-frozen).
+    rsi_period: 14
+    macd_fast: 12
+    macd_slow: 26
+    macd_signal: 9
+    vol_window: 20
+    ma_ratio_window: 20
+    short_return_period: 5
+    long_return_period: 21
+    # Classifier knobs (HPO target).
+    n_estimators: 200
+    learning_rate: 0.05
+    max_depth: 5
+    subsample: 0.8
+    colsample_bytree: 0.8
+    val_split_ratio: 0.2
+
+validation:
+  n_splits: 4
+  test_size: 252
+  gap: 5
+  expanding: true
+  holdout_pct: 0.15
+
+slippage:
+  scenario: normal

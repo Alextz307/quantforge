@@ -1,0 +1,14 @@
+# HPO study config for MomentumGatekeeper (standalone — no pretrained leaf).
+#
+# Pair with config/strategies/momentum_gatekeeper.yaml:
+#   python -m scripts.experiment tune \
+#       --config config/strategies/momentum_gatekeeper.yaml \
+#       --hpo-config config/hpo/momentum_gatekeeper.yaml
+
+study_name: spy_momentum_gatekeeper_sharpe
+n_trials: 30
+n_jobs: 2
+sampler: tpe
+pruner: median
+objective: sharpe
+seed: 42

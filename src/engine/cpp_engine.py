@@ -25,7 +25,7 @@ from src.engine.interface import IBacktestEngine
 _NS_PER_SECOND = 1_000_000_000
 
 
-def _validate_inputs(bars: pd.DataFrame, signals: pd.Series) -> None:
+def _validate_bars_columns(bars: pd.DataFrame) -> None:
     if not isinstance(bars.index, pd.DatetimeIndex):
         raise TypeError(
             "bars must have a DatetimeIndex; fix by setting df.index to a "
@@ -37,12 +37,34 @@ def _validate_inputs(bars: pd.DataFrame, signals: pd.Series) -> None:
             f"bars missing required columns: {missing}; fix by running the "
             f"frame through DataNormalizer before invoking the engine."
         )
+
+
+def _validate_inputs(bars: pd.DataFrame, signals: pd.Series) -> None:
+    _validate_bars_columns(bars)
     if not signals.index.equals(bars.index):
         raise ValueError(
             "signals index must equal bars index; fix by reindexing the "
             "signal series to bars.index (a strategy that emits NaN at warmup "
             "still keeps the same index — drop or fill, never reshape)."
         )
+
+
+def _bars_to_ohlcv_arrays(
+    bars: pd.DataFrame,
+) -> tuple[
+    npt.NDArray[np.float64],
+    npt.NDArray[np.float64],
+    npt.NDArray[np.float64],
+    npt.NDArray[np.float64],
+    npt.NDArray[np.float64],
+]:
+    return (
+        bars["open"].to_numpy(dtype=np.float64, copy=False),
+        bars["high"].to_numpy(dtype=np.float64, copy=False),
+        bars["low"].to_numpy(dtype=np.float64, copy=False),
+        bars["close"].to_numpy(dtype=np.float64, copy=False),
+        bars["volume"].to_numpy(dtype=np.float64, copy=False),
+    )
 
 
 def _bars_to_arrays(
@@ -60,14 +82,7 @@ def _bars_to_arrays(
     # `Bar.timestamp` field is opaque to the iteration loop.
     ts_ns: npt.NDArray[np.int64] = bars.index.values.view("int64")
     timestamps = ts_ns // _NS_PER_SECOND
-    return (
-        timestamps,
-        bars["open"].to_numpy(dtype=np.float64, copy=False),
-        bars["high"].to_numpy(dtype=np.float64, copy=False),
-        bars["low"].to_numpy(dtype=np.float64, copy=False),
-        bars["close"].to_numpy(dtype=np.float64, copy=False),
-        bars["volume"].to_numpy(dtype=np.float64, copy=False),
-    )
+    return (timestamps, *_bars_to_ohlcv_arrays(bars))
 
 
 class CppBacktestEngine(IBacktestEngine):
@@ -119,4 +134,40 @@ class CppBacktestEngine(IBacktestEngine):
             volume=v,
             signals=sig,
             scenarios=list(scenarios),
+        )
+
+    def run_pairs(
+        self,
+        bars_a: pd.DataFrame,
+        bars_b: pd.DataFrame,
+        signals: pd.Series,
+        hedge_ratio: float,
+        slippage: SlippageConfig,
+    ) -> BacktestResult:
+        _validate_inputs(bars_a, signals)
+        _validate_bars_columns(bars_b)
+        if not bars_a.index.equals(bars_b.index):
+            raise ValueError(
+                "bars_a and bars_b must share the same DatetimeIndex; fix "
+                "by inner-joining the two leg fetches before invoking the "
+                "pairs engine."
+            )
+        ts, oa, ha, la, ca, va = _bars_to_arrays(bars_a)
+        ob, hb, lb, cb, vb = _bars_to_ohlcv_arrays(bars_b)
+        sig = signals.to_numpy(dtype=np.float64, copy=False)
+        return self._engine.run_pairs(
+            timestamps=ts,
+            open_a=oa,
+            high_a=ha,
+            low_a=la,
+            close_a=ca,
+            volume_a=va,
+            open_b=ob,
+            high_b=hb,
+            low_b=lb,
+            close_b=cb,
+            volume_b=vb,
+            signals=sig,
+            hedge_ratio=hedge_ratio,
+            slippage=slippage,
         )

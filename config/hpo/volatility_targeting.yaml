@@ -1,0 +1,14 @@
+# HPO study config for VolatilityTargeting (standalone — no pretrained leaf).
+#
+# Pair with config/strategies/volatility_targeting.yaml:
+#   python -m scripts.experiment tune \
+#       --config config/strategies/volatility_targeting.yaml \
+#       --hpo-config config/hpo/volatility_targeting.yaml
+
+study_name: spy_volatility_targeting_sharpe
+n_trials: 30
+n_jobs: 2
+sampler: tpe
+pruner: median
+objective: sharpe
+seed: 42

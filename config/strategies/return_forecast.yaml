@@ -1,0 +1,61 @@
+# Standalone ReturnForecast experiment — full HPO from scratch, no
+# pretrained leaf. The strategy needs ``close`` for log-return computation
+# AND the engineered features for the LSTM residual, so ``keep_ohlc: true``
+# preserves OHLCV alongside the scaled features.
+#
+# Runnable today:
+#   python -m scripts.experiment run --config config/strategies/return_forecast.yaml
+
+name: spy_return_forecast
+seed: 42
+
+data:
+  source: yfinance
+  tickers: [SPY]
+  start: 2018-01-02
+  end: 2024-12-31
+  interval: daily
+
+features:
+  name: standard
+  params:
+    keep_ohlc: true
+
+strategy:
+  name: ReturnForecast
+  params:
+    feature_columns:
+      - return_1d
+      - return_5d
+      - return_21d
+      - vol_20
+      - ma_ratio
+      - rsi_14
+      - macd
+      - macd_signal
+      - macd_hist
+    position_scale: 20.0
+    max_leverage: 1.5
+    # ARMA + LSTM hyperparams the HPO sweep tunes.
+    arma_p_max: 3
+    arma_q_max: 3
+    arma_information_criterion: aic
+    lstm_hidden_dim: 64
+    lstm_num_layers: 2
+    lstm_dropout: 0.2
+    lstm_lookback: 30
+    lstm_lr: 0.001
+    lstm_epochs: 50
+    lstm_patience: 10
+    lstm_batch_size: 32
+    lstm_val_split_ratio: 0.2
+
+validation:
+  n_splits: 4
+  test_size: 252
+  gap: 5
+  expanding: true
+  holdout_pct: 0.15
+
+slippage:
+  scenario: normal

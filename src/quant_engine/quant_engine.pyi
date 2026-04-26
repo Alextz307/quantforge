@@ -78,6 +78,23 @@ class BacktestEngine:
         signals: numpy.typing.NDArray[numpy.float64],
         slippage: SlippageConfig,
     ) -> BacktestResult: ...
+    def run_pairs(
+        self,
+        timestamps: numpy.typing.NDArray[numpy.int64],
+        open_a: numpy.typing.NDArray[numpy.float64],
+        high_a: numpy.typing.NDArray[numpy.float64],
+        low_a: numpy.typing.NDArray[numpy.float64],
+        close_a: numpy.typing.NDArray[numpy.float64],
+        volume_a: numpy.typing.NDArray[numpy.float64],
+        open_b: numpy.typing.NDArray[numpy.float64],
+        high_b: numpy.typing.NDArray[numpy.float64],
+        low_b: numpy.typing.NDArray[numpy.float64],
+        close_b: numpy.typing.NDArray[numpy.float64],
+        volume_b: numpy.typing.NDArray[numpy.float64],
+        signals: numpy.typing.NDArray[numpy.float64],
+        hedge_ratio: float,
+        slippage: SlippageConfig,
+    ) -> BacktestResult: ...
     def run_scenarios(
         self,
         timestamps: numpy.typing.NDArray[numpy.int64],

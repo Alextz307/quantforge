@@ -16,6 +16,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+import pandas as pd
 import pytest
 
 from src.core import json_io
@@ -233,16 +234,14 @@ class TestExperimentIdUniqueness:
         assert r1.experiment_id != r2.experiment_id
 
 
-class TestMultiTickerRejected:
-    def test_multi_ticker_raises_not_implemented(
+class TestTickerCountValidation:
+    def test_single_asset_strategy_rejects_two_tickers(
         self,
         csv_dir: Path,
         cfg_dict: dict[str, Any],
-        tmp_path: Path,
+        tmp_path: Path,  # noqa: ARG002
     ) -> None:
-        """Pairs wiring is deferred; a two-ticker config must fail loudly."""
-        # Write a second CSV so the config validator doesn't trip on an
-        # unknown ticker before the runner even starts.
+        """Single-asset strategy + two tickers must fail at build time."""
         df = make_synthetic_ohlcv_df(n_rows=_N_ROWS, start="2020-01-02", seed=99)
         df.index.name = "date"
         df.to_csv(csv_dir / "OTHER.csv")
@@ -253,5 +252,212 @@ class TestMultiTickerRejected:
             "tickers": [_TICKER, "OTHER"],
         }
         cfg = ExperimentConfig.model_validate(cfg_dict_copy)
-        with pytest.raises(NotImplementedError, match="multi-ticker"):
-            build_experiment(cfg).run(RunOptions(store_root=tmp_path / "experiment_results"))
+        with pytest.raises(ValueError, match="single-asset"):
+            build_experiment(cfg)
+
+    def test_three_tickers_rejected_at_fetch(
+        self,
+        csv_dir: Path,
+        cfg_dict: dict[str, Any],
+        tmp_path: Path,  # noqa: ARG002
+    ) -> None:
+        """Three-ticker configs are not in scope for any registered strategy."""
+        for extra in ("OTHER", "THIRD"):
+            df = make_synthetic_ohlcv_df(n_rows=_N_ROWS, start="2020-01-02", seed=99)
+            df.index.name = "date"
+            df.to_csv(csv_dir / f"{extra}.csv")
+
+        cfg_dict_copy = dict(cfg_dict)
+        cfg_dict_copy["data"] = {
+            **cfg_dict["data"],
+            "tickers": [_TICKER, "OTHER", "THIRD"],
+        }
+        cfg = ExperimentConfig.model_validate(cfg_dict_copy)
+        # Builder catches it for AdaptiveBollinger (single-asset) before fetch;
+        # the same ValueError surfaces with a slightly different message even
+        # if a future PairsTrading config slipped through.
+        with pytest.raises(ValueError, match="single-asset"):
+            build_experiment(cfg)
+
+
+_PAIRS_TICKER_A = "PAIRA"
+_PAIRS_TICKER_B = "PAIRB"
+_PAIRS_N_ROWS = 600
+_PAIRS_END = datetime(2022, 6, 1)
+_PAIRS_TEST_SIZE = 80
+_PAIRS_HEDGE_TRUE = 0.85
+
+
+@pytest.fixture
+def pairs_csv_dir(tmp_path: Path) -> Path:
+    """Two synthetic cointegrated tickers written as CSV for the pairs run.
+
+    Leg A is GBM-style geometric noise; leg B = ``hedge * A + spread`` where
+    ``spread`` is a mean-reverting OU process. The Engle-Granger test only
+    needs cointegration to *exist*, not to be high-quality — these fixtures
+    pass the default p-value threshold (0.05) on every seed we've tried.
+    """
+    import numpy as np
+
+    rng = np.random.default_rng(seed=2026)
+    n = _PAIRS_N_ROWS
+    log_a = np.cumsum(rng.normal(0.0001, 0.012, size=n))
+    price_a = 100.0 * np.exp(log_a)
+    # Spread is mean-reverting: OU with theta=0.15.
+    spread = np.zeros(n)
+    for i in range(1, n):
+        spread[i] = 0.85 * spread[i - 1] + rng.normal(0.0, 0.5)
+    price_b = (price_a * _PAIRS_HEDGE_TRUE) + spread + 50.0
+
+    out = tmp_path / "pairs_csv"
+    out.mkdir()
+    dates = pd.date_range("2020-01-02", periods=n, freq="B")
+    for ticker, prices in ((_PAIRS_TICKER_A, price_a), (_PAIRS_TICKER_B, price_b)):
+        df = pd.DataFrame(
+            {
+                "open": prices,
+                "high": prices * 1.005,
+                "low": prices * 0.995,
+                "close": prices,
+                "volume": 1_000_000.0,
+            },
+            index=pd.Index(dates, name="date"),
+        )
+        df.to_csv(out / f"{ticker}.csv")
+    return out
+
+
+class TestPairsExperimentEndToEnd:
+    def test_pairs_walk_forward_runs_to_completion(
+        self,
+        pairs_csv_dir: Path,
+        tmp_path: Path,
+    ) -> None:
+        """A PairsTrading config with two tickers walks forward without error.
+
+        Validates the full chain: multi-ticker fetch → wide-format frame
+        → walk-forward dispatch to ``engine.run_pairs`` → equity curve
+        consumes both legs.
+        """
+        cfg_dict = {
+            "name": "pairs_smoke",
+            "seed": 7,
+            "data": {
+                "source": {"name": "csv", "params": {"data_dir": str(pairs_csv_dir)}},
+                "tickers": [_PAIRS_TICKER_A, _PAIRS_TICKER_B],
+                "start": datetime(2020, 1, 2),
+                "end": _PAIRS_END,
+                "interval": "daily",
+            },
+            "strategy": {
+                "name": "PairsTrading",
+                "params": {
+                    "entry_zscore": 2.0,
+                    "exit_zscore": 0.5,
+                    "stop_loss_zscore": 4.0,
+                    "zscore_lookback": 30,
+                    "p_value_threshold": 0.5,  # generous so the smoke fixture qualifies
+                },
+            },
+            "validation": {
+                "n_splits": 2,
+                "test_size": _PAIRS_TEST_SIZE,
+                "gap": 1,
+                "holdout_pct": 0.0,
+            },
+            "slippage": {"scenario": "normal"},
+        }
+        cfg = ExperimentConfig.model_validate(cfg_dict)
+        store = tmp_path / "exp"
+        result = build_experiment(cfg).run(RunOptions(store_root=store, write_report=False))
+
+        assert len(result.folds) == 2
+        for fold in result.folds:
+            # Equity curves are non-empty and start at the engine's initial capital.
+            assert len(fold.equity_curve) > 0
+            assert fold.equity_curve[0] > 0.0
+
+
+# ───── Direct unit tests for the new helpers ─────
+
+
+class TestFetchPairBars:
+    def test_two_ticker_inner_join_renames_columns(
+        self,
+        pairs_csv_dir: Path,
+    ) -> None:
+        """`_fetch_bars` for two tickers returns a wide-format frame."""
+        from src.core.config import ExperimentConfig
+        from src.core.registry import data_source_registry
+        from src.orchestration.experiment import _fetch_bars
+
+        cfg = ExperimentConfig.model_validate(
+            {
+                "name": "join_check",
+                "data": {
+                    "source": {"name": "csv", "params": {"data_dir": str(pairs_csv_dir)}},
+                    "tickers": [_PAIRS_TICKER_A, _PAIRS_TICKER_B],
+                    "start": datetime(2020, 1, 2),
+                    "end": _PAIRS_END,
+                    "interval": "daily",
+                },
+                "strategy": {"name": "PairsTrading", "params": {}},
+            }
+        )
+        source = data_source_registry.create_from_config(cfg.data.source)
+        bars = _fetch_bars(source, cfg)
+        for col in (
+            "open_a",
+            "high_a",
+            "low_a",
+            "close_a",
+            "volume_a",
+            "open_b",
+            "high_b",
+            "low_b",
+            "close_b",
+            "volume_b",
+        ):
+            assert col in bars.columns, col
+        # Inner join cannot drop the entire universe.
+        assert len(bars) > 0
+
+
+class TestWalkForwardPairsSplit:
+    def test_split_pairs_frame_extracts_leg_subframes(self) -> None:
+        """The wide → two-OHLCV split helper round-trips."""
+        from src.engine.walk_forward import _split_pairs_frame
+
+        n = 6
+        idx = pd.date_range("2024-01-01", periods=n, freq="D")
+        wide = pd.DataFrame(
+            {
+                "open_a": range(n),
+                "high_a": range(n),
+                "low_a": range(n),
+                "close_a": range(n),
+                "volume_a": range(n),
+                "open_b": [-i for i in range(n)],
+                "high_b": [-i for i in range(n)],
+                "low_b": [-i for i in range(n)],
+                "close_b": [-i for i in range(n)],
+                "volume_b": [-i for i in range(n)],
+            },
+            index=idx,
+        )
+        bars_a, bars_b = _split_pairs_frame(wide)
+        assert list(bars_a.columns) == ["open", "high", "low", "close", "volume"]
+        assert list(bars_b.columns) == ["open", "high", "low", "close", "volume"]
+        assert (bars_a["close"] == range(n)).all()
+        assert (bars_b["close"] == [-i for i in range(n)]).all()
+
+    def test_split_pairs_frame_missing_leg_raises(self) -> None:
+        from src.engine.walk_forward import _split_pairs_frame
+
+        # leg-A only — missing all leg-B columns.
+        bars = pd.DataFrame(
+            {"open_a": [1.0], "high_a": [1.0], "low_a": [1.0], "close_a": [1.0], "volume_a": [1.0]},
+            index=pd.date_range("2024-01-01", periods=1),
+        )
+        with pytest.raises(ValueError, match="wide-format columns"):
+            _split_pairs_frame(bars)

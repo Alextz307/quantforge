@@ -135,6 +135,25 @@ class TestFeatureEngineeringPipeline:
         assert f"rsi_{CUSTOM_RSI_PERIOD}" in result.columns
         assert f"vol_{CUSTOM_VOL_WINDOW}" in result.columns
 
+    def test_keep_ohlc_passthrough(self) -> None:
+        """When keep_ohlc=True, OHLCV survives both fit_transform and transform."""
+        from tests.conftest import make_synthetic_ohlcv_df
+
+        ohlcv = make_synthetic_ohlcv_df(n_rows=PIPELINE_ROW_COUNT, seed=42)
+        p = FeatureEngineeringPipeline(keep_ohlc=True)
+        train_result = p.fit_transform(ohlcv)
+        for col in ("open", "high", "low", "close", "volume"):
+            assert col in train_result.columns, col
+            # OHLC values must be the raw input (not the scaled version).
+            assert (train_result[col] == ohlcv[col]).all(), col
+        for engineered in DEFAULT_FEATURE_COLUMNS:
+            assert engineered in train_result.columns
+
+        # Same invariant on transform() of held-out data.
+        held_out = ohlcv.iloc[len(ohlcv) // 2 :].copy()
+        test_result = p.transform(held_out)
+        assert (test_result["close"] == held_out["close"]).all()
+
 
 class TestComputeRSI:
     def test_rsi_range(self, pipeline_df: pd.DataFrame) -> None:

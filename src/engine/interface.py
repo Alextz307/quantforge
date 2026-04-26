@@ -62,3 +62,34 @@ class IBacktestEngine(ABC):
         The bars vector is constructed once and reused across scenarios
         on the C++ side; this is the recommended API for slippage sweeps.
         """
+
+    @abstractmethod
+    def run_pairs(
+        self,
+        bars_a: pd.DataFrame,
+        bars_b: pd.DataFrame,
+        signals: pd.Series,
+        hedge_ratio: float,
+        slippage: SlippageConfig,
+    ) -> BacktestResult:
+        """Run a two-leg (pairs / cointegration) backtest.
+
+        Args:
+            bars_a: OHLCV DataFrame for leg A, DatetimeIndex aligned with
+                ``bars_b`` and ``signals``.
+            bars_b: OHLCV DataFrame for leg B, same shape as ``bars_a``.
+            signals: Series aligned with both bar frames carrying leg A's
+                target leverage. NaN → 0 (flat). Leg B's target is
+                ``-hedge_ratio * signals[t]`` (the cointegration short).
+            hedge_ratio: Cointegration hedge ratio from
+                ``PairsTradingStrategy.hedge_ratio`` (slope of OLS
+                regression of A on B). Sized at the leg-B notional level —
+                leg-A always gets a unit-leverage exposure.
+            slippage: Slippage model applied per fill on both legs.
+
+        Returns:
+            ``BacktestResult`` with combined ``equity_curve``,
+            ``total_return``, and ``trade_count`` (one per bar in which
+            either leg traded). Statistical metrics default-zero — compute
+            via ``MetricsCalculator``.
+        """

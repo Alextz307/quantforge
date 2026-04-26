@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import TYPE_CHECKING, Self
+from typing import TYPE_CHECKING, ClassVar, Self
 
 import pandas as pd
 
@@ -57,6 +57,28 @@ class IStrategy(ABC):
     @abstractmethod
     def required_warmup_bars(self) -> int:
         """Number of initial bars needed before signals are valid."""
+
+    is_pairs_strategy: ClassVar[bool] = False
+    """True for two-leg (cointegration / pairs) strategies.
+
+    The walk-forward dispatcher reads this to decide whether to call
+    ``engine.run`` (single-leg) or ``engine.run_pairs`` (two-leg, requires
+    ``hedge_ratio`` + a wide-format bar frame).
+    """
+
+    @property
+    def hedge_ratio(self) -> float:
+        """Cointegration hedge ratio for two-leg backtests.
+
+        Only pairs strategies need to override; the default raises so a
+        misconfigured single-leg strategy doesn't silently report a 0.0
+        hedge to the pairs engine.
+        """
+        raise NotImplementedError(
+            f"{type(self).__name__}.hedge_ratio is only defined for pairs "
+            f"strategies; fix by setting is_pairs_strategy=True and "
+            f"overriding hedge_ratio if this strategy is two-legged."
+        )
 
     @staticmethod
     @abstractmethod

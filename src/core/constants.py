@@ -34,3 +34,7 @@ OHLCV_COLUMNS: tuple[str, str, str, str, str] = (
     "close",
     "volume",
 )
+
+# ── Pairs (two-leg) bar shape ──
+# Column suffixes the multi-ticker fetch emits — e.g. ``open_a`` / ``open_b``.
+PAIRS_LEG_SUFFIXES: tuple[str, str] = ("_a", "_b")

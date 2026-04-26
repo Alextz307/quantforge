@@ -34,6 +34,7 @@ from src.features.interface import IFeaturePipeline
 from src.orchestration.experiment import Experiment
 from src.orchestration.manifest import PretrainedLeafRecord
 from src.orchestration.model_artifact import load_model_artifact
+from src.strategies.interface import IStrategy
 
 
 def _make_feature_pipeline_factory(
@@ -89,8 +90,47 @@ def _load_pretrained_leaves(
     return loaded, tuple(records)
 
 
+def _validate_strategy_data_shape(cfg: ExperimentConfig) -> None:
+    """Cross-check ticker count against strategy class.
+
+    Pairs strategies need exactly two tickers (one per leg). Single-asset
+    strategies would silently get a wide-format frame they cannot consume
+    if two tickers were passed. The mismatch is rejected here, before any
+    data fetch.
+    """
+    n_tickers = len(cfg.data.tickers)
+    strategy_cls = strategy_registry.get(cfg.strategy.name)
+    if not issubclass(strategy_cls, IStrategy):
+        raise TypeError(
+            f"strategy '{cfg.strategy.name}' resolves to {strategy_cls!r}, "
+            f"which does not subclass IStrategy."
+        )
+    if strategy_cls.is_pairs_strategy:
+        if n_tickers != 2:
+            raise ValueError(
+                f"strategy '{cfg.strategy.name}' requires exactly 2 "
+                f"tickers (one per leg); got {n_tickers}: {cfg.data.tickers}. "
+                f"Fix by listing two tickers under data.tickers, or by "
+                f"choosing a single-asset strategy."
+            )
+        if cfg.features is not None:
+            raise ValueError(
+                f"strategy '{cfg.strategy.name}' does not consume an "
+                f"engineered feature pipeline (it operates directly on the "
+                f"two close columns); got features={cfg.features.name!r}. "
+                f"Fix by removing the 'features:' block from the config."
+            )
+    elif n_tickers != 1:
+        raise ValueError(
+            f"strategy '{cfg.strategy.name}' is single-asset; expected 1 "
+            f"ticker, got {n_tickers}: {cfg.data.tickers}. Fix by trimming "
+            f"data.tickers, or by switching to a pairs strategy for two legs."
+        )
+
+
 def build_experiment(cfg: ExperimentConfig) -> Experiment:
     """Instantiate every component referenced by ``cfg`` and bundle into an :class:`Experiment`."""
+    _validate_strategy_data_shape(cfg)
     data_source = data_source_registry.create_from_config(cfg.data.source)
 
     if cfg.pretrained_leaves:

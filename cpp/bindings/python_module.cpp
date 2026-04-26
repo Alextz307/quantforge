@@ -142,6 +142,17 @@ marshal_bars_and_signals(
     py::arg("timestamps"), py::arg("open"), py::arg("high"), py::arg("low"),   \
     py::arg("close"), py::arg("volume"), py::arg("signals")
 
+// Two-leg variant for ``run_pairs``: ten OHLCV arrays (five per leg) plus the
+// shared leg-A signal series. Naming mirrors the wide-format DataFrame the
+// Python wrapper marshals from (open_a / high_a / ... / open_b / ...).
+#define QE_PAIRS_BARS_SIGNALS_KWARGS                                           \
+    py::arg("timestamps"),                                                     \
+    py::arg("open_a"), py::arg("high_a"), py::arg("low_a"),                    \
+    py::arg("close_a"), py::arg("volume_a"),                                   \
+    py::arg("open_b"), py::arg("high_b"), py::arg("low_b"),                    \
+    py::arg("close_b"), py::arg("volume_b"),                                   \
+    py::arg("signals")
+
 // Shared OHLC kwarg prefix for the volatility-estimator bindings
 // (Parkinson, GarmanKlass).
 #define QE_OHLC_KWARGS                                                         \
@@ -246,9 +257,39 @@ PYBIND11_MODULE(quant_engine, m) {
                 }
                 return results;
             },
-            QE_BARS_SIGNALS_KWARGS, py::arg("scenarios"));
+            QE_BARS_SIGNALS_KWARGS, py::arg("scenarios"))
+        .def(
+            "run_pairs",
+            [](const quant::BacktestEngine& self, const ContigI64& timestamps,
+               const ContigF64& open_a, const ContigF64& high_a,
+               const ContigF64& low_a, const ContigF64& close_a,
+               const ContigF64& volume_a, const ContigF64& open_b,
+               const ContigF64& high_b, const ContigF64& low_b,
+               const ContigF64& close_b, const ContigF64& volume_b,
+               const ContigF64& signals, double hedge_ratio,
+               const quant::SlippageConfig& slippage) {
+                auto bars_a = build_bars(
+                    timestamps, open_a, high_a, low_a, close_a, volume_a);
+                auto bars_b = build_bars(
+                    timestamps, open_b, high_b, low_b, close_b, volume_b);
+                const auto sig_span = as_span(signals);
+                if (sig_span.size() != bars_a.size()) {
+                    throw py::value_error(
+                        "signals length must equal bars length");
+                }
+                auto result = std::make_shared<quant::BacktestResult>();
+                {
+                    py::gil_scoped_release release;
+                    self.run_pairs(
+                        bars_a, bars_b, sig_span, hedge_ratio, slippage, *result);
+                }
+                return result;
+            },
+            QE_PAIRS_BARS_SIGNALS_KWARGS, py::arg("hedge_ratio"),
+            py::arg("slippage"));
 
 #undef QE_BARS_SIGNALS_KWARGS
+#undef QE_PAIRS_BARS_SIGNALS_KWARGS
 
     // ── PerformanceMetrics ──
     py::class_<quant::PerformanceMetrics>(m, "PerformanceMetrics")

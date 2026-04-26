@@ -409,6 +409,103 @@ class TestRunScenarios:
 
 
 # ════════════════════════════════════════════════════════════════
+# BacktestEngine.run_pairs — binding marshalling
+# ════════════════════════════════════════════════════════════════
+
+
+class TestRunPairsBindings:
+    """Binding-layer coverage for the two-leg pairs path.
+
+    The two-leg PnL math itself is covered by gtest in
+    ``cpp/tests/test_backtest_engine.cpp``; these tests verify only the
+    pybind11 marshalling (twelve numpy arrays + hedge_ratio + slippage)
+    and that mismatched lengths surface as ``ValueError`` from the
+    binding shim, not a segfault.
+    """
+
+    @staticmethod
+    def _arrays(
+        n: int, price_a: float, price_b: float
+    ) -> tuple[
+        I64Array,
+        F64Array,
+        F64Array,
+        F64Array,
+        F64Array,
+        F64Array,
+        F64Array,
+        F64Array,
+        F64Array,
+        F64Array,
+        F64Array,
+    ]:
+        ts = np.arange(n, dtype=np.int64)
+        oa = np.full(n, price_a, dtype=np.float64)
+        ob = np.full(n, price_b, dtype=np.float64)
+        v = np.full(n, FIXED_VOLUME, dtype=np.float64)
+        return (
+            ts,
+            oa.copy(),
+            oa.copy(),
+            oa.copy(),
+            oa.copy(),
+            v.copy(),
+            ob.copy(),
+            ob.copy(),
+            ob.copy(),
+            ob.copy(),
+            v.copy(),
+        )
+
+    def test_flat_signals_returns_initial_capital(self) -> None:
+        n = 5
+        ts, oa, ha, la, ca, va, ob, hb, lb, cb, vb = self._arrays(n, 100.0, 90.0)
+        sig = np.zeros(n, dtype=np.float64)
+        eng = qe.BacktestEngine()
+        result = eng.run_pairs(
+            timestamps=ts,
+            open_a=oa,
+            high_a=ha,
+            low_a=la,
+            close_a=ca,
+            volume_a=va,
+            open_b=ob,
+            high_b=hb,
+            low_b=lb,
+            close_b=cb,
+            volume_b=vb,
+            signals=sig,
+            hedge_ratio=1.0,
+            slippage=qe.SlippageConfig(model=qe.SlippageModel.NoSlippage, base_bps=0.0),
+        )
+        assert result.equity_curve.shape == (n,)
+        assert all(eq == INITIAL_CAPITAL for eq in result.equity_curve)
+        assert result.trade_count == 0
+
+    def test_signal_length_mismatch_raises(self) -> None:
+        ts, oa, ha, la, ca, va, ob, hb, lb, cb, vb = self._arrays(4, 100.0, 90.0)
+        sig = np.zeros(3, dtype=np.float64)  # one short
+        eng = qe.BacktestEngine()
+        with pytest.raises(ValueError, match="signals length"):
+            eng.run_pairs(
+                timestamps=ts,
+                open_a=oa,
+                high_a=ha,
+                low_a=la,
+                close_a=ca,
+                volume_a=va,
+                open_b=ob,
+                high_b=hb,
+                low_b=lb,
+                close_b=cb,
+                volume_b=vb,
+                signals=sig,
+                hedge_ratio=1.0,
+                slippage=qe.SlippageConfig(),
+            )
+
+
+# ════════════════════════════════════════════════════════════════
 # MetricsCalculator — bit-for-bit alignment with C++ test values
 # ════════════════════════════════════════════════════════════════
 

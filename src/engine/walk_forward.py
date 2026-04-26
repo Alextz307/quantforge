@@ -32,6 +32,7 @@ from quant_engine import (
     PerformanceMetrics,
     SlippageConfig,
 )
+from src.core.constants import OHLCV_COLUMNS, PAIRS_LEG_SUFFIXES
 from src.core.exceptions import LeakageError
 from src.core.logging import get_logger
 from src.core.persistence import FOLD_DIR_PREFIX
@@ -55,6 +56,26 @@ class FoldResult:
     test_end: pd.Timestamp
     backtest: BacktestResult
     metrics: PerformanceMetrics
+
+
+_LEG_A_RENAME: dict[str, str] = {f"{c}{PAIRS_LEG_SUFFIXES[0]}": c for c in OHLCV_COLUMNS}
+_LEG_B_RENAME: dict[str, str] = {f"{c}{PAIRS_LEG_SUFFIXES[1]}": c for c in OHLCV_COLUMNS}
+
+
+def _split_pairs_frame(bars: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Split a wide-format pairs frame into two single-leg OHLCV frames."""
+    missing_a = [c for c in _LEG_A_RENAME if c not in bars.columns]
+    missing_b = [c for c in _LEG_B_RENAME if c not in bars.columns]
+    if missing_a or missing_b:
+        raise ValueError(
+            f"pairs walk-forward dispatch expected wide-format columns "
+            f"{sorted(_LEG_A_RENAME) + sorted(_LEG_B_RENAME)}, missing "
+            f"{sorted(missing_a + missing_b)}; fix by ensuring the multi-ticker "
+            f"fetch path produced both legs before invoking walk-forward."
+        )
+    bars_a = bars[list(_LEG_A_RENAME)].rename(columns=_LEG_A_RENAME)
+    bars_b = bars[list(_LEG_B_RENAME)].rename(columns=_LEG_B_RENAME)
+    return bars_a, bars_b
 
 
 def _validate_deep_metadata(
@@ -215,7 +236,11 @@ def evaluate_walk_forward(
         _validate_deep_metadata(strategy, train_data=train_frame, test_data=test_frame)
 
         signals = strategy.generate_signals(test_frame)
-        raw = engine.run(fold.test, signals, slippage)
+        if strategy.is_pairs_strategy:
+            bars_a, bars_b = _split_pairs_frame(fold.test)
+            raw = engine.run_pairs(bars_a, bars_b, signals, strategy.hedge_ratio, slippage)
+        else:
+            raw = engine.run(fold.test, signals, slippage)
         metrics = MetricsCalculator.compute(
             raw.equity_curve,
             annualization,

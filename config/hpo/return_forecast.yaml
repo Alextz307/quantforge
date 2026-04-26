@@ -1,0 +1,14 @@
+# HPO study config for ReturnForecast (standalone — no pretrained leaf).
+#
+# Pair with config/strategies/return_forecast.yaml:
+#   python -m scripts.experiment tune \
+#       --config config/strategies/return_forecast.yaml \
+#       --hpo-config config/hpo/return_forecast.yaml
+
+study_name: spy_return_forecast_sharpe
+n_trials: 30
+n_jobs: 2
+sampler: tpe
+pruner: median
+objective: sharpe
+seed: 42

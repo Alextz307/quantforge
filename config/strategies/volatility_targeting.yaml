@@ -1,0 +1,68 @@
+# Standalone VolatilityTargeting experiment — full HPO from scratch, no
+# pretrained leaf. The strategy needs OHLC for the Garman-Klass realized-
+# volatility target AND the engineered features for the LSTM residual,
+# so the top-level ``features:`` block uses ``keep_ohlc: true`` to
+# augment (rather than replace) the OHLCV columns.
+#
+# Runnable today:
+#   python -m scripts.experiment run --config config/strategies/volatility_targeting.yaml
+
+name: spy_volatility_targeting
+seed: 42
+
+data:
+  source: yfinance
+  tickers: [SPY]
+  start: 2018-01-02
+  end: 2024-12-31
+  interval: daily
+
+# Standard pipeline emits {return_1d, return_5d, return_21d, vol_20,
+# ma_ratio, rsi_14, macd, macd_signal, macd_hist}. ``keep_ohlc: true``
+# concatenates raw OHLCV (un-scaled) so the strategy's Garman-Klass
+# realized-vol target — which needs high/low/open/close — still resolves.
+features:
+  name: standard
+  params:
+    keep_ohlc: true
+
+strategy:
+  name: VolatilityTargeting
+  params:
+    feature_columns:
+      - return_1d
+      - return_5d
+      - return_21d
+      - vol_20
+      - ma_ratio
+      - rsi_14
+      - macd
+      - macd_signal
+      - macd_hist
+    target_vol: 0.15
+    trend_window: 100
+    max_leverage: 1.5
+    bearish_exposure: 0.0
+    realized_vol_window: 20
+    # GARCH + LSTM hyperparams the HPO sweep tunes.
+    garch_p_max: 3
+    garch_q_max: 3
+    lstm_hidden_dim: 64
+    lstm_num_layers: 2
+    lstm_dropout: 0.2
+    lstm_lookback: 30
+    lstm_lr: 0.001
+    lstm_epochs: 50
+    lstm_patience: 10
+    lstm_batch_size: 32
+    lstm_val_split_ratio: 0.2
+
+validation:
+  n_splits: 4
+  test_size: 252
+  gap: 5
+  expanding: true
+  holdout_pct: 0.15
+
+slippage:
+  scenario: normal

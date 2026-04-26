@@ -69,6 +69,49 @@ public:
         BacktestResult& out
     ) const;
 
+    /// Two-leg backtest for cointegration / pairs strategies.
+    ///
+    /// ``signals[t]`` is leg-A's target leverage; leg-B's target is
+    /// ``-hedge_ratio * signals[t]`` (the cointegration spread short).
+    /// Both legs share cash + equity but size their own fills against
+    /// their own bar's open with their own bar's volume feeding the
+    /// slippage model. ``trade_count`` increments once per bar in which
+    /// either leg actually trades.
+    ///
+    /// Throws std::invalid_argument when the three input spans have
+    /// different lengths.
+    [[nodiscard]] BacktestResult run_pairs(
+        std::span<const Bar> bars_a,
+        std::span<const Bar> bars_b,
+        std::span<const double> signals,
+        double hedge_ratio
+    ) const;
+
+    [[nodiscard]] BacktestResult run_pairs(
+        std::span<const Bar> bars_a,
+        std::span<const Bar> bars_b,
+        std::span<const double> signals,
+        double hedge_ratio,
+        const SlippageConfig& slippage_override
+    ) const;
+
+    void run_pairs(
+        std::span<const Bar> bars_a,
+        std::span<const Bar> bars_b,
+        std::span<const double> signals,
+        double hedge_ratio,
+        BacktestResult& out
+    ) const;
+
+    void run_pairs(
+        std::span<const Bar> bars_a,
+        std::span<const Bar> bars_b,
+        std::span<const double> signals,
+        double hedge_ratio,
+        const SlippageConfig& slippage_override,
+        BacktestResult& out
+    ) const;
+
 private:
     Config config_;
 };

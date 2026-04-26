@@ -1,0 +1,41 @@
+# Standalone AdaptiveBollinger experiment — no pretrained leaves, no
+# external feature pipeline. The strategy owns its own GARCH and operates
+# directly on close prices, so this YAML is fully runnable today via:
+#
+#   python -m scripts.experiment run --config config/strategies/adaptive_bollinger.yaml
+#
+# Pair with config/hpo/adaptive_bollinger.yaml for joint Optuna HPO via
+# `experiment tune`.
+
+name: spy_adaptive_bollinger
+seed: 42
+
+data:
+  source: yfinance
+  tickers: [SPY]
+  start: 2018-01-02
+  end: 2024-12-31
+  interval: daily
+
+strategy:
+  name: AdaptiveBollinger
+  params:
+    window: 20
+    k: 2.0
+    trend_window: 100
+    garch_p_max: 3
+    garch_q_max: 3
+
+validation:
+  n_splits: 4
+  test_size: 252
+  gap: 5
+  expanding: true
+  # Reserve the final 15% of bars as the post-thesis holdout. The runner
+  # writes the resolved boundary timestamp into the manifest; the future
+  # `experiment holdout-eval` subcommand reads it back from there, NOT
+  # from this config, so vendor drift cannot move the line.
+  holdout_pct: 0.15
+
+slippage:
+  scenario: normal

@@ -7,6 +7,7 @@ import pandas as pd
 from sklearn.preprocessing import StandardScaler
 
 import quant_engine
+from src.core.constants import OHLCV_COLUMNS
 from src.core.exceptions import guard_scaler_fit_once
 from src.core.logging import get_logger
 from src.core.registry import feature_registry
@@ -56,6 +57,7 @@ class FeatureEngineeringPipeline(IFeaturePipeline):
         ma_ratio_window: int = 20,
         short_return_period: int = 5,
         long_return_period: int = 21,
+        keep_ohlc: bool = False,
     ) -> None:
         if short_return_period < 2 or long_return_period <= short_return_period:
             raise ValueError(
@@ -73,6 +75,12 @@ class FeatureEngineeringPipeline(IFeaturePipeline):
         self._ma_ratio_window = ma_ratio_window
         self._short_return_period = short_return_period
         self._long_return_period = long_return_period
+        # When True, transform() concatenates the source frame's raw OHLCV
+        # alongside scaled engineered features (OHLCV passes through
+        # un-scaled). Lets strategies that need both raw price AND features
+        # in the same frame (e.g. ReturnForecast, VolatilityTargeting) keep
+        # the columns their own train() depends on.
+        self._keep_ohlc = keep_ohlc
 
         self._scaler: StandardScaler | None = None
 
@@ -172,7 +180,7 @@ class FeatureEngineeringPipeline(IFeaturePipeline):
         assert self._scaler is not None
 
         self._apply_scaler_in_place(features)
-        return features
+        return self._maybe_attach_ohlc(features, train_data)
 
     def transform(self, data: pd.DataFrame) -> pd.DataFrame:
         """Transform data using fitted scaler.
@@ -190,7 +198,16 @@ class FeatureEngineeringPipeline(IFeaturePipeline):
 
         features = self._compute_raw_features(data)
         self._apply_scaler_in_place(features)
-        return features
+        return self._maybe_attach_ohlc(features, data)
+
+    def _maybe_attach_ohlc(self, features: pd.DataFrame, source: pd.DataFrame) -> pd.DataFrame:
+        """Concatenate raw OHLCV onto ``features`` when ``keep_ohlc=True``."""
+        if not self._keep_ohlc:
+            return features
+        present = [c for c in OHLCV_COLUMNS if c in source.columns]
+        if not present:
+            return features
+        return pd.concat([source[present], features], axis=1)
 
     def _apply_scaler_in_place(self, features: pd.DataFrame) -> None:
         """Scale non-NaN rows in place. Leading warmup NaNs are preserved."""

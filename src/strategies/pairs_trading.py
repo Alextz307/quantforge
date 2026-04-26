@@ -46,6 +46,7 @@ class PairsTradingStrategy(IStrategy):
     # Non-ML strategy — cointegration coefficients refit cheaply per fold.
     # ``normalize_pretrained_leaves`` raises on any non-empty map.
     _leaf_keys: ClassVar[frozenset[str]] = frozenset()
+    is_pairs_strategy: ClassVar[bool] = True
 
     def __init__(
         self,

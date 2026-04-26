@@ -279,5 +279,127 @@ TEST(BacktestEngineTest, StatisticalMetricsDefaultZero) {
     EXPECT_DOUBLE_EQ(result.annualized_volatility, 0.0);
 }
 
+// ═══════════════════════════════════════════════════════════════
+// Pairs (two-leg) backtest
+// ═══════════════════════════════════════════════════════════════
+
+TEST(BacktestEngineRunPairsTest, MismatchedLegLengthsThrows) {
+    BacktestEngine engine(zero_friction_config());
+    const auto bars_a = constant_price_series(3);
+    const auto bars_b = constant_price_series(2);
+    const std::vector<double> signals{0.0, 0.0, 0.0};
+    EXPECT_THROW(
+        static_cast<void>(engine.run_pairs(bars_a, bars_b, signals, 1.0)),
+        std::invalid_argument);
+}
+
+TEST(BacktestEngineRunPairsTest, MismatchedSignalLengthThrows) {
+    BacktestEngine engine(zero_friction_config());
+    const auto bars_a = constant_price_series(3);
+    const auto bars_b = constant_price_series(3);
+    const std::vector<double> signals{0.0, 0.0};
+    EXPECT_THROW(
+        static_cast<void>(engine.run_pairs(bars_a, bars_b, signals, 1.0)),
+        std::invalid_argument);
+}
+
+TEST(BacktestEngineRunPairsTest, FlatSignalLeavesEquityFlat) {
+    BacktestEngine engine(zero_friction_config());
+    const auto bars_a = constant_price_series(5, kPriceAt100);
+    const auto bars_b = constant_price_series(5, kPriceAt90);
+    const std::vector<double> signals(5, 0.0);
+    const auto result = engine.run_pairs(bars_a, bars_b, signals, 1.0);
+    EXPECT_EQ(result.trade_count, 0);
+    for (double v : result.equity_curve) {
+        EXPECT_DOUBLE_EQ(v, kInitialCapital);
+    }
+}
+
+TEST(BacktestEngineRunPairsTest, NanSignalTreatedAsFlat) {
+    BacktestEngine engine(zero_friction_config());
+    const auto bars_a = constant_price_series(4, kPriceAt100);
+    const auto bars_b = constant_price_series(4, kPriceAt90);
+    const double nan = std::numeric_limits<double>::quiet_NaN();
+    const std::vector<double> signals{nan, nan, nan, nan};
+    const auto result = engine.run_pairs(bars_a, bars_b, signals, 1.0);
+    EXPECT_EQ(result.trade_count, 0);
+    EXPECT_DOUBLE_EQ(result.equity_curve.back(), kInitialCapital);
+}
+
+TEST(BacktestEngineRunPairsTest, ConvergingSpreadProfitsBothLegs) {
+    BacktestEngine engine(zero_friction_config());
+    const std::vector<Bar> bars_a{
+        make_bar(0, kPriceAt100, kPriceAt100, kPriceAt100, kPriceAt100),
+        make_bar(1, kPriceAt100, kPriceAt100, kPriceAt100, kPriceAt100),
+        make_bar(2, kPriceAt110, kPriceAt110, kPriceAt110, kPriceAt110),
+    };
+    const std::vector<Bar> bars_b{
+        make_bar(0, kPriceAt100, kPriceAt100, kPriceAt100, kPriceAt100),
+        make_bar(1, kPriceAt100, kPriceAt100, kPriceAt100, kPriceAt100),
+        make_bar(2, kPriceAt90, kPriceAt90, kPriceAt90, kPriceAt90),
+    };
+    const std::vector<double> signals{1.0, 1.0, 1.0};
+    const auto result = engine.run_pairs(bars_a, bars_b, signals, 1.0);
+    // bar 1: open spread; bar 2: leverage=1 forces an MTM-neutral rebalance.
+    EXPECT_EQ(result.trade_count, 2);
+    const double shares_a_expected = kInitialCapital / kPriceAt100;
+    const double shares_b_expected = kInitialCapital / kPriceAt100;
+    const double leg_a_pnl = shares_a_expected * (kPriceAt110 - kPriceAt100);
+    const double leg_b_pnl = shares_b_expected * (kPriceAt100 - kPriceAt90);
+    const double expected_equity = kInitialCapital + leg_a_pnl + leg_b_pnl;
+    EXPECT_NEAR(result.equity_curve.back(), expected_equity, kFloatTolerance);
+}
+
+TEST(BacktestEngineRunPairsTest, NegativeSignalReversesLegSigns) {
+    BacktestEngine engine(zero_friction_config());
+    const std::vector<Bar> bars_a{
+        make_bar(0, kPriceAt100, kPriceAt100, kPriceAt100, kPriceAt100),
+        make_bar(1, kPriceAt100, kPriceAt100, kPriceAt100, kPriceAt100),
+        make_bar(2, kPriceAt110, kPriceAt110, kPriceAt110, kPriceAt110),
+    };
+    const std::vector<Bar> bars_b{
+        make_bar(0, kPriceAt100, kPriceAt100, kPriceAt100, kPriceAt100),
+        make_bar(1, kPriceAt100, kPriceAt100, kPriceAt100, kPriceAt100),
+        make_bar(2, kPriceAt90, kPriceAt90, kPriceAt90, kPriceAt90),
+    };
+    const auto pos = engine.run_pairs(
+        bars_a, bars_b, std::vector<double>{1.0, 1.0, 1.0}, 1.0);
+    const auto neg = engine.run_pairs(
+        bars_a, bars_b, std::vector<double>{-1.0, -1.0, -1.0}, 1.0);
+    EXPECT_NEAR(
+        pos.equity_curve.back() - kInitialCapital,
+        kInitialCapital - neg.equity_curve.back(),
+        kFloatTolerance);
+}
+
+TEST(BacktestEngineRunPairsTest, HedgeRatioScalesLegBExposure) {
+    const std::vector<Bar> bars_a{
+        make_bar(0, kPriceAt100, kPriceAt100, kPriceAt100, kPriceAt100),
+        make_bar(1, kPriceAt100, kPriceAt100, kPriceAt100, kPriceAt100),
+        make_bar(2, kPriceAt100, kPriceAt100, kPriceAt100, kPriceAt100),
+    };
+    const std::vector<Bar> bars_b{
+        make_bar(0, kPriceAt100, kPriceAt100, kPriceAt100, kPriceAt100),
+        make_bar(1, kPriceAt100, kPriceAt100, kPriceAt100, kPriceAt100),
+        make_bar(2, kPriceAt90, kPriceAt90, kPriceAt90, kPriceAt90),
+    };
+    const std::vector<double> signals{1.0, 1.0, 1.0};
+    BacktestEngine engine(zero_friction_config());
+    const auto baseline = engine.run_pairs(bars_a, bars_b, signals, 1.0);
+    const auto wider   = engine.run_pairs(bars_a, bars_b, signals, 2.0);
+    EXPECT_GT(wider.equity_curve.back(), baseline.equity_curve.back());
+}
+
+TEST(BacktestEngineRunPairsTest, EmptySeriesReturnsDefault) {
+    BacktestEngine engine(zero_friction_config());
+    const std::vector<Bar> bars_a{};
+    const std::vector<Bar> bars_b{};
+    const std::vector<double> signals{};
+    const auto result = engine.run_pairs(bars_a, bars_b, signals, 1.0);
+    EXPECT_TRUE(result.equity_curve.empty());
+    EXPECT_EQ(result.trade_count, 0);
+    EXPECT_DOUBLE_EQ(result.total_return, 0.0);
+}
+
 }  // namespace
 }  // namespace quant

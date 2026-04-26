@@ -35,6 +35,7 @@ from quant_engine import SlippageConfig
 from src.analysis.metrics_aggregator import aggregate_folds
 from src.core import json_io
 from src.core.config import ExperimentConfig, write_frozen_yaml
+from src.core.constants import PAIRS_LEG_SUFFIXES
 from src.core.logging import get_logger
 from src.core.persistence import (
     EXPERIMENT_CHECKPOINTS_SUBDIR,
@@ -48,7 +49,7 @@ from src.core.persistence import (
 )
 from src.core.seeding import seed_all
 from src.core.temporal import WalkForwardValidator, resolve_holdout_boundary
-from src.data.fingerprint import fingerprint_bars
+from src.data.fingerprint import fingerprint_bars, fingerprint_pair_bars
 from src.data.interface import IDataSource
 from src.engine.interface import IBacktestEngine
 from src.engine.walk_forward import FoldResult, evaluate_walk_forward
@@ -83,25 +84,51 @@ def _make_experiment_id(strategy_name: str, created_at: datetime, git_sha: str) 
 
 
 def _fetch_bars(data_source: IDataSource, cfg: ExperimentConfig) -> pd.DataFrame:
-    """Fetch OHLCV bars for a single-ticker experiment.
+    """Fetch OHLCV bars for a 1-ticker (single-asset) or 2-ticker (pairs) run.
 
-    Pairs-trading (two-ticker) wiring is deferred — the engine's
-    ``BacktestResult`` shape assumes a single-asset position series which
-    doesn't map cleanly to two-leg PnL. For now, any config with more than
-    one ticker is rejected with a pointed error.
+    Two-ticker mode inner-joins on shared timestamps and suffixes the OHLCV
+    columns ``_a`` / ``_b``; >2 tickers is rejected — no current strategy
+    consumes more than two legs.
     """
     tickers = cfg.data.tickers
     if len(tickers) == 0:
         raise ValueError(
             "ExperimentConfig.data.tickers must be non-empty; fix by listing at least one ticker."
         )
-    if len(tickers) > 1:
-        raise NotImplementedError(
-            f"Experiment.run() does not yet wire multi-ticker (pairs) strategies; "
-            f"got tickers={tickers}; fix by running with a single ticker until "
-            "pairs support lands."
+    if len(tickers) == 1:
+        return data_source.fetch(tickers[0], cfg.data.start, cfg.data.end, cfg.data.interval)
+    if len(tickers) == 2:
+        return _fetch_pair_bars(data_source, cfg, tickers[0], tickers[1])
+    raise ValueError(
+        f"ExperimentConfig.data.tickers supports 1 ticker (single-asset) or 2 "
+        f"tickers (pairs); got {len(tickers)}: {tickers}. Fix by trimming "
+        f"data.tickers — three-leg strategies are not in scope."
+    )
+
+
+def _fetch_pair_bars(
+    data_source: IDataSource,
+    cfg: ExperimentConfig,
+    ticker_a: str,
+    ticker_b: str,
+) -> pd.DataFrame:
+    """Fetch both legs of a pair, inner-join, suffix the OHLCV columns."""
+    bars_a = data_source.fetch(ticker_a, cfg.data.start, cfg.data.end, cfg.data.interval)
+    bars_b = data_source.fetch(ticker_b, cfg.data.start, cfg.data.end, cfg.data.interval)
+    suffix_a, suffix_b = PAIRS_LEG_SUFFIXES
+    # Inner join drops bars present on only one leg (typical for cross-region
+    # holiday mismatches). Outer join would leak NaN OHLC into the engine's
+    # ``Bar.is_valid`` check; left/right joins would silently bias the
+    # calendar to one leg.
+    joined = bars_a.add_suffix(suffix_a).join(bars_b.add_suffix(suffix_b), how="inner")
+    if joined.empty:
+        raise ValueError(
+            f"pair fetch for ({ticker_a}, {ticker_b}) produced zero overlapping "
+            f"bars after inner join over [{cfg.data.start}, {cfg.data.end}]; "
+            f"fix by widening the date range or by choosing a pair traded on "
+            f"the same calendar."
         )
-    return data_source.fetch(tickers[0], cfg.data.start, cfg.data.end, cfg.data.interval)
+    return joined
 
 
 def _slice_dev(bars: pd.DataFrame, boundary: pd.Timestamp | None) -> pd.DataFrame:
@@ -222,7 +249,11 @@ class Experiment:
                 "fix by reducing validation.holdout_pct or widening data.start/end."
             )
 
-        data_hash = fingerprint_bars(bars_full)
+        data_hash = (
+            fingerprint_pair_bars(bars_full)
+            if len(self.config.data.tickers) == 2
+            else fingerprint_bars(bars_full)
+        )
         manifest = Manifest(
             experiment_id=experiment_id,
             name=self.config.name,

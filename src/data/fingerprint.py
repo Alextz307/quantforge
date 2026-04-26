@@ -21,48 +21,56 @@ equal the stored ``data_hash`` from a different run ON THE SAME DATA, so
 from __future__ import annotations
 
 import hashlib
+from collections.abc import Sequence
 
 import numpy as np
 import pandas as pd
 
-from src.core.constants import OHLCV_COLUMNS
+from src.core.constants import OHLCV_COLUMNS, PAIRS_LEG_SUFFIXES
+
+
+def _fingerprint(df: pd.DataFrame, value_columns: Sequence[str], func_name: str) -> str:
+    if not isinstance(df.index, pd.DatetimeIndex):
+        raise TypeError(
+            f"{func_name} requires a DataFrame with a DatetimeIndex; "
+            f"got {type(df.index).__name__}. Fix by setting df.index to a "
+            f"DatetimeIndex (or calling df.set_index('date'))."
+        )
+    missing = [c for c in value_columns if c not in df.columns]
+    if missing:
+        raise KeyError(
+            f"{func_name}: DataFrame missing required columns {missing}; "
+            f"present columns: {sorted(df.columns)}. Fix by running the "
+            f"frame through the appropriate ingestion path first."
+        )
+    h = hashlib.sha256()
+    # Column-name set distinguishes a frame missing ``volume`` from one
+    # where ``volume == 0.0``; sorted for invariance to input ordering.
+    h.update(",".join(sorted(df.columns)).encode())
+    h.update(df.index.values.view("int64").tobytes())
+    for col in value_columns:
+        h.update(np.asarray(df[col], dtype=np.float64).tobytes())
+    return h.hexdigest()
 
 
 def fingerprint_bars(df: pd.DataFrame) -> str:
     """SHA-256 content hash over ``df``'s column names, timestamps, and OHLCV bytes.
 
     ``df`` MUST have a ``DatetimeIndex`` and contain every column in
-    :data:`OHLCV_COLUMNS` — ingestion-time ``validate_bars`` enforces this
-    upstream. A missing column is treated as a caller contract violation
-    and surfaces as a pointed ``KeyError``, not silently hashes to the
-    same value as one where the column is all-zeros.
-
-    Column ORDER in the input is IGNORED: we always hash column values in
-    the canonical ``OHLCV_COLUMNS`` order, so two frames with identical
-    contents but different column reorderings produce the same digest.
-    Column SET is part of the hash via the joined column-name string —
-    a frame missing ``volume`` cannot collide with one where volume is
-    all-zeros.
+    :data:`OHLCV_COLUMNS`. Column ORDER in the input is IGNORED: values
+    are always hashed in canonical ``OHLCV_COLUMNS`` order. Column SET is
+    part of the hash so a frame missing ``volume`` cannot collide with
+    one where volume is all-zeros.
     """
-    if not isinstance(df.index, pd.DatetimeIndex):
-        raise TypeError(
-            f"fingerprint_bars requires a DataFrame with a DatetimeIndex; "
-            f"got {type(df.index).__name__}. Fix by setting df.index to a "
-            f"DatetimeIndex (or calling df.set_index('date'))."
-        )
+    return _fingerprint(df, OHLCV_COLUMNS, "fingerprint_bars")
 
-    h = hashlib.sha256()
-    # Mix the ordered column-name SET first — distinguishes a frame with
-    # ``volume`` absent from one where ``volume == 0.0``. Sorted so the
-    # hash is invariant to input column order.
-    h.update(",".join(sorted(df.columns)).encode())
-    h.update(df.index.values.view("int64").tobytes())
-    for col in OHLCV_COLUMNS:
-        if col not in df.columns:
-            raise KeyError(
-                f"fingerprint_bars: DataFrame missing required column {col!r}; "
-                f"present columns: {sorted(df.columns)}. Fix by running the "
-                f"frame through DataNormalizer first so OHLCV columns are present."
-            )
-        h.update(np.asarray(df[col], dtype=np.float64).tobytes())
-    return h.hexdigest()
+
+def fingerprint_pair_bars(df: pd.DataFrame) -> str:
+    """Wide-format pairs analogue of :func:`fingerprint_bars`.
+
+    Expects ``open_a / high_a / ... / volume_b`` columns produced by the
+    multi-ticker fetch path.
+    """
+    suffix_a, suffix_b = PAIRS_LEG_SUFFIXES
+    leg_cols = [f"{c}{suffix_a}" for c in OHLCV_COLUMNS] + [f"{c}{suffix_b}" for c in OHLCV_COLUMNS]
+    return _fingerprint(df, leg_cols, "fingerprint_pair_bars")

@@ -1,0 +1,17 @@
+# HPO study config for AdaptiveBollinger.
+#
+# Pair with config/strategies/adaptive_bollinger.yaml:
+#   python -m scripts.experiment tune \
+#       --config config/strategies/adaptive_bollinger.yaml \
+#       --hpo-config config/hpo/adaptive_bollinger.yaml
+#
+# Optuna's `n_trials` is "additional trials per invocation" — re-running
+# resumes from the SQLite study and adds another `n_trials` on top.
+
+study_name: spy_adaptive_bollinger_sharpe
+n_trials: 30
+n_jobs: 2
+sampler: tpe
+pruner: median
+objective: sharpe
+seed: 42

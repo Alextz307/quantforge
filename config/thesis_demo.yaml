@@ -1,0 +1,42 @@
+# Thesis demo entry-point — the simplest end-to-end run that exercises
+# the full pipeline (data fetch → walk-forward → engine → metrics →
+# strategy reporter). Pick the cheapest non-ML strategy so the demo
+# completes in seconds, not minutes.
+#
+# Single-strategy invocation (default):
+#   python -m scripts.experiment run --config config/thesis_demo.yaml
+#
+# Multi-strategy comparison + per-regime split is composed by the
+# Makefile ``thesis-demo`` target via repeated ``--config`` flags against
+# each ``config/strategies/*.yaml``. There is no top-level "list of
+# YAMLs" schema today; that's deliberate — multi-experiment
+# orchestration is out of scope for the demo runner.
+
+name: thesis_demo
+seed: 42
+
+data:
+  source: yfinance
+  tickers: [SPY]
+  start: 2018-01-02
+  end: 2024-12-31
+  interval: daily
+
+strategy:
+  name: AdaptiveBollinger
+  params:
+    window: 20
+    k: 2.0
+    trend_window: 100
+    garch_p_max: 3
+    garch_q_max: 3
+
+validation:
+  n_splits: 4
+  test_size: 252
+  gap: 5
+  expanding: true
+  holdout_pct: 0.15
+
+slippage:
+  scenario: normal
