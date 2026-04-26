@@ -10,7 +10,7 @@ multiple runs into comparison / regime reports.
 | --- | --- |
 | `build_experiment(cfg)` | `ExperimentConfig` → wired `Experiment` (resolves data source, strategy, validator, engine, slippage, optional feature-pipeline factory, optional pretrained leaves). |
 | `Experiment.run(options)` | Execute walk-forward; write `config.yaml`, `manifest.json`, `fold_results.jsonl`, `metrics.json`, `strategy_state/`, optional report. |
-| `run_comparison(configs, ...)` | Run N strategies on aligned data, rank them, pairwise-bootstrap Sharpe differentials. |
+| `run_comparison(configs, ..., regime_config=...)` | Run N strategies on aligned data, rank them, pairwise-bootstrap Sharpe differentials. With `regime_config` set, also tags every fold by regime and emits a strategy × regime aggregate map. |
 | `run_regime_report(run_dir, regime_cfg, ...)` | Re-fetch a saved run's bars, tag them with a regime detector, split folds, aggregate per regime. |
 | `train_model_standalone(...)` | Fit a leaf model (HybridReturn, HybridVolatility, DirectionalClassifier) on the dev region and persist it for `pretrained_leaves` injection. |
 | `load_model_artifact(path)` | Inverse of the standalone training save — returns `(model, artifact_manifest)`. |

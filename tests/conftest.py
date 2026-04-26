@@ -446,6 +446,7 @@ def make_benchmark_run(
 
 _STUB_FOLD_START = pd.Timestamp("2020-01-01")
 _STUB_FOLD_END = pd.Timestamp("2020-12-31")
+_STUB_DATA_HASH = "a" * 64
 
 
 def make_stub_fold_record(
@@ -491,12 +492,15 @@ def make_stub_experiment_result(
     *,
     folds: tuple[FoldRecord, ...],
     seed: int = GLOBAL_NUMPY_SEED,
+    data_hash: str = _STUB_DATA_HASH,
 ) -> ExperimentResult:
     """Build an :class:`ExperimentResult` with a minimal valid Manifest.
 
     Callers control folds fully; the manifest is plausible scaffolding
     (synthetic data hash, 'unknown' git sha). Used by cross-strategy
-    comparison tests that need aligned folds across strategies.
+    comparison tests that need aligned folds across strategies. Override
+    ``data_hash`` when the test exercises the regime-overlay path — that
+    code cross-checks the manifest hash against re-fetched bars.
     """
     manifest = Manifest(
         experiment_id=f"stub_{name}",
@@ -504,7 +508,7 @@ def make_stub_experiment_result(
         created_at=datetime(2026, 1, 1, tzinfo=UTC),
         git_sha="stubsha1",
         seed=seed,
-        data_hash="a" * 64,
+        data_hash=data_hash,
         slippage_scenario=SlippageScenario.NORMAL,
     )
     return ExperimentResult(

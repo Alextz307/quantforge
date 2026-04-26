@@ -451,6 +451,17 @@ def tune_cmd(
     help="Override the experiment_results/ directory.",
 )
 @click.option(
+    "--regime-config",
+    "regime_config_path",
+    default=None,
+    type=click.Path(exists=True, dir_okay=False, path_type=Path),
+    help=(
+        "Optional RegimeConfig YAML. When set, the report includes a "
+        "strategy x regime heatmap + LaTeX table. Requires every --config "
+        "to declare an identical data block."
+    ),
+)
+@click.option(
     "--report/--no-report",
     "write_report",
     default=True,
@@ -462,6 +473,7 @@ def compare_cmd(
     significance_test: str,
     n_jobs: int,
     store_root: Path,
+    regime_config_path: Path | None,
     write_report: bool,
 ) -> None:
     """Run N configs, rank, optionally test pairwise significance.
@@ -486,10 +498,20 @@ def compare_cmd(
         except (ValidationError, FileNotFoundError, ValueError) as e:
             raise click.ClickException(f"failed to load config {path}: {e}") from e
 
+    regime_cfg = None
+    if regime_config_path is not None:
+        try:
+            regime_cfg = load_regime_config(regime_config_path)
+        except (ValidationError, FileNotFoundError, ValueError) as e:
+            raise click.ClickException(
+                f"failed to load regime config {regime_config_path}: {e}"
+            ) from e
+
     sig = SignificanceTest(significance_test)
     click.echo(
         f"comparing {len(configs)} strategies under '{out_name}' "
-        f"(n_jobs={n_jobs}, significance={sig.value}) ..."
+        f"(n_jobs={n_jobs}, significance={sig.value}, "
+        f"regime={regime_cfg.detector.name if regime_cfg is not None else 'none'}) ..."
     )
     try:
         report, folds_by_strategy = run_comparison(
@@ -498,6 +520,7 @@ def compare_cmd(
             store_root=store_root,
             n_jobs=n_jobs,
             significance_test=sig,
+            regime_config=regime_cfg,
         )
     except LeakageError as e:
         raise click.ClickException(f"leakage tripwire fired: {e}") from e

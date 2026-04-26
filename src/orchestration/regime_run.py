@@ -20,8 +20,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 
-from src.analysis.metrics_aggregator import AggregateStats, aggregate_folds
-from src.analysis.regime_split import split_folds_by_regime
+from src.analysis.regime_split import aggregate_split, split_folds_by_regime
 from src.core import json_io
 from src.core.config import ExperimentConfig, load_experiment_config
 from src.core.logging import get_logger
@@ -150,11 +149,7 @@ def run_regime_report(
 
     detector = regime_registry.create_from_config(regime_cfg.detector)
     split = split_folds_by_regime(run.folds, detector, bars)
-    per_regime_stats: dict[str, AggregateStats] = {
-        label: aggregate_folds(folds) for label, folds in split.per_regime.items()
-    }
-    if split.mixed:
-        per_regime_stats[MIXED_REGIME_LABEL] = aggregate_folds(split.mixed)
+    per_regime_stats = aggregate_split(split)
 
     per_regime_fold_indices: dict[str, tuple[int, ...]] = {
         label: tuple(f.fold_index for f in folds) for label, folds in split.per_regime.items()

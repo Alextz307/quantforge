@@ -36,7 +36,6 @@ import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from matplotlib.colors import Normalize
 from matplotlib.patches import Patch
 
 from src.analysis.metrics_aggregator import AggregateStats
@@ -51,6 +50,7 @@ from src.visualization.plots import (
     MANIFEST_FILENAME,
     PLOTS_SUBDIR,
     TABLES_SUBDIR,
+    render_value_heatmap,
     save_png_and_svg,
 )
 
@@ -131,11 +131,6 @@ class RegimeReporter:
         per_regime_stats: Mapping[str, AggregateStats],
         out_path: Path,
     ) -> Path:
-        """Render the regime × metric matrix with NaN cells masked.
-
-        Cell text uses 3 decimals — matches the LaTeX float format from
-        :data:`LATEX_FLOAT_FORMAT`.
-        """
         labels = list(per_regime_stats)
         if not labels:
             _logger.warning("no regime labels in report — skipping heatmap")
@@ -149,43 +144,16 @@ class RegimeReporter:
             for j, (key, _) in enumerate(_HEATMAP_METRICS):
                 matrix[i, j] = float(getattr(stats, key))
 
-        fig, ax = plt.subplots(figsize=(FIGURE_WIDTH_IN, FIGURE_HEIGHT_IN), dpi=FIGURE_DPI)
-        cmap = plt.get_cmap("viridis").copy()
-        cmap.set_bad(color="lightgrey")
-        finite_values = matrix[np.isfinite(matrix)]
-        if finite_values.size == 0:
-            _logger.warning("regime heatmap has no finite cells — rendering placeholder")
-            vmin, vmax = 0.0, 1.0
-        else:
-            vmin, vmax = float(finite_values.min()), float(finite_values.max())
-        norm = Normalize(vmin=vmin, vmax=vmax)
-        im = ax.imshow(matrix, aspect="auto", cmap=cmap, norm=norm)
-        ax.set_xticks(np.arange(len(_HEATMAP_METRICS)))
-        ax.set_xticklabels([display for _, display in _HEATMAP_METRICS], rotation=20, ha="right")
-        ax.set_yticks(np.arange(len(labels)))
-        ax.set_yticklabels(labels)
-        ax.set_xlabel("metric")
-        ax.set_ylabel("regime")
-        ax.set_title("regime × metric")
-        midpoint = (vmin + vmax) / 2
-        for i in range(len(labels)):
-            for j in range(len(_HEATMAP_METRICS)):
-                if np.isnan(matrix[i, j]):
-                    continue
-                ax.text(
-                    j,
-                    i,
-                    f"{matrix[i, j]:.3f}",
-                    ha="center",
-                    va="center",
-                    color="white" if matrix[i, j] < midpoint else "black",
-                    fontsize=8,
-                )
-        fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
-        fig.tight_layout()
-        save_png_and_svg(fig, out_path)
-        plt.close(fig)
-        return out_path
+        return render_value_heatmap(
+            matrix,
+            row_labels=labels,
+            col_labels=[display for _, display in _HEATMAP_METRICS],
+            out_path=out_path,
+            title="regime × metric",
+            xlabel="metric",
+            ylabel="regime",
+            placeholder_log_label="regime",
+        )
 
     def _plot_timeline(
         self,

@@ -177,6 +177,12 @@ class StrategyComparisonReport:
     run directory under ``experiment_results/runs/`` so a user can
     drill into a specific strategy's fold records from the report.
 
+    ``per_strategy_per_regime_stats`` is populated when
+    :func:`run_comparison` is called with a regime config. The outer key
+    is the strategy name; the inner key is a regime label (incl.
+    :data:`MIXED_REGIME_LABEL` for folds without a dominant regime).
+    ``None`` indicates regime overlay was not requested for this run.
+
     Distinct from :class:`src.benchmarking.types.ComparisonReport` (which
     compares perf benchmark runs); the qualified name keeps the two from
     colliding when both packages are imported in the same module.
@@ -189,6 +195,7 @@ class StrategyComparisonReport:
     per_strategy_stats: Mapping[str, AggregateStats]
     ranking: pd.DataFrame
     pairwise: tuple[PairwiseSignificance, ...]
+    per_strategy_per_regime_stats: Mapping[str, Mapping[str, AggregateStats]] | None = None
 
     def __post_init__(self) -> None:
         # Frozen dataclass freezes the bindings, not the dict objects
@@ -204,6 +211,17 @@ class StrategyComparisonReport:
             "per_strategy_stats",
             MappingProxyType(dict(self.per_strategy_stats)),
         )
+        if self.per_strategy_per_regime_stats is not None:
+            object.__setattr__(
+                self,
+                "per_strategy_per_regime_stats",
+                MappingProxyType(
+                    {
+                        name: MappingProxyType(dict(per_regime))
+                        for name, per_regime in self.per_strategy_per_regime_stats.items()
+                    }
+                ),
+            )
 
 
 class RegimeKind(StrEnum):

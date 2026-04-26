@@ -10,7 +10,7 @@ PNG + SVG plots plus booktabs LaTeX tables under each report's
 | Symbol | Role |
 | --- | --- |
 | `StrategyReporter.generate_full_report(result, out_dir)` | Per-experiment artefacts: equity curves overlay, fold-stability scatter, per-fold metrics LaTeX. |
-| `ComparisonReporter.generate_full_report(report, folds_by_strategy, out_dir)` | Cross-strategy artefacts: ranking LaTeX, pairwise-significance LaTeX, equity overlay normalised at 1.0, comparison `manifest.json`. |
+| `ComparisonReporter.generate_full_report(report, folds_by_strategy, out_dir)` | Cross-strategy artefacts: ranking LaTeX, pairwise-significance LaTeX, equity overlay normalised at 1.0, optional strategy × regime heatmap + LaTeX table when `report.per_strategy_per_regime_stats` is populated, comparison `manifest.json`. |
 | `RegimeReporter.generate_full_report(report, out_dir)` | Per-regime artefacts: regime summary LaTeX, regime × metric heatmap, regime timeline tape, regime `manifest.json`. |
 | `HPOReporter.generate_full_report(study, out_dir)` | Optuna-study artefacts: convergence curve, parameter-importance bars, top-trials LaTeX. |
 | `build_booktabs_table(df, *, caption, label, ...)` / `write_booktabs_table` | Single LaTeX styling entry point — every reporter routes through here. |

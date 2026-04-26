@@ -45,16 +45,22 @@ from pathlib import Path
 
 import numpy as np
 import numpy.typing as npt
+import pandas as pd
 
-from src.analysis.metrics_aggregator import aggregate_folds
+from src.analysis.metrics_aggregator import AggregateStats, aggregate_folds
 from src.analysis.ranking import rank_strategies
+from src.analysis.regime_split import aggregate_split, split_folds_by_tags
 from src.analysis.significance import paired_bootstrap_sharpe_differential
-from src.core.config import ExperimentConfig
+from src.core.config import DataConfig, ExperimentConfig
 from src.core.logging import get_logger
 from src.core.persistence import COMPARISONS_SUBDIR
+from src.core.regime_config import RegimeConfig
+from src.core.registry import data_source_registry
+from src.data.fingerprint import fingerprint_bars
 from src.orchestration.builder import build_experiment
 from src.orchestration.experiment import RunOptions
 from src.orchestration.git_info import read_git_sha
+from src.orchestration.regime import regime_registry
 from src.orchestration.types import (
     ExperimentResult,
     FoldRecord,
@@ -100,6 +106,7 @@ def run_comparison(
     n_jobs: int = 1,
     significance_test: SignificanceTest = SignificanceTest.BOOTSTRAP,
     n_resamples: int = _DEFAULT_PAIRWISE_N_RESAMPLES,
+    regime_config: RegimeConfig | None = None,
 ) -> tuple[StrategyComparisonReport, dict[str, tuple[FoldRecord, ...]]]:
     """Run every config, aggregate, rank, optionally pairwise-test.
 
@@ -109,18 +116,27 @@ def run_comparison(
     comparison bundle also stores per-fold data under each strategy's
     ``runs/<experiment_id>/fold_results.jsonl`` so callers that have already
     persisted the report can rebuild the dict from disk if they discard it.
+
+    When ``regime_config`` is supplied, every config must declare an
+    identical ``data`` block; bars are refetched once and fingerprint-
+    checked against each strategy's ``manifest.data_hash``. For pairs
+    configs the regime is tagged from ``tickers[0]`` — descriptive only,
+    never feeds back into training.
     """
     inputs = _validate_inputs(configs)
+    if regime_config is not None:
+        _validate_uniform_data(inputs.configs)
     store = store_root if store_root is not None else _DEFAULT_STORE_ROOT
     cmp_dir = Path(store) / COMPARISONS_SUBDIR / out_name
     cmp_dir.mkdir(parents=True, exist_ok=True)
 
     _logger.info(
-        "running comparison '%s' with %d configs (n_jobs=%d, significance=%s)",
+        "running comparison '%s' with %d configs (n_jobs=%d, significance=%s, regime=%s)",
         out_name,
         len(inputs.configs),
         n_jobs,
         significance_test,
+        regime_config.detector.name if regime_config is not None else "none",
     )
 
     if n_jobs == 1:
@@ -151,6 +167,17 @@ def run_comparison(
     else:
         pairwise = ()
 
+    per_strategy_per_regime_stats: dict[str, dict[str, AggregateStats]] | None
+    if regime_config is not None:
+        per_strategy_per_regime_stats = _compute_regime_overlay(
+            inputs.strategy_names,
+            results,
+            regime_config=regime_config,
+            data_cfg=inputs.configs[0].data,
+        )
+    else:
+        per_strategy_per_regime_stats = None
+
     report = StrategyComparisonReport(
         out_name=out_name,
         created_at=datetime.now(UTC),
@@ -159,6 +186,7 @@ def run_comparison(
         per_strategy_stats=per_strategy_stats,
         ranking=ranking,
         pairwise=pairwise,
+        per_strategy_per_regime_stats=per_strategy_per_regime_stats,
     )
     folds_by_strategy = {
         name: result.folds for name, result in zip(inputs.strategy_names, results, strict=True)
@@ -298,6 +326,96 @@ def _concatenated_log_returns(
     if not pieces:
         return np.array([], dtype=np.float64)
     return np.concatenate(pieces)
+
+
+@dataclass(frozen=True)
+class _DataBlockKey:
+    """Hashable view of the fields that determine the bar index.
+
+    ``cache_dir`` is intentionally excluded — different on-disk caches
+    that yield identical bars are fine.
+    """
+
+    source_name: str
+    source_params: tuple[tuple[str, object], ...]
+    tickers: tuple[str, ...]
+    start: datetime
+    end: datetime
+    interval: str
+
+    @classmethod
+    def from_data_config(cls, data: DataConfig) -> _DataBlockKey:
+        return cls(
+            source_name=data.source.name,
+            source_params=tuple(sorted(data.source.params.items())),
+            tickers=tuple(data.tickers),
+            start=data.start,
+            end=data.end,
+            interval=data.interval.value,
+        )
+
+
+def _validate_uniform_data(configs: tuple[ExperimentConfig, ...]) -> None:
+    head_key = _DataBlockKey.from_data_config(configs[0].data)
+    for cfg in configs[1:]:
+        other_key = _DataBlockKey.from_data_config(cfg.data)
+        if other_key != head_key:
+            mismatched = [
+                f"{field}: {getattr(head_key, field)!r} vs {getattr(other_key, field)!r}"
+                for field in ("source_name", "source_params", "tickers", "start", "end", "interval")
+                if getattr(head_key, field) != getattr(other_key, field)
+            ]
+            raise ValueError(
+                f"regime overlay requires every config to share the same data block; "
+                f"config '{cfg.name}' differs from '{configs[0].name}' on: "
+                f"{', '.join(mismatched)}. Fix by aligning the data: section across "
+                f"all configs or omit --regime-config."
+            )
+
+
+def _fetch_overlay_bars(data_cfg: DataConfig) -> pd.DataFrame:
+    """Fetch the bar frame the regime overlay tags against.
+
+    Hoisted into a module-level helper so tests can monkeypatch it
+    without spinning up the data-source registry — production callers
+    never substitute it.
+    """
+    data_source = data_source_registry.create_from_config(data_cfg.source)
+    return data_source.fetch(
+        data_cfg.tickers[0],
+        data_cfg.start,
+        data_cfg.end,
+        data_cfg.interval,
+    )
+
+
+def _compute_regime_overlay(
+    strategy_names: tuple[str, ...],
+    results: list[ExperimentResult],
+    *,
+    regime_config: RegimeConfig,
+    data_cfg: DataConfig,
+) -> dict[str, dict[str, AggregateStats]]:
+    bars = _fetch_overlay_bars(data_cfg)
+    refetched_hash = fingerprint_bars(bars)
+    detector = regime_registry.create_from_config(regime_config.detector)
+    # Tagging is the heavy step; reuse the same series across every
+    # strategy since they all share the same bars (validated above).
+    tagged = detector.tag(bars)
+
+    overlay: dict[str, dict[str, AggregateStats]] = {}
+    for name, result in zip(strategy_names, results, strict=True):
+        if refetched_hash != result.manifest.data_hash:
+            raise ValueError(
+                f"data_hash drift detected for strategy '{name}': manifest recorded "
+                f"{result.manifest.data_hash[:12]}..., re-fetched "
+                f"{refetched_hash[:12]}...; regime tagging on drifted bars would not "
+                f"match the original walk-forward windows. Fix by using the same data "
+                f"source / cache as the original runs, or re-run the experiments so "
+                f"every manifest reflects the new bars."
+            )
+        overlay[name] = aggregate_split(split_folds_by_tags(result.folds, tagged))
+    return overlay
 
 
 def _validate_fold_alignment(

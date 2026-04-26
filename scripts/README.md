@@ -32,7 +32,7 @@ pyproject, leaf-keys vs. strategy ctors).
 | `train-model --config <yaml>` | `experiment_results/models/<name>/` | Standalone leaf fit (HybridReturn, HybridVolatility, DirectionalClassifier) for `pretrained_leaves` injection. |
 | `list-models` | stdout | Enumerates saved model artifacts. |
 | `tune --config <exp.yaml> --hpo-config <hpo.yaml>` | `experiment_results/hpo/<study>/` | Optuna study via `StrategyTuner`; resumable. |
-| `compare --config <yaml> ... --out <name>` | `experiment_results/comparisons/<out>/` | N strategies on aligned data, ranked + pairwise-bootstrapped. |
+| `compare --config <yaml> ... --out <name> [--regime-config <yaml>]` | `experiment_results/comparisons/<out>/` | N strategies on aligned data, ranked + pairwise-bootstrapped. With `--regime-config` the report also contains a strategy × regime heatmap + LaTeX table; every config must declare an identical `data` block. |
 | `regime --exp-id <id> --regime-config <yaml> --out <name>` | `experiment_results/regime_reports/<out>/` | Re-tag a persisted run by regime detector + emit per-regime stats. |
 
 Multi-ticker pairs configs route through `experiment run` with no

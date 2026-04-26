@@ -26,6 +26,7 @@ from typing import TYPE_CHECKING
 
 import pandas as pd
 
+from src.analysis.metrics_aggregator import AggregateStats, aggregate_folds
 from src.orchestration.types import MIXED_REGIME_LABEL, UNCLASSIFIED_LABEL, FoldRecord
 
 if TYPE_CHECKING:
@@ -76,6 +77,22 @@ def split_folds_by_regime(
     fold that opens in the warmup region but spends most of its test
     window in a real regime still gets the right label.
     """
+    return split_folds_by_tags(folds, detector.tag(bars), majority_threshold=majority_threshold)
+
+
+def split_folds_by_tags(
+    folds: tuple[FoldRecord, ...],
+    tagged: pd.Series,
+    *,
+    majority_threshold: float = _DEFAULT_MAJORITY_THRESHOLD,
+) -> SplitResult:
+    """Same contract as :func:`split_folds_by_regime`, but takes pre-tagged bars.
+
+    Used by callers that need to share a single ``detector.tag(bars)``
+    across multiple fold sets (e.g. cross-strategy regime overlay) — the
+    tag pass is the heavy step, so re-running it per strategy is pure
+    waste when the bars and detector are identical.
+    """
     if not (0.5 < majority_threshold <= 1.0):
         raise ValueError(
             f"majority_threshold must be in (0.5, 1.0], got {majority_threshold}; "
@@ -83,7 +100,6 @@ def split_folds_by_regime(
             f"0.5 wouldn't define a 'dominant' regime)."
         )
 
-    tagged = detector.tag(bars)
     per_regime: dict[str, list[FoldRecord]] = {}
     mixed: list[FoldRecord] = []
 
@@ -118,4 +134,24 @@ def split_folds_by_regime(
     )
 
 
-__all__ = ["MIXED_REGIME_LABEL", "SplitResult", "split_folds_by_regime"]
+def aggregate_split(split: SplitResult) -> dict[str, AggregateStats]:
+    """Per-regime :class:`AggregateStats` from a :class:`SplitResult`.
+
+    :data:`MIXED_REGIME_LABEL` is appended only when ``split.mixed`` is
+    non-empty so an empty-mixed run doesn't fabricate a zero-fold row.
+    """
+    stats: dict[str, AggregateStats] = {
+        label: aggregate_folds(folds) for label, folds in split.per_regime.items()
+    }
+    if split.mixed:
+        stats[MIXED_REGIME_LABEL] = aggregate_folds(split.mixed)
+    return stats
+
+
+__all__ = [
+    "MIXED_REGIME_LABEL",
+    "SplitResult",
+    "aggregate_split",
+    "split_folds_by_regime",
+    "split_folds_by_tags",
+]
