@@ -324,6 +324,27 @@ pyproject.toml           Python deps + scikit-build-core config
 mypy.ini                 Strict settings + per-module ignore_missing_imports
 ```
 
+### Subsystem navigation
+
+Each Python subsystem ships its own `README.md` — purpose, public surface,
+layout table, one runnable snippet, and cross-links. Use these as
+navigation aids; function signatures and detailed docstrings live in the
+code.
+
+- [`src/orchestration/`](src/orchestration/README.md) — config → wired experiment, walk-forward driver, comparison + regime + holdout pipelines.
+- [`src/strategies/`](src/strategies/README.md) — `IStrategy` + the five concrete strategies (incl. pairs).
+- [`src/engine/`](src/engine/README.md) — `CppBacktestEngine` adapter + walk-forward orchestrator (single-leg / pairs dispatch).
+- [`src/features/`](src/features/README.md) — `FeatureEngineeringPipeline` + fit-once anti-leakage scaler.
+- [`src/optimization/`](src/optimization/README.md) — Optuna `StrategyTuner` + samplers / pruners / objectives.
+- [`src/data/`](src/data/README.md) — sources, normaliser, cache, fingerprint (single + pair).
+- [`src/core/`](src/core/README.md) — types, constants, registry, temporal primitives, persistence layout, exceptions, config.
+- [`src/models/`](src/models/README.md) — leaf predictors / classifiers / hybrids / cointegration / dataset.
+- [`src/analysis/`](src/analysis/README.md) — fold aggregator, ranking, regime split, significance.
+- [`src/visualization/`](src/visualization/README.md) — strategy / comparison / regime / HPO reporters.
+- [`src/benchmarking/`](src/benchmarking/README.md) — benchmark runner / store / analyzer / reporter.
+- [`scripts/`](scripts/README.md) — `experiment` + `benchmark` CLIs and drift guards.
+- [`config/`](config/README.md) — strategy / HPO / regime / model / universe YAMLs.
+
 ## Tech Stack
 
 | Layer     | Technology                                                                                       |
