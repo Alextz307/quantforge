@@ -12,6 +12,8 @@ from src.core.constants import OHLCV_COLUMNS
 from src.data.cache import DataCache
 from src.data.csv_source import CSVSource
 from src.data.normalizer import DataNormalizer
+from src.data.parquet_source import ParquetSource
+from tests.conftest import make_synthetic_ohlcv_df
 
 REQUIRED_OHLCV_COLUMNS = set(OHLCV_COLUMNS)
 
@@ -52,6 +54,19 @@ RANGE_FETCH_START = datetime(2024, 2, 1)
 RANGE_FETCH_END = datetime(2024, 2, 28)
 RANGE_FETCH_START_TS = pd.Timestamp("2024-02-01")
 RANGE_FETCH_END_TS = pd.Timestamp("2024-02-28")
+
+# Parquet-source synthetic dataset (small fixture for non-size-sensitive tests)
+PARQUET_SMALL_ROW_COUNT = 5
+
+# Committed thesis-demo fixture (catches bit-rot / truncation in CI; the
+# `make thesis-demo` target itself is not exercised by CI). Date range
+# matches `config/thesis_demo.yaml`; row floor allows yfinance reruns to
+# vary by a few sessions while still catching gross truncation.
+COMMITTED_FIXTURES_DIR = Path(__file__).resolve().parents[1] / "fixtures"
+THESIS_DEMO_TICKER = "SPY"
+THESIS_DEMO_START = datetime(2018, 1, 2)
+THESIS_DEMO_END = datetime(2024, 12, 31)
+THESIS_DEMO_MIN_ROWS = 1500
 
 
 def _normalizer_index() -> pd.DatetimeIndex:
@@ -293,11 +308,65 @@ class TestCSVSource:
         assert all(result.index <= RANGE_FETCH_END_TS)
 
 
+class TestParquetSource:
+    def _write_fixture(self, dir_path: Path, ticker: str, n_rows: int) -> pd.DataFrame:
+        df = make_synthetic_ohlcv_df(n_rows=n_rows, start="2024-01-01")
+        df.to_parquet(dir_path / f"{ticker}.parquet")
+        return df
+
+    def test_fetch_from_parquet(self, tmp_path: Path) -> None:
+        self._write_fixture(tmp_path, "SPY", CSV_ROW_COUNT)
+        source = ParquetSource(data_dir=tmp_path)
+        result = source.fetch("SPY", start=WIDE_FETCH_START, end=WIDE_FETCH_END)
+        assert len(result) == CSV_ROW_COUNT
+        assert set(result.columns) >= REQUIRED_OHLCV_COLUMNS
+
+    def test_fetch_missing_file_raises(self, tmp_path: Path) -> None:
+        source = ParquetSource(data_dir=tmp_path)
+        with pytest.raises(FileNotFoundError):
+            source.fetch("MISSING", start=WIDE_FETCH_START, end=WIDE_FETCH_END)
+
+    def test_available_tickers(self, tmp_path: Path) -> None:
+        self._write_fixture(tmp_path, "AAPL", PARQUET_SMALL_ROW_COUNT)
+        self._write_fixture(tmp_path, "MSFT", PARQUET_SMALL_ROW_COUNT)
+        (tmp_path / "not_parquet.txt").touch()
+        source = ParquetSource(data_dir=tmp_path)
+        assert set(source.available_tickers()) == {"AAPL", "MSFT"}
+
+    def test_non_datetime_index_raises(self, tmp_path: Path) -> None:
+        ohlcv = make_synthetic_ohlcv_df(n_rows=PARQUET_SMALL_ROW_COUNT, start="2024-01-01")
+        df = ohlcv.reset_index(drop=True)
+        df.to_parquet(tmp_path / "BAD.parquet")
+        source = ParquetSource(data_dir=tmp_path)
+        with pytest.raises(ValueError, match="DatetimeIndex"):
+            source.fetch("BAD", start=WIDE_FETCH_START, end=WIDE_FETCH_END)
+
+    def test_date_range_filtering(self, tmp_path: Path) -> None:
+        self._write_fixture(tmp_path, "RANGE", RANGE_ROW_COUNT)
+        source = ParquetSource(data_dir=tmp_path)
+        result = source.fetch("RANGE", start=RANGE_FETCH_START, end=RANGE_FETCH_END)
+        assert all(result.index >= RANGE_FETCH_START_TS)
+        assert all(result.index <= RANGE_FETCH_END_TS)
+
+
 class TestRegistryIntegration:
     def test_data_sources_are_registered(self) -> None:
         import src.data.csv_source  # noqa: F401
         import src.data.loader  # noqa: F401
+        import src.data.parquet_source  # noqa: F401
         from src.core.registry import data_source_registry
 
         assert "yfinance" in data_source_registry
         assert "csv" in data_source_registry
+        assert "parquet" in data_source_registry
+
+
+class TestThesisDemoFixture:
+    def test_committed_spy_parquet_loads(self) -> None:
+        source = ParquetSource(data_dir=COMMITTED_FIXTURES_DIR)
+        df = source.fetch(THESIS_DEMO_TICKER, start=THESIS_DEMO_START, end=THESIS_DEMO_END)
+
+        assert REQUIRED_OHLCV_COLUMNS.issubset(df.columns)
+        assert len(df) >= THESIS_DEMO_MIN_ROWS
+        assert df.index.min() >= pd.Timestamp(THESIS_DEMO_START)
+        assert df.index.max() <= pd.Timestamp(THESIS_DEMO_END)

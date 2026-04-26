@@ -1,0 +1,21 @@
+{
+  "calmar_ci95_high": 1.012916170030742,
+  "calmar_ci95_low": -0.3853579285881357,
+  "calmar_mean": 0.31377912072130315,
+  "calmar_std": 0.8676389120582183,
+  "max_drawdown_mean": -0.07325194332625246,
+  "max_drawdown_worst": -0.09854290956215733,
+  "n_folds": 4,
+  "sharpe_ci95_high": 0.9153316897741497,
+  "sharpe_ci95_low": -0.6108577186714064,
+  "sharpe_mean": 0.18579035874475397,
+  "sharpe_std": 0.9595056936053451,
+  "sortino_ci95_high": 1.646303091333207,
+  "sortino_ci95_low": -0.7110980378754617,
+  "sortino_mean": 0.43844917333064815,
+  "sortino_std": 1.467546395219687,
+  "total_return_mean": 0.026268796544124146,
+  "total_return_std": 0.0718245871400501,
+  "trade_count_total": 138,
+  "win_rate_mean": 0.5373963046757164
+}

@@ -2,7 +2,7 @@
 
 A thesis-grade, bifurcated C++/Python quantitative trading framework with strict anti-leakage guarantees, temporal contracts, and a clean separation between computation (C++) and orchestration (Python). Built around walk-forward validation, typed interfaces, and end-to-end hyperparameter tuning.
 
-**Current state:** a Python orchestration layer built on top of a C++ core. Implemented and under test: the typed temporal contracts, data layer, ML leaf models (GARCH, ARMA, LSTM, XGBoost), hybrid residual models, five trading strategies, the feature pipeline, a C++ indicator suite (RSI, MACD, Bollinger, Garman-Klass, Parkinson), a GARCH inference filter, two strategy state machines and two full `IStrategy` C++ classes (pairs trading + adaptive bollinger) with a shared `SpreadCalculator` primitive, and the C++ backtest engine + performance metrics — all bridged through a `pybind11` module (`quant_engine`) with the GIL released on every compute call. Every model and strategy round-trips through directory-based `save()` / `load()` (JSON configs + metadata + native binary weights, zero pickle). `WalkForwardValidator` supports an optional `snap_to_day` mode that keeps every train/test boundary on a daily close, honouring the intraday day-boundary rule. CI is green on Linux and macOS with **643 Python tests**, **214 C++ tests**, `mypy --strict` clean on 110 source files, and `ruff` clean across the whole repo.
+**Current state:** a Python orchestration layer built on top of a C++ core. Implemented and under test: the typed temporal contracts, data layer, ML leaf models (GARCH, ARMA, LSTM, XGBoost), hybrid residual models, five trading strategies, the feature pipeline, a C++ indicator suite (RSI, MACD, Bollinger, Garman-Klass, Parkinson), a GARCH inference filter, two strategy state machines and two full `IStrategy` C++ classes (pairs trading + adaptive bollinger) with a shared `SpreadCalculator` primitive, and the C++ backtest engine + performance metrics — all bridged through a `pybind11` module (`quant_engine`) with the GIL released on every compute call. Every model and strategy round-trips through directory-based `save()` / `load()` (JSON configs + metadata + native binary weights, zero pickle). `WalkForwardValidator` supports an optional `snap_to_day` mode that keeps every train/test boundary on a daily close, honouring the intraday day-boundary rule. An offline `make thesis-demo` target runs the full data → walk-forward → metrics → reporters → cross-strategy comparison → regime split flow on a committed SPY parquet so a fresh checkout can verify the pipeline end-to-end without network access. CI is green on Linux and macOS with **1011 Python tests** (+9 opt-in skips), **222 C++ tests**, `mypy --strict` clean on the full Python tree, and `ruff` clean across the whole repo.
 
 ## Architecture
 
@@ -151,6 +151,41 @@ sequenceDiagram
 
 The holdout split is reserved for the final thesis evaluation — it is never touched during development or HPO. `TrainingMetadata.validate_no_overlap()` is a runtime tripwire that lives in the orchestrator (`evaluate_walk_forward`), not in the engine itself: `engine.run()` is a pure number cruncher and does not inspect training metadata. Direct callers of `engine.run()` are responsible for their own data hygiene — the orchestrator is the recommended entry point precisely because it wires the tripwire in for free.
 
+## Orchestration flow
+
+The orchestration layer turns a validated YAML config into a fully-wired
+`Experiment`, drives the walk-forward, and routes results to the
+matching reporter. Three CLI subcommands compose the full surface — one
+config feeds `experiment run`, N configs feed `experiment compare`, and
+a saved run + a regime detector feed `experiment regime`.
+
+```mermaid
+graph LR
+    Config["config/*.yaml<br/>(ExperimentConfig)"]
+    Builder["build_experiment<br/>resolves registries<br/>+ injects pretrained leaves"]
+    Experiment["Experiment<br/>(data_source · strategy · validator · engine)"]
+    WalkForward["evaluate_walk_forward<br/>+ deep-metadata tripwire"]
+    RunCLI["scripts.experiment.run<br/>artefacts → runs/"]
+    CompareCLI["scripts.experiment.compare<br/>N configs → comparisons/"]
+    RegimeCLI["scripts.experiment.regime<br/>1 run + detector → regime_reports/"]
+    StrategyReporter["StrategyReporter<br/>(equity · stability · LaTeX)"]
+    ComparisonReporter["ComparisonReporter<br/>(ranking · pairwise CIs)"]
+    RegimeReporter["RegimeReporter<br/>(heatmap · timeline)"]
+
+    Config --> Builder --> Experiment --> WalkForward
+    WalkForward --> RunCLI --> StrategyReporter
+    Config -->|N×| CompareCLI --> ComparisonReporter
+    RunCLI --> RegimeCLI --> RegimeReporter
+```
+
+`Experiment` is a frozen bundle — every component is resolved once via
+the global registries (`data_source_registry`, `strategy_registry`,
+`feature_registry`) so the same YAML configures both ad-hoc runs and
+HPO trials. Pretrained-leaf artefacts (`experiment train-model`) are
+loaded at build time and threaded into the strategy ctor; the deep
+metadata tripwire then enforces strict no-overlap between every leaf's
+training window and each fold's test window.
+
 ## What's Implemented
 
 ### C++ engine (`cpp/`)
@@ -164,7 +199,7 @@ The holdout split is reserved for the final thesis evaluation — it is never to
 - **Strategy state machines.** `run_mean_reversion_state_machine(close, mid, upper, lower, trend_ma)` and `run_pairs_state_machine(zscore, entry, exit, stop)` — bar-by-bar position carry with NaN skipping, returned as numpy arrays.
 - **`SpreadCalculator` primitive.** `compute_spread(a, b, hedge_ratio)` and `compute_zscore(spread, window)` (Welford rolling, NaN on leading warmup and zero-variance windows). Consumed by `PairsTradingStrategy`.
 - **Full `IStrategy` C++ classes.** `PairsTradingStrategy` fuses `SpreadCalculator` + pairs state machine behind a keyword-ctor `Config`; `AdaptiveBollingerStrategy` fuses rolling mid/trend + mean-reversion state machine. Both release the GIL on every `generate_signals`. Momentum, ReturnForecast, and VolatilityTargeting remain Python-native — their signal logic is dominated by ML inference, so C++ ports give no measurable speedup.
-- **214 GoogleTest cases** covering correctness, slippage variants, fill convention, filter recurrence, state-machine transitions, spread + rolling z-score parity, C++ strategy classes, buffer-reuse overload parity, `slice_view` pointer-identity, fused-pass parity against pre-fusion references (MACD EMAs, Bollinger rolling mean+std, metrics Welford, spread Welford z-score), and numerical edge cases; builds on Linux and macOS through the CI matrix.
+- **222 GoogleTest cases** covering correctness, slippage variants, fill convention, filter recurrence, state-machine transitions, spread + rolling z-score parity, C++ strategy classes, buffer-reuse overload parity, `slice_view` pointer-identity, fused-pass parity against pre-fusion references (MACD EMAs, Bollinger rolling mean+std, metrics Welford, spread Welford z-score), and numerical edge cases; builds on Linux and macOS through the CI matrix.
 
 ### Bridge + Python engine layer (`src/quant_engine/`, `src/engine/`)
 - **pybind11 module `quant_engine`.** Exposes `BacktestEngine`, `MetricsCalculator`, `SlippageConfig`, `SlippageModel`, `BacktestResult`, `PerformanceMetrics`, the five indicators (`RSI`, `MACD` + `MACDResult`, `BollingerBands` + `BollingerResult`, `Parkinson`, `GarmanKlass`), the `GarchParams` struct + `garch_filter` free function, the two state machines (`run_mean_reversion_state_machine`, `run_pairs_state_machine`), `SpreadCalculator` + `CointegrationParams`, and the two full strategy classes (`PairsTradingStrategy` + its `Config`, `AdaptiveBollingerStrategy` + its `Config`). Every compute method declares `py::call_guard<py::gil_scoped_release>()` so Python-side parallelism (Optuna HPO, pytest-xdist) can actually scale. Stubs are checked in (`src/quant_engine/quant_engine.pyi`) so `mypy --strict` sees the binding.
@@ -218,11 +253,12 @@ cmake --build cpp/build -j
 
 ```bash
 make test           # Full gate: C++ ctest + pytest + mypy strict
-make test-cpp       # 214 GoogleTest cases
-make test-python    # 643 pytest cases (+7 opt-in perf-guard skips)
+make test-cpp       # 222 GoogleTest cases
+make test-python    # 1011 pytest cases (+9 opt-in perf-guard skips)
 make typecheck      # mypy --strict src/ tests/ scripts/
 make lint           # ruff check + ruff format --check
 make bench-cpp      # Google Benchmark indicator + engine + metrics + filter + state-machine + spread + C++ strategy micro-benches
+make thesis-demo    # End-to-end pipeline smoke on cached SPY (offline, ~20s)
 
 # Optional: verify each C++ path still beats its Python baseline
 PERF_GUARD=1 pytest tests/benchmarks/    # opt-in; CI does not gate on timing
@@ -275,6 +311,41 @@ reloaded = AdaptiveBollingerStrategy.load("/tmp/ab_model")
 
 Every strategy exposes the same four-verb API — `train(data)`, `generate_signals(data)`, `save(path)`, `load(path)` — plus a static `suggest_params(trial)` so Optuna can tune the entire stack (feature periods, model hyperparameters, and strategy thresholds) end to end.
 
+### End-to-end demo
+
+The `make thesis-demo` target runs the full Python orchestration stack
+on a committed SPY parquet fixture (`tests/fixtures/SPY.parquet`) so a
+fresh checkout can verify every wire connects without network access.
+Three CLI invocations land back-to-back: `experiment run` (single
+walk-forward), `experiment compare` (cross-strategy ranking), and
+`experiment regime` (per-regime split). Total wall time on a 2024
+laptop is well under a minute.
+
+```bash
+make thesis-demo
+```
+
+> ⚠️ **The demo's output is illustrative — not a benchmark and not an
+> empirical claim.** Strategies are not tuned, the walk-forward window
+> is short (~7 years of daily SPY across 4 expanding folds), and only
+> one regime detector is exercised. The comprehensive empirical study
+> will land separately under `experiment_results/studies/`.
+
+A curated subset of one demo run is committed under
+[`experiment_results/thesis_demo/sample/`](experiment_results/thesis_demo/README.md)
+so a casual reader sees the shape of the output without needing to run
+anything. Two of the figures — the walk-forward equity curves and the
+regime-vs-metric heatmap — give the quickest read on what the pipeline
+actually produces:
+
+![Per-fold equity curves](experiment_results/thesis_demo/sample/plots/run_equity_curves.png)
+
+![Per-regime metric heatmap](experiment_results/thesis_demo/sample/plots/regime_metric_heatmap.png)
+
+The full `sample/` index (every committed plot + LaTeX table + the
+aggregated metrics JSON) lives in
+[`experiment_results/thesis_demo/README.md`](experiment_results/thesis_demo/README.md).
+
 ## Project Structure
 
 ```
@@ -295,29 +366,36 @@ cpp/
   benchmarks/detail/     Shared bench helpers (seeded RNG, cycle-counter measure wrapper)
 
 src/
-  core/                  Types, constants, temporal contracts, registry, device selection, exceptions, persistence helpers
-  data/                  Sources (CSV), normalizer, cache, loader
+  core/                  Types, constants, temporal contracts, registry, device selection, exceptions, persistence helpers, config schema
+  data/                  Sources (yfinance, CSV, parquet), normalizer, cache, loader, fingerprint
   features/              FeatureEngineeringPipeline
   models/                GARCH, ARMA, LSTM, XGBoost classifier, hybrids, cointegration, dataset (each with save / load)
   strategies/            Five strategies + IStrategy interface (each with save / load)
   engine/                CppBacktestEngine adapter, slippage scenarios, walk-forward orchestrator
   quant_engine/          pybind11 module re-exports + checked-in mypy stubs
-  optimization/          Reserved for HPO orchestration
-  visualization/         Reserved for plotting
+  orchestration/         Builder, Experiment + RunOptions, comparison, regime-run, manifest, model-artifact, standalone training
+  optimization/          Optuna StrategyTuner + samplers / pruners / objectives + checkpointing
+  analysis/              Fold aggregator, ranking, regime split, paired-bootstrap significance
+  visualization/         Strategy / Comparison / Regime / HPO reporters (plots + booktabs LaTeX)
   benchmarking/          Runner + store + analyzer + reporter + comparator
 
 tests/
   unit/                  One unit-test file per component
   integration/           pybind11 module load + engine/indicator/filter/state-machine binding parity + walk-forward orchestrator
   benchmarks/            Opt-in perf guards (PERF_GUARD=1) verifying C++ still beats Python baselines
+  fixtures/              Committed offline fixtures (e.g. SPY.parquet for `make thesis-demo`)
   conftest.py            Shared fixtures (synthetic data, global seeds)
 
-scripts/                 stdlib-only drift guards + benchmark CLI
+scripts/                 experiment + benchmark CLIs + stdlib-only drift guards
+config/                  Strategy / HPO / regime / universe YAMLs + thesis-demo entry config
 benchmark_results/
   baselines/             Tracked JSONL anchors (pre-/post-optimization)
   runs/                  Per-run JSONL (gitignored)
   reports/               LaTeX + plots (gitignored)
-config/                  YAML + Pydantic settings (reserved)
+experiment_results/
+  thesis_demo/           Tracked: README + curated `sample/` from one demo run
+  thesis_demo/runs/      Fresh per-`make thesis-demo` outputs (gitignored)
+  runs/, comparisons/, regime_reports/, hpo/, models/  Ephemeral per-developer artefacts (gitignored)
 .github/workflows/ci.yml Lint, typecheck, C++ matrix, Python matrix
 Makefile                 Canonical build/test entry points
 pyproject.toml           Python deps + scikit-build-core config

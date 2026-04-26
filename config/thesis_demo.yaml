@@ -1,22 +1,24 @@
 # Thesis demo entry-point — the simplest end-to-end run that exercises
-# the full pipeline (data fetch → walk-forward → engine → metrics →
-# strategy reporter). Pick the cheapest non-ML strategy so the demo
-# completes in seconds, not minutes.
-#
-# Single-strategy invocation (default):
-#   python -m scripts.experiment run --config config/thesis_demo.yaml
+# the full pipeline (data load → walk-forward → engine → metrics →
+# strategy reporter). Purpose: prove the wires connect on a fresh
+# checkout with no network access, NOT to make an empirical claim. The
+# comprehensive empirical study will land separately under
+# ``experiment_results/studies/``.
 #
 # Multi-strategy comparison + per-regime split is composed by the
-# Makefile ``thesis-demo`` target via repeated ``--config`` flags against
-# each ``config/strategies/*.yaml``. There is no top-level "list of
-# YAMLs" schema today; that's deliberate — multi-experiment
-# orchestration is out of scope for the demo runner.
+# Makefile ``thesis-demo`` target via repeated ``--config`` flags
+# (sibling ``thesis_demo_momentum.yaml``). There is no top-level
+# "list of YAMLs" schema today — multi-experiment orchestration is
+# out of scope for the demo runner.
 
 name: thesis_demo
 seed: 42
 
 data:
-  source: yfinance
+  source:
+    name: parquet
+    params:
+      data_dir: tests/fixtures
   tickers: [SPY]
   start: 2018-01-02
   end: 2024-12-31

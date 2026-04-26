@@ -11,6 +11,7 @@ holdout-eval uses to detect vendor drift.
 | `IDataSource` | ABC. `fetch(ticker, start, end, interval)` is the public entry point — wraps `fetch_raw` (subclass-provided) with caching, normalisation, and `validate_bars`. |
 | `YFinanceSource` (`"yfinance"`) | yfinance-backed source with retry + exponential backoff. Registered on `data_source_registry`. |
 | `CSVSource` (`"csv"`) | Local-CSV source for offline / fixture work. |
+| `ParquetSource` (`"parquet"`) | Local-parquet source. Used by `make thesis-demo` against the committed `tests/fixtures/SPY.parquet` so the demo runs offline. |
 | `DataNormalizer` | Source-aware column renamer (`Open` → `open`, etc.); enforces required OHLCV columns + `DatetimeIndex`. |
 | `validate_bars(df)` | Raises `DataQualityError` on empty / NaN / non-positive prices / OHLC ordering / duplicate timestamps. Runs at every fetch. |
 | `DataCache` | Parquet on-disk cache keyed by SHA-256 of `(source, ticker, start, end, interval)`. |
@@ -24,6 +25,7 @@ holdout-eval uses to detect vendor drift.
 | `interface.py` | `IDataSource` ABC + `fetch` (cache + normalise + validate). |
 | `loader.py` | `YFinanceSource`. |
 | `csv_source.py` | `CSVSource`. |
+| `parquet_source.py` | `ParquetSource` (offline parquet reader). |
 | `normalizer.py` | `DataNormalizer` (source → canonical OHLCV mapping). |
 | `validator.py` | `validate_bars` semantic checks. |
 | `cache.py` | `DataCache` (parquet, ~/.quant_cache by default). |
