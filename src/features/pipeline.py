@@ -60,7 +60,9 @@ class FeatureEngineeringPipeline(IFeaturePipeline):
         if short_return_period < 2 or long_return_period <= short_return_period:
             raise ValueError(
                 f"require 2 <= short_return_period < long_return_period, "
-                f"got short={short_return_period}, long={long_return_period}"
+                f"got short={short_return_period}, long={long_return_period}; "
+                f"fix by raising long_return_period above short_return_period "
+                f"(typical: short=5, long=21)."
             )
 
         self._rsi_period = rsi_period
@@ -181,7 +183,10 @@ class FeatureEngineeringPipeline(IFeaturePipeline):
             RuntimeError: If called before ``fit()``.
         """
         if self._scaler is None:
-            raise RuntimeError("FeatureEngineeringPipeline.transform() called before fit()")
+            raise RuntimeError(
+                "FeatureEngineeringPipeline.transform() called before fit(); "
+                "fix by calling pipeline.fit(train_data) first."
+            )
 
         features = self._compute_raw_features(data)
         self._apply_scaler_in_place(features)

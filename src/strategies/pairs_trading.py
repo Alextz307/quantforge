@@ -62,16 +62,38 @@ class PairsTradingStrategy(IStrategy):
             pretrained_leaves, self._leaf_keys, type(self).__name__
         )
 
-        if entry_zscore <= 0 or exit_zscore < 0 or stop_loss_zscore <= 0:
-            raise ValueError("z-score thresholds must be positive")
+        if entry_zscore <= 0:
+            raise ValueError(
+                f"entry_zscore must be > 0, got {entry_zscore}; fix by passing a "
+                f"strictly positive entry threshold (typical: 2.0)."
+            )
+        if exit_zscore < 0:
+            raise ValueError(
+                f"exit_zscore must be >= 0, got {exit_zscore}; fix by passing a "
+                f"non-negative exit threshold (typical: 0.5)."
+            )
+        if stop_loss_zscore <= 0:
+            raise ValueError(
+                f"stop_loss_zscore must be > 0, got {stop_loss_zscore}; fix by "
+                f"passing a strictly positive stop threshold (typical: 4.0)."
+            )
         if exit_zscore >= entry_zscore:
-            raise ValueError(f"exit_zscore ({exit_zscore}) must be < entry_zscore ({entry_zscore})")
+            raise ValueError(
+                f"exit_zscore ({exit_zscore}) must be < entry_zscore "
+                f"({entry_zscore}); fix by lowering exit_zscore (typical: 0.5) "
+                f"so positions close inside the entry band."
+            )
         if stop_loss_zscore <= entry_zscore:
             raise ValueError(
-                f"stop_loss_zscore ({stop_loss_zscore}) must be > entry_zscore ({entry_zscore})"
+                f"stop_loss_zscore ({stop_loss_zscore}) must be > entry_zscore "
+                f"({entry_zscore}); fix by raising stop_loss_zscore (typical: 4.0) "
+                f"so the stop trips outside the entry band."
             )
         if zscore_lookback < 2:
-            raise ValueError(f"zscore_lookback must be >= 2, got {zscore_lookback}")
+            raise ValueError(
+                f"zscore_lookback must be >= 2, got {zscore_lookback}; fix by "
+                f"passing a rolling window of at least 2 bars (typical: 60)."
+            )
 
         self._entry_zscore = entry_zscore
         self._exit_zscore = exit_zscore
@@ -106,7 +128,9 @@ class PairsTradingStrategy(IStrategy):
         """Run Engle-Granger cointegration and cache hedge ratio / spread stats."""
         if "close_a" not in train_data.columns or "close_b" not in train_data.columns:
             raise ValueError(
-                "PairsTradingStrategy.train() requires 'close_a' and 'close_b' columns"
+                "PairsTradingStrategy.train() requires 'close_a' and 'close_b' "
+                "columns; fix by renaming the two-leg close columns to "
+                "'close_a' / 'close_b' before invoking train()."
             )
 
         result = CointegrationTester.engle_granger(
@@ -117,7 +141,9 @@ class PairsTradingStrategy(IStrategy):
         if not result.is_cointegrated:
             raise ValueError(
                 f"Pair not cointegrated (p-value {result.p_value:.4f} "
-                f">= {self._p_value_threshold:.4f})"
+                f">= {self._p_value_threshold:.4f}); fix by choosing a different "
+                f"pair (cointegration is a hard prerequisite) or by relaxing "
+                f"p_value_threshold if you accept the weaker statistical signal."
             )
 
         self._hedge_ratio = result.hedge_ratio
@@ -134,10 +160,15 @@ class PairsTradingStrategy(IStrategy):
     def generate_signals(self, data: pd.DataFrame) -> pd.Series:
         """Produce {-1, 0, +1} leg_a position. Leading lookback bars are NaN."""
         if not self._fitted or self._cpp_coint is None:
-            raise RuntimeError("PairsTradingStrategy.generate_signals() called before train()")
+            raise RuntimeError(
+                "PairsTradingStrategy.generate_signals() called before train(); "
+                "fix by calling strategy.train(train_data) first."
+            )
         if "close_a" not in data.columns or "close_b" not in data.columns:
             raise ValueError(
-                "PairsTradingStrategy.generate_signals() requires 'close_a' and 'close_b' columns"
+                "PairsTradingStrategy.generate_signals() requires 'close_a' and "
+                "'close_b' columns; fix by renaming the two-leg close columns "
+                "to 'close_a' / 'close_b' before invoking generate_signals()."
             )
 
         prices_a = np.asarray(data["close_a"], dtype=np.float64)
@@ -233,7 +264,10 @@ class PairsTradingStrategy(IStrategy):
     def hedge_ratio(self) -> float:
         """Cointegration hedge ratio (slope of OLS regression of a on b)."""
         if not self._fitted:
-            raise RuntimeError("PairsTradingStrategy.hedge_ratio accessed before train()")
+            raise RuntimeError(
+                "PairsTradingStrategy.hedge_ratio accessed before train(); fix "
+                "by calling strategy.train(train_data) first."
+            )
         return self._hedge_ratio
 
     @property

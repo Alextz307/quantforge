@@ -91,7 +91,11 @@ class HybridVolatilityModel(IPredictor):
         interval: Interval = Interval.DAILY,
     ) -> None:
         if not feature_columns:
-            raise ValueError("HybridVolatilityModel requires a non-empty feature_columns list")
+            raise ValueError(
+                "HybridVolatilityModel requires a non-empty feature_columns "
+                "list; fix by passing the explicit feature names the LSTM "
+                "residual leaf should consume."
+            )
 
         self._params = _HybridVolConfig(
             feature_columns=tuple(feature_columns),
@@ -197,7 +201,10 @@ class HybridVolatilityModel(IPredictor):
         # `_scaler is None` check narrows the type for mypy; once `_fitted`
         # is True the scaler is always set (assigned together inside `fit()`).
         if not self._fitted or self._scaler is None:
-            raise RuntimeError("HybridVolatilityModel.predict() called before fit()")
+            raise RuntimeError(
+                "HybridVolatilityModel.predict() called before fit(); fix by "
+                "calling model.fit(train_data, target) first (or load())."
+            )
 
         log_returns = compute_log_returns(data["close"]).dropna()
         garch_vol = self._garch.predict(data, returns=log_returns)
@@ -224,7 +231,10 @@ class HybridVolatilityModel(IPredictor):
     def predict_single(self, recent_window: pd.DataFrame) -> float:
         """Single hybrid-vol forecast from a recent window."""
         if not self._fitted:
-            raise RuntimeError("HybridVolatilityModel.predict_single() called before fit()")
+            raise RuntimeError(
+                "HybridVolatilityModel.predict_single() called before fit(); "
+                "fix by calling model.fit(train_data, target) first (or load())."
+            )
         return float(self.predict(recent_window).iloc[-1])
 
     def save(self, path: str | Path) -> None:

@@ -89,7 +89,11 @@ class HybridReturnModel(IPredictor):
         interval: Interval = Interval.DAILY,
     ) -> None:
         if not feature_columns:
-            raise ValueError("HybridReturnModel requires a non-empty feature_columns list")
+            raise ValueError(
+                "HybridReturnModel requires a non-empty feature_columns list; "
+                "fix by passing the explicit feature names the LSTM residual "
+                "leaf should consume."
+            )
 
         self._params = _HybridReturnConfig(
             feature_columns=tuple(feature_columns),
@@ -196,7 +200,10 @@ class HybridReturnModel(IPredictor):
         # `_scaler is None` check narrows the type for mypy; once `_fitted`
         # is True the scaler is always set (assigned together inside `fit()`).
         if not self._fitted or self._scaler is None:
-            raise RuntimeError("HybridReturnModel.predict() called before fit()")
+            raise RuntimeError(
+                "HybridReturnModel.predict() called before fit(); fix by "
+                "calling model.fit(train_data, target) first (or load())."
+            )
 
         log_returns = compute_log_returns(data["close"]).dropna()
         arma_pred = self._arma.predict(data, returns=log_returns)
@@ -211,7 +218,10 @@ class HybridReturnModel(IPredictor):
     def predict_single(self, recent_window: pd.DataFrame) -> float:
         """Single hybrid return forecast from a recent window."""
         if not self._fitted:
-            raise RuntimeError("HybridReturnModel.predict_single() called before fit()")
+            raise RuntimeError(
+                "HybridReturnModel.predict_single() called before fit(); fix by "
+                "calling model.fit(train_data, target) first (or load())."
+            )
         return float(self.predict(recent_window).iloc[-1])
 
     def _scale_to_frame(self, feature_frame: pd.DataFrame) -> pd.DataFrame:

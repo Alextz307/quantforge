@@ -71,8 +71,10 @@ class DataNormalizer:
         missing = self.REQUIRED_COLUMNS - set(result.columns)
         if missing:
             raise ValueError(
-                f"Missing required columns after normalization: {missing}. "
-                f"Available: {list(result.columns)}"
+                f"Missing required columns after normalization: {missing}; "
+                f"available: {list(result.columns)}. Fix by extending the "
+                f"upstream source to emit the OHLCV columns or by adding a "
+                f"per-source rename map covering the missing names."
             )
 
         return result

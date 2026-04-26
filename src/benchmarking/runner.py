@@ -84,8 +84,9 @@ class BenchmarkRunner:
     ) -> list[BenchmarkResult]:
         if not self._quant_bench.exists():
             raise FileNotFoundError(
-                f"quant_bench binary not found at {self._quant_bench}; "
-                f"build with `cd cpp/build && cmake --build . --target quant_bench`"
+                f"quant_bench binary not found at {self._quant_bench}; fix by "
+                f"building it: `cd cpp/build && cmake --build . --target "
+                f"quant_bench`."
             )
         cmd: list[str] = [
             str(self._quant_bench),
@@ -131,10 +132,17 @@ def parse_gbench_json(stdout: str) -> list[BenchmarkResult]:
     """
     parsed = json.loads(stdout)
     if not isinstance(parsed, dict):
-        raise ValueError("expected a JSON object from quant_bench")
+        raise ValueError(
+            "expected a JSON object from quant_bench; fix by re-running "
+            "quant_bench with --benchmark_format=json (a stale or partial "
+            "stdout produces this)."
+        )
     raw_list = parsed.get("benchmarks", [])
     if not isinstance(raw_list, list):
-        raise ValueError("quant_bench output missing 'benchmarks' array")
+        raise ValueError(
+            "quant_bench output missing 'benchmarks' array; fix by re-running "
+            "quant_bench (the runner may have crashed mid-suite)."
+        )
     out: list[BenchmarkResult] = []
     for raw in raw_list:
         if not isinstance(raw, dict):
@@ -210,7 +218,12 @@ _UNIT_TO_NS = {"ns": 1.0, "us": 1e3, "ms": 1e6, "s": 1e9}
 def _to_ns(value: float, unit: str) -> float:
     multiplier = _UNIT_TO_NS.get(unit)
     if multiplier is None:
-        raise ValueError(f"unknown time unit {unit!r}; expected one of {sorted(_UNIT_TO_NS)}")
+        raise ValueError(
+            f"unknown time unit {unit!r}; expected one of "
+            f"{sorted(_UNIT_TO_NS)}. Fix by ensuring quant_bench emits a "
+            f"recognised time_unit (newer Google Benchmark versions may "
+            f"introduce additional units)."
+        )
     return value * multiplier
 
 

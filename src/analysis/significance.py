@@ -257,10 +257,16 @@ def diebold_mariano_test(
             f"by aligning all three on the same test index."
         )
     if h < 1:
-        raise ValueError(f"h must be >= 1 (forecast horizon in bars), got {h}.")
+        raise ValueError(
+            f"h must be >= 1 (forecast horizon in bars), got {h}; fix by "
+            f"passing h=1 for one-step-ahead forecasts."
+        )
     n = len(a)
     if n < 2:
-        raise ValueError(f"DM test needs n >= 2 aligned observations, got {n}.")
+        raise ValueError(
+            f"DM test needs n >= 2 aligned observations, got {n}; fix by "
+            f"passing a longer aligned forecast/actual series."
+        )
 
     errors_a = y - a
     errors_b = y - b

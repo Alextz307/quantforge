@@ -112,9 +112,16 @@ class ReturnForecastStrategy(IStrategy):
         pretrained_leaves: Mapping[str, object] | None = None,
     ) -> None:
         if position_scale <= 0:
-            raise ValueError(f"position_scale must be > 0, got {position_scale}")
+            raise ValueError(
+                f"position_scale must be > 0, got {position_scale}; fix by passing "
+                f"a strictly positive multiplier on the forecasted return "
+                f"(typical: 1.0 — adjust to control aggressiveness)."
+            )
         if max_leverage <= 0:
-            raise ValueError(f"max_leverage must be > 0, got {max_leverage}")
+            raise ValueError(
+                f"max_leverage must be > 0, got {max_leverage}; fix by passing "
+                f"the leverage cap as a strictly positive multiplier (typical: 1.0)."
+            )
 
         self._pretrained_leaves = normalize_pretrained_leaves(
             pretrained_leaves, self._leaf_keys, type(self).__name__
@@ -197,7 +204,10 @@ class ReturnForecastStrategy(IStrategy):
     def generate_signals(self, data: pd.DataFrame) -> pd.Series:
         """Produce signed positions in ``[-max_leverage, +max_leverage]``."""
         if not self._fitted:
-            raise RuntimeError("ReturnForecastStrategy.generate_signals() called before train()")
+            raise RuntimeError(
+                "ReturnForecastStrategy.generate_signals() called before train(); "
+                "fix by calling strategy.train(train_data) first."
+            )
 
         forecast = self._hybrid_return.predict(data)
         raw_position = forecast * self._position_scale

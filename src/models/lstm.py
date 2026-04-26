@@ -94,7 +94,11 @@ class LSTMPredictor(IPredictor):
         interval: Interval = Interval.DAILY,
     ) -> None:
         if not feature_columns:
-            raise ValueError("LSTMPredictor requires a non-empty feature_columns list")
+            raise ValueError(
+                "LSTMPredictor requires a non-empty feature_columns list; fix "
+                "by passing the explicit list of feature names the model should "
+                "consume (e.g. ['close', 'return_1d'])."
+            )
         validate_open_unit_interval(val_split_ratio, "val_split_ratio")
 
         self._hidden_dim = hidden_dim
@@ -275,7 +279,10 @@ class LSTMPredictor(IPredictor):
             Series of predictions aligned with data index.
         """
         if not self._fitted or self._model is None:
-            raise RuntimeError("LSTMPredictor.predict() called before fit()")
+            raise RuntimeError(
+                "LSTMPredictor.predict() called before fit(); fix by calling "
+                "model.fit(train_data, target) first (or load() from disk)."
+            )
 
         self._model.eval()
         features = torch.from_numpy(data[self._feature_columns].to_numpy(dtype=np.float32)).to(
@@ -300,10 +307,16 @@ class LSTMPredictor(IPredictor):
     def predict_single(self, recent_window: pd.DataFrame) -> float:
         """Predict single value from a recent data window."""
         if not self._fitted or self._model is None:
-            raise RuntimeError("LSTMPredictor.predict_single() called before fit()")
+            raise RuntimeError(
+                "LSTMPredictor.predict_single() called before fit(); fix by "
+                "calling model.fit(train_data, target) first (or load() from disk)."
+            )
 
         if len(recent_window) < self._lookback:
-            raise ValueError(f"Need at least {self._lookback} rows, got {len(recent_window)}")
+            raise ValueError(
+                f"Need at least {self._lookback} rows, got {len(recent_window)}; "
+                f"fix by passing a window of >= lookback bars."
+            )
 
         self._model.eval()
         features = torch.from_numpy(

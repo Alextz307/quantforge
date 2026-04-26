@@ -213,7 +213,10 @@ def save_standard_scaler(scaler: StandardScaler, path: str | Path) -> None:
     Raises ``RuntimeError`` if the scaler hasn't been fitted.
     """
     if not hasattr(scaler, "mean_"):
-        raise RuntimeError("cannot save an unfitted StandardScaler")
+        raise RuntimeError(
+            "cannot save an unfitted StandardScaler; fix by calling scaler.fit() "
+            "(or scaler.fit_transform()) on training data before save."
+        )
     payload: dict[str, object] = {
         "mean_": np.asarray(scaler.mean_, dtype=np.float64).tolist(),
         "scale_": np.asarray(scaler.scale_, dtype=np.float64).tolist(),

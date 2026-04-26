@@ -106,8 +106,10 @@ def _validate_deep_metadata(
         if test_start <= meta.train_end:
             raise LeakageError(
                 f"{strategy_cls}.{tracked.origin}: Evaluation data starts at "
-                f"{test_start} but model was trained through {meta.train_end}. "
-                f"This would constitute data leakage."
+                f"{test_start} but model was trained through {meta.train_end}; "
+                f"this would constitute data leakage. Fix by widening the "
+                f"embargo gap or by ensuring the leaf was trained on a window "
+                f"strictly preceding the test fold."
             )
         if tracked.is_pretrained and train_start <= meta.train_end:
             raise LeakageError(

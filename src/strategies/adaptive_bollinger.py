@@ -62,11 +62,20 @@ class AdaptiveBollingerStrategy(IStrategy):
         pretrained_leaves: Mapping[str, object] | None = None,
     ) -> None:
         if window < 2:
-            raise ValueError(f"window must be >= 2, got {window}")
+            raise ValueError(
+                f"window must be >= 2, got {window}; fix by passing a band "
+                f"window of at least 2 bars (typical: 20)."
+            )
         if trend_window < 2:
-            raise ValueError(f"trend_window must be >= 2, got {trend_window}")
+            raise ValueError(
+                f"trend_window must be >= 2, got {trend_window}; fix by passing "
+                f"a long-term MA window of at least 2 bars (typical: 100-200)."
+            )
         if k <= 0:
-            raise ValueError(f"k must be > 0, got {k}")
+            raise ValueError(
+                f"k must be > 0, got {k}; fix by passing a strictly positive "
+                f"band-width multiplier (typical: 2.0 for ~95% confidence)."
+            )
 
         self._pretrained_leaves = normalize_pretrained_leaves(
             pretrained_leaves, self._leaf_keys, type(self).__name__
@@ -110,7 +119,10 @@ class AdaptiveBollingerStrategy(IStrategy):
     def generate_signals(self, data: pd.DataFrame) -> pd.Series:
         """Produce {-1, 0, +1} position signals. Leading warmup bars are NaN."""
         if not self._fitted:
-            raise RuntimeError("AdaptiveBollingerStrategy.generate_signals() called before train()")
+            raise RuntimeError(
+                "AdaptiveBollingerStrategy.generate_signals() called before "
+                "train(); fix by calling strategy.train(train_data) first."
+            )
 
         close = data["close"]
         garch_vol_annual = self._garch.predict(data)

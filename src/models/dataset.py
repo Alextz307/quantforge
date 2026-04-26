@@ -24,17 +24,31 @@ class TemporalDataset(Dataset[tuple[torch.Tensor, torch.Tensor]]):
         feature_columns: list[str] | None = None,
     ) -> None:
         if not isinstance(df.index, pd.DatetimeIndex):
-            raise TypeError("DataFrame must have a DatetimeIndex")
+            raise TypeError(
+                "DataFrame must have a DatetimeIndex; fix by setting df.index "
+                "to a DatetimeIndex (or calling df.set_index('date'))."
+            )
         if not df.index.is_monotonic_increasing:
-            raise ValueError("DataFrame must be sorted by DatetimeIndex")
+            raise ValueError(
+                "DataFrame must be sorted by DatetimeIndex; fix by calling "
+                "df.sort_index() before constructing the dataset."
+            )
         if lookback_window < 1:
-            raise ValueError(f"lookback_window must be >= 1, got {lookback_window}")
+            raise ValueError(
+                f"lookback_window must be >= 1, got {lookback_window}; fix by "
+                f"passing a window of at least 1 bar."
+            )
         if target_column not in df.columns:
-            raise ValueError(f"target_column '{target_column}' not in DataFrame")
+            raise ValueError(
+                f"target_column '{target_column}' not in DataFrame; fix by "
+                f"adding the target column or by passing a name that matches "
+                f"one of {list(df.columns)}."
+            )
         if len(df) <= lookback_window:
             raise ValueError(
                 f"DataFrame has {len(df)} rows but needs > {lookback_window} "
-                f"for lookback_window={lookback_window}"
+                f"for lookback_window={lookback_window}; fix by widening the "
+                f"input window or by shrinking lookback_window."
             )
 
         if feature_columns is None:

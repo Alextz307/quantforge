@@ -166,7 +166,10 @@ class GARCHPredictor(IPredictor):
             Series of annualized volatility forecasts.
         """
         if not self._fitted:
-            raise RuntimeError("GARCHPredictor.predict() called before fit()")
+            raise RuntimeError(
+                "GARCHPredictor.predict() called before fit(); fix by calling "
+                "model.fit(train_data, train_returns) first."
+            )
 
         caller_returns = returns
         if caller_returns is None:
@@ -209,7 +212,10 @@ class GARCHPredictor(IPredictor):
             Annualized conditional volatility series.
         """
         if not self._fitted:
-            raise RuntimeError("GARCHPredictor.generate_vol_series() called before fit()")
+            raise RuntimeError(
+                "GARCHPredictor.generate_vol_series() called before fit(); fix "
+                "by calling model.fit(train_data, train_returns) first."
+            )
 
         scaled = returns * _SCALE_FACTOR
         cond_var = self._manual_garch_filter(np.asarray(scaled, dtype=np.float64))

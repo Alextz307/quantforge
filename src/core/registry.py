@@ -43,7 +43,10 @@ class ComponentRegistry[T]:
 
         def decorator(cls: type[T]) -> type[T]:
             if name in self._registry:
-                raise ValueError(f"Component '{name}' is already registered")
+                raise ValueError(
+                    f"Component '{name}' is already registered; fix by choosing a "
+                    f"distinct registry name or removing the duplicate decorator."
+                )
             self._registry[name] = cls
             return cls
 
@@ -53,7 +56,10 @@ class ComponentRegistry[T]:
         """Get a registered component class by name."""
         if name not in self._registry:
             raise KeyError(
-                f"Component '{name}' not found. Available: {list(self._registry.keys())}"
+                f"Component '{name}' not found; available: "
+                f"{list(self._registry.keys())}. Fix by registering the component "
+                f"(import its module so the @register decorator fires) or by "
+                f"choosing one of the listed names."
             )
         return self._registry[name]
 

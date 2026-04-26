@@ -25,7 +25,10 @@ def compute_log_returns(close: pd.Series[float]) -> pd.Series[float]:
 def validate_open_unit_interval(value: float, name: str) -> None:
     """Ensure ``value`` lies in the open interval ``(0, 1)``; raise ``ValueError`` otherwise."""
     if not (0.0 < value < 1.0):
-        raise ValueError(f"{name} must be in (0, 1), got {value}")
+        raise ValueError(
+            f"{name} must be in (0, 1), got {value}; fix by passing a strictly "
+            f"positive fraction below 1.0 (typical: 0.2 for a 20% split)."
+        )
 
 
 def annualized_garman_klass(

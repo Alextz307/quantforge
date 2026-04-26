@@ -57,7 +57,10 @@ class IPredictor(ABC):
         models must override explicitly — a silent no-op would let tests pass
         without actually persisting anything.
         """
-        raise NotImplementedError(f"{type(self).__name__}.save() not implemented")
+        raise NotImplementedError(
+            f"{type(self).__name__}.save() not implemented; fix by overriding "
+            f"save() in the concrete predictor subclass."
+        )
 
     @classmethod
     def load(cls, path: str | Path) -> Self:
@@ -66,7 +69,10 @@ class IPredictor(ABC):
         Must return a fully-fitted instance: ``predict()`` works immediately,
         ``training_metadata`` is populated from the saved ``metadata.json``.
         """
-        raise NotImplementedError(f"{cls.__name__}.load() not implemented")
+        raise NotImplementedError(
+            f"{cls.__name__}.load() not implemented; fix by overriding load() "
+            f"in the concrete predictor subclass."
+        )
 
     def fit_predict(
         self,
@@ -149,12 +155,18 @@ class IClassifier(ABC):
         The base implementation raises ``NotImplementedError``; concrete
         classifiers must override.
         """
-        raise NotImplementedError(f"{type(self).__name__}.save() not implemented")
+        raise NotImplementedError(
+            f"{type(self).__name__}.save() not implemented; fix by overriding "
+            f"save() in the concrete classifier subclass."
+        )
 
     @classmethod
     def load(cls, path: str | Path) -> Self:
         """Reconstruct a fitted classifier from a directory at ``path``."""
-        raise NotImplementedError(f"{cls.__name__}.load() not implemented")
+        raise NotImplementedError(
+            f"{cls.__name__}.load() not implemented; fix by overriding load() "
+            f"in the concrete classifier subclass."
+        )
 
     def fit_predict(
         self,

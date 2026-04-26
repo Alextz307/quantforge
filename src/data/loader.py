@@ -73,7 +73,10 @@ class YFinanceSource(IDataSource):
                 if df.empty:
                     raise DataQualityError(
                         f"No data returned from yfinance for {ticker} "
-                        f"({start} to {end}, interval={interval.value})"
+                        f"({start} to {end}, interval={interval.value}); fix "
+                        f"by checking the ticker symbol is valid on Yahoo "
+                        f"Finance and that the date range covers active "
+                        f"trading days for that interval."
                     )
                 return df
             except DataQualityError:

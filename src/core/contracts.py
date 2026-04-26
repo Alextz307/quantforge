@@ -61,7 +61,9 @@ def no_future_data[**P, R](
                 if output_max > input_max:
                     raise LeakageError(
                         f"Output contains future data: output max timestamp "
-                        f"{output_max} > input max timestamp {input_max}"
+                        f"{output_max} > input max timestamp {input_max}; fix by "
+                        f"removing the lookahead in the wrapped function (no "
+                        f".shift(-k), no centered rolling windows, no .bfill())."
                     )
         return result
 
@@ -82,8 +84,9 @@ def temporally_sorted[**P, R](
             if isinstance(arg, pd.DataFrame) and isinstance(arg.index, pd.DatetimeIndex):
                 if not arg.index.is_monotonic_increasing:
                     raise LeakageError(
-                        "Input DataFrame is not temporally sorted. "
-                        "DatetimeIndex must be monotonically increasing."
+                        "Input DataFrame is not temporally sorted; "
+                        "DatetimeIndex must be monotonically increasing. Fix by "
+                        "calling df.sort_index() before passing into the contract."
                     )
         return func(*args, **kwargs)
 
@@ -106,10 +109,17 @@ def no_nan_in_output[**P, R](
             col_has_nan = result.isna().any()
             if col_has_nan.any():
                 nan_cols = result.columns[col_has_nan].tolist()
-                raise ValueError(f"Output DataFrame contains NaN values in columns: {nan_cols}")
+                raise ValueError(
+                    f"Output DataFrame contains NaN values in columns: {nan_cols}; "
+                    f"fix by .dropna() at the wrapped function's boundary or by "
+                    f"forward-filling warmup gaps before returning."
+                )
         elif isinstance(result, pd.Series):
             if result.isna().any():
-                raise ValueError("Output Series contains NaN values")
+                raise ValueError(
+                    "Output Series contains NaN values; fix by .dropna() at the "
+                    "wrapped function's boundary or by forward-filling warmup gaps."
+                )
 
         return result
 

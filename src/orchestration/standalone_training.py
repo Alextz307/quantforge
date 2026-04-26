@@ -107,7 +107,8 @@ def _target_for_hybrid_volatility(
     if not isinstance(window_raw, int):
         raise ValueError(
             f"hybrid_volatility model.params.realized_vol_window must be an int, "
-            f"got {type(window_raw).__name__}={window_raw!r}"
+            f"got {type(window_raw).__name__}={window_raw!r}; fix by setting "
+            f"the value as an integer in YAML (typical: 20)."
         )
     target = annualized_garman_klass(bars, window=window_raw, interval=cfg.data.interval).dropna()
     return bars.loc[target.index], target
@@ -158,8 +159,10 @@ def train_model_standalone(cfg: StandaloneModelConfig) -> StandaloneTrainingResu
     # 2: fetch — single-ticker only, same contract as Experiment.run
     if len(cfg.data.tickers) != 1:
         raise NotImplementedError(
-            f"standalone training accepts exactly one ticker, got {cfg.data.tickers}; "
-            f"the pretrained-leaf seam doesn't currently compose multi-ticker bundles."
+            f"standalone training accepts exactly one ticker, got "
+            f"{cfg.data.tickers}; the pretrained-leaf seam doesn't currently "
+            f"compose multi-ticker bundles. Fix by trimming data.tickers to a "
+            f"single symbol."
         )
     data_source = data_source_registry.create_from_config(cfg.data.source)
     bars = data_source.fetch(

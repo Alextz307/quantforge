@@ -195,7 +195,10 @@ class ARMAPredictor(IPredictor):
             Series of one-step-ahead return forecasts.
         """
         if not self._fitted or self._model is None:
-            raise RuntimeError("ARMAPredictor.predict() called before fit()")
+            raise RuntimeError(
+                "ARMAPredictor.predict() called before fit(); fix by calling "
+                "model.fit(train_data, train_returns) first."
+            )
 
         caller_returns = returns
         if caller_returns is None:
@@ -234,7 +237,10 @@ class ARMAPredictor(IPredictor):
     def predict_single(self, recent_window: pd.DataFrame) -> float:
         """Predict single one-step-ahead return forecast."""
         if not self._fitted or self._model is None:
-            raise RuntimeError("ARMAPredictor.predict_single() called before fit()")
+            raise RuntimeError(
+                "ARMAPredictor.predict_single() called before fit(); fix by "
+                "calling model.fit(train_data, train_returns) first."
+            )
 
         forecast = self._model.predict(n_periods=1)
         return float(forecast[0])
@@ -300,7 +306,10 @@ class ARMAPredictor(IPredictor):
         )
         order_ints = json_io.get_int_list(weights, "order")
         if len(order_ints) != 3:
-            raise ValueError(f"ARMA order must be a 3-element list, got length {len(order_ints)}")
+            raise ValueError(
+                f"ARMA order must be a 3-element list, got length "
+                f"{len(order_ints)}; fix by ensuring weights.json contains [p, d, q]."
+            )
         order: tuple[int, int, int] = (order_ints[0], order_ints[1], order_ints[2])
 
         params = np.asarray(json_io.get_float_list(weights, "params"), dtype=np.float64)

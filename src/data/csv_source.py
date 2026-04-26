@@ -47,23 +47,36 @@ class CSVSource(IDataSource):
         try:
             df = pd.read_csv(csv_path, parse_dates=[0], index_col=0)
         except FileNotFoundError:
-            raise FileNotFoundError(f"CSV file not found: {csv_path}") from None
+            raise FileNotFoundError(
+                f"CSV file not found: {csv_path}; fix by placing a "
+                f"{ticker}.csv file under the data_dir or by passing a "
+                f"ticker that matches an existing file."
+            ) from None
 
         if not isinstance(df.index, pd.DatetimeIndex):
             raise ValueError(
-                f"Failed to parse dates in {csv_path}: "
-                f"index dtype is {df.index.dtype}, expected datetime"
+                f"Failed to parse dates in {csv_path}: index dtype is "
+                f"{df.index.dtype}, expected datetime; fix by ensuring the "
+                f"first column holds ISO-formatted timestamps (YYYY-MM-DD)."
             )
         na_mask = pd.Series(df.index.isna())
         if na_mask.any():
             n_nat = int(na_mask.sum())
-            raise ValueError(f"Failed to parse {n_nat} date(s) in {csv_path} (got NaT values)")
+            raise ValueError(
+                f"Failed to parse {n_nat} date(s) in {csv_path} (got NaT "
+                f"values); fix by repairing the date column in the CSV "
+                f"(typical cause: blank rows or non-ISO date strings)."
+            )
 
         mask = (df.index >= pd.Timestamp(start)) & (df.index <= pd.Timestamp(end))
         df = df.loc[mask]
 
         if df.empty:
-            raise ValueError(f"No data in {csv_path} for range {start} to {end}")
+            raise ValueError(
+                f"No data in {csv_path} for range {start} to {end}; fix by "
+                f"widening the date range or by checking the CSV covers the "
+                f"requested window."
+            )
 
         return df
 

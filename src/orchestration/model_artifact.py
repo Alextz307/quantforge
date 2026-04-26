@@ -193,7 +193,9 @@ def load_model_artifact(
         cls = classifier_registry.get(manifest.model_name)
     else:  # pragma: no cover — StrEnum total coverage
         raise ValueError(
-            f"unknown model_kind {manifest.model_kind!r}; supported: {[k.value for k in ModelKind]}"
+            f"unknown model_kind {manifest.model_kind!r}; supported: "
+            f"{[k.value for k in ModelKind]}. Fix by editing the artifact's "
+            f"manifest.json to use one of the supported kinds."
         )
 
     model = cls.load(root / MODEL_ARTIFACT_WEIGHTS_SUBDIR)

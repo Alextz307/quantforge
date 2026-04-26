@@ -40,18 +40,28 @@ class TemporalSplit:
 
     def __post_init__(self) -> None:
         if not isinstance(self.train.index, pd.DatetimeIndex):
-            raise TypeError("train DataFrame must have a DatetimeIndex")
+            raise TypeError(
+                "train DataFrame must have a DatetimeIndex; fix by setting "
+                "df.index to a DatetimeIndex (or calling df.set_index('date'))."
+            )
         if not isinstance(self.test.index, pd.DatetimeIndex):
-            raise TypeError("test DataFrame must have a DatetimeIndex")
+            raise TypeError(
+                "test DataFrame must have a DatetimeIndex; fix by setting "
+                "df.index to a DatetimeIndex (or calling df.set_index('date'))."
+            )
         if len(self.train) == 0 or len(self.test) == 0:
-            raise ValueError("train and test DataFrames must be non-empty")
+            raise ValueError(
+                "train and test DataFrames must be non-empty; fix by widening "
+                "the source date range or relaxing the split fraction."
+            )
 
         train_max = self.train.index.max()
         test_min = self.test.index.min()
         if train_max >= test_min:
             raise LeakageError(
-                f"Train end {train_max} overlaps with test start {test_min}. "
-                f"Training data must strictly precede test data."
+                f"Train end {train_max} overlaps with test start {test_min}; "
+                f"training data must strictly precede test data. Fix by "
+                f"introducing an embargo gap so train_max < test_min."
             )
 
 
@@ -76,24 +86,32 @@ class TemporalTripleSplit:
             ("holdout", self.holdout),
         ]:
             if not isinstance(part.index, pd.DatetimeIndex):
-                raise TypeError(f"{name} DataFrame must have a DatetimeIndex")
+                raise TypeError(
+                    f"{name} DataFrame must have a DatetimeIndex; fix by setting "
+                    f"df.index to a DatetimeIndex (or df.set_index('date'))."
+                )
             if len(part) == 0:
-                raise ValueError(f"{name} DataFrame must be non-empty")
+                raise ValueError(
+                    f"{name} DataFrame must be non-empty; fix by widening the "
+                    f"source date range or shrinking val_pct / holdout_pct."
+                )
 
         train_max = self.train.index.max()
         val_min = self.validation.index.min()
         if train_max >= val_min:
             raise LeakageError(
-                f"Train end {train_max} overlaps with validation start {val_min}. "
-                f"Training data must strictly precede validation data."
+                f"Train end {train_max} overlaps with validation start {val_min}; "
+                f"training data must strictly precede validation data. Fix by "
+                f"widening the gap (embargo) between train and validation."
             )
 
         val_max = self.validation.index.max()
         holdout_min = self.holdout.index.min()
         if val_max >= holdout_min:
             raise LeakageError(
-                f"Validation end {val_max} overlaps with holdout start {holdout_min}. "
-                f"Validation data must strictly precede holdout data."
+                f"Validation end {val_max} overlaps with holdout start {holdout_min}; "
+                f"validation data must strictly precede holdout data. Fix by "
+                f"widening the gap (embargo) between validation and holdout."
             )
 
     @staticmethod
@@ -112,13 +130,25 @@ class TemporalTripleSplit:
             gap: Embargo bars between each region (default 5).
         """
         if not isinstance(df.index, pd.DatetimeIndex):
-            raise TypeError("DataFrame must have a DatetimeIndex")
+            raise TypeError(
+                "DataFrame must have a DatetimeIndex; fix by setting df.index "
+                "to a DatetimeIndex (or calling df.set_index('date'))."
+            )
         if not 0.0 < val_pct < 1.0:
-            raise ValueError(f"val_pct must be in (0, 1), got {val_pct}")
+            raise ValueError(
+                f"val_pct must be in (0, 1), got {val_pct}; fix by passing a "
+                f"strictly positive fraction below 1.0."
+            )
         if not 0.0 < holdout_pct < 1.0:
-            raise ValueError(f"holdout_pct must be in (0, 1), got {holdout_pct}")
+            raise ValueError(
+                f"holdout_pct must be in (0, 1), got {holdout_pct}; fix by passing "
+                f"a strictly positive fraction below 1.0."
+            )
         if val_pct + holdout_pct >= 1.0:
-            raise ValueError(f"val_pct + holdout_pct must be < 1.0, got {val_pct + holdout_pct}")
+            raise ValueError(
+                f"val_pct + holdout_pct must be < 1.0, got {val_pct + holdout_pct}; "
+                f"fix by shrinking one of the fractions so train has any rows left."
+            )
 
         n = len(df)
         holdout_size = max(1, int(n * holdout_pct))
@@ -127,7 +157,8 @@ class TemporalTripleSplit:
         if n < min_required:
             raise ValueError(
                 f"DataFrame has {n} rows but at least {min_required} are required "
-                f"for val_pct={val_pct}, holdout_pct={holdout_pct}, gap={gap}"
+                f"for val_pct={val_pct}, holdout_pct={holdout_pct}, gap={gap}; fix "
+                f"by widening the date range or by shrinking val_pct/holdout_pct/gap."
             )
 
         holdout_start = n - holdout_size
@@ -218,13 +249,17 @@ class TrainingMetadata:
         (enforced throughout the framework).
         """
         if not isinstance(eval_data.index, pd.DatetimeIndex):
-            raise TypeError("eval_data must have a DatetimeIndex")
+            raise TypeError(
+                "eval_data must have a DatetimeIndex; fix by setting df.index "
+                "to a DatetimeIndex (or calling df.set_index('date'))."
+            )
         eval_start: pd.Timestamp = eval_data.index[0]
         if eval_start <= self.train_end:
             raise LeakageError(
-                f"Evaluation data starts at {eval_start} but model "
-                f"was trained through {self.train_end}. "
-                f"This would constitute data leakage."
+                f"Evaluation data starts at {eval_start} but model was trained "
+                f"through {self.train_end}; this would constitute data leakage. "
+                f"Fix by slicing eval_data to bars strictly after train_end (an "
+                f"embargo gap of at least one bar)."
             )
 
     def to_dict(self) -> dict[str, object]:

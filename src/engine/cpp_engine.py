@@ -27,12 +27,22 @@ _NS_PER_SECOND = 1_000_000_000
 
 def _validate_inputs(bars: pd.DataFrame, signals: pd.Series) -> None:
     if not isinstance(bars.index, pd.DatetimeIndex):
-        raise TypeError("bars must have a DatetimeIndex")
+        raise TypeError(
+            "bars must have a DatetimeIndex; fix by setting df.index to a "
+            "DatetimeIndex (or calling df.set_index('date'))."
+        )
     missing = [c for c in OHLCV_COLUMNS if c not in bars.columns]
     if missing:
-        raise ValueError(f"bars missing required columns: {missing}")
+        raise ValueError(
+            f"bars missing required columns: {missing}; fix by running the "
+            f"frame through DataNormalizer before invoking the engine."
+        )
     if not signals.index.equals(bars.index):
-        raise ValueError("signals index must equal bars index")
+        raise ValueError(
+            "signals index must equal bars index; fix by reindexing the "
+            "signal series to bars.index (a strategy that emits NaN at warmup "
+            "still keeps the same index — drop or fill, never reshape)."
+        )
 
 
 def _bars_to_arrays(

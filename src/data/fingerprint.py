@@ -46,8 +46,9 @@ def fingerprint_bars(df: pd.DataFrame) -> str:
     """
     if not isinstance(df.index, pd.DatetimeIndex):
         raise TypeError(
-            "fingerprint_bars requires a DataFrame with a DatetimeIndex; "
-            f"got {type(df.index).__name__}."
+            f"fingerprint_bars requires a DataFrame with a DatetimeIndex; "
+            f"got {type(df.index).__name__}. Fix by setting df.index to a "
+            f"DatetimeIndex (or calling df.set_index('date'))."
         )
 
     h = hashlib.sha256()
@@ -60,7 +61,8 @@ def fingerprint_bars(df: pd.DataFrame) -> str:
         if col not in df.columns:
             raise KeyError(
                 f"fingerprint_bars: DataFrame missing required column {col!r}; "
-                f"present columns: {sorted(df.columns)}."
+                f"present columns: {sorted(df.columns)}. Fix by running the "
+                f"frame through DataNormalizer first so OHLCV columns are present."
             )
         h.update(np.asarray(df[col], dtype=np.float64).tobytes())
     return h.hexdigest()

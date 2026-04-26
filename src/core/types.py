@@ -105,13 +105,22 @@ class BarData(BaseModel):
     def validate_hloc_ordering(self) -> Self:
         """Ensure high >= low and high/low bound open/close."""
         if self.high < self.low:
-            raise ValueError(f"high ({self.high}) must be >= low ({self.low})")
+            raise ValueError(
+                f"high ({self.high}) must be >= low ({self.low}); fix by checking "
+                f"the upstream OHLC source for swapped or corrupted columns."
+            )
         oc_max = max(self.open, self.close)
         if self.high < oc_max:
-            raise ValueError(f"high ({self.high}) must be >= max(open, close) ({oc_max})")
+            raise ValueError(
+                f"high ({self.high}) must be >= max(open, close) ({oc_max}); fix "
+                f"by checking the upstream OHLC source for swapped or corrupted columns."
+            )
         oc_min = min(self.open, self.close)
         if self.low > oc_min:
-            raise ValueError(f"low ({self.low}) must be <= min(open, close) ({oc_min})")
+            raise ValueError(
+                f"low ({self.low}) must be <= min(open, close) ({oc_min}); fix by "
+                f"checking the upstream OHLC source for swapped or corrupted columns."
+            )
         return self
 
 
@@ -140,6 +149,8 @@ class PairSignal(BaseModel):
         total_abs = abs(self.leg_a_position) + abs(self.leg_b_position)
         if total_abs > MAX_LEVERAGE:
             raise ValueError(
-                f"Total absolute leverage ({total_abs}) exceeds maximum ({MAX_LEVERAGE})"
+                f"Total absolute leverage ({total_abs}) exceeds maximum "
+                f"({MAX_LEVERAGE}); fix by scaling leg_a_position / leg_b_position "
+                f"so |a| + |b| <= {MAX_LEVERAGE}."
             )
         return self

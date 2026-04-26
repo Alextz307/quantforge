@@ -26,7 +26,11 @@ def _mps_available() -> bool:
 def _require_cuda() -> None:
     """Raise ``RuntimeError`` if CUDA is unavailable — shared by both selectors."""
     if not _cuda_available():
-        raise RuntimeError("device preference='cuda' but CUDA is not available")
+        raise RuntimeError(
+            "device preference='cuda' but CUDA is not available; fix by setting "
+            "device='auto' (or omitting it) on a CUDA-less host, or by installing "
+            "CUDA-enabled builds of the relevant frameworks."
+        )
 
 
 def select_device(preference: Device | None = None) -> torch.device:
@@ -56,12 +60,19 @@ def select_device(preference: Device | None = None) -> torch.device:
         return torch.device(Device.CUDA)
     if preference == Device.MPS:
         if not _mps_available():
-            raise RuntimeError("device preference='mps' but MPS is not available")
+            raise RuntimeError(
+                "device preference='mps' but MPS is not available; fix by setting "
+                "device='auto' (or omitting it) on a non-Apple-Silicon host, or by "
+                "upgrading to a torch build with MPS support."
+            )
         return torch.device(Device.MPS)
     if preference == Device.CPU:
         return torch.device(Device.CPU)
 
-    raise ValueError(f"device preference must be one of {_ALLOWED_PREFERENCES}, got {preference!r}")
+    raise ValueError(
+        f"device preference must be one of {_ALLOWED_PREFERENCES}, got "
+        f"{preference!r}; fix by passing a Device enum value (or None for auto)."
+    )
 
 
 def select_xgboost_device(preference: Device | None = None) -> str:
@@ -89,7 +100,11 @@ def select_xgboost_device(preference: Device | None = None) -> str:
     if preference == Device.CPU:
         return Device.CPU.value
     if preference == Device.MPS:
-        raise ValueError("XGBoost has no MPS backend; use 'cuda' or 'cpu'")
+        raise ValueError(
+            "XGBoost has no MPS backend; fix by passing Device.CUDA or Device.CPU "
+            "(MPS is torch-only — XGBoost's GPU path is NVIDIA-only)."
+        )
     raise ValueError(
-        f"XGBoost device preference must be one of {_XGBOOST_ALLOWED}, got {preference!r}"
+        f"XGBoost device preference must be one of {_XGBOOST_ALLOWED}, got "
+        f"{preference!r}; fix by passing Device.CUDA, Device.CPU, or None for auto."
     )

@@ -32,5 +32,7 @@ def guard_scaler_fit_once(scaler: object | None, component: str) -> None:
     """
     if scaler is not None:
         raise LeakageError(
-            f"{component}.fit() called twice. Scaler must only be fit on training data."
+            f"{component}.fit() called twice; the scaler must only be fit on "
+            f"training data. Fix by reconstructing a fresh instance per fold "
+            f"(the typical walk-forward pattern) instead of refitting."
         )

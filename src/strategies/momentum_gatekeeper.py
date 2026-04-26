@@ -30,7 +30,7 @@ from src.core.temporal import (
     mark_pretrained,
 )
 from src.core.types import Device, Interval
-from src.core.utils import next_bar_direction
+from src.core.utils import next_bar_direction, validate_open_unit_interval
 from src.features.pipeline import FeatureEngineeringPipeline
 from src.models.xgboost_classifier import DirectionalClassifier
 from src.orchestration.pretrained_leaves import (
@@ -129,12 +129,16 @@ class MomentumGatekeeperStrategy(IStrategy):
         pretrained_leaves: Mapping[str, object] | None = None,
     ) -> None:
         if ma_window < 2:
-            raise ValueError(f"ma_window must be >= 2, got {ma_window}")
-        if not (0.0 < prob_threshold < 1.0):
-            raise ValueError(f"prob_threshold must be in (0, 1), got {prob_threshold}")
+            raise ValueError(
+                f"ma_window must be >= 2, got {ma_window}; fix by passing a "
+                f"long-term MA window of at least 2 bars (typical: 200)."
+            )
+        validate_open_unit_interval(prob_threshold, "prob_threshold")
         if macd_fast >= macd_slow:
             raise ValueError(
-                f"macd_fast must be < macd_slow, got fast={macd_fast}, slow={macd_slow}"
+                f"macd_fast must be < macd_slow, got fast={macd_fast}, "
+                f"slow={macd_slow}; fix by lowering macd_fast (typical: 12) "
+                f"or raising macd_slow (typical: 26)."
             )
 
         self._pretrained_leaves = normalize_pretrained_leaves(
@@ -243,7 +247,9 @@ class MomentumGatekeeperStrategy(IStrategy):
             if missing:
                 raise ValueError(
                     f"feature_columns {sorted(missing)} not produced by pipeline "
-                    f"(available: {list(features.columns)})"
+                    f"(available: {list(features.columns)}); fix by removing the "
+                    f"unknown names from feature_columns or by extending the "
+                    f"pipeline to emit them."
                 )
         self._resolved_feature_columns = resolved
 
@@ -272,7 +278,8 @@ class MomentumGatekeeperStrategy(IStrategy):
         """Produce {0, 1} long-only signals. Bars with NaN features stay NaN."""
         if not self._fitted or self._classifier is None:
             raise RuntimeError(
-                "MomentumGatekeeperStrategy.generate_signals() called before train()"
+                "MomentumGatekeeperStrategy.generate_signals() called before "
+                "train(); fix by calling strategy.train(train_data) first."
             )
 
         features = self._pipeline.transform(data)[self._resolved_feature_columns]
@@ -309,8 +316,8 @@ class MomentumGatekeeperStrategy(IStrategy):
         pipeline_scaler = self._pipeline.scaler
         if pipeline_scaler is None:
             raise RuntimeError(
-                "MomentumGatekeeperStrategy.save() found an unfitted feature pipeline; "
-                "train() should have fitted the scaler"
+                "MomentumGatekeeperStrategy.save() found an unfitted feature "
+                "pipeline; fix by calling strategy.train(train_data) before save()."
             )
 
         def write_weights(root: Path) -> None:

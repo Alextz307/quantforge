@@ -121,15 +121,33 @@ class VolatilityTargetingStrategy(IStrategy):
         pretrained_leaves: Mapping[str, object] | None = None,
     ) -> None:
         if target_vol <= 0:
-            raise ValueError(f"target_vol must be > 0, got {target_vol}")
+            raise ValueError(
+                f"target_vol must be > 0, got {target_vol}; fix by passing the "
+                f"annualized volatility target as a strictly positive fraction "
+                f"(typical: 0.10 for 10% annualized)."
+            )
         if max_leverage <= 0:
-            raise ValueError(f"max_leverage must be > 0, got {max_leverage}")
+            raise ValueError(
+                f"max_leverage must be > 0, got {max_leverage}; fix by passing "
+                f"the leverage cap as a strictly positive multiplier (typical: 2.0)."
+            )
         if bearish_exposure < 0:
-            raise ValueError(f"bearish_exposure must be >= 0, got {bearish_exposure}")
+            raise ValueError(
+                f"bearish_exposure must be >= 0, got {bearish_exposure}; fix by "
+                f"passing 0.0 to flatten in bear regimes or a small fraction "
+                f"(e.g. 0.25) for partial exposure."
+            )
         if trend_window < 2:
-            raise ValueError(f"trend_window must be >= 2, got {trend_window}")
+            raise ValueError(
+                f"trend_window must be >= 2, got {trend_window}; fix by passing "
+                f"a long-term MA window of at least 2 bars (typical: 200)."
+            )
         if realized_vol_window < 2:
-            raise ValueError(f"realized_vol_window must be >= 2, got {realized_vol_window}")
+            raise ValueError(
+                f"realized_vol_window must be >= 2, got {realized_vol_window}; "
+                f"fix by passing a Garman-Klass window of at least 2 bars "
+                f"(typical: 20)."
+            )
 
         self._pretrained_leaves = normalize_pretrained_leaves(
             pretrained_leaves, self._leaf_keys, type(self).__name__
@@ -223,7 +241,8 @@ class VolatilityTargetingStrategy(IStrategy):
         """Produce leverage signals in ``[0, max_leverage]``. Warmup bars are NaN."""
         if not self._fitted:
             raise RuntimeError(
-                "VolatilityTargetingStrategy.generate_signals() called before train()"
+                "VolatilityTargetingStrategy.generate_signals() called before "
+                "train(); fix by calling strategy.train(train_data) first."
             )
 
         forecast_vol = self._hybrid_vol.predict(data)

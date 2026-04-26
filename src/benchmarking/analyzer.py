@@ -92,14 +92,20 @@ class BenchmarkAnalyzer:
         members = [r for r in run.results if r.family == family]
         if len(members) < 2:
             raise ValueError(
-                f"scaling analysis needs >= 2 points for family {family!r}, got {len(members)}"
+                f"scaling analysis needs >= 2 points for family {family!r}, "
+                f"got {len(members)}; fix by running the benchmark across "
+                f"at least 2 input sizes (Google Benchmark range / Args)."
             )
         sized = [(r.params.get("n", 0), r.real_time_ns) for r in members]
         sized.sort()
         sizes = [s for s, _ in sized]
         times = [t for _, t in sized]
         if any(s <= 0 for s in sizes):
-            raise ValueError(f"all sizes must be > 0 for family {family!r}, got {sizes}")
+            raise ValueError(
+                f"all sizes must be > 0 for family {family!r}, got {sizes}; "
+                f"fix by ensuring each benchmark name encodes a positive 'n' "
+                f"(e.g. BM_RSI/10000)."
+            )
         slope, intercept, r_squared = _log_log_fit(
             np.asarray(sizes, dtype=np.int64), np.asarray(times, dtype=np.float64)
         )

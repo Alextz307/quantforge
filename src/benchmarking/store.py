@@ -60,7 +60,8 @@ class BenchmarkStore:
         path = self._baselines / f"{name}.jsonl"
         if path.exists() and not overwrite:
             raise FileExistsError(
-                f"baseline {name!r} already exists at {path}; pass overwrite=True to replace"
+                f"baseline {name!r} already exists at {path}; fix by passing "
+                f"overwrite=True to replace, or by choosing a distinct name."
             )
         json_io.write(path, run.to_dict())
         return path
@@ -69,7 +70,11 @@ class BenchmarkStore:
         path = self._baselines / f"{name}.jsonl"
         if not path.exists():
             available = sorted(p.stem for p in self._baselines.glob("*.jsonl"))
-            raise FileNotFoundError(f"baseline {name!r} not found; available: {available}")
+            raise FileNotFoundError(
+                f"baseline {name!r} not found; available: {available}. Fix by "
+                f"passing one of the available baseline names or by saving a "
+                f"new baseline first."
+            )
         return BenchmarkRun.from_dict(json_io.read_dict(path))
 
     def list_baselines(self) -> tuple[str, ...]:

@@ -131,7 +131,11 @@ class DirectionalClassifier(IClassifier):
         interval: Interval = Interval.DAILY,
     ) -> None:
         if not feature_columns:
-            raise ValueError("DirectionalClassifier requires a non-empty feature_columns list")
+            raise ValueError(
+                "DirectionalClassifier requires a non-empty feature_columns list; "
+                "fix by passing the explicit list of feature names the classifier "
+                "should consume (e.g. ['rsi_14', 'macd_hist'])."
+            )
         validate_open_unit_interval(val_split_ratio, "val_split_ratio")
         self._n_estimators = n_estimators
         self._learning_rate = learning_rate
@@ -239,7 +243,10 @@ class DirectionalClassifier(IClassifier):
             Series of probabilities in [0, 1].
         """
         if not self._fitted or self._model is None:
-            raise RuntimeError("DirectionalClassifier.predict_proba() called before fit()")
+            raise RuntimeError(
+                "DirectionalClassifier.predict_proba() called before fit(); fix "
+                "by calling classifier.fit(train_data, target) first (or load())."
+            )
 
         proba = self._model.predict_proba(data[self._feature_columns])
         return pd.Series(proba[:, 1], index=data.index, name="up_prob")
@@ -254,7 +261,10 @@ class DirectionalClassifier(IClassifier):
             Series of binary predictions.
         """
         if not self._fitted or self._model is None:
-            raise RuntimeError("DirectionalClassifier.predict() called before fit()")
+            raise RuntimeError(
+                "DirectionalClassifier.predict() called before fit(); fix by "
+                "calling classifier.fit(train_data, target) first (or load())."
+            )
 
         preds = self._model.predict(data[self._feature_columns])
         return pd.Series(preds, index=data.index, name="direction")

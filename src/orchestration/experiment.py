@@ -219,7 +219,7 @@ class Experiment:
         if len(dev) == 0:
             raise ValueError(
                 "Experiment.run(): dev slice is empty after holdout reservation; "
-                "reduce validation.holdout_pct or widen data.start/end."
+                "fix by reducing validation.holdout_pct or widening data.start/end."
             )
 
         data_hash = fingerprint_bars(bars_full)
