@@ -35,6 +35,7 @@ dev = [
     "pandas-stubs",
     "types-PyYAML",
     "types-psutil",
+    "types-tqdm",
     "pybind11-stubgen",
     "ruff>=0.3",
 ]

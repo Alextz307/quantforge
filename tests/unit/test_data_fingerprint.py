@@ -28,7 +28,7 @@ class TestFingerprintSensitivity:
     def test_single_tick_mutation_changes_hash(self) -> None:
         a = make_synthetic_ohlcv_df()
         b = a.copy()
-        closes = np.asarray(b["close"], dtype=np.float64)
+        closes = np.array(b["close"], dtype=np.float64)
         closes[50] += 1e-6
         b["close"] = closes
         assert fingerprint_bars(a) != fingerprint_bars(b)

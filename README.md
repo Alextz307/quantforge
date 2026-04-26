@@ -8,9 +8,9 @@ A thesis-grade, bifurcated C++/Python quantitative trading framework with strict
 
 ```mermaid
 graph TB
-    subgraph py["Python orchestration (~40%)"]
+    subgraph py["Python orchestration"]
         direction TB
-        data["Data layer<br/>yfinance · CSV · cache"]
+        data["Data layer<br/>yfinance · CSV · parquet · cache"]
         feat["FeatureEngineeringPipeline<br/>(RSI + MACD delegate to C++)"]
         leaf["Leaf models<br/>GARCH · ARMA · LSTM · XGBoost<br/>(GARCH inference uses C++ filter)"]
         hyb["Hybrid models<br/>GARCH+LSTM · ARMA+LSTM"]
@@ -30,7 +30,7 @@ graph TB
         numpy["numpy ↔ std::span · zero-copy<br/>GIL released on every compute call"]
     end
 
-    subgraph cpp["C++ engine (~60%)"]
+    subgraph cpp["C++ engine"]
         direction TB
         indicators["Indicators<br/>RSI · MACD · Bollinger"]
         voles["Volatility estimators<br/>Garman-Klass · Parkinson"]
@@ -404,11 +404,12 @@ mypy.ini                 Strict settings + per-module ignore_missing_imports
 
 ### Subsystem navigation
 
-Each Python subsystem ships its own `README.md` — purpose, public surface,
+Each subsystem ships its own `README.md` — purpose, public surface,
 layout table, one runnable snippet, and cross-links. Use these as
 navigation aids; function signatures and detailed docstrings live in the
 code.
 
+- [`cpp/`](cpp/README.md) — C++20 engine: indicators, filters, state machines, backtest engine, metrics, pybind11 module.
 - [`src/orchestration/`](src/orchestration/README.md) — config → wired experiment, walk-forward driver, comparison + regime + holdout pipelines.
 - [`src/strategies/`](src/strategies/README.md) — `IStrategy` + the five concrete strategies (incl. pairs).
 - [`src/engine/`](src/engine/README.md) — `CppBacktestEngine` adapter + walk-forward orchestrator (single-leg / pairs dispatch).
