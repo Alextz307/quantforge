@@ -26,7 +26,7 @@ import pytest
 from src.core.exceptions import LeakageError
 from src.core.temporal import TrackedMetadata, TrainingMetadata
 from src.core.types import Interval
-from src.engine.walk_forward import _validate_deep_metadata
+from src.engine.walk_forward import validate_deep_metadata
 from src.strategies.adaptive_bollinger import AdaptiveBollingerStrategy
 from src.strategies.pairs_trading import PairsTradingStrategy
 from tests.conftest import make_synthetic_close_df
@@ -81,7 +81,7 @@ class TestAdaptiveBollingerOverride:
 
 
 class TestWalkForwardDeepCheck:
-    """_validate_deep_metadata is the shared codepath invoked inside the fold loop."""
+    """validate_deep_metadata is the shared codepath invoked inside the fold loop."""
 
     def test_passes_when_eval_is_after_training(
         self,
@@ -95,7 +95,7 @@ class TestWalkForwardDeepCheck:
             garch_q_max=_COMPACT_GARCH_Q,
         )
         s.train(train_df)
-        _validate_deep_metadata(s, train_data=train_df, test_data=eval_df)
+        validate_deep_metadata(s, train_data=train_df, test_data=eval_df)
 
     def test_leaf_drift_raises_with_origin_in_message(
         self,
@@ -127,7 +127,7 @@ class TestWalkForwardDeepCheck:
         s._garch._training_metadata = drifted
 
         with pytest.raises(LeakageError, match="AdaptiveBollingerStrategy.garch:"):
-            _validate_deep_metadata(s, train_data=train_df, test_data=eval_df)
+            validate_deep_metadata(s, train_data=train_df, test_data=eval_df)
 
     def test_none_component_is_logged_and_skipped(
         self,
@@ -159,7 +159,7 @@ class TestWalkForwardDeepCheck:
 
         stub = _StubStrategy()
         with caplog.at_level(logging.WARNING):
-            _validate_deep_metadata(stub, train_data=train_df, test_data=eval_df)  # type: ignore[arg-type]
+            validate_deep_metadata(stub, train_data=train_df, test_data=eval_df)  # type: ignore[arg-type]
         assert any("strategy" in r.message for r in caplog.records)
 
     def test_all_none_raises_runtime_error(
@@ -175,7 +175,7 @@ class TestWalkForwardDeepCheck:
 
         stub = _StubStrategy()
         with pytest.raises(RuntimeError, match="returned no populated metadata"):
-            _validate_deep_metadata(stub, train_data=eval_df, test_data=eval_df)  # type: ignore[arg-type]
+            validate_deep_metadata(stub, train_data=eval_df, test_data=eval_df)  # type: ignore[arg-type]
 
 
 class TestStrictNoOverlapForPretrainedLeaves:
@@ -236,7 +236,7 @@ class TestStrictNoOverlapForPretrainedLeaves:
         leaf_end_inside_train = pd.Timestamp(train_df.index[len(train_df) // 2])
         strategy = self._make_strategy(leaf_train_end=leaf_end_inside_train, is_pretrained=True)
         with pytest.raises(LeakageError, match="overlaps fold train window"):
-            _validate_deep_metadata(strategy, train_data=train_df, test_data=eval_df)  # type: ignore[arg-type]
+            validate_deep_metadata(strategy, train_data=train_df, test_data=eval_df)  # type: ignore[arg-type]
 
     def test_fresh_leaf_on_same_window_is_fine(
         self,
@@ -250,7 +250,7 @@ class TestStrictNoOverlapForPretrainedLeaves:
         """
         leaf_end_inside_train = pd.Timestamp(train_df.index[len(train_df) // 2])
         strategy = self._make_strategy(leaf_train_end=leaf_end_inside_train, is_pretrained=False)
-        _validate_deep_metadata(strategy, train_data=train_df, test_data=eval_df)  # type: ignore[arg-type]
+        validate_deep_metadata(strategy, train_data=train_df, test_data=eval_df)  # type: ignore[arg-type]
 
     def test_pretrained_leaf_strictly_before_fold_passes(
         self,
@@ -261,4 +261,4 @@ class TestStrictNoOverlapForPretrainedLeaves:
         train_start satisfies both invariants."""
         earlier = pd.Timestamp(train_df.index[0]) - pd.Timedelta(days=30)
         strategy = self._make_strategy(leaf_train_end=earlier, is_pretrained=True)
-        _validate_deep_metadata(strategy, train_data=train_df, test_data=eval_df)  # type: ignore[arg-type]
+        validate_deep_metadata(strategy, train_data=train_df, test_data=eval_df)  # type: ignore[arg-type]

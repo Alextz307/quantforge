@@ -15,7 +15,7 @@ hundreds of bars before any downstream assertion trips.
 
 Temporal invariants (leaf.train_end < fold.train_start strict, leaf.
 train_end < fold.test_start always) live in
-:func:`src.engine.walk_forward._validate_deep_metadata` — they're
+:func:`src.engine.walk_forward.validate_deep_metadata` — they're
 enforced per fold, not at injection time, and use the
 ``TrackedMetadata.is_pretrained`` flag to distinguish a pinned leaf from
 the strategy's fresh per-fold fit.
@@ -117,7 +117,7 @@ def validate_pretrained_leaf(
 
     * Temporal no-overlap (leaf.train_end < fold.train_start /
       fold.test_start). Those are per-fold invariants — the walk-forward
-      orchestrator enforces them via ``_validate_deep_metadata`` using
+      orchestrator enforces them via ``validate_deep_metadata`` using
       the ``TrackedMetadata.is_pretrained`` flag. Checking at injection
       time would reject legitimate cases where the user hasn't yet
       decided which folds to run.

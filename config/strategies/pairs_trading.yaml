@@ -4,7 +4,7 @@
 #   python -m scripts.experiment run --config config/strategies/pairs_trading.yaml
 #
 # How the pieces fit together:
-# * ``data.tickers`` lists exactly two symbols. ``_fetch_bars`` inner-joins
+# * ``data.tickers`` lists exactly two symbols. ``fetch_bars`` inner-joins
 #   the two leg fetches and re-suffixes columns to ``open_a / close_a /
 #   ... / volume_b`` — the wide format the C++ pairs engine consumes.
 # * The strategy reads ``close_a`` and ``close_b`` for cointegration and

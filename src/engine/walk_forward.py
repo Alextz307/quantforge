@@ -62,7 +62,7 @@ _LEG_A_RENAME: dict[str, str] = {f"{c}{PAIRS_LEG_SUFFIXES[0]}": c for c in OHLCV
 _LEG_B_RENAME: dict[str, str] = {f"{c}{PAIRS_LEG_SUFFIXES[1]}": c for c in OHLCV_COLUMNS}
 
 
-def _split_pairs_frame(bars: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
+def split_pairs_frame(bars: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Split a wide-format pairs frame into two single-leg OHLCV frames."""
     missing_a = [c for c in _LEG_A_RENAME if c not in bars.columns]
     missing_b = [c for c in _LEG_B_RENAME if c not in bars.columns]
@@ -78,7 +78,7 @@ def _split_pairs_frame(bars: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
     return bars_a, bars_b
 
 
-def _validate_deep_metadata(
+def validate_deep_metadata(
     strategy: IStrategy,
     *,
     train_data: pd.DataFrame,
@@ -233,11 +233,11 @@ def evaluate_walk_forward(
         else:
             fold_ckpt = None
         strategy.train(train_frame, checkpoint_path=fold_ckpt)
-        _validate_deep_metadata(strategy, train_data=train_frame, test_data=test_frame)
+        validate_deep_metadata(strategy, train_data=train_frame, test_data=test_frame)
 
         signals = strategy.generate_signals(test_frame)
         if strategy.is_pairs_strategy:
-            bars_a, bars_b = _split_pairs_frame(fold.test)
+            bars_a, bars_b = split_pairs_frame(fold.test)
             raw = engine.run_pairs(bars_a, bars_b, signals, strategy.hedge_ratio, slippage)
         else:
             raw = engine.run(fold.test, signals, slippage)

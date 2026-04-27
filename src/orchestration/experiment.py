@@ -83,7 +83,7 @@ def _make_experiment_id(strategy_name: str, created_at: datetime, git_sha: str) 
     return f"{ts}_{strategy_name}_{git_sha}_{suffix}"
 
 
-def _fetch_bars(data_source: IDataSource, cfg: ExperimentConfig) -> pd.DataFrame:
+def fetch_bars(data_source: IDataSource, cfg: ExperimentConfig) -> pd.DataFrame:
     """Fetch OHLCV bars for a 1-ticker (single-asset) or 2-ticker (pairs) run.
 
     Two-ticker mode inner-joins on shared timestamps and suffixes the OHLCV
@@ -232,7 +232,7 @@ class Experiment:
 
         seed_all(self.config.seed)
 
-        bars_full = _fetch_bars(self.data_source, self.config)
+        bars_full = fetch_bars(self.data_source, self.config)
         boundary = resolve_holdout_boundary(
             bars_full,
             holdout_pct=self.config.validation.holdout_pct,

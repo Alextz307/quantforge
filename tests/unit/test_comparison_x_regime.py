@@ -17,6 +17,7 @@ import pytest
 
 from src.analysis.metrics_aggregator import aggregate_folds
 from src.core.config import ExperimentConfig
+from src.core.exceptions import LeakageError
 from src.core.regime_config import RegimeConfig
 from src.data.fingerprint import fingerprint_bars
 from src.orchestration import comparison as comparison_mod
@@ -319,7 +320,7 @@ class TestDataHashGuard:
 
         monkeypatch.setattr(comparison_mod, "build_experiment", _fake_build_with_drift)
 
-        with pytest.raises(ValueError, match="data_hash drift"):
+        with pytest.raises(LeakageError, match="data_hash drift"):
             run_comparison(
                 _make_fake_configs("Alpha", "Bravo"),
                 out_name="drift",

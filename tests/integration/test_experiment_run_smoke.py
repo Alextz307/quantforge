@@ -11,11 +11,9 @@ The gated convention matches ``tests/integration/test_benchmark_cli_smoke``.
 from __future__ import annotations
 
 import os
-from datetime import datetime
 from pathlib import Path
 
 import pytest
-import yaml
 from click.testing import CliRunner
 
 from scripts.experiment import cli
@@ -26,14 +24,7 @@ from src.core.persistence import (
     EXPERIMENT_STRATEGY_SUBDIR,
     FOLD_RESULTS_JSONL,
 )
-from tests.conftest import make_synthetic_ohlcv_df
-
-_TICKER = "MINI"
-_N_ROWS = 300
-_N_SPLITS = 2
-_TEST_SIZE = 60
-_GAP = 1
-_HOLDOUT_PCT = 0.15
+from tests.conftest import make_mini_experiment_fixture
 
 pytestmark = pytest.mark.skipif(
     os.environ.get("RUN_EXP_SMOKE") != "1",
@@ -43,44 +34,8 @@ pytestmark = pytest.mark.skipif(
 
 @pytest.fixture
 def mini_experiment_fixture(tmp_path: Path) -> Path:
-    """Write the synthetic CSV + the YAML config into ``tmp_path`` and return the YAML path."""
-    csv_dir = tmp_path / "csv_data"
-    csv_dir.mkdir()
-    df = make_synthetic_ohlcv_df(n_rows=_N_ROWS, start="2020-01-02")
-    df.index.name = "date"
-    df.to_csv(csv_dir / f"{_TICKER}.csv")
-
-    cfg_payload = {
-        "name": "mini_smoke",
-        "seed": 42,
-        "data": {
-            "source": {"name": "csv", "params": {"data_dir": str(csv_dir)}},
-            "tickers": [_TICKER],
-            "start": datetime(2020, 1, 2).isoformat(),
-            "end": datetime(2022, 1, 1).isoformat(),
-            "interval": "daily",
-        },
-        "strategy": {
-            "name": "AdaptiveBollinger",
-            "params": {
-                "window": 20,
-                "trend_window": 50,
-                "garch_p_max": 1,
-                "garch_q_max": 1,
-            },
-        },
-        "validation": {
-            "n_splits": _N_SPLITS,
-            "test_size": _TEST_SIZE,
-            "gap": _GAP,
-            "holdout_pct": _HOLDOUT_PCT,
-        },
-        "slippage": {"scenario": "normal"},
-    }
-    yaml_path = tmp_path / "mini_experiment.yaml"
-    with yaml_path.open("w") as f:
-        yaml.safe_dump(cfg_payload, f)
-    return yaml_path
+    """Wrap the shared fixture factory at its baseline (15% holdout)."""
+    return make_mini_experiment_fixture(tmp_path)
 
 
 def test_cli_run_produces_full_artifact_tree(

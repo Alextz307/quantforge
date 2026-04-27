@@ -41,6 +41,12 @@ _logger = get_logger(__name__)
 # here alongside the code that writes them.
 BEST_CONFIG_YAML_NAME = "best_config.yaml"
 TRIALS_JSONL_NAME = "trials.jsonl"
+# Per-trial ``Experiment.run()`` outputs land under
+# ``<study_dir>/TRIAL_ARTIFACTS_SUBDIR/runs/<experiment_id>/``. Shared
+# between the tuner (which writes there) and holdout-eval (which reads
+# any trial's manifest to anchor the dev/holdout boundary), so a future
+# rename touches one constant.
+TRIAL_ARTIFACTS_SUBDIR = "trials_artifacts"
 
 
 @dataclass

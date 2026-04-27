@@ -16,6 +16,10 @@ Subcommands:
 * ``regime``       Re-analyse a persisted run by regime (period, trend,
                    volatility) and write a report bundle to
                    ``experiment_results/regime_reports/<out_name>/``.
+* ``holdout-eval`` Take a completed run or HPO study, refit the strategy
+                   on the full dev region, and evaluate once on the
+                   reserved holdout window. Writes the honest OOS bundle
+                   to ``experiment_results/holdout_evals/<out_name>/``.
 
 The CLI deliberately mirrors ``scripts/benchmark.py`` (same ``click.group`` +
 ``--store-root`` convention + ``ClickException`` wrapping of runtime errors)
@@ -43,6 +47,7 @@ from src.core.hpo_config import HPOConfig, load_hpo_config
 from src.core.logging import get_logger
 from src.core.persistence import (
     COMPARISONS_SUBDIR,
+    HOLDOUT_EVALS_SUBDIR,
     HPO_SUBDIR,
     METADATA_JSON,
     MODEL_ARTIFACT_MANIFEST_JSON,
@@ -54,6 +59,7 @@ from src.core.regime_config import load_regime_config
 from src.orchestration.builder import build_experiment
 from src.orchestration.comparison import SignificanceTest, run_comparison
 from src.orchestration.experiment import RunOptions
+from src.orchestration.holdout_eval import resolve_source, run_holdout_eval
 from src.orchestration.model_artifact import ModelArtifactManifest, save_model_artifact
 from src.orchestration.regime_run import resolve_run_dir, run_regime_report
 from src.orchestration.standalone_training import train_model_standalone
@@ -617,6 +623,107 @@ def regime_cmd(
     click.echo(f"regimes:   {', '.join(report.per_regime_stats.keys()) or '(none)'}")
     if report.mixed_fold_indices:
         click.echo(f"mixed:     {len(report.mixed_fold_indices)} fold(s)")
+
+
+@cli.command("holdout-eval")
+@click.option(
+    "--run-dir",
+    "run_dir",
+    default=None,
+    type=click.Path(exists=True, file_okay=False, path_type=Path),
+    help=(
+        "Source: a completed `experiment run` directory (must contain "
+        "config.yaml + manifest.json with a non-null holdout_start). "
+        "Mutually exclusive with --hpo-best."
+    ),
+)
+@click.option(
+    "--hpo-best",
+    "hpo_dir",
+    default=None,
+    type=click.Path(exists=True, file_okay=False, path_type=Path),
+    help=(
+        "Source: a completed `experiment tune` study directory (must "
+        "contain best_config.yaml + at least one trial under "
+        "trials_artifacts/runs/). Mutually exclusive with --run-dir."
+    ),
+)
+@click.option(
+    "--out-name",
+    default=None,
+    help=(
+        "Directory name under <store-root>/holdout_evals/ for the bundle. "
+        "Defaults to the source's basename (run id or study name)."
+    ),
+)
+@click.option(
+    "--store-root",
+    default=str(DEFAULT_STORE_ROOT),
+    type=click.Path(file_okay=False, path_type=Path),
+    help="Override the experiment_results/ directory.",
+)
+@click.option(
+    "--report/--no-report",
+    "write_report",
+    default=True,
+    help="Write the holdout-metrics LaTeX table and the holdout-equity plot.",
+)
+def holdout_eval_cmd(
+    run_dir: Path | None,
+    hpo_dir: Path | None,
+    out_name: str | None,
+    store_root: Path,
+    write_report: bool,
+) -> None:
+    """Refit on full dev, evaluate once on the reserved holdout — honest OOS.
+
+    The source's manifest.json is the source of truth for the dev/holdout
+    boundary timestamp and the data fingerprint; the command refuses on
+    any drift. The strategy is refit from scratch on the FULL dev region
+    (not reused from the source's last-fold state) so the OOS number
+    reflects the strongest honest fit the framework can produce.
+    """
+    if (run_dir is None) == (hpo_dir is None):
+        raise click.ClickException(
+            "holdout-eval requires exactly one of --run-dir / --hpo-best; pass exactly one source."
+        )
+
+    try:
+        source = resolve_source(run_dir=run_dir, hpo_dir=hpo_dir)
+    except (FileNotFoundError, ValueError) as e:
+        raise click.ClickException(f"failed to resolve source: {e}") from e
+
+    resolved_out_name = out_name if out_name is not None else source.source_id
+    click.echo(
+        f"holdout-eval: source={source.kind} '{source.source_id}' "
+        f"-> out_name='{resolved_out_name}' ..."
+    )
+    try:
+        result, out_dir = run_holdout_eval(
+            source=source,
+            out_name=resolved_out_name,
+            store_root=store_root,
+        )
+    except LeakageError as e:
+        raise click.ClickException(f"leakage tripwire fired: {e}") from e
+    except (FileNotFoundError, ValidationError, NotImplementedError, ValueError, RuntimeError) as e:
+        raise click.ClickException(f"holdout-eval failed: {e}") from e
+
+    if write_report:
+        # Lazy: matplotlib's cold import is ~4s; --no-report skips it.
+        from src.visualization.holdout_eval_reporter import HoldoutEvalReporter
+
+        HoldoutEvalReporter().generate_full_report(result, out_dir)
+
+    artifact_dir = store_root / HOLDOUT_EVALS_SUBDIR / resolved_out_name
+    click.echo(f"out_name:        {result.out_name}")
+    click.echo(f"artifacts:       {artifact_dir}")
+    click.echo(f"holdout_start:   {result.holdout_start.isoformat()}")
+    click.echo(f"dev_bars:        {result.n_dev_bars}")
+    click.echo(f"holdout_bars:    {result.n_holdout_bars}")
+    click.echo(f"sharpe:          {result.sharpe_ratio:+.4f}")
+    click.echo(f"total_return:    {result.total_return:+.4f}")
+    click.echo(f"max_drawdown:    {result.max_drawdown:+.4f}")
 
 
 def _apply_hpo_overrides(cfg: HPOConfig, *, n_trials: int | None, n_jobs: int | None) -> HPOConfig:

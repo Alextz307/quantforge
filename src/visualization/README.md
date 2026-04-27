@@ -1,6 +1,6 @@
 # `src/visualization/`
 
-Thesis-ready report renderers. Four sibling reporters consume the
+Thesis-ready report renderers. Five sibling reporters consume the
 in-memory result types from `src/orchestration/types.py` and emit
 PNG + SVG plots plus booktabs LaTeX tables under each report's
 `plots/` and `tables/` subdirectories.
@@ -13,6 +13,7 @@ PNG + SVG plots plus booktabs LaTeX tables under each report's
 | `ComparisonReporter.generate_full_report(report, folds_by_strategy, out_dir)` | Cross-strategy artefacts: ranking LaTeX, pairwise-significance LaTeX, equity overlay normalised at 1.0, optional strategy × regime heatmap + LaTeX table when `report.per_strategy_per_regime_stats` is populated, comparison `manifest.json`. |
 | `RegimeReporter.generate_full_report(report, out_dir)` | Per-regime artefacts: regime summary LaTeX, regime × metric heatmap, regime timeline tape, regime `manifest.json`. |
 | `HPOReporter.generate_full_report(study, out_dir)` | Optuna-study artefacts: convergence curve, parameter-importance bars, top-trials LaTeX. |
+| `HoldoutEvalReporter.generate_full_report(result, out_dir)` | One-shot holdout-eval artefacts: holdout-metrics LaTeX (two-column metric · value), normalised holdout-equity curve. |
 | `build_booktabs_table(df, *, caption, label, ...)` / `write_booktabs_table` | Single LaTeX styling entry point — every reporter routes through here. |
 | `save_png_and_svg(fig, png_path)` | PNG + SVG twin-write helper; pinned `FIGURE_WIDTH_IN`, `FIGURE_HEIGHT_IN`, `FIGURE_DPI`. |
 | `PLOTS_SUBDIR`, `TABLES_SUBDIR`, `MANIFEST_FILENAME` | Shared on-disk layout constants. |
@@ -27,6 +28,7 @@ PNG + SVG plots plus booktabs LaTeX tables under each report's
 | `comparison_reporter.py` | `ComparisonReporter` (multi-strategy ranking + significance). |
 | `regime_reporter.py` | `RegimeReporter` (per-regime aggregation + timeline). |
 | `hpo_reporter.py` | `HPOReporter` (Optuna study convergence + importance + top trials). |
+| `holdout_eval_reporter.py` | `HoldoutEvalReporter` (one-shot holdout-eval table + equity plot). |
 
 ## Conventions enforced here
 

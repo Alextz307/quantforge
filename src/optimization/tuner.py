@@ -55,6 +55,7 @@ from src.core.logging import get_logger
 from src.core.persistence import HPO_SUBDIR
 from src.optimization.checkpointing import (
     BEST_CONFIG_YAML_NAME,
+    TRIAL_ARTIFACTS_SUBDIR,
     TRIALS_JSONL_NAME,
     TrialCallback,
 )
@@ -71,7 +72,6 @@ if TYPE_CHECKING:
 _logger = get_logger(__name__)
 
 _DEFAULT_STORE_ROOT = Path("experiment_results")
-_TRIAL_ARTIFACTS_SUBDIR = "trials_artifacts"
 _STUDY_DB_FILENAME = "optuna_study.db"
 EXPERIMENT_CONFIG_YAML = "experiment_config.yaml"
 HPO_CONFIG_YAML = "hpo_config.yaml"
@@ -176,7 +176,7 @@ class StrategyTuner:
         experiment = build_experiment(trial_cfg)
         result: ExperimentResult = experiment.run(
             RunOptions(
-                store_root=self.study_dir / _TRIAL_ARTIFACTS_SUBDIR,
+                store_root=self.study_dir / TRIAL_ARTIFACTS_SUBDIR,
                 write_report=False,
             )
         )

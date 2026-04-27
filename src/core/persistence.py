@@ -91,6 +91,18 @@ MODELS_SUBDIR = "models"
 HPO_SUBDIR = "hpo"
 COMPARISONS_SUBDIR = "comparisons"
 REGIME_REPORTS_SUBDIR = "regime_reports"
+HOLDOUT_EVALS_SUBDIR = "holdout_evals"
+
+# Holdout-eval bundle filenames under ``<store>/holdout_evals/<out_name>/``.
+# The bundle deliberately does NOT write a typed ``Manifest`` — the
+# convention is that only commands which CREATE an experiment write a
+# manifest (run / tune). Holdout-eval is a post-hoc evaluation that
+# REFERENCES the source run's manifest; its own provenance lands in the
+# self-describing ``holdout_eval.json`` payload below (carries the source
+# run id, kind, boundary, data hash, slippage, metrics, and the
+# ``is_holdout_eval: true`` marker so this artifact can never be confused
+# for a normal run by automated tooling).
+HOLDOUT_EVAL_JSON = "holdout_eval.json"
 
 
 def ensure_model_dir(path: str | Path) -> Path:
@@ -174,6 +186,27 @@ def write_experiment_manifest(path: str | Path, manifest: Manifest) -> None:
             f"create it via ensure_model_dir() before writing the manifest."
         )
     json_io.write(p / EXPERIMENT_MANIFEST_JSON, manifest.to_dict())
+
+
+def read_experiment_manifest(path: str | Path) -> Manifest:
+    """Read ``<path>/manifest.json`` and reconstruct a typed :class:`Manifest`.
+
+    Companion to :func:`write_experiment_manifest`. ``path`` is the run
+    directory (not the JSON file itself), mirroring the writer's contract.
+    Raises :class:`FileNotFoundError` if the manifest is missing — partial
+    run dirs (mid-crash) shouldn't be silently treated as analysable.
+    """
+    from src.orchestration.manifest import Manifest as _Manifest
+
+    p = Path(path)
+    manifest_path = p / EXPERIMENT_MANIFEST_JSON
+    if not manifest_path.is_file():
+        raise FileNotFoundError(
+            f"manifest not found at {manifest_path}; the source directory "
+            f"may be incomplete — re-run the source experiment or pass a "
+            f"different path."
+        )
+    return _Manifest.from_dict(json_io.read_dict(manifest_path))
 
 
 def save_model_skeleton(

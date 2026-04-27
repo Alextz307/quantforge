@@ -33,7 +33,7 @@ from src.core.persistence import (
 )
 from src.core.regime_config import RegimeConfig
 from src.core.registry import data_source_registry
-from src.data.fingerprint import fingerprint_bars
+from src.data.fingerprint import assert_data_hash_matches, fingerprint_bars
 from src.data.interface import IDataSource
 from src.orchestration.git_info import read_git_sha
 from src.orchestration.manifest import Manifest
@@ -137,15 +137,7 @@ def run_regime_report(
     )
 
     refetched_hash = fingerprint_bars(bars)
-    if refetched_hash != run.manifest.data_hash:
-        raise ValueError(
-            f"data_hash drift detected: manifest recorded "
-            f"{run.manifest.data_hash[:12]}..., re-fetched "
-            f"{refetched_hash[:12]}...; a regime split on drifted data "
-            f"would not match the original walk-forward windows. Fix by "
-            f"using the same data source / cache as the original run, "
-            f"or re-run the experiment so the manifest reflects the new bars."
-        )
+    assert_data_hash_matches(refetched_hash, run.manifest.data_hash, context="regime tagging")
 
     detector = regime_registry.create_from_config(regime_cfg.detector)
     split = split_folds_by_regime(run.folds, detector, bars)

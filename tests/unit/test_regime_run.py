@@ -23,6 +23,7 @@ from src.core.config import (
     ValidationConfig,
     write_frozen_yaml,
 )
+from src.core.exceptions import LeakageError
 from src.core.persistence import (
     EXPERIMENT_CONFIG_YAML,
     EXPERIMENT_MANIFEST_JSON,
@@ -205,7 +206,7 @@ def test_run_regime_report_data_hash_drift_raises(tmp_path: Path) -> None:
     df.to_csv(csv_path)
 
     regime_cfg = RegimeConfig.model_validate({"detector": "trend"})
-    with pytest.raises(ValueError, match="data_hash drift"):
+    with pytest.raises(LeakageError, match="data_hash drift"):
         run_regime_report(
             run_dir=run_dir,
             regime_cfg=regime_cfg,

@@ -20,7 +20,7 @@ and metrics into per-fold results.
 | --- | --- |
 | `interface.py` | `IBacktestEngine` ABC. |
 | `cpp_engine.py` | Numpy marshalling + `_validate_bars_columns` / `_bars_to_ohlcv_arrays` helpers; `run` / `run_scenarios` / `run_pairs`. |
-| `walk_forward.py` | `evaluate_walk_forward` + `_validate_deep_metadata` (composite leaf-aware) + `_split_pairs_frame` (wide → two single-leg frames via `PAIRS_LEG_SUFFIXES`). |
+| `walk_forward.py` | `evaluate_walk_forward` + `validate_deep_metadata` (composite leaf-aware) + `split_pairs_frame` (wide → two single-leg frames via `PAIRS_LEG_SUFFIXES`). |
 | `scenarios.py` | The four named slippage scenarios. |
 
 ## Single-leg vs pairs dispatch
@@ -29,7 +29,7 @@ and metrics into per-fold results.
 
 - **Single-leg** — calls `engine.run(fold.test, signals, slippage)`.
 - **Pairs** — splits the wide-format frame on `_a` / `_b` suffixes via
-  `_split_pairs_frame`, then calls
+  `split_pairs_frame`, then calls
   `engine.run_pairs(bars_a, bars_b, signals, strategy.hedge_ratio, slippage)`.
   Leg B's leverage is `-hedge_ratio * signals[t]`; cash is shared,
   fills happen per leg.

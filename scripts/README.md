@@ -8,7 +8,7 @@ pyproject, leaf-keys vs. strategy ctors).
 
 | Script | Role |
 | --- | --- |
-| `experiment.py` (`make experiment`) | Click group with `run`, `train-model`, `list-models`, `tune`, `compare`, `regime` subcommands. Drives the orchestration layer end to end. |
+| `experiment.py` (`make experiment`) | Click group with `run`, `train-model`, `list-models`, `tune`, `compare`, `regime`, `holdout-eval` subcommands. Drives the orchestration layer end to end. |
 | `benchmark.py` (`make bench`) | Click group with `run`, `compare`, `latex`, `history`, `show-baseline` over `BenchmarkRunner` / `BenchmarkStore`. |
 | `check_ci_deps.py` | Drift guard: every runtime dep in `pyproject.toml` appears in CI's `python-test` pip install line; every `types-*` / `*-stubs` dev dep appears in CI's `lint-and-typecheck` pip install line. Runs in CI as an early lint step. |
 | `check_leaf_keys_consistent.py` | Drift guard: `_LEAF_KEY_OWNED_PARAMS` (config layer) vs. each strategy's `_leaf_keys` (ctor layer). |
@@ -18,7 +18,7 @@ pyproject, leaf-keys vs. strategy ctors).
 
 | File | Role |
 | --- | --- |
-| `experiment.py` | `experiment run / train-model / list-models / tune / compare / regime`. |
+| `experiment.py` | `experiment run / train-model / list-models / tune / compare / regime / holdout-eval`. |
 | `benchmark.py` | `benchmark run / compare / latex / history / show-baseline`. |
 | `check_ci_deps.py` | Stdlib-only (no PyYAML) so it runs in CI before deps install. |
 | `check_leaf_keys_consistent.py` | Imports `src.strategies` so the registry is populated. |
@@ -34,6 +34,7 @@ pyproject, leaf-keys vs. strategy ctors).
 | `tune --config <exp.yaml> --hpo-config <hpo.yaml>` | `experiment_results/hpo/<study>/` | Optuna study via `StrategyTuner`; resumable. |
 | `compare --config <yaml> ... --out <name> [--regime-config <yaml>]` | `experiment_results/comparisons/<out>/` | N strategies on aligned data, ranked + pairwise-bootstrapped. With `--regime-config` the report also contains a strategy × regime heatmap + LaTeX table; every config must declare an identical `data` block. |
 | `regime --exp-id <id> --regime-config <yaml> --out <name>` | `experiment_results/regime_reports/<out>/` | Re-tag a persisted run by regime detector + emit per-regime stats. |
+| `holdout-eval --run-dir <path> \| --hpo-best <path>` | `experiment_results/holdout_evals/<out>/` | Refit on full dev, evaluate once on the reserved holdout — the honest one-shot OOS number. Sources are mutually exclusive; manifest cross-checks `holdout_start` + `data_hash` before fitting. |
 
 Multi-ticker pairs configs route through `experiment run` with no
 special flag — the builder dispatches on the strategy class's
@@ -71,7 +72,8 @@ make experiment ARGS="compare \
 
 - `experiment.py` is a thin click wrapper over
   `src/orchestration/builder.py`, `src/orchestration/comparison.py`,
-  `src/orchestration/regime_run.py`, and
+  `src/orchestration/regime_run.py`,
+  `src/orchestration/holdout_eval.py`, and
   `src/orchestration/standalone_training.py`.
 - `benchmark.py` wraps `src/benchmarking/`.
 - The Makefile binds these CLIs to `make experiment` / `make bench` /

@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
 import pytest
+import yaml
 
 from src.analysis.metrics_aggregator import AggregateStats
 from src.benchmarking.types import BenchmarkResult, BenchmarkRun, HardwareInfo
@@ -210,6 +212,76 @@ def make_synthetic_ohlcv_df(
         {"open": open_, "high": high, "low": low, "close": close, "volume": volume},
         index=idx,
     )
+
+
+_MINI_SMOKE_TICKER = "MINI"
+_MINI_SMOKE_DEFAULT_NAME = "mini_smoke"
+_MINI_SMOKE_DEFAULT_ROWS = 300
+_MINI_SMOKE_DEFAULT_HOLDOUT_PCT = 0.15
+_MINI_SMOKE_DEFAULT_N_SPLITS = 2
+_MINI_SMOKE_DEFAULT_TEST_SIZE = 60
+_MINI_SMOKE_DEFAULT_GAP = 1
+_MINI_SMOKE_DEFAULT_SEED = 42
+_MINI_SMOKE_START_DATE = "2020-01-02"
+
+
+def make_mini_experiment_fixture(
+    tmp_path: Path,
+    *,
+    name: str = _MINI_SMOKE_DEFAULT_NAME,
+    holdout_pct: float = _MINI_SMOKE_DEFAULT_HOLDOUT_PCT,
+    n_rows: int = _MINI_SMOKE_DEFAULT_ROWS,
+    n_splits: int = _MINI_SMOKE_DEFAULT_N_SPLITS,
+    test_size: int = _MINI_SMOKE_DEFAULT_TEST_SIZE,
+    gap: int = _MINI_SMOKE_DEFAULT_GAP,
+) -> Path:
+    """Write the canonical synthetic OHLCV CSV + AdaptiveBollinger YAML for CLI smoke tests.
+
+    Returns the YAML path. The CSV lives at ``<tmp_path>/csv_data/MINI.csv``
+    and is regenerated per call (no caching — pytest's ``tmp_path`` is
+    already per-test). Every CLI smoke test (``run``, ``holdout-eval``,
+    future ``compare`` / ``study``) needs the same skeleton — only
+    ``holdout_pct`` and ``name`` typically vary, so the helper takes both
+    as kwargs and otherwise pins to a known-fast AdaptiveBollinger config
+    (``garch_p_max=garch_q_max=1`` so the AIC grid finishes in seconds).
+    """
+    csv_dir = tmp_path / "csv_data"
+    csv_dir.mkdir()
+    df = make_synthetic_ohlcv_df(n_rows=n_rows, start=_MINI_SMOKE_START_DATE)
+    df.index.name = "date"
+    df.to_csv(csv_dir / f"{_MINI_SMOKE_TICKER}.csv")
+
+    cfg_payload: dict[str, object] = {
+        "name": name,
+        "seed": _MINI_SMOKE_DEFAULT_SEED,
+        "data": {
+            "source": {"name": "csv", "params": {"data_dir": str(csv_dir)}},
+            "tickers": [_MINI_SMOKE_TICKER],
+            "start": datetime(2020, 1, 2).isoformat(),
+            "end": datetime(2022, 1, 1).isoformat(),
+            "interval": "daily",
+        },
+        "strategy": {
+            "name": "AdaptiveBollinger",
+            "params": {
+                "window": 20,
+                "trend_window": 50,
+                "garch_p_max": 1,
+                "garch_q_max": 1,
+            },
+        },
+        "validation": {
+            "n_splits": n_splits,
+            "test_size": test_size,
+            "gap": gap,
+            "holdout_pct": holdout_pct,
+        },
+        "slippage": {"scenario": "normal"},
+    }
+    yaml_path = tmp_path / f"{name}.yaml"
+    with yaml_path.open("w") as f:
+        yaml.safe_dump(cfg_payload, f)
+    return yaml_path
 
 
 def make_walk_forward_validator(n_splits: int, test_size: int) -> WalkForwardValidator:

@@ -35,6 +35,7 @@ from src.visualization.plots import (
     FIGURE_WIDTH_IN,
     PLOTS_SUBDIR,
     TABLES_SUBDIR,
+    normalise_to_unit_base,
     save_png_and_svg,
 )
 
@@ -123,7 +124,7 @@ class StrategyReporter:
         fig, ax = plt.subplots(figsize=(FIGURE_WIDTH_IN, FIGURE_HEIGHT_IN), dpi=FIGURE_DPI)
         plotted = 0
         for fold in folds:
-            normalised = _normalise_curve(fold.equity_curve)
+            normalised = normalise_to_unit_base(fold.equity_curve)
             if normalised is None:
                 _logger.warning(
                     "fold %d: equity_curve[0]=%s is non-finite or non-positive — "
@@ -180,17 +181,3 @@ class StrategyReporter:
         save_png_and_svg(fig, out_path)
         plt.close(fig)
         return out_path
-
-
-def _normalise_curve(curve: tuple[float, ...]) -> list[float] | None:
-    """Divide ``curve`` by its first value. Returns ``None`` if the first
-    value is missing, non-finite, or non-positive — cases where naive
-    division would produce a misleading plot (NaN propagation or a
-    sign-inverted series).
-    """
-    if not curve:
-        return None
-    base = curve[0]
-    if not math.isfinite(base) or base <= 0.0:
-        return None
-    return [v / base for v in curve]

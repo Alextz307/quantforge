@@ -27,6 +27,7 @@ import numpy as np
 import pandas as pd
 
 from src.core.constants import OHLCV_COLUMNS, PAIRS_LEG_SUFFIXES
+from src.core.exceptions import LeakageError
 
 
 def _fingerprint(df: pd.DataFrame, value_columns: Sequence[str], func_name: str) -> str:
@@ -74,3 +75,36 @@ def fingerprint_pair_bars(df: pd.DataFrame) -> str:
     suffix_a, suffix_b = PAIRS_LEG_SUFFIXES
     leg_cols = [f"{c}{suffix_a}" for c in OHLCV_COLUMNS] + [f"{c}{suffix_b}" for c in OHLCV_COLUMNS]
     return _fingerprint(df, leg_cols, "fingerprint_pair_bars")
+
+
+def assert_data_hash_matches(
+    actual: str,
+    expected: str,
+    *,
+    context: str,
+) -> None:
+    """Refuse on ``data_hash`` drift between a refetch and the manifest.
+
+    Drifted bars silently slide every temporal boundary downstream
+    (dev/holdout, walk-forward fold edges, regime-tag windows). That's
+    an anti-leakage vector regardless of which consumer reads it next,
+    so we centralise the check + raise here and use :class:`LeakageError`
+    uniformly. ``context`` names the consumer (e.g. ``"regime tagging"``,
+    ``"holdout boundary anchor"``, ``"compare regime overlay for
+    'AdaptiveBollinger'"``) so the raised message identifies which
+    caller fired the tripwire without the caller needing to spell out
+    the consequence each time.
+
+    Callers that need to know the actual hash for a downstream payload
+    compute it once and pass it in; the helper does NOT recompute (the
+    fingerprint is O(N bars) and a comparison loop should pay it once).
+    """
+    if actual != expected:
+        raise LeakageError(
+            f"data_hash drift detected ({context}): manifest recorded "
+            f"{expected[:12]}..., re-fetched {actual[:12]}...; using "
+            f"drifted bars would silently shift temporal boundaries. "
+            f"Fix by using the same data source / cache as the original "
+            f"run, or re-run the source so its manifest reflects the "
+            f"new bars."
+        )

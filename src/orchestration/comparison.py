@@ -56,7 +56,7 @@ from src.core.logging import get_logger
 from src.core.persistence import COMPARISONS_SUBDIR
 from src.core.regime_config import RegimeConfig
 from src.core.registry import data_source_registry
-from src.data.fingerprint import fingerprint_bars
+from src.data.fingerprint import assert_data_hash_matches, fingerprint_bars
 from src.orchestration.builder import build_experiment
 from src.orchestration.experiment import RunOptions
 from src.orchestration.git_info import read_git_sha
@@ -405,15 +405,11 @@ def _compute_regime_overlay(
 
     overlay: dict[str, dict[str, AggregateStats]] = {}
     for name, result in zip(strategy_names, results, strict=True):
-        if refetched_hash != result.manifest.data_hash:
-            raise ValueError(
-                f"data_hash drift detected for strategy '{name}': manifest recorded "
-                f"{result.manifest.data_hash[:12]}..., re-fetched "
-                f"{refetched_hash[:12]}...; regime tagging on drifted bars would not "
-                f"match the original walk-forward windows. Fix by using the same data "
-                f"source / cache as the original runs, or re-run the experiments so "
-                f"every manifest reflects the new bars."
-            )
+        assert_data_hash_matches(
+            refetched_hash,
+            result.manifest.data_hash,
+            context=f"compare regime overlay for strategy '{name}'",
+        )
         overlay[name] = aggregate_split(split_folds_by_tags(result.folds, tagged))
     return overlay
 

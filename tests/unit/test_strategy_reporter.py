@@ -14,7 +14,8 @@ import pytest
 from src.engine.scenarios import SlippageScenario
 from src.orchestration.manifest import Manifest
 from src.orchestration.types import ExperimentResult, FoldRecord
-from src.visualization.strategy_reporter import StrategyReporter, _normalise_curve
+from src.visualization.plots import normalise_to_unit_base
+from src.visualization.strategy_reporter import StrategyReporter
 
 _EXPERIMENT_ID = "20260423_120000_Strat_abc1234_ff000000"
 
@@ -86,23 +87,23 @@ class TestGenerateFullReport:
 
 
 class TestNormaliseCurve:
-    """Pure-logic tests for the ``_normalise_curve`` helper. No matplotlib,
+    """Pure-logic tests for the ``normalise_to_unit_base`` helper. No matplotlib,
     no disk I/O — cheap to run and focused on the predicate that decides
     which folds get plotted vs logged+skipped.
     """
 
     def test_normal_curve_divides_by_first_value(self) -> None:
-        assert _normalise_curve((10_000.0, 10_200.0, 9_900.0)) == [1.0, 1.02, 0.99]
+        assert normalise_to_unit_base((10_000.0, 10_200.0, 9_900.0)) == [1.0, 1.02, 0.99]
 
     def test_empty_curve_returns_none(self) -> None:
-        assert _normalise_curve(()) is None
+        assert normalise_to_unit_base(()) is None
 
     @pytest.mark.parametrize("bad_base", [math.nan, math.inf, -math.inf, 0.0, -1.0, -0.0001])
     def test_non_finite_or_non_positive_base_returns_none(self, bad_base: float) -> None:
         """Every class of degenerate first-value that the integration path
         defensively rejects: NaN (zero-trade fold), ±inf (overflow), zero
         (catastrophic exit at bar 0), negative (debt-at-start)."""
-        assert _normalise_curve((bad_base, 100.0, 200.0)) is None
+        assert normalise_to_unit_base((bad_base, 100.0, 200.0)) is None
 
 
 class TestDegenerateFoldsAreSkippedIntegration:

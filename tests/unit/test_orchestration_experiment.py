@@ -386,10 +386,10 @@ class TestFetchPairBars:
         self,
         pairs_csv_dir: Path,
     ) -> None:
-        """`_fetch_bars` for two tickers returns a wide-format frame."""
+        """`fetch_bars` for two tickers returns a wide-format frame."""
         from src.core.config import ExperimentConfig
         from src.core.registry import data_source_registry
-        from src.orchestration.experiment import _fetch_bars
+        from src.orchestration.experiment import fetch_bars
 
         cfg = ExperimentConfig.model_validate(
             {
@@ -405,7 +405,7 @@ class TestFetchPairBars:
             }
         )
         source = data_source_registry.create_from_config(cfg.data.source)
-        bars = _fetch_bars(source, cfg)
+        bars = fetch_bars(source, cfg)
         for col in (
             "open_a",
             "high_a",
@@ -426,7 +426,7 @@ class TestFetchPairBars:
 class TestWalkForwardPairsSplit:
     def test_split_pairs_frame_extracts_leg_subframes(self) -> None:
         """The wide → two-OHLCV split helper round-trips."""
-        from src.engine.walk_forward import _split_pairs_frame
+        from src.engine.walk_forward import split_pairs_frame
 
         n = 6
         idx = pd.date_range("2024-01-01", periods=n, freq="D")
@@ -445,14 +445,14 @@ class TestWalkForwardPairsSplit:
             },
             index=idx,
         )
-        bars_a, bars_b = _split_pairs_frame(wide)
+        bars_a, bars_b = split_pairs_frame(wide)
         assert list(bars_a.columns) == ["open", "high", "low", "close", "volume"]
         assert list(bars_b.columns) == ["open", "high", "low", "close", "volume"]
         assert (bars_a["close"] == range(n)).all()
         assert (bars_b["close"] == [-i for i in range(n)]).all()
 
     def test_split_pairs_frame_missing_leg_raises(self) -> None:
-        from src.engine.walk_forward import _split_pairs_frame
+        from src.engine.walk_forward import split_pairs_frame
 
         # leg-A only — missing all leg-B columns.
         bars = pd.DataFrame(
@@ -460,4 +460,4 @@ class TestWalkForwardPairsSplit:
             index=pd.date_range("2024-01-01", periods=1),
         )
         with pytest.raises(ValueError, match="wide-format columns"):
-            _split_pairs_frame(bars)
+            split_pairs_frame(bars)

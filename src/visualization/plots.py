@@ -12,6 +12,7 @@ matplotlib.pyplot — the Agg backend setting is global and sticky.
 
 from __future__ import annotations
 
+import math
 from collections.abc import Sequence
 from pathlib import Path
 
@@ -41,6 +42,24 @@ FIGURE_DPI = 150
 PLOTS_SUBDIR = "plots"
 TABLES_SUBDIR = "tables"
 MANIFEST_FILENAME = "manifest.json"
+
+
+def normalise_to_unit_base(curve: Sequence[float]) -> list[float] | None:
+    """Divide ``curve`` by its first value so the series starts at 1.0.
+
+    Returns ``None`` if the first value is missing, non-finite, or
+    non-positive — cases where naive division would produce a misleading
+    plot (NaN propagation through matplotlib silently leaves an
+    unexplained gap; a non-positive base inverts the sign of the visual
+    narrative). Callers downgrade to a placeholder (skip the plot, log a
+    warning) on ``None``.
+    """
+    if not curve:
+        return None
+    base = curve[0]
+    if not math.isfinite(base) or base <= 0.0:
+        return None
+    return [v / base for v in curve]
 
 
 def save_png_and_svg(fig: Figure, png_path: Path) -> Path:
