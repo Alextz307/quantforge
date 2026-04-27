@@ -139,8 +139,6 @@ class HybridVolatilityModel(IPredictor):
         )
 
         self._scaler: StandardScaler | None = None
-        self._fitted = False
-        self._training_metadata: TrainingMetadata | None = None
 
     @property
     def params(self) -> _HybridVolConfig:
@@ -187,9 +185,10 @@ class HybridVolatilityModel(IPredictor):
 
         self._lstm.fit(scaled_features, residuals, checkpoint_path=checkpoint_path, **kwargs)
 
-        self._fitted = True
-        self._training_metadata = TrainingMetadata.from_fit(
-            train_data, self._params.interval, tuple(self._feature_columns)
+        self._set_fitted_with_metadata(
+            TrainingMetadata.from_fit(
+                train_data, self._params.interval, tuple(self._feature_columns)
+            )
         )
 
     def predict(self, data: pd.DataFrame) -> pd.Series:
@@ -198,12 +197,15 @@ class HybridVolatilityModel(IPredictor):
         First ``lstm_lookback`` rows inherit NaN from the LSTM component.
         Output is clipped to ``min_vol``.
         """
-        # `_scaler is None` check narrows the type for mypy; once `_fitted`
-        # is True the scaler is always set (assigned together inside `fit()`).
-        if not self._fitted or self._scaler is None:
+        # `_scaler is None` check narrows the type for mypy; once the
+        # metadata slot is set the scaler is always set too (assigned
+        # together inside `fit()`).
+        self._assert_fitted_with_metadata()
+        if self._scaler is None:
             raise RuntimeError(
-                "HybridVolatilityModel.predict() called before fit(); fix by "
-                "calling model.fit(train_data, target) first (or load())."
+                "HybridVolatilityModel.predict() invoked with no scaler "
+                "wired; fix by re-running model.fit(train_data, target) "
+                "(or load() from disk)."
             )
 
         log_returns = compute_log_returns(data["close"]).dropna()
@@ -220,9 +222,9 @@ class HybridVolatilityModel(IPredictor):
 
     def _scale_to_frame(self, feature_frame: pd.DataFrame) -> pd.DataFrame:
         """Transform ``feature_frame`` through the fitted scaler and rewrap as a
-        DataFrame the LSTM can consume. Callers must ensure ``_fitted`` first
-        (the ``cast`` is safe under that precondition; ``_scaler`` is assigned
-        alongside ``_fitted = True`` inside ``fit()``).
+        DataFrame the LSTM can consume. Callers must ensure ``training_metadata``
+        is set first (the ``cast`` is safe under that precondition; ``_scaler``
+        is assigned alongside the metadata commit inside ``fit()``).
         """
         scaler = cast(StandardScaler, self._scaler)
         scaled = scaler.transform(feature_frame)
@@ -230,11 +232,7 @@ class HybridVolatilityModel(IPredictor):
 
     def predict_single(self, recent_window: pd.DataFrame) -> float:
         """Single hybrid-vol forecast from a recent window."""
-        if not self._fitted:
-            raise RuntimeError(
-                "HybridVolatilityModel.predict_single() called before fit(); "
-                "fix by calling model.fit(train_data, target) first (or load())."
-            )
+        self._assert_fitted_with_metadata()
         return float(self.predict(recent_window).iloc[-1])
 
     def save(self, path: str | Path) -> None:
@@ -246,7 +244,7 @@ class HybridVolatilityModel(IPredictor):
         black-box-composition rule). The leaf directories exist solely to
         round-trip the fitted weights.
         """
-        metadata = self._assert_fitted_with_metadata(caller="save")
+        metadata = self._assert_fitted_with_metadata()
         # ``_scaler`` is set atomically with metadata in fit() — assert for mypy.
         assert self._scaler is not None
 
@@ -307,8 +305,7 @@ class HybridVolatilityModel(IPredictor):
         instance._garch = GARCHPredictor.load(root / GARCH_SUBDIR)
         instance._lstm = LSTMPredictor.load(root / LSTM_SUBDIR)
         instance._scaler = load_standard_scaler(root / SCALER_JSON)
-        instance._training_metadata = TrainingMetadata.from_dict(metadata)
-        instance._fitted = True
+        instance._set_fitted_with_metadata(TrainingMetadata.from_dict(metadata))
         return instance
 
     def get_all_training_metadata(self) -> tuple[TrackedMetadata, ...]:

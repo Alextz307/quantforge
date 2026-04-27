@@ -52,7 +52,6 @@ class GARCHPredictor(IPredictor):
         self._q_max = q_max
         self._interval = interval
 
-        self._fitted = False
         self._best_p = 0
         self._best_q = 0
         self._omega = 0.0
@@ -61,7 +60,6 @@ class GARCHPredictor(IPredictor):
         self._train_mu = 0.0
         self._train_backcast = 0.0
         self._garch_params: quant_engine.GarchParams | None = None
-        self._training_metadata: TrainingMetadata | None = None
 
     def tune(self, returns: pd.Series) -> tuple[int, int]:
         """Grid search over (p,q) in [1, p_max] x [1, q_max] using AIC.
@@ -138,10 +136,8 @@ class GARCHPredictor(IPredictor):
             mu=self._train_mu,
             backcast=self._train_backcast,
         )
-        self._fitted = True
-
-        self._training_metadata = TrainingMetadata.from_fit(
-            train_data, self._interval, ("returns",)
+        self._set_fitted_with_metadata(
+            TrainingMetadata.from_fit(train_data, self._interval, ("returns",))
         )
 
     def predict(
@@ -165,11 +161,7 @@ class GARCHPredictor(IPredictor):
         Returns:
             Series of annualized volatility forecasts.
         """
-        if not self._fitted:
-            raise RuntimeError(
-                "GARCHPredictor.predict() called before fit(); fix by calling "
-                "model.fit(train_data, train_returns) first."
-            )
+        self._assert_fitted_with_metadata()
 
         caller_returns = returns
         if caller_returns is None:
@@ -211,11 +203,7 @@ class GARCHPredictor(IPredictor):
         Returns:
             Annualized conditional volatility series.
         """
-        if not self._fitted:
-            raise RuntimeError(
-                "GARCHPredictor.generate_vol_series() called before fit(); fix "
-                "by calling model.fit(train_data, train_returns) first."
-            )
+        self._assert_fitted_with_metadata()
 
         scaled = returns * _SCALE_FACTOR
         cond_var = self._manual_garch_filter(np.asarray(scaled, dtype=np.float64))
@@ -233,7 +221,7 @@ class GARCHPredictor(IPredictor):
         self, scaled_returns: np.ndarray[tuple[int], np.dtype[np.float64]]
     ) -> np.ndarray[tuple[int], np.dtype[np.float64]]:
         """Run the GARCH(p,q) recursion via the C++ filter on the cached params."""
-        # Non-None by contract: callers guard on ``self._fitted``.
+        # Non-None by contract: callers guard on ``training_metadata``.
         params = cast(quant_engine.GarchParams, self._garch_params)
         return quant_engine.garch_filter(scaled_returns, params)
 
@@ -244,7 +232,7 @@ class GARCHPredictor(IPredictor):
         ``len(alpha)`` and ``len(beta)`` respectively, so storing them would
         introduce a silent consistency failure point.
         """
-        metadata = self._assert_fitted_with_metadata(caller="save")
+        metadata = self._assert_fitted_with_metadata()
 
         def write_weights(root: Path) -> None:
             json_io.write(
@@ -302,8 +290,7 @@ class GARCHPredictor(IPredictor):
             mu=instance._train_mu,
             backcast=instance._train_backcast,
         )
-        instance._training_metadata = TrainingMetadata.from_dict(metadata)
-        instance._fitted = True
+        instance._set_fitted_with_metadata(TrainingMetadata.from_dict(metadata))
         return instance
 
     @staticmethod

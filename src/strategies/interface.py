@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sys
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar, Self
@@ -64,9 +65,9 @@ class IStrategy(ABC):
     ``hedge_ratio`` + a wide-format bar frame).
     """
 
-    # Subclasses inherit the unfitted state and must not re-declare these
-    # in ``__init__``; :meth:`_set_fitted_with_metadata` is the only legal mutator.
-    _fitted: bool = False
+    # Subclasses inherit the unfitted state and must not re-declare this in
+    # ``__init__``; :meth:`_set_fitted_with_metadata` is the only legal mutator,
+    # and ``training_metadata is not None`` is the only fitted-state signal.
     _training_metadata: TrainingMetadata | None = None
 
     @property
@@ -103,22 +104,28 @@ class IStrategy(ABC):
         """Training period metadata, populated after train()."""
         return getattr(self, "_training_metadata", None)
 
-    def _assert_fitted_with_metadata(self, *, caller: str) -> TrainingMetadata:
+    def _assert_fitted_with_metadata(self, *, caller: str | None = None) -> TrainingMetadata:
         """Return ``self.training_metadata`` narrowed to non-None, raising otherwise.
 
-        ``save()`` overrides use this to collapse the
-        ``if self._training_metadata is None: raise ...`` guard + type-narrowing
-        dance into one call. The ``caller`` name reaches the error message so
-        tracebacks still point at the specific method.
+        Canonical read-side guard for fitted state — every method that
+        requires a completed ``train()`` (``generate_signals``, ``save``,
+        ``hedge_ratio``) calls this. Composite strategies that also need a
+        leaf-presence check (e.g. ``self._classifier is None`` for a
+        pretrained-leaf-injected gatekeeper) layer that as a separate
+        statement on top; this helper deliberately speaks only to the
+        metadata invariant.
 
-        ``_fitted`` remains a separate check on subclasses that maintain it —
-        it tracks a different invariant (weights / scaler / leaf-model presence)
-        that this helper deliberately does not touch.
+        ``caller`` defaults to the calling frame's function name (via
+        ``sys._getframe`` — CPython + PyPy supported, ~1µs lookup paid
+        only on the error path). Pass it explicitly if the helper is
+        invoked from an inner closure or a wrapper whose name is not
+        what you want surfaced in tracebacks.
         """
         meta = self.training_metadata
         if meta is None:
+            actual_caller = caller or sys._getframe(1).f_code.co_name
             raise RuntimeError(
-                f"{type(self).__name__}.{caller}() called before train() "
+                f"{type(self).__name__}.{actual_caller}() called before train() "
                 "completed; fix by calling strategy.train(df) first."
             )
         return meta
@@ -126,24 +133,15 @@ class IStrategy(ABC):
     def _set_fitted_with_metadata(self, metadata: TrainingMetadata) -> None:
         """Atomic write-side counterpart to :meth:`_assert_fitted_with_metadata`.
 
-        ``train()`` and ``load()`` overrides call this as the very last step,
-        instead of separately assigning ``self._training_metadata`` and
-        ``self._fitted = True``. Two invariants the helper enforces that the
-        previous two-line idiom did not:
+        ``train()`` and ``load()`` overrides call this as the very last step.
+        Refusing ``None`` keeps walk-forward's deep leakage check honest:
+        a ``None`` metadata combined with a "looks fitted" sentinel would let
+        ``get_all_training_metadata`` return a ``None`` slot and the deep
+        check would silently short-circuit.
 
-        * **Metadata is non-None** — a ``None`` metadata with ``_fitted=True``
-          would let walk-forward's deep leakage check silently skip a leaf
-          (``get_all_training_metadata`` returns the strategy's own ``None``
-          slot, ``validate_no_overlap`` short-circuits).
-        * **Order is metadata-then-flag** — assigning ``_fitted=True`` before
-          ``_training_metadata`` is set leaves a half-fitted state visible to
-          any concurrent reader (or to a subclass whose own assignment raises
-          between the two lines).
-
-        Subclasses must use this helper rather than the two-line idiom so the
-        atomic invariant is upheld at every callsite. The read side is still
-        :meth:`_assert_fitted_with_metadata`; together the pair is the only
-        legal way to commit / observe the fitted state.
+        ``training_metadata is not None`` is the sole fitted-state signal —
+        no separate boolean flag exists, so atomicity reduces to "the slot is
+        either ``None`` or a complete :class:`TrainingMetadata`".
         """
         if metadata is None:
             raise ValueError(
@@ -152,7 +150,6 @@ class IStrategy(ABC):
                 "by TrainingMetadata.from_fit(...) at the end of train()."
             )
         self._training_metadata = metadata
-        self._fitted = True
 
     def get_all_training_metadata(self) -> tuple[TrackedMetadata, ...]:
         """Every metadata object a fold's leakage check must validate.

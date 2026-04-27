@@ -96,13 +96,11 @@ class ARMAPredictor(IPredictor):
         self._information_criterion = information_criterion
         self._interval = interval
 
-        self._fitted = False
         # ``self._model`` is always a ``_StatsmodelsARMAAdapter`` once fit. Its
         # public attributes (``order``, ``trend``, ``endog``, ``params``) are
         # the single source of truth for ``save()``; pmdarima is only used
         # transiently inside ``fit()`` to pick the order.
         self._model: _StatsmodelsARMAAdapter | None = None
-        self._training_metadata: TrainingMetadata | None = None
 
     def _run_auto_arima(self, values: np.ndarray[tuple[int], np.dtype[np.float64]]) -> ARIMA:
         """Run auto_arima with configured parameters."""
@@ -166,9 +164,8 @@ class ARMAPredictor(IPredictor):
 
         logger.info("ARMA fit: best order %s", order)
 
-        self._fitted = True
-        self._training_metadata = TrainingMetadata.from_fit(
-            train_data, self._interval, ("returns",)
+        self._set_fitted_with_metadata(
+            TrainingMetadata.from_fit(train_data, self._interval, ("returns",))
         )
 
     def predict(
@@ -194,10 +191,11 @@ class ARMAPredictor(IPredictor):
         Returns:
             Series of one-step-ahead return forecasts.
         """
-        if not self._fitted or self._model is None:
+        self._assert_fitted_with_metadata()
+        if self._model is None:
             raise RuntimeError(
-                "ARMAPredictor.predict() called before fit(); fix by calling "
-                "model.fit(train_data, train_returns) first."
+                "ARMAPredictor.predict() invoked with no model wired; fix by "
+                "re-running model.fit(train_data, train_returns)."
             )
 
         caller_returns = returns
@@ -236,10 +234,11 @@ class ARMAPredictor(IPredictor):
 
     def predict_single(self, recent_window: pd.DataFrame) -> float:
         """Predict single one-step-ahead return forecast."""
-        if not self._fitted or self._model is None:
+        self._assert_fitted_with_metadata()
+        if self._model is None:
             raise RuntimeError(
-                "ARMAPredictor.predict_single() called before fit(); fix by "
-                "calling model.fit(train_data, train_returns) first."
+                "ARMAPredictor.predict_single() invoked with no model wired; "
+                "fix by re-running model.fit(train_data, train_returns)."
             )
 
         forecast = self._model.predict(n_periods=1)
@@ -254,7 +253,7 @@ class ARMAPredictor(IPredictor):
         (binary, pickle-free for float arrays) rather than JSON to keep the
         on-disk size manageable on large training windows.
         """
-        metadata = self._assert_fitted_with_metadata(caller="save")
+        metadata = self._assert_fitted_with_metadata()
         # ``_model`` is set atomically with metadata in fit() — assert for mypy.
         assert self._model is not None
         adapter = self._model
@@ -317,8 +316,7 @@ class ARMAPredictor(IPredictor):
         endog = np.load(root / ENDOG_NPY, allow_pickle=False).astype(np.float64, copy=False)
 
         instance._model = _StatsmodelsARMAAdapter(endog, order, params, trend)
-        instance._training_metadata = TrainingMetadata.from_dict(metadata)
-        instance._fitted = True
+        instance._set_fitted_with_metadata(TrainingMetadata.from_dict(metadata))
         return instance
 
     @staticmethod

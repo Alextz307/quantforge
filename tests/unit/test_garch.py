@@ -55,7 +55,7 @@ class TestGARCHPredictor:
             g.generate_vol_series(s)
 
     def test_fit_sets_fitted(self, fitted_garch: GARCHPredictor) -> None:
-        assert fitted_garch._fitted
+        assert fitted_garch.training_metadata is not None
 
     def test_tune_returns_valid_order(self, garch_df: pd.DataFrame) -> None:
         g = GARCHPredictor(p_max=COMPACT_P_MAX, q_max=COMPACT_Q_MAX)

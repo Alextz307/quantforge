@@ -112,7 +112,7 @@ class TestPairsTradingSaveLoad:
         original.save(path)
         loaded = PairsTradingStrategy.load(path)
 
-        assert loaded._fitted
+        assert loaded.training_metadata is not None
         assert loaded._is_cointegrated is True
         assert loaded._hedge_ratio == original._hedge_ratio
         assert loaded.training_metadata == original.training_metadata
@@ -143,7 +143,7 @@ class TestAdaptiveBollingerSaveLoad:
         original.save(path)
         loaded = AdaptiveBollingerStrategy.load(path)
 
-        assert loaded._fitted
+        assert loaded.training_metadata is not None
         assert loaded.training_metadata == original.training_metadata
         np.testing.assert_array_equal(
             loaded.generate_signals(close_df).to_numpy(),
@@ -172,7 +172,7 @@ class TestMomentumGatekeeperSaveLoad:
         original.save(path)
         loaded = MomentumGatekeeperStrategy.load(path)
 
-        assert loaded._fitted
+        assert loaded.training_metadata is not None
         assert loaded._resolved_feature_columns == original._resolved_feature_columns
         assert loaded.training_metadata == original.training_metadata
         # NaN-aware equality: both outputs carry NaN during warmup and at
@@ -218,7 +218,7 @@ class TestReturnForecastSaveLoad:
         original.save(path)
         loaded = ReturnForecastStrategy.load(path)
 
-        assert loaded._fitted
+        assert loaded.training_metadata is not None
         assert loaded.training_metadata == original.training_metadata
         # ARMA round-trip via statsmodels ``filter`` reproduces fitted values
         # + forecasts to within double-precision FP noise, not bit-identical.
@@ -265,7 +265,7 @@ class TestVolatilityTargetingSaveLoad:
         original.save(path)
         loaded = VolatilityTargetingStrategy.load(path)
 
-        assert loaded._fitted
+        assert loaded.training_metadata is not None
         assert loaded.training_metadata == original.training_metadata
         np.testing.assert_array_equal(
             loaded.generate_signals(df).to_numpy(),

@@ -148,12 +148,10 @@ class DirectionalClassifier(IClassifier):
         self._device = select_xgboost_device(device)
         self._interval = interval
 
-        self._fitted = False
         self._model: xgb.XGBClassifier | None = None
         self._feature_columns: list[str] = list(feature_columns)
         self._best_iteration: int = 0
         self._eval_results: dict[str, dict[str, list[float]]] = {}
-        self._training_metadata: TrainingMetadata | None = None
 
     def fit(
         self,
@@ -228,9 +226,8 @@ class DirectionalClassifier(IClassifier):
             results = self._model.evals_result()
             self._eval_results = {k: dict(v) for k, v in results.items()}
 
-        self._fitted = True
-        self._training_metadata = TrainingMetadata.from_fit(
-            train_data, self._interval, tuple(self._feature_columns)
+        self._set_fitted_with_metadata(
+            TrainingMetadata.from_fit(train_data, self._interval, tuple(self._feature_columns))
         )
 
     def predict_proba(self, data: pd.DataFrame) -> pd.Series:
@@ -242,10 +239,11 @@ class DirectionalClassifier(IClassifier):
         Returns:
             Series of probabilities in [0, 1].
         """
-        if not self._fitted or self._model is None:
+        self._assert_fitted_with_metadata()
+        if self._model is None:
             raise RuntimeError(
-                "DirectionalClassifier.predict_proba() called before fit(); fix "
-                "by calling classifier.fit(train_data, target) first (or load())."
+                "DirectionalClassifier.predict_proba() invoked with no booster "
+                "wired; fix by re-running classifier.fit(train_data, target)."
             )
 
         proba = self._model.predict_proba(data[self._feature_columns])
@@ -260,10 +258,11 @@ class DirectionalClassifier(IClassifier):
         Returns:
             Series of binary predictions.
         """
-        if not self._fitted or self._model is None:
+        self._assert_fitted_with_metadata()
+        if self._model is None:
             raise RuntimeError(
-                "DirectionalClassifier.predict() called before fit(); fix by "
-                "calling classifier.fit(train_data, target) first (or load())."
+                "DirectionalClassifier.predict() invoked with no booster "
+                "wired; fix by re-running classifier.fit(train_data, target)."
             )
 
         preds = self._model.predict(data[self._feature_columns])
@@ -276,7 +275,7 @@ class DirectionalClassifier(IClassifier):
         the most version-stable option available. Device is NOT persisted; it
         is re-resolved on load via ``select_xgboost_device()``.
         """
-        metadata = self._assert_fitted_with_metadata(caller="save")
+        metadata = self._assert_fitted_with_metadata()
         # ``_model`` is set atomically with metadata in fit() — assert for mypy.
         assert self._model is not None
         model = self._model
@@ -342,8 +341,7 @@ class DirectionalClassifier(IClassifier):
             if hasattr(model, "best_iteration")
             else instance._n_estimators
         )
-        instance._training_metadata = TrainingMetadata.from_dict(metadata)
-        instance._fitted = True
+        instance._set_fitted_with_metadata(TrainingMetadata.from_dict(metadata))
         return instance
 
     @staticmethod

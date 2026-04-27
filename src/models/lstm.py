@@ -114,12 +114,10 @@ class LSTMPredictor(IPredictor):
         self._device = select_device(device)
         self._interval = interval
 
-        self._fitted = False
         self._model: MarketLSTM | None = None
         self._feature_columns: list[str] = list(feature_columns)
         self._train_losses: list[float] = []
         self._val_losses: list[float] = []
-        self._training_metadata: TrainingMetadata | None = None
 
     def fit(
         self,
@@ -262,9 +260,8 @@ class LSTMPredictor(IPredictor):
         if best_state is not None and self._model is not None:
             self._model.load_state_dict(best_state)
 
-        self._fitted = True
-        self._training_metadata = TrainingMetadata.from_fit(
-            train_data, self._interval, tuple(self._feature_columns)
+        self._set_fitted_with_metadata(
+            TrainingMetadata.from_fit(train_data, self._interval, tuple(self._feature_columns))
         )
 
     def predict(self, data: pd.DataFrame) -> pd.Series:
@@ -278,10 +275,11 @@ class LSTMPredictor(IPredictor):
         Returns:
             Series of predictions aligned with data index.
         """
-        if not self._fitted or self._model is None:
+        self._assert_fitted_with_metadata()
+        if self._model is None:
             raise RuntimeError(
-                "LSTMPredictor.predict() called before fit(); fix by calling "
-                "model.fit(train_data, target) first (or load() from disk)."
+                "LSTMPredictor.predict() invoked with no model wired; fix by "
+                "re-running model.fit(train_data, target) (or load() from disk)."
             )
 
         self._model.eval()
@@ -306,10 +304,12 @@ class LSTMPredictor(IPredictor):
 
     def predict_single(self, recent_window: pd.DataFrame) -> float:
         """Predict single value from a recent data window."""
-        if not self._fitted or self._model is None:
+        self._assert_fitted_with_metadata()
+        if self._model is None:
             raise RuntimeError(
-                "LSTMPredictor.predict_single() called before fit(); fix by "
-                "calling model.fit(train_data, target) first (or load() from disk)."
+                "LSTMPredictor.predict_single() invoked with no model wired; "
+                "fix by re-running model.fit(train_data, target) (or load() "
+                "from disk)."
             )
 
         if len(recent_window) < self._lookback:
@@ -335,7 +335,7 @@ class LSTMPredictor(IPredictor):
         via ``select_device()`` on load. ``torch.save`` writes CPU tensors to
         guarantee portability across CUDA / MPS / CPU.
         """
-        metadata = self._assert_fitted_with_metadata(caller="save")
+        metadata = self._assert_fitted_with_metadata()
         # ``_model`` is set atomically with metadata in fit() — assert for mypy.
         assert self._model is not None
         model = self._model
@@ -398,8 +398,7 @@ class LSTMPredictor(IPredictor):
         state = torch.load(root / WEIGHTS_PT, map_location=instance._device, weights_only=True)
         model.load_state_dict(state)
         instance._model = model
-        instance._training_metadata = TrainingMetadata.from_dict(metadata)
-        instance._fitted = True
+        instance._set_fitted_with_metadata(TrainingMetadata.from_dict(metadata))
         return instance
 
     @staticmethod

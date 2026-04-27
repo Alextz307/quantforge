@@ -238,11 +238,7 @@ class VolatilityTargetingStrategy(IStrategy):
 
     def generate_signals(self, data: pd.DataFrame) -> pd.Series:
         """Produce leverage signals in ``[0, max_leverage]``. Warmup bars are NaN."""
-        if not self._fitted:
-            raise RuntimeError(
-                "VolatilityTargetingStrategy.generate_signals() called before "
-                "train(); fix by calling strategy.train(train_data) first."
-            )
+        self._assert_fitted_with_metadata()
 
         forecast_vol = self._hybrid_vol.predict(data)
         raw_leverage = self._target_vol / forecast_vol
@@ -262,7 +258,7 @@ class VolatilityTargetingStrategy(IStrategy):
         ``max_leverage``, ``bearish_exposure``, ``realized_vol_window``) are
         written alongside every passthrough ``_HybridVolParams`` field.
         """
-        metadata = self._assert_fitted_with_metadata(caller="save")
+        metadata = self._assert_fitted_with_metadata()
 
         def write_weights(root: Path) -> None:
             self._hybrid_vol.save(root / HYBRID_VOL_SUBDIR)

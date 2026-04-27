@@ -61,7 +61,7 @@ class TestARMAPredictor:
             a.predict_single(pd.DataFrame({"close": SAMPLE_CLOSE_TWO}))
 
     def test_fit_sets_fitted(self, fitted_arma: ARMAPredictor) -> None:
-        assert fitted_arma._fitted
+        assert fitted_arma.training_metadata is not None
 
     def test_fitted_order_valid(self, fitted_arma: ARMAPredictor) -> None:
         assert fitted_arma._model is not None

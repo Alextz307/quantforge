@@ -49,16 +49,14 @@ def _make_metadata() -> TrainingMetadata:
     return TrainingMetadata.from_fit(df, Interval.DAILY, _FIT_FEATURE_COLUMNS)
 
 
-def test_set_fitted_with_metadata_populates_both_fields_atomically() -> None:
+def test_set_fitted_with_metadata_populates_metadata_slot() -> None:
     s = _BareStrategy()
     # Pre-state: helper hasn't run, fitted state is empty.
-    assert getattr(s, "_fitted", False) is False
     assert s.training_metadata is None
 
     meta = _make_metadata()
     s._set_fitted_with_metadata(meta)
 
-    assert s._fitted is True
     assert s.training_metadata is meta
     # Read-side helper must agree — the pair is each other's inverse.
     assert s._assert_fitted_with_metadata(caller="test") is meta
@@ -68,7 +66,6 @@ def test_set_fitted_with_metadata_rejects_none() -> None:
     s = _BareStrategy()
     with pytest.raises(ValueError, match="non-None TrainingMetadata"):
         s._set_fitted_with_metadata(None)  # type: ignore[arg-type]
-    # The defensive raise must leave both fields untouched — partial state would
-    # let a downstream reader see ``_fitted=True`` despite metadata being absent.
-    assert getattr(s, "_fitted", False) is False
+    # The defensive raise must leave the slot untouched — a partial state would
+    # let a downstream reader see a fitted-looking object with no metadata.
     assert s.training_metadata is None

@@ -48,12 +48,14 @@ All five register themselves at import time on `strategy_registry`
   `_HybridReturnParams`, `_HybridVolParams`, `_MomentumConfig`). Tests
   call `assert_params_match_constructor` to drift-guard the bundle
   fields against the leaf's ctor signature.
-- **`_fitted` is the transactional commit.** `train()` and `load()` end
-  with `self._set_fitted_with_metadata(metadata)`, never with the
-  two-line `self._training_metadata = ...; self._fitted = True` idiom.
-  The helper assigns metadata first and refuses ``None``, so a partial
-  fit can never leave ``_fitted=True`` with absent metadata visible to
-  the deep leakage check.
+- **`training_metadata` is the transactional commit.** `train()` and
+  `load()` end with `self._set_fitted_with_metadata(metadata)`; that
+  helper is the only legal mutator of the slot, refuses ``None``, and is
+  the single fitted-state signal — there is no separate boolean flag, so
+  `training_metadata is not None` IS "fitted." Read-side guards call
+  `self._assert_fitted_with_metadata()` (the caller name is auto-derived
+  from the calling frame); composites layer leaf-presence checks
+  (`_classifier is None`, `_cpp_coint is None`) as separate statements.
 - **No signal shift inside the strategy.** The engine shifts
   positions to `t+1`. Strategies that compute `next_bar_direction`-style
   targets must drop the trailing row, never `fillna(0)` it.

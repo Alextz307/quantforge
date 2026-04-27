@@ -157,10 +157,12 @@ class PairsTradingStrategy(IStrategy):
 
     def generate_signals(self, data: pd.DataFrame) -> pd.Series:
         """Produce {-1, 0, +1} leg_a position. Leading lookback bars are NaN."""
-        if not self._fitted or self._cpp_coint is None:
+        self._assert_fitted_with_metadata()
+        if self._cpp_coint is None:
             raise RuntimeError(
-                "PairsTradingStrategy.generate_signals() called before train(); "
-                "fix by calling strategy.train(train_data) first."
+                "PairsTradingStrategy.generate_signals() invoked with no "
+                "cointegration params wired; fix by re-running "
+                "strategy.train(train_data)."
             )
         if "close_a" not in data.columns or "close_b" not in data.columns:
             raise ValueError(
@@ -197,7 +199,7 @@ class PairsTradingStrategy(IStrategy):
 
     def save(self, path: str | Path) -> None:
         """Persist PairsTrading config + cointegration stats to ``path``."""
-        metadata = self._assert_fitted_with_metadata(caller="save")
+        metadata = self._assert_fitted_with_metadata()
 
         def write_weights(root: Path) -> None:
             json_io.write(
@@ -260,11 +262,7 @@ class PairsTradingStrategy(IStrategy):
     @property
     def hedge_ratio(self) -> float:
         """Cointegration hedge ratio (slope of OLS regression of a on b)."""
-        if not self._fitted:
-            raise RuntimeError(
-                "PairsTradingStrategy.hedge_ratio accessed before train(); fix "
-                "by calling strategy.train(train_data) first."
-            )
+        self._assert_fitted_with_metadata()
         return self._hedge_ratio
 
     @property

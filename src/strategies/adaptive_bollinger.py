@@ -117,11 +117,7 @@ class AdaptiveBollingerStrategy(IStrategy):
 
     def generate_signals(self, data: pd.DataFrame) -> pd.Series:
         """Produce {-1, 0, +1} position signals. Leading warmup bars are NaN."""
-        if not self._fitted:
-            raise RuntimeError(
-                "AdaptiveBollingerStrategy.generate_signals() called before "
-                "train(); fix by calling strategy.train(train_data) first."
-            )
+        self._assert_fitted_with_metadata()
 
         close = data["close"]
         garch_vol_annual = self._garch.predict(data)
@@ -136,7 +132,7 @@ class AdaptiveBollingerStrategy(IStrategy):
 
     def save(self, path: str | Path) -> None:
         """Persist AdaptiveBollinger config + nested GARCH to ``path``."""
-        metadata = self._assert_fitted_with_metadata(caller="save")
+        metadata = self._assert_fitted_with_metadata()
 
         def write_weights(root: Path) -> None:
             self._garch.save(root / GARCH_SUBDIR)

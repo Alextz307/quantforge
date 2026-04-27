@@ -2,16 +2,14 @@
 
 from __future__ import annotations
 
+import sys
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import TYPE_CHECKING, Self
+from typing import Self
 
 import pandas as pd
 
-from src.core.temporal import TrackedMetadata, collect_metadata
-
-if TYPE_CHECKING:
-    from src.core.temporal import TrainingMetadata
+from src.core.temporal import TrackedMetadata, TrainingMetadata, collect_metadata
 
 
 class IPredictor(ABC):
@@ -86,26 +84,59 @@ class IPredictor(ABC):
         self.fit(train_data, target, checkpoint_path=checkpoint_path, **kwargs)
         return self.predict(train_data)
 
+    # Subclasses inherit the unfitted state and must not re-declare this in
+    # ``__init__``; :meth:`_set_fitted_with_metadata` is the only legal mutator,
+    # and ``training_metadata is not None`` is the only fitted-state signal.
+    _training_metadata: TrainingMetadata | None = None
+
     @property
     def training_metadata(self) -> TrainingMetadata | None:
         """Training period metadata, populated after fit()."""
         return getattr(self, "_training_metadata", None)
 
-    def _assert_fitted_with_metadata(self, *, caller: str) -> TrainingMetadata:
+    def _assert_fitted_with_metadata(self, *, caller: str | None = None) -> TrainingMetadata:
         """Return ``self.training_metadata`` narrowed to non-None, raising otherwise.
 
-        Mirrors :meth:`IStrategy._assert_fitted_with_metadata` — see that
-        docstring for the rationale. Kept separate from ``_fitted`` /
-        ``_model`` / ``_scaler`` checks so composite predictors can still
-        gate on leaf presence independently.
+        Canonical read-side guard — every method that requires a completed
+        ``fit()`` (``predict``, ``predict_single``, ``save``, ``update``)
+        calls this. Composite predictors that also need a leaf-presence check
+        (e.g. ``self._scaler is None`` for a Hybrid model) layer that as a
+        separate statement on top; this helper deliberately speaks only to
+        the metadata invariant.
+
+        ``caller`` defaults to the calling frame's function name (via
+        ``sys._getframe``); pass it explicitly only when invoked from an
+        inner closure or a wrapper whose name is not the right traceback
+        anchor.
         """
         meta = self.training_metadata
         if meta is None:
+            actual_caller = caller or sys._getframe(1).f_code.co_name
             raise RuntimeError(
-                f"{type(self).__name__}.{caller}() called before fit() "
+                f"{type(self).__name__}.{actual_caller}() called before fit() "
                 "completed; fix by calling model.fit(...) first."
             )
         return meta
+
+    def _set_fitted_with_metadata(self, metadata: TrainingMetadata) -> None:
+        """Atomic write-side counterpart to :meth:`_assert_fitted_with_metadata`.
+
+        ``fit()`` and ``load()`` overrides call this as the very last step.
+        ``training_metadata is not None`` is the sole fitted-state signal —
+        no separate boolean flag exists, so atomicity reduces to "the slot is
+        either ``None`` or a complete :class:`TrainingMetadata`". Refusing
+        ``None`` keeps walk-forward's deep leakage check honest: a ``None``
+        metadata combined with a "looks fitted" sentinel would let
+        ``get_all_training_metadata`` return a ``None`` slot and the deep
+        check would silently short-circuit.
+        """
+        if metadata is None:
+            raise ValueError(
+                f"{type(self).__name__}._set_fitted_with_metadata() requires a "
+                "non-None TrainingMetadata; fix by passing the metadata produced "
+                "by TrainingMetadata.from_fit(...) at the end of fit()."
+            )
+        self._training_metadata = metadata
 
     def get_all_training_metadata(self) -> tuple[TrackedMetadata, ...]:
         """Every metadata object this predictor and its owned leaves expose.
@@ -180,20 +211,33 @@ class IClassifier(ABC):
         self.fit(train_data, target, checkpoint_path=checkpoint_path, **kwargs)
         return self.predict(train_data)
 
+    _training_metadata: TrainingMetadata | None = None
+
     @property
     def training_metadata(self) -> TrainingMetadata | None:
         """Training period metadata, populated after fit()."""
         return getattr(self, "_training_metadata", None)
 
-    def _assert_fitted_with_metadata(self, *, caller: str) -> TrainingMetadata:
+    def _assert_fitted_with_metadata(self, *, caller: str | None = None) -> TrainingMetadata:
         """Mirror of :meth:`IPredictor._assert_fitted_with_metadata` for classifiers."""
         meta = self.training_metadata
         if meta is None:
+            actual_caller = caller or sys._getframe(1).f_code.co_name
             raise RuntimeError(
-                f"{type(self).__name__}.{caller}() called before fit() "
+                f"{type(self).__name__}.{actual_caller}() called before fit() "
                 "completed; fix by calling classifier.fit(...) first."
             )
         return meta
+
+    def _set_fitted_with_metadata(self, metadata: TrainingMetadata) -> None:
+        """Mirror of :meth:`IPredictor._set_fitted_with_metadata` for classifiers."""
+        if metadata is None:
+            raise ValueError(
+                f"{type(self).__name__}._set_fitted_with_metadata() requires a "
+                "non-None TrainingMetadata; fix by passing the metadata produced "
+                "by TrainingMetadata.from_fit(...) at the end of fit()."
+            )
+        self._training_metadata = metadata
 
     def get_all_training_metadata(self) -> tuple[TrackedMetadata, ...]:
         """Every metadata object this classifier and its owned leaves expose."""

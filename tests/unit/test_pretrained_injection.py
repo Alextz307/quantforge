@@ -172,7 +172,6 @@ class TestReturnForecastPretrainedInjection:
         )
         s.train(train_df)
         assert fake_leaf.fit_calls == 0
-        assert s._fitted is True
         assert s.training_metadata is not None
         assert s.training_metadata.train_end == pd.Timestamp(train_df.index[-1])
 
@@ -230,7 +229,7 @@ class TestVolatilityTargetingPretrainedInjection:
         )
         s.train(train_df)
         assert fake_leaf.fit_calls == 0
-        assert s._fitted is True
+        assert s.training_metadata is not None
 
     def test_get_all_training_metadata_marks_leaf_entries_pretrained(
         self, train_df: pd.DataFrame, fake_leaf: _FakeHybridLeaf
@@ -278,7 +277,6 @@ class TestMomentumGatekeeperPretrainedInjection:
         )
         s.train(train_df)
         assert fake_classifier.fit_calls == 0
-        assert s._fitted is True
         assert s.training_metadata is not None
         assert s.training_metadata.train_end == pd.Timestamp(train_df.index[-1])
 

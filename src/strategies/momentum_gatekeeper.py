@@ -273,10 +273,12 @@ class MomentumGatekeeperStrategy(IStrategy):
 
     def generate_signals(self, data: pd.DataFrame) -> pd.Series:
         """Produce {0, 1} long-only signals. Bars with NaN features stay NaN."""
-        if not self._fitted or self._classifier is None:
+        self._assert_fitted_with_metadata()
+        if self._classifier is None:
             raise RuntimeError(
-                "MomentumGatekeeperStrategy.generate_signals() called before "
-                "train(); fix by calling strategy.train(train_data) first."
+                "MomentumGatekeeperStrategy.generate_signals() invoked with no "
+                "classifier wired; fix by checking the pretrained-leaf injection "
+                "or by re-running train(train_data)."
             )
 
         features = self._pipeline.transform(data)[self._resolved_feature_columns]
@@ -305,7 +307,7 @@ class MomentumGatekeeperStrategy(IStrategy):
         resolved at fit time, and on load we defer to the classifier's own
         device re-resolution.
         """
-        metadata = self._assert_fitted_with_metadata(caller="save")
+        metadata = self._assert_fitted_with_metadata()
         # ``_classifier`` is set atomically with metadata in train() — assert for mypy.
         assert self._classifier is not None
 

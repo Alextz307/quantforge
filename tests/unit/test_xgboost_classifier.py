@@ -83,7 +83,7 @@ class TestDirectionalClassifier:
         features, target = xgb_data
         c = DirectionalClassifier(xgb_features, n_estimators=COMPACT_N_ESTIMATORS)
         c.fit(features, target)
-        assert c._fitted
+        assert c.training_metadata is not None
 
     def test_predict_proba_in_range(
         self, xgb_data: tuple[pd.DataFrame, pd.Series], xgb_features: list[str]

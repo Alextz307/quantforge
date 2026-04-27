@@ -142,7 +142,7 @@ class TestLSTMPredictor:
         )
         p.fit(train, lstm_target)
 
-        assert p._fitted
+        assert p.training_metadata is not None
         result = p.predict(train)
         assert isinstance(result, pd.Series)
         assert len(result) == len(train)
@@ -252,7 +252,7 @@ class TestLSTMPredictor:
                 loss_fn=loss_fn,
             )
             p.fit(train, lstm_target)
-            assert p._fitted
+            assert p.training_metadata is not None
 
     def test_empty_feature_columns_raises(self) -> None:
         with pytest.raises(ValueError, match="feature_columns"):

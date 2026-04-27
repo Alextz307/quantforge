@@ -41,9 +41,15 @@ instantiation and standalone-training artifacts.
 
 ## Fit / persistence patterns
 
-- **`_fitted` is the transactional commit.** Every model sets
-  `self._fitted = True` only after every dependent piece of state
-  (scaler, weights, frozen params, `_training_metadata`) is in place.
+- **`training_metadata` is the transactional commit.** Every model
+  ends `fit()` with `self._set_fitted_with_metadata(metadata)` only
+  after every dependent piece of state (scaler, weights, frozen params)
+  is in place. The helper is the only legal mutator of the slot;
+  `training_metadata is not None` is the single fitted-state signal.
+  Read-side guards call `self._assert_fitted_with_metadata()` (caller
+  name auto-derived from the calling frame); composites (Hybrid models)
+  layer leaf-presence checks (`_scaler is None`, `_model is None`) as
+  separate statements.
 - **Statistical leaves freeze params after `fit`.** GARCH conditional
   variance and ARMA one-step forecast use only the fitted params —
   no re-estimation during `predict`.

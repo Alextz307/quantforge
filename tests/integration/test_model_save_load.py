@@ -126,7 +126,7 @@ class TestGARCHSaveLoad:
         original.save(path)
         loaded = GARCHPredictor.load(path)
 
-        assert loaded._fitted
+        assert loaded.training_metadata is not None
         assert loaded.training_metadata == original.training_metadata
         np.testing.assert_array_equal(
             loaded.predict(close_df).to_numpy(),
@@ -153,7 +153,7 @@ class TestARMASaveLoad:
         original.save(path)
         loaded = ARMAPredictor.load(path)
 
-        assert loaded._fitted
+        assert loaded.training_metadata is not None
         assert loaded._model is not None and original._model is not None
         assert loaded._model.order == original._model.order
         assert loaded.training_metadata == original.training_metadata
@@ -199,7 +199,7 @@ class TestLSTMSaveLoad:
         original.save(path)
         loaded = LSTMPredictor.load(path)
 
-        assert loaded._fitted
+        assert loaded.training_metadata is not None
         assert loaded._feature_columns == original._feature_columns
         assert loaded.training_metadata == original.training_metadata
         np.testing.assert_array_equal(
@@ -265,7 +265,7 @@ class TestDirectionalClassifierSaveLoad:
         original.save(path)
         loaded = DirectionalClassifier.load(path)
 
-        assert loaded._fitted
+        assert loaded.training_metadata is not None
         assert loaded._feature_columns == original._feature_columns
         assert loaded.training_metadata == original.training_metadata
         np.testing.assert_array_equal(
@@ -405,7 +405,7 @@ class TestHybridVolatilitySaveLoad:
         original.save(path)
         loaded = HybridVolatilityModel.load(path)
 
-        assert loaded._fitted
+        assert loaded.training_metadata is not None
         assert loaded._feature_columns == original._feature_columns
         assert loaded.training_metadata == original.training_metadata
         np.testing.assert_array_equal(
@@ -470,7 +470,7 @@ class TestHybridReturnSaveLoad:
         original.save(path)
         loaded = HybridReturnModel.load(path)
 
-        assert loaded._fitted
+        assert loaded.training_metadata is not None
         assert loaded._feature_columns == original._feature_columns
         assert loaded.training_metadata == original.training_metadata
         np.testing.assert_allclose(

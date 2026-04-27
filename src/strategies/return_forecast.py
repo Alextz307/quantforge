@@ -202,11 +202,7 @@ class ReturnForecastStrategy(IStrategy):
 
     def generate_signals(self, data: pd.DataFrame) -> pd.Series:
         """Produce signed positions in ``[-max_leverage, +max_leverage]``."""
-        if not self._fitted:
-            raise RuntimeError(
-                "ReturnForecastStrategy.generate_signals() called before train(); "
-                "fix by calling strategy.train(train_data) first."
-            )
+        self._assert_fitted_with_metadata()
 
         forecast = self._hybrid_return.predict(data)
         raw_position = forecast * self._position_scale
@@ -223,7 +219,7 @@ class ReturnForecastStrategy(IStrategy):
         device preference is NOT persisted (the hybrid subdir carries the
         fitted state; device re-resolves on load).
         """
-        metadata = self._assert_fitted_with_metadata(caller="save")
+        metadata = self._assert_fitted_with_metadata()
 
         def write_weights(root: Path) -> None:
             self._hybrid_return.save(root / HYBRID_RETURN_SUBDIR)
