@@ -168,8 +168,6 @@ class ReturnForecastStrategy(IStrategy):
                 self._hybrid_params = _HybridReturnParams(**asdict(leaf_config))
         else:
             self._hybrid_return = self._build_hybrid_return()
-        self._fitted = False
-        self._training_metadata: TrainingMetadata | None = None
 
     def _build_hybrid_return(self) -> HybridReturnModel:
         kwargs = asdict(self._hybrid_params)
@@ -196,10 +194,11 @@ class ReturnForecastStrategy(IStrategy):
             aligned = train_data.loc[log_returns.index]
             self._hybrid_return.fit(aligned, log_returns, checkpoint_path=checkpoint_path, **kwargs)
 
-        self._training_metadata = TrainingMetadata.from_fit(
-            train_data, self._interval, self._hybrid_params.feature_columns
+        self._set_fitted_with_metadata(
+            TrainingMetadata.from_fit(
+                train_data, self._interval, self._hybrid_params.feature_columns
+            )
         )
-        self._fitted = True
 
     def generate_signals(self, data: pd.DataFrame) -> pd.Series:
         """Produce signed positions in ``[-max_leverage, +max_leverage]``."""
@@ -294,8 +293,7 @@ class ReturnForecastStrategy(IStrategy):
             interval=Interval(json_io.get_str(config, "interval")),
         )
         instance._hybrid_return = HybridReturnModel.load(root / HYBRID_RETURN_SUBDIR)
-        instance._training_metadata = TrainingMetadata.from_dict(metadata)
-        instance._fitted = True
+        instance._set_fitted_with_metadata(TrainingMetadata.from_dict(metadata))
         return instance
 
     @property

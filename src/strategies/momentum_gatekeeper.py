@@ -194,8 +194,6 @@ class MomentumGatekeeperStrategy(IStrategy):
         self._resolved_feature_columns: list[str] = (
             list(resolved_feature_columns) if resolved_feature_columns is not None else []
         )
-        self._fitted = False
-        self._training_metadata: TrainingMetadata | None = None
 
     def _build_pipeline(self) -> FeatureEngineeringPipeline:
         return FeatureEngineeringPipeline(
@@ -269,10 +267,9 @@ class MomentumGatekeeperStrategy(IStrategy):
             )
             self._classifier.fit(features_ready, target_ready, checkpoint_path=checkpoint_path)
 
-        self._training_metadata = TrainingMetadata.from_fit(
-            train_data, self._params.interval, tuple(resolved)
+        self._set_fitted_with_metadata(
+            TrainingMetadata.from_fit(train_data, self._params.interval, tuple(resolved))
         )
-        self._fitted = True
 
     def generate_signals(self, data: pd.DataFrame) -> pd.Series:
         """Produce {0, 1} long-only signals. Bars with NaN features stay NaN."""
@@ -387,8 +384,7 @@ class MomentumGatekeeperStrategy(IStrategy):
         # stay in one place.
         instance._pipeline.scaler = load_standard_scaler(root / PIPELINE_SCALER_JSON)
         instance._resolved_feature_columns = resolved
-        instance._training_metadata = TrainingMetadata.from_dict(metadata)
-        instance._fitted = True
+        instance._set_fitted_with_metadata(TrainingMetadata.from_dict(metadata))
         return instance
 
     @property

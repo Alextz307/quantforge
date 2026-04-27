@@ -43,14 +43,9 @@ class _FlatLongStrategy(IStrategy):
     orchestrator's tripwire passes.
     """
 
-    def __init__(self) -> None:
-        self._training_metadata: TrainingMetadata | None = None
-
     def train(self, train_data: pd.DataFrame, **kwargs: object) -> None:
-        self._training_metadata = TrainingMetadata.from_fit(
-            train_data,
-            Interval.DAILY,
-            ("close",),
+        self._set_fitted_with_metadata(
+            TrainingMetadata.from_fit(train_data, Interval.DAILY, ("close",))
         )
 
     def generate_signals(self, data: pd.DataFrame) -> pd.Series:

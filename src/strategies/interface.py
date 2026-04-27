@@ -8,12 +8,10 @@ from typing import TYPE_CHECKING, ClassVar, Self
 
 import pandas as pd
 
-from src.core.temporal import TrackedMetadata, collect_metadata
+from src.core.temporal import TrackedMetadata, TrainingMetadata, collect_metadata
 
 if TYPE_CHECKING:
     import optuna
-
-    from src.core.temporal import TrainingMetadata
 
 
 class IStrategy(ABC):
@@ -65,6 +63,11 @@ class IStrategy(ABC):
     ``engine.run`` (single-leg) or ``engine.run_pairs`` (two-leg, requires
     ``hedge_ratio`` + a wide-format bar frame).
     """
+
+    # Subclasses inherit the unfitted state and must not re-declare these
+    # in ``__init__``; :meth:`_set_fitted_with_metadata` is the only legal mutator.
+    _fitted: bool = False
+    _training_metadata: TrainingMetadata | None = None
 
     @property
     def hedge_ratio(self) -> float:
@@ -119,6 +122,37 @@ class IStrategy(ABC):
                 "completed; fix by calling strategy.train(df) first."
             )
         return meta
+
+    def _set_fitted_with_metadata(self, metadata: TrainingMetadata) -> None:
+        """Atomic write-side counterpart to :meth:`_assert_fitted_with_metadata`.
+
+        ``train()`` and ``load()`` overrides call this as the very last step,
+        instead of separately assigning ``self._training_metadata`` and
+        ``self._fitted = True``. Two invariants the helper enforces that the
+        previous two-line idiom did not:
+
+        * **Metadata is non-None** — a ``None`` metadata with ``_fitted=True``
+          would let walk-forward's deep leakage check silently skip a leaf
+          (``get_all_training_metadata`` returns the strategy's own ``None``
+          slot, ``validate_no_overlap`` short-circuits).
+        * **Order is metadata-then-flag** — assigning ``_fitted=True`` before
+          ``_training_metadata`` is set leaves a half-fitted state visible to
+          any concurrent reader (or to a subclass whose own assignment raises
+          between the two lines).
+
+        Subclasses must use this helper rather than the two-line idiom so the
+        atomic invariant is upheld at every callsite. The read side is still
+        :meth:`_assert_fitted_with_metadata`; together the pair is the only
+        legal way to commit / observe the fitted state.
+        """
+        if metadata is None:
+            raise ValueError(
+                f"{type(self).__name__}._set_fitted_with_metadata() requires a "
+                "non-None TrainingMetadata; fix by passing the metadata produced "
+                "by TrainingMetadata.from_fit(...) at the end of train()."
+            )
+        self._training_metadata = metadata
+        self._fitted = True
 
     def get_all_training_metadata(self) -> tuple[TrackedMetadata, ...]:
         """Every metadata object a fold's leakage check must validate.

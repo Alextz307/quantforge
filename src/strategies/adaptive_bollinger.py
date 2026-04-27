@@ -91,8 +91,6 @@ class AdaptiveBollingerStrategy(IStrategy):
         self._garch_q_max = garch_q_max
 
         self._garch = GARCHPredictor(p_max=garch_p_max, q_max=garch_q_max, interval=interval)
-        self._fitted = False
-        self._training_metadata: TrainingMetadata | None = None
         self._cpp_strategy = quant_engine.AdaptiveBollingerStrategy(
             quant_engine.AdaptiveBollingerStrategy.Config(
                 band_window=self._window,
@@ -113,8 +111,9 @@ class AdaptiveBollingerStrategy(IStrategy):
         aligned = train_data.loc[log_returns.index]
         self._garch.fit(aligned, log_returns)
 
-        self._training_metadata = TrainingMetadata.from_fit(train_data, self._interval, ("close",))
-        self._fitted = True
+        self._set_fitted_with_metadata(
+            TrainingMetadata.from_fit(train_data, self._interval, ("close",))
+        )
 
     def generate_signals(self, data: pd.DataFrame) -> pd.Series:
         """Produce {-1, 0, +1} position signals. Leading warmup bars are NaN."""
@@ -181,8 +180,7 @@ class AdaptiveBollingerStrategy(IStrategy):
             interval=Interval(json_io.get_str(config, "interval")),
         )
         instance._garch = GARCHPredictor.load(root / GARCH_SUBDIR)
-        instance._training_metadata = TrainingMetadata.from_dict(metadata)
-        instance._fitted = True
+        instance._set_fitted_with_metadata(TrainingMetadata.from_dict(metadata))
         return instance
 
     @property

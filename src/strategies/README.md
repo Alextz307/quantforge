@@ -8,7 +8,7 @@ runs the backtest.
 
 | Symbol | Role |
 | --- | --- |
-| `IStrategy` | Abstract base. Required: `train`, `generate_signals`, `name`, `required_warmup_bars`, `suggest_params`. Default: `save`/`load` (raise), `hedge_ratio` (raise unless overridden), `get_all_training_metadata`, `_assert_fitted_with_metadata`. |
+| `IStrategy` | Abstract base. Required: `train`, `generate_signals`, `name`, `required_warmup_bars`, `suggest_params`. Default: `save`/`load` (raise), `hedge_ratio` (raise unless overridden), `get_all_training_metadata`, `_assert_fitted_with_metadata` (read-side guard), `_set_fitted_with_metadata` (atomic write-side commit). |
 | `IStrategy.is_pairs_strategy` | `ClassVar[bool]` — `True` only on pairs strategies. The walk-forward dispatcher branches on this to call `engine.run` vs `engine.run_pairs`. |
 | `AdaptiveBollingerStrategy` | Mean-reversion Bollinger bands with GARCH-scaled widths + SMA trend filter. |
 | `PairsTradingStrategy` | Cointegration (Engle-Granger) + rolling z-score on the spread. The only `is_pairs_strategy = True` member. |
@@ -48,9 +48,12 @@ All five register themselves at import time on `strategy_registry`
   `_HybridReturnParams`, `_HybridVolParams`, `_MomentumConfig`). Tests
   call `assert_params_match_constructor` to drift-guard the bundle
   fields against the leaf's ctor signature.
-- **`_fitted` is the transactional commit.** `train()` sets
-  `self._fitted = True` only after every dependent piece of state is
-  in place (scaler, weights, frozen params, training_metadata).
+- **`_fitted` is the transactional commit.** `train()` and `load()` end
+  with `self._set_fitted_with_metadata(metadata)`, never with the
+  two-line `self._training_metadata = ...; self._fitted = True` idiom.
+  The helper assigns metadata first and refuses ``None``, so a partial
+  fit can never leave ``_fitted=True`` with absent metadata visible to
+  the deep leakage check.
 - **No signal shift inside the strategy.** The engine shifts
   positions to `t+1`. Strategies that compute `next_bar_direction`-style
   targets must drop the trailing row, never `fillna(0)` it.

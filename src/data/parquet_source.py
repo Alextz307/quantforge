@@ -35,7 +35,7 @@ class ParquetSource(IDataSource):
         normalizer: DataNormalizer | None = None,
     ) -> None:
         self._data_dir = Path(data_dir)
-        super().__init__(cache=cache, normalizer=normalizer or DataNormalizer("yfinance"))
+        super().__init__(cache=cache, normalizer=normalizer or DataNormalizer("parquet"))
 
     @property
     def name(self) -> str:

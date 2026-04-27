@@ -108,8 +108,6 @@ class PairsTradingStrategy(IStrategy):
         self._spread_std = 0.0
         self._is_cointegrated = False
         self._cpp_coint: quant_engine.CointegrationParams | None = None
-        self._fitted = False
-        self._training_metadata: TrainingMetadata | None = None
         self._cpp_strategy = quant_engine.PairsTradingStrategy(
             quant_engine.PairsTradingStrategy.Config(
                 entry_zscore=self._entry_zscore,
@@ -153,10 +151,9 @@ class PairsTradingStrategy(IStrategy):
         self._is_cointegrated = True
         self._cpp_coint = self._build_coint_params()
 
-        self._training_metadata = TrainingMetadata.from_fit(
-            train_data, self._interval, ("close_a", "close_b")
+        self._set_fitted_with_metadata(
+            TrainingMetadata.from_fit(train_data, self._interval, ("close_a", "close_b"))
         )
-        self._fitted = True
 
     def generate_signals(self, data: pd.DataFrame) -> pd.Series:
         """Produce {-1, 0, +1} leg_a position. Leading lookback bars are NaN."""
@@ -257,8 +254,7 @@ class PairsTradingStrategy(IStrategy):
         instance._spread_std = json_io.get_float(weights, "spread_std")
         instance._is_cointegrated = json_io.get_bool(weights, "is_cointegrated")
         instance._cpp_coint = instance._build_coint_params()
-        instance._training_metadata = TrainingMetadata.from_dict(metadata)
-        instance._fitted = True
+        instance._set_fitted_with_metadata(TrainingMetadata.from_dict(metadata))
         return instance
 
     @property

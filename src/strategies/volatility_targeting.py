@@ -197,8 +197,6 @@ class VolatilityTargetingStrategy(IStrategy):
                 self._hybrid_params = _HybridVolParams(**asdict(leaf_config))
         else:
             self._hybrid_vol = self._build_hybrid_vol()
-        self._fitted = False
-        self._training_metadata: TrainingMetadata | None = None
 
     def _build_hybrid_vol(self) -> HybridVolatilityModel:
         kwargs = asdict(self._hybrid_params)
@@ -232,10 +230,11 @@ class VolatilityTargetingStrategy(IStrategy):
             aligned = train_data.loc[target.index]
             self._hybrid_vol.fit(aligned, target, checkpoint_path=checkpoint_path, **kwargs)
 
-        self._training_metadata = TrainingMetadata.from_fit(
-            train_data, self._interval, self._hybrid_params.feature_columns
+        self._set_fitted_with_metadata(
+            TrainingMetadata.from_fit(
+                train_data, self._interval, self._hybrid_params.feature_columns
+            )
         )
-        self._fitted = True
 
     def generate_signals(self, data: pd.DataFrame) -> pd.Series:
         """Produce leverage signals in ``[0, max_leverage]``. Warmup bars are NaN."""
@@ -337,8 +336,7 @@ class VolatilityTargetingStrategy(IStrategy):
             interval=Interval(json_io.get_str(config, "interval")),
         )
         instance._hybrid_vol = HybridVolatilityModel.load(root / HYBRID_VOL_SUBDIR)
-        instance._training_metadata = TrainingMetadata.from_dict(metadata)
-        instance._fitted = True
+        instance._set_fitted_with_metadata(TrainingMetadata.from_dict(metadata))
         return instance
 
     @property

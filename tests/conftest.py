@@ -284,6 +284,114 @@ def make_mini_experiment_fixture(
     return yaml_path
 
 
+_PAIR_MINI_TICKER_A = "PAIR_A"
+_PAIR_MINI_TICKER_B = "PAIR_B"
+_PAIR_MINI_DEFAULT_NAME = "pair_mini_smoke"
+_PAIR_MINI_DEFAULT_ROWS = 300
+_PAIR_MINI_DEFAULT_N_SPLITS = 2
+_PAIR_MINI_DEFAULT_TEST_SIZE = 60
+_PAIR_MINI_DEFAULT_GAP = 1
+_PAIR_MINI_DEFAULT_SEED = 42
+_PAIR_MINI_START_DATE = "2020-01-02"
+# Cointegration parameters: close_b = alpha + beta * close_a + N(0, sigma).
+# Levels stay non-stationary (beta > 0 propagates leg A's random walk into B);
+# residuals are iid Gaussian (stationary). Engle-Granger ADF rejects the unit
+# root on residuals at p < 0.05 for any lookback >= ~50 bars at this sigma.
+_PAIR_MINI_BETA = 0.5
+_PAIR_MINI_ALPHA = 50.0
+_PAIR_MINI_NOISE_STD = 1.0
+_PAIR_MINI_OHLC_BAND_STD = 0.005
+
+
+def make_pair_mini_experiment_fixture(
+    tmp_path: Path,
+    *,
+    name: str = _PAIR_MINI_DEFAULT_NAME,
+    n_rows: int = _PAIR_MINI_DEFAULT_ROWS,
+    n_splits: int = _PAIR_MINI_DEFAULT_N_SPLITS,
+    test_size: int = _PAIR_MINI_DEFAULT_TEST_SIZE,
+    gap: int = _PAIR_MINI_DEFAULT_GAP,
+) -> Path:
+    """Write two cointegrated synthetic OHLCV CSVs + a PairsTrading YAML.
+
+    Sibling to :func:`make_mini_experiment_fixture` for the pairs CLI smoke.
+    Construction:
+
+    * Leg A is :func:`make_synthetic_ohlcv_df` (its own fixed seed → reproducible
+      random-walk close).
+    * Leg B has ``close_b = alpha + beta * close_a + N(0, sigma)`` with iid
+      Gaussian noise. The pair is cointegrated by construction — Engle-Granger
+      passes for any reasonable training window — so the strategy's
+      ``train()`` does not raise ``"pair not cointegrated"`` on small folds.
+    * Both legs share the same business-day index (the orchestrator's pair
+      fetch path inner-joins on timestamps; identical indices avoid silent
+      bar drops that would invalidate the row-count assertion).
+
+    No ``holdout_pct`` knob: pairs smoke does not exercise the holdout
+    boundary, and including it here would require carrying a tighter
+    ``zscore_lookback`` to keep the dev region long enough.
+    """
+    csv_dir = tmp_path / "csv_data"
+    csv_dir.mkdir()
+
+    df_a = make_synthetic_ohlcv_df(n_rows=n_rows, start=_PAIR_MINI_START_DATE)
+    df_a.index.name = "date"
+    df_a.to_csv(csv_dir / f"{_PAIR_MINI_TICKER_A}.csv")
+
+    rng = np.random.default_rng(_PAIR_MINI_DEFAULT_SEED)
+    close_a = np.asarray(df_a["close"], dtype=np.float64)
+    spread_noise = rng.normal(0.0, _PAIR_MINI_NOISE_STD, n_rows)
+    close_b = _PAIR_MINI_ALPHA + _PAIR_MINI_BETA * close_a + spread_noise
+
+    open_b = np.empty(n_rows)
+    open_b[0] = close_b[0]
+    open_b[1:] = close_b[:-1]
+    band = np.abs(rng.normal(0.0, _PAIR_MINI_OHLC_BAND_STD, n_rows))
+    high_b = np.maximum(close_b, open_b) * (1 + band)
+    low_b = np.minimum(close_b, open_b) * (1 - band)
+    high_b = np.maximum(high_b, np.maximum(open_b, close_b))
+    low_b = np.minimum(low_b, np.minimum(open_b, close_b))
+    volume_b = np.full(n_rows, SYNTH_FIXED_VOLUME)
+    df_b = pd.DataFrame(
+        {"open": open_b, "high": high_b, "low": low_b, "close": close_b, "volume": volume_b},
+        index=df_a.index,
+    )
+    df_b.index.name = "date"
+    df_b.to_csv(csv_dir / f"{_PAIR_MINI_TICKER_B}.csv")
+
+    cfg_payload: dict[str, object] = {
+        "name": name,
+        "seed": _PAIR_MINI_DEFAULT_SEED,
+        "data": {
+            "source": {"name": "csv", "params": {"data_dir": str(csv_dir)}},
+            "tickers": [_PAIR_MINI_TICKER_A, _PAIR_MINI_TICKER_B],
+            "start": datetime(2020, 1, 2).isoformat(),
+            "end": datetime(2022, 1, 1).isoformat(),
+            "interval": "daily",
+        },
+        "strategy": {
+            "name": "PairsTrading",
+            "params": {
+                "entry_zscore": 2.0,
+                "exit_zscore": 0.5,
+                "stop_loss_zscore": 4.0,
+                "zscore_lookback": 30,
+                "p_value_threshold": 0.05,
+            },
+        },
+        "validation": {
+            "n_splits": n_splits,
+            "test_size": test_size,
+            "gap": gap,
+        },
+        "slippage": {"scenario": "normal"},
+    }
+    yaml_path = tmp_path / f"{name}.yaml"
+    with yaml_path.open("w") as f:
+        yaml.safe_dump(cfg_payload, f)
+    return yaml_path
+
+
 def make_walk_forward_validator(n_splits: int, test_size: int) -> WalkForwardValidator:
     """Pass-through factory shared across engine integration tests.
 
