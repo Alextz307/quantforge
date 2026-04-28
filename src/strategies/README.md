@@ -15,10 +15,11 @@ runs the backtest.
 | `AdaptiveBollingerStrategy` | Mean-reversion Bollinger bands with GARCH-scaled widths + SMA trend filter. |
 | `PairsTradingStrategy` | Cointegration (Engle-Granger) + rolling z-score on the spread. The only `is_pairs_strategy = True` member. |
 | `MomentumGatekeeperStrategy` | Long-only momentum gated by a 200-MA trend filter and an XGBoost `DirectionalClassifier`. |
+| `CrossAssetMomentumStrategy` | Single-asset traded; XGBoost `DirectionalClassifier` over lagged returns of N feature tickers. The `is_multi_feature_strategy = True` exemplar. Methodology adapted from Rapach et al. (2019, *JFE* 135). |
 | `ReturnForecastStrategy` | Sign-of-forecast positions from a `HybridReturnModel` (ARMA + LSTM residual correction). |
 | `VolatilityTargetingStrategy` | Position size = `target_vol / forecast_vol` from a `HybridVolatilityModel` (GARCH + LSTM residual correction). |
 
-All five register themselves at import time on `strategy_registry`
+All six register themselves at import time on `strategy_registry`
 (name → class) for config-driven instantiation.
 
 ## Layout
@@ -29,6 +30,7 @@ All five register themselves at import time on `strategy_registry`
 | `adaptive_bollinger.py` | Single-asset, owns a `GARCHPredictor`. No pretrained leaves. |
 | `pairs_trading.py` | Two-asset (`close_a` / `close_b`); owns `CointegrationTester` and a C++ `PairsTradingStrategy` for signal generation. |
 | `momentum_gatekeeper.py` | Owns a `FeatureEngineeringPipeline` + `DirectionalClassifier` (XGBoost). |
+| `cross_asset_momentum.py` | Owns a `DirectionalClassifier` (XGBoost) fed lagged log-returns of N feature tickers; reads the wide `<ohlcv>_<TICKER>` frame directly. |
 | `return_forecast.py` | Owns a `HybridReturnModel` rebuilt from a frozen `_HybridReturnParams` bundle each `train()`. |
 | `volatility_targeting.py` | Owns a `HybridVolatilityModel` rebuilt from a frozen `_HybridVolParams` bundle each `train()`. |
 

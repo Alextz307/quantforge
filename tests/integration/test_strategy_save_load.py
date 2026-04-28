@@ -26,6 +26,7 @@ from src.core.types import Interval
 from src.models.hybrid_return import HybridReturnModel
 from src.models.hybrid_volatility import HybridVolatilityModel
 from src.strategies.adaptive_bollinger import AdaptiveBollingerStrategy
+from src.strategies.cross_asset_momentum import CrossAssetMomentumStrategy
 from src.strategies.momentum_gatekeeper import MomentumGatekeeperStrategy
 from src.strategies.pairs_trading import PairsTradingStrategy
 from src.strategies.return_forecast import ReturnForecastStrategy
@@ -302,6 +303,11 @@ _DRIFT_CASES: list[tuple[type, Callable[[], object], set[str]]] = [
     (
         MomentumGatekeeperStrategy,
         lambda: MomentumGatekeeperStrategy(),
+        {"device", "pretrained_leaves"},
+    ),
+    (
+        CrossAssetMomentumStrategy,
+        lambda: CrossAssetMomentumStrategy(primary_ticker="X", feature_tickers=("Y",)),
         {"device", "pretrained_leaves"},
     ),
     (

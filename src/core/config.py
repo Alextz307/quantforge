@@ -107,6 +107,17 @@ _LEAF_KEY_OWNED_PARAMS: dict[str, dict[str, tuple[str, ...]]] = {
             "device",
         ),
     },
+    "CrossAssetMomentum": {
+        "directional_classifier": (
+            "n_estimators",
+            "learning_rate",
+            "max_depth",
+            "subsample",
+            "colsample_bytree",
+            "val_split_ratio",
+            "device",
+        ),
+    },
 }
 
 

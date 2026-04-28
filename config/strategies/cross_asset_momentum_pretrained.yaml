@@ -1,0 +1,54 @@
+# Example ExperimentConfig — inject a pretrained DirectionalClassifier into
+# CrossAssetMomentumStrategy. Run after producing the artifact via:
+#   python -m scripts.experiment train-model \
+#       --config config/models/spy_cross_asset_directional_classifier.yaml
+#
+# then:
+#   python -m scripts.experiment run \
+#       --config config/strategies/cross_asset_momentum_pretrained.yaml
+#
+# Unlike MomentumGatekeeper there is no separate FeatureEngineeringPipeline
+# outside the leaf — the raw lagged-return columns flow straight into the
+# classifier — so a frozen classifier means a fully-frozen feature-to-
+# prediction path. The strategy-level ``direction_threshold`` is still
+# tunable per fold even when the classifier is frozen.
+
+name: spy_cross_asset_momentum_pretrained
+seed: 42
+
+data:
+  source: yfinance
+  tickers: [SPY, QQQ, IWM, DIA]
+  start: 2020-01-02
+  end: 2024-12-31
+  interval: daily
+
+strategy:
+  name: CrossAssetMomentum
+  params:
+    primary_ticker: SPY
+    # ``feature_tickers`` and ``lags`` MUST match the values the leaf
+    # was trained with — the strategy ctor derives the feature column
+    # names from these and ``validate_pretrained_leaf`` rejects any
+    # mismatch against the leaf's ``training_metadata.feature_columns``.
+    feature_tickers: [QQQ, IWM, DIA]
+    lags: [1, 5, 21]
+    # Strategy-level kwarg (user-tunable even with a frozen classifier):
+    direction_threshold: 0.55
+    # Classifier-owned kwargs (n_estimators, learning_rate, max_depth,
+    # subsample, colsample_bytree, val_split_ratio, device) MUST NOT
+    # appear here — the artifact pins them. Setting any would be
+    # rejected by the config cross-validator.
+
+pretrained_leaves:
+  directional_classifier: experiment_results/models/spy_cross_asset_xgb_directional
+
+validation:
+  n_splits: 4
+  test_size: 252
+  gap: 5
+  expanding: true
+  holdout_pct: 0.15
+
+slippage:
+  scenario: normal

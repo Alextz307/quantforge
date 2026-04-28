@@ -1,0 +1,59 @@
+# Standalone CrossAssetMomentum experiment — full HPO from scratch, no
+# pretrained leaf. Methodology adapted from Rapach, Strauss, Tu, Zhou (2019)
+# "Industry return predictability: A machine learning approach"
+# (Journal of Financial Economics 135(2)): predict the primary asset's
+# next-bar direction from lagged returns of cross-asset peers, trade on
+# the directional gate. We swap LASSO → XGBoost (Krauss, Do, Huck 2017,
+# EJOR 259) and operate on user-configured ``lags × feature_tickers``.
+#
+# The strategy reads the wide multi-ticker frame directly — the
+# orchestrator does NOT instantiate a feature pipeline (no top-level
+# ``features:`` block). All feature engineering is inline.
+#
+# Runnable today:
+#   python -m scripts.experiment run --config config/strategies/cross_asset_momentum.yaml
+#
+# For the pretrained-leaf workflow (frozen XGBoost classifier), see the
+# sibling ``cross_asset_momentum_pretrained.yaml`` instead.
+
+name: spy_cross_asset_momentum
+seed: 42
+
+data:
+  source: yfinance
+  # Primary first by convention; ``primary_ticker`` below names the same
+  # symbol so the orchestrator slices its OHLCV out of the wide frame.
+  tickers: [SPY, QQQ, IWM, DIA]
+  start: 2018-01-02
+  end: 2024-12-31
+  interval: daily
+
+strategy:
+  name: CrossAssetMomentum
+  params:
+    primary_ticker: SPY
+    # Cross-asset peers; can include the primary if you also want its own
+    # lagged returns as features (autoregressive component).
+    feature_tickers: [QQQ, IWM, DIA]
+    # Daily horizons: 1 day / 1 week / 1 month. Rapach et al use a single
+    # 1-month horizon; we expand to multi-horizon for richer signals.
+    lags: [1, 5, 21]
+    # Three-way gate: long iff p_up > 0.55, short iff p_up < 0.45, else flat.
+    direction_threshold: 0.55
+    # Classifier knobs (HPO target).
+    n_estimators: 200
+    learning_rate: 0.05
+    max_depth: 5
+    subsample: 0.8
+    colsample_bytree: 0.8
+    val_split_ratio: 0.2
+
+validation:
+  n_splits: 4
+  test_size: 252
+  gap: 5
+  expanding: true
+  holdout_pct: 0.15
+
+slippage:
+  scenario: normal
