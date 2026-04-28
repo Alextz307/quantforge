@@ -66,3 +66,22 @@ def next_bar_direction(close: pd.Series[float]) -> pd.Series[int]:
     """
     direction: pd.Series[int] = (close.shift(-1) > close).astype(int).iloc[:-1]
     return direction
+
+
+def align_features_for_directional_target(
+    features: pd.DataFrame,
+    close: pd.Series[float],
+) -> tuple[pd.DataFrame, pd.Series[int]]:
+    """Align ``features`` to ``next_bar_direction(close)`` and drop NaN rows.
+
+    Shared training-batch builder for directional-classifier strategies
+    (``MomentumGatekeeperStrategy``, ``CrossAssetMomentumStrategy``). The
+    target drops the final row (no ``t+1`` close); the returned features
+    are sliced to the target's index and then masked to rows where every
+    feature column is non-NaN. Callers that need a column subset should
+    pre-subset ``features`` before calling.
+    """
+    target = next_bar_direction(close)
+    features_aligned = features.loc[target.index]
+    valid_mask = features_aligned.notna().all(axis=1)
+    return features_aligned.loc[valid_mask], target.loc[valid_mask]

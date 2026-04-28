@@ -11,6 +11,7 @@ import pandas as pd
 
 from src.core import json_io
 from src.core.constants import DEFAULT_REALIZED_VOL_WINDOW
+from src.core.leaf_keys import LEAF_KEY_VOL_MODEL
 from src.core.logging import get_logger
 from src.core.persistence import (
     CONFIG_JSON,
@@ -22,8 +23,6 @@ from src.core.registry import strategy_registry
 from src.core.temporal import (
     TrackedMetadata,
     TrainingMetadata,
-    collect_metadata,
-    mark_pretrained,
 )
 from src.core.types import Device, Interval, LossFunction
 from src.core.utils import annualized_garman_klass
@@ -69,9 +68,6 @@ class _HybridVolParams:
     interval: Interval
 
 
-_LEAF_KEY_VOL_MODEL = "vol_model"
-
-
 @strategy_registry.register("VolatilityTargeting")
 class VolatilityTargetingStrategy(IStrategy):
     """Scale long exposure to hit a target portfolio volatility.
@@ -92,7 +88,7 @@ class VolatilityTargetingStrategy(IStrategy):
     updates only ``_training_metadata``.
     """
 
-    _leaf_keys: ClassVar[frozenset[str]] = frozenset({_LEAF_KEY_VOL_MODEL})
+    _leaf_keys: ClassVar[frozenset[str]] = frozenset({LEAF_KEY_VOL_MODEL})
 
     def __init__(
         self,
@@ -180,8 +176,8 @@ class VolatilityTargetingStrategy(IStrategy):
             interval=interval,
         )
 
-        if _LEAF_KEY_VOL_MODEL in self._pretrained_leaves:
-            injected = self._pretrained_leaves[_LEAF_KEY_VOL_MODEL]
+        if LEAF_KEY_VOL_MODEL in self._pretrained_leaves:
+            injected = self._pretrained_leaves[LEAF_KEY_VOL_MODEL]
             validate_pretrained_leaf(
                 injected,
                 interval=interval,
@@ -223,7 +219,7 @@ class VolatilityTargetingStrategy(IStrategy):
         ``_training_metadata`` advances so the walk-forward deep metadata
         check records the strategy's own fold window.
         """
-        if _LEAF_KEY_VOL_MODEL not in self._pretrained_leaves:
+        if LEAF_KEY_VOL_MODEL not in self._pretrained_leaves:
             self._hybrid_vol = self._build_hybrid_vol()
             realized_vol = self._compute_realized_vol(train_data)
             target = realized_vol.dropna()
@@ -351,10 +347,10 @@ class VolatilityTargetingStrategy(IStrategy):
         orchestrator enforces the strict-no-overlap invariant against the
         fold's train window (not just its test window).
         """
-        leaf_metadata = self._hybrid_vol.get_all_training_metadata()
-        if _LEAF_KEY_VOL_MODEL in self._pretrained_leaves:
-            leaf_metadata = mark_pretrained(leaf_metadata)
-        return collect_metadata(("strategy", self._training_metadata)) + leaf_metadata
+        return self._build_strategy_plus_leaf_metadata(
+            LEAF_KEY_VOL_MODEL,
+            self._hybrid_vol.get_all_training_metadata(),
+        )
 
     @staticmethod
     def suggest_params(trial: optuna.trial.BaseTrial) -> dict[str, object]:

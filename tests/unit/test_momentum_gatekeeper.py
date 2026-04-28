@@ -8,8 +8,12 @@ import pytest
 from src.core.exceptions import LeakageError
 from src.core.registry import strategy_registry
 from src.core.types import Interval
-from src.strategies.momentum_gatekeeper import MomentumGatekeeperStrategy
-from tests.conftest import make_declining_close_df, make_synthetic_close_df
+from src.strategies.momentum_gatekeeper import MomentumGatekeeperStrategy, _MomentumConfig
+from tests.conftest import (
+    assert_params_match_constructor,
+    make_declining_close_df,
+    make_synthetic_close_df,
+)
 
 # Compact XGBoost params for fast CI
 COMPACT_N_ESTIMATORS = 20
@@ -173,3 +177,12 @@ class TestMomentumGatekeeperStrategy:
         )
         with pytest.raises(ValueError, match="not produced by pipeline"):
             s.train(train_df)
+
+
+class TestParamsDataclassDriftGuard:
+    def test_fields_match_constructor(self) -> None:
+        assert_params_match_constructor(
+            _MomentumConfig,
+            MomentumGatekeeperStrategy,
+            ignore={"pretrained_leaves"},
+        )

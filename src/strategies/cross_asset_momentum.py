@@ -21,6 +21,7 @@ import numpy as np
 import pandas as pd
 
 from src.core import json_io
+from src.core.leaf_keys import LEAF_KEY_DIRECTIONAL_CLASSIFIER
 from src.core.logging import get_logger
 from src.core.persistence import (
     CLASSIFIER_SUBDIR,
@@ -34,10 +35,9 @@ from src.core.temporal import (
     TrackedMetadata,
     TrainingMetadata,
     collect_metadata,
-    mark_pretrained,
 )
 from src.core.types import Device, Interval
-from src.core.utils import compute_log_returns, next_bar_direction
+from src.core.utils import align_features_for_directional_target, compute_log_returns
 from src.models.xgboost_classifier import DirectionalClassifier
 from src.orchestration.pretrained_leaves import (
     normalize_pretrained_leaves,
@@ -49,8 +49,6 @@ if TYPE_CHECKING:
     import optuna
 
 logger = get_logger(__name__)
-
-_LEAF_KEY_DIRECTIONAL_CLASSIFIER = "directional_classifier"
 
 # Lower bound is inclusive (``t == 0.5`` collapses the dead zone — the gate
 # reduces to "trade whichever side is more probable"); upper bound is exclusive
@@ -119,7 +117,7 @@ class CrossAssetMomentumStrategy(IStrategy):
     """
 
     is_multi_feature_strategy: ClassVar[bool] = True
-    _leaf_keys: ClassVar[frozenset[str]] = frozenset({_LEAF_KEY_DIRECTIONAL_CLASSIFIER})
+    _leaf_keys: ClassVar[frozenset[str]] = frozenset({LEAF_KEY_DIRECTIONAL_CLASSIFIER})
 
     def __init__(
         self,
@@ -185,8 +183,8 @@ class CrossAssetMomentumStrategy(IStrategy):
 
         feature_columns = _derive_feature_columns(feature_tickers_tup, lags_tup)
         self._classifier: DirectionalClassifier | None = None
-        if _LEAF_KEY_DIRECTIONAL_CLASSIFIER in self._pretrained_leaves:
-            injected = self._pretrained_leaves[_LEAF_KEY_DIRECTIONAL_CLASSIFIER]
+        if LEAF_KEY_DIRECTIONAL_CLASSIFIER in self._pretrained_leaves:
+            injected = self._pretrained_leaves[LEAF_KEY_DIRECTIONAL_CLASSIFIER]
             validate_pretrained_leaf(
                 injected,
                 interval=interval,
@@ -239,14 +237,11 @@ class CrossAssetMomentumStrategy(IStrategy):
         """
         features = self._build_feature_frame(train_data)
         primary_close = train_data[f"close_{self._params.primary_ticker}"]
-        target = next_bar_direction(primary_close)
+        features_ready, target_ready = align_features_for_directional_target(
+            features, primary_close
+        )
 
-        features_aligned = features.loc[target.index]
-        valid = features_aligned.notna().all(axis=1)
-        features_ready = features_aligned.loc[valid]
-        target_ready = target.loc[valid]
-
-        if _LEAF_KEY_DIRECTIONAL_CLASSIFIER not in self._pretrained_leaves:
+        if LEAF_KEY_DIRECTIONAL_CLASSIFIER not in self._pretrained_leaves:
             self._classifier = DirectionalClassifier(
                 feature_columns=list(self._feature_columns),
                 n_estimators=self._params.n_estimators,
@@ -359,10 +354,10 @@ class CrossAssetMomentumStrategy(IStrategy):
         classifier_meta = (
             self._classifier.training_metadata if self._classifier is not None else None
         )
-        classifier_tracked = collect_metadata(("classifier", classifier_meta))
-        if _LEAF_KEY_DIRECTIONAL_CLASSIFIER in self._pretrained_leaves:
-            classifier_tracked = mark_pretrained(classifier_tracked)
-        return collect_metadata(("strategy", self.training_metadata)) + classifier_tracked
+        return self._build_strategy_plus_leaf_metadata(
+            LEAF_KEY_DIRECTIONAL_CLASSIFIER,
+            collect_metadata(("classifier", classifier_meta)),
+        )
 
     @staticmethod
     def suggest_params(trial: optuna.trial.BaseTrial) -> dict[str, object]:

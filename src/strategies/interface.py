@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, ClassVar, Self
 
 import pandas as pd
 
-from src.core.temporal import TrackedMetadata, TrainingMetadata, collect_metadata
+from src.core.temporal import TrackedMetadata, TrainingMetadata, collect_metadata, mark_pretrained
 
 if TYPE_CHECKING:
     import optuna
@@ -192,6 +192,24 @@ class IStrategy(ABC):
         that drifted (strategy vs garch vs lstm vs classifier).
         """
         return collect_metadata(("strategy", self.training_metadata))
+
+    def _build_strategy_plus_leaf_metadata(
+        self,
+        leaf_key: str,
+        leaf_tracked: tuple[TrackedMetadata, ...],
+    ) -> tuple[TrackedMetadata, ...]:
+        """Combine ``strategy + leaf`` metadata; mark the leaf pretrained if injected.
+
+        Shared shape across every composite strategy that supports
+        pretrained-leaf injection (MomentumGatekeeper, CrossAssetMomentum,
+        ReturnForecast, VolatilityTargeting). The leaf-presence check on
+        ``self._pretrained_leaves`` reads the same dict each subclass
+        populates from :func:`normalize_pretrained_leaves` in its ctor.
+        """
+        pretrained = getattr(self, "_pretrained_leaves", {})
+        if leaf_key in pretrained:
+            leaf_tracked = mark_pretrained(leaf_tracked)
+        return collect_metadata(("strategy", self.training_metadata)) + leaf_tracked
 
     def save(self, path: str | Path) -> None:
         """Persist the trained strategy to a directory at ``path``.

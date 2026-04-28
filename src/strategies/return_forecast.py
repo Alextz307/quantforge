@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, ClassVar, Self, cast
 import pandas as pd
 
 from src.core import json_io
+from src.core.leaf_keys import LEAF_KEY_RETURN_MODEL
 from src.core.logging import get_logger
 from src.core.persistence import (
     CONFIG_JSON,
@@ -21,8 +22,6 @@ from src.core.registry import strategy_registry
 from src.core.temporal import (
     TrackedMetadata,
     TrainingMetadata,
-    collect_metadata,
-    mark_pretrained,
 )
 from src.core.types import Device, InformationCriterion, Interval, LossFunction
 from src.core.utils import compute_log_returns
@@ -68,9 +67,6 @@ class _HybridReturnParams:
     interval: Interval
 
 
-_LEAF_KEY_RETURN_MODEL = "return_model"
-
-
 @strategy_registry.register("ReturnForecast")
 class ReturnForecastStrategy(IStrategy):
     """Position = clip(``position_scale * forecast_return``, ±``max_leverage``).
@@ -86,7 +82,7 @@ class ReturnForecastStrategy(IStrategy):
     leaf means ``train()`` updates only ``_training_metadata``.
     """
 
-    _leaf_keys: ClassVar[frozenset[str]] = frozenset({_LEAF_KEY_RETURN_MODEL})
+    _leaf_keys: ClassVar[frozenset[str]] = frozenset({LEAF_KEY_RETURN_MODEL})
 
     def __init__(
         self,
@@ -151,8 +147,8 @@ class ReturnForecastStrategy(IStrategy):
             interval=interval,
         )
 
-        if _LEAF_KEY_RETURN_MODEL in self._pretrained_leaves:
-            injected = self._pretrained_leaves[_LEAF_KEY_RETURN_MODEL]
+        if LEAF_KEY_RETURN_MODEL in self._pretrained_leaves:
+            injected = self._pretrained_leaves[LEAF_KEY_RETURN_MODEL]
             validate_pretrained_leaf(
                 injected,
                 interval=interval,
@@ -188,7 +184,7 @@ class ReturnForecastStrategy(IStrategy):
         ``_training_metadata`` advances so the walk-forward deep metadata
         check records the strategy's own fold window.
         """
-        if _LEAF_KEY_RETURN_MODEL not in self._pretrained_leaves:
+        if LEAF_KEY_RETURN_MODEL not in self._pretrained_leaves:
             self._hybrid_return = self._build_hybrid_return()
             log_returns = compute_log_returns(train_data["close"]).dropna()
             aligned = train_data.loc[log_returns.index]
@@ -308,10 +304,10 @@ class ReturnForecastStrategy(IStrategy):
         orchestrator enforces the strict-no-overlap invariant against the
         fold's train window (not just its test window).
         """
-        leaf_metadata = self._hybrid_return.get_all_training_metadata()
-        if _LEAF_KEY_RETURN_MODEL in self._pretrained_leaves:
-            leaf_metadata = mark_pretrained(leaf_metadata)
-        return collect_metadata(("strategy", self._training_metadata)) + leaf_metadata
+        return self._build_strategy_plus_leaf_metadata(
+            LEAF_KEY_RETURN_MODEL,
+            self._hybrid_return.get_all_training_metadata(),
+        )
 
     @staticmethod
     def suggest_params(trial: optuna.trial.BaseTrial) -> dict[str, object]:

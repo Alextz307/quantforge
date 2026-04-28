@@ -19,7 +19,11 @@ from src.strategies.cross_asset_momentum import (
     _CrossAssetMomentumConfig,
     _derive_feature_columns,
 )
-from tests.conftest import GLOBAL_NUMPY_SEED, make_synthetic_ohlcv_df
+from tests.conftest import (
+    GLOBAL_NUMPY_SEED,
+    assert_params_match_constructor,
+    make_synthetic_ohlcv_df,
+)
 
 _PRIMARY = "AAA"
 _FEATURE_TICKERS: tuple[str, ...] = ("BBB", "CCC")
@@ -324,22 +328,10 @@ class TestSuggestParams:
 
 class TestParamsDataclassDriftGuard:
     def test_fields_match_constructor(self) -> None:
-        """``_CrossAssetMomentumConfig`` fields must mirror ctor kwargs.
-
-        Mypy can't enforce this when the dataclass is consumed via
-        ``frozen_params_to_json`` / ``asdict``; the helper closes the gap.
-        """
-        # ``pretrained_leaves`` is the one ctor kwarg deliberately not stored
-        # on the params dataclass — it's an injection seam, not a config knob.
-        import dataclasses
-        import inspect
-
-        ctor_params = set(inspect.signature(CrossAssetMomentumStrategy).parameters)
-        ctor_params.discard("pretrained_leaves")
-        dc_fields = {f.name for f in dataclasses.fields(_CrossAssetMomentumConfig)}
-        assert dc_fields == ctor_params, (
-            f"_CrossAssetMomentumConfig drifted from CrossAssetMomentumStrategy: "
-            f"symmetric diff = {dc_fields ^ ctor_params}"
+        assert_params_match_constructor(
+            _CrossAssetMomentumConfig,
+            CrossAssetMomentumStrategy,
+            ignore={"pretrained_leaves"},
         )
 
 

@@ -11,6 +11,7 @@ import numpy as np
 import pandas as pd
 
 from src.core import json_io
+from src.core.leaf_keys import LEAF_KEY_DIRECTIONAL_CLASSIFIER
 from src.core.logging import get_logger
 from src.core.persistence import (
     CLASSIFIER_SUBDIR,
@@ -27,10 +28,9 @@ from src.core.temporal import (
     TrackedMetadata,
     TrainingMetadata,
     collect_metadata,
-    mark_pretrained,
 )
 from src.core.types import Device, Interval
-from src.core.utils import next_bar_direction, validate_open_unit_interval
+from src.core.utils import align_features_for_directional_target, validate_open_unit_interval
 from src.features.pipeline import FeatureEngineeringPipeline
 from src.models.xgboost_classifier import DirectionalClassifier
 from src.orchestration.pretrained_leaves import (
@@ -76,9 +76,6 @@ class _MomentumConfig:
     interval: Interval
 
 
-_LEAF_KEY_DIRECTIONAL_CLASSIFIER = "directional_classifier"
-
-
 @strategy_registry.register("MomentumGatekeeper")
 class MomentumGatekeeperStrategy(IStrategy):
     """Long-only momentum strategy gated by a trend MA and a directional classifier.
@@ -103,7 +100,7 @@ class MomentumGatekeeperStrategy(IStrategy):
     scaler is internal to the leaf.
     """
 
-    _leaf_keys: ClassVar[frozenset[str]] = frozenset({_LEAF_KEY_DIRECTIONAL_CLASSIFIER})
+    _leaf_keys: ClassVar[frozenset[str]] = frozenset({LEAF_KEY_DIRECTIONAL_CLASSIFIER})
 
     def __init__(
         self,
@@ -147,8 +144,8 @@ class MomentumGatekeeperStrategy(IStrategy):
 
         resolved_feature_columns = feature_columns
         self._classifier: DirectionalClassifier | None = None
-        if _LEAF_KEY_DIRECTIONAL_CLASSIFIER in self._pretrained_leaves:
-            injected = self._pretrained_leaves[_LEAF_KEY_DIRECTIONAL_CLASSIFIER]
+        if LEAF_KEY_DIRECTIONAL_CLASSIFIER in self._pretrained_leaves:
+            injected = self._pretrained_leaves[LEAF_KEY_DIRECTIONAL_CLASSIFIER]
             # Auto-adopt feature_columns from the leaf's training_metadata
             # when the user left the strategy default ``None`` — spares
             # them from spelling the same list in both the standalone-model
@@ -210,15 +207,9 @@ class MomentumGatekeeperStrategy(IStrategy):
     def _build_classifier_batch(
         self, data: pd.DataFrame, resolved: list[str]
     ) -> tuple[pd.DataFrame, pd.Series]:
-        """Compute valid-row features + next-bar direction target from ``data``.
-
-        The final row has no ``t+1`` close and is excluded.
-        """
-        features = self._pipeline.transform(data)
-        direction = next_bar_direction(data["close"])
-        features_aligned = features.loc[direction.index]
-        valid_mask = features_aligned[resolved].notna().all(axis=1)
-        return features_aligned.loc[valid_mask, resolved], direction.loc[valid_mask]
+        """Compute valid-row features + next-bar direction target from ``data``."""
+        features = self._pipeline.transform(data)[resolved]
+        return align_features_for_directional_target(features, data["close"])
 
     def train(
         self,
@@ -251,7 +242,7 @@ class MomentumGatekeeperStrategy(IStrategy):
                 )
         self._resolved_feature_columns = resolved
 
-        if _LEAF_KEY_DIRECTIONAL_CLASSIFIER not in self._pretrained_leaves:
+        if LEAF_KEY_DIRECTIONAL_CLASSIFIER not in self._pretrained_leaves:
             features_ready, target_ready = self._build_classifier_batch(train_data, resolved)
 
             self._classifier = DirectionalClassifier(
@@ -408,10 +399,10 @@ class MomentumGatekeeperStrategy(IStrategy):
         classifier_meta = (
             self._classifier.training_metadata if self._classifier is not None else None
         )
-        classifier_tracked = collect_metadata(("classifier", classifier_meta))
-        if _LEAF_KEY_DIRECTIONAL_CLASSIFIER in self._pretrained_leaves:
-            classifier_tracked = mark_pretrained(classifier_tracked)
-        return collect_metadata(("strategy", self._training_metadata)) + classifier_tracked
+        return self._build_strategy_plus_leaf_metadata(
+            LEAF_KEY_DIRECTIONAL_CLASSIFIER,
+            collect_metadata(("classifier", classifier_meta)),
+        )
 
     @staticmethod
     def suggest_params(trial: optuna.trial.BaseTrial) -> dict[str, object]:

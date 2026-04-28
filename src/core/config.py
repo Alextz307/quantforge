@@ -21,7 +21,12 @@ from typing import Self
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from src.core.leaf_keys import describe_supported_leaf_keys
+from src.core.leaf_keys import (
+    LEAF_KEY_DIRECTIONAL_CLASSIFIER,
+    LEAF_KEY_RETURN_MODEL,
+    LEAF_KEY_VOL_MODEL,
+    describe_supported_leaf_keys,
+)
 from src.core.registry import (
     classifier_registry,
     data_source_registry,
@@ -61,9 +66,19 @@ def _ensure_registries_populated() -> None:
 # and ``lstm_lookback`` are deliberately excluded — the strategy still
 # needs those even when the leaf is frozen, and ``validate_pretrained_leaf``
 # catches mismatches vs. the artifact at injection time.
+_DIRECTIONAL_CLASSIFIER_OWNED_PARAMS: tuple[str, ...] = (
+    "n_estimators",
+    "learning_rate",
+    "max_depth",
+    "subsample",
+    "colsample_bytree",
+    "val_split_ratio",
+    "device",
+)
+
 _LEAF_KEY_OWNED_PARAMS: dict[str, dict[str, tuple[str, ...]]] = {
     "ReturnForecast": {
-        "return_model": (
+        LEAF_KEY_RETURN_MODEL: (
             "arma_p_max",
             "arma_q_max",
             "arma_information_criterion",
@@ -80,7 +95,7 @@ _LEAF_KEY_OWNED_PARAMS: dict[str, dict[str, tuple[str, ...]]] = {
         ),
     },
     "VolatilityTargeting": {
-        "vol_model": (
+        LEAF_KEY_VOL_MODEL: (
             "garch_p_max",
             "garch_q_max",
             "lstm_hidden_dim",
@@ -97,26 +112,10 @@ _LEAF_KEY_OWNED_PARAMS: dict[str, dict[str, tuple[str, ...]]] = {
         ),
     },
     "MomentumGatekeeper": {
-        "directional_classifier": (
-            "n_estimators",
-            "learning_rate",
-            "max_depth",
-            "subsample",
-            "colsample_bytree",
-            "val_split_ratio",
-            "device",
-        ),
+        LEAF_KEY_DIRECTIONAL_CLASSIFIER: _DIRECTIONAL_CLASSIFIER_OWNED_PARAMS,
     },
     "CrossAssetMomentum": {
-        "directional_classifier": (
-            "n_estimators",
-            "learning_rate",
-            "max_depth",
-            "subsample",
-            "colsample_bytree",
-            "val_split_ratio",
-            "device",
-        ),
+        LEAF_KEY_DIRECTIONAL_CLASSIFIER: _DIRECTIONAL_CLASSIFIER_OWNED_PARAMS,
     },
 }
 

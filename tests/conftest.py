@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -480,18 +481,22 @@ def make_walk_forward_validator(n_splits: int, test_size: int) -> WalkForwardVal
 def assert_params_match_constructor(
     dataclass_type: type,
     constructor_owner: type,
+    *,
+    ignore: Iterable[str] = (),
 ) -> None:
     """Assert a dataclass mirrors a class's constructor kwargs.
 
-    Used by composite strategies to detect drift between their internal
-    params dataclass and the leaf model's constructor — mypy can't enforce
-    this when the dataclass is spread via ``**asdict(...)``.
+    Used to detect drift between an internal params dataclass and the
+    constructor it shadows — mypy can't enforce this when the dataclass
+    is spread via ``**asdict(...)``. ``ignore`` lists ctor params
+    deliberately omitted from the dataclass (e.g. ``pretrained_leaves``,
+    which is an injection seam, not a config knob).
     """
     import dataclasses
     import inspect
 
     dc_fields = {f.name for f in dataclasses.fields(dataclass_type)}
-    ctor_params = set(inspect.signature(constructor_owner).parameters)
+    ctor_params = set(inspect.signature(constructor_owner).parameters) - set(ignore)
     assert dc_fields == ctor_params, (
         f"{dataclass_type.__name__} drifted from {constructor_owner.__name__}: "
         f"symmetric diff = {dc_fields ^ ctor_params}"
