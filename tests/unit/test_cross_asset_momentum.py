@@ -111,6 +111,20 @@ def _make_strategy(**overrides: object) -> CrossAssetMomentumStrategy:
     return CrossAssetMomentumStrategy(**kwargs)  # type: ignore[arg-type]
 
 
+def _strategy_with_fake_classifier(proba: float) -> CrossAssetMomentumStrategy:
+    """Make a strategy with a fake classifier injected as a pretrained leaf.
+
+    Bypasses real XGBoost training — the fake's ``predict_proba`` returns
+    ``proba`` for every bar, letting tests pin signals without paying the
+    fit cost. ``train()`` still runs but skips the leaf rebuild.
+    """
+    fake = _FakeClassifier(
+        training_metadata=_leaf_metadata(tuple(_derive_feature_columns(_FEATURE_TICKERS, _LAGS))),
+        proba=proba,
+    )
+    return _make_strategy(pretrained_leaves={"directional_classifier": fake})
+
+
 class TestCtorValidation:
     def test_empty_primary_ticker_raises(self) -> None:
         with pytest.raises(ValueError, match="primary_ticker"):
@@ -181,45 +195,27 @@ class TestTrainGenerate:
         assert set(non_nan.unique()).issubset({-1.0, 0.0, 1.0})
 
     def test_high_p_up_yields_long(self, wide_df: pd.DataFrame) -> None:
-        """Mocked classifier with p_up=0.9 → every non-warmup bar goes long."""
-        s = _make_strategy()
+        """Fake classifier with p_up=0.9 → every non-warmup bar goes long."""
+        s = _strategy_with_fake_classifier(proba=0.9)
         s.train(wide_df)
-        s._classifier = _FakeClassifier(  # type: ignore[assignment]
-            training_metadata=_leaf_metadata(
-                tuple(_derive_feature_columns(_FEATURE_TICKERS, _LAGS))
-            ),
-            proba=0.9,
-        )
         signals = s.generate_signals(wide_df).dropna()
         assert (signals == 1.0).all()
 
     def test_low_p_up_yields_short(self, wide_df: pd.DataFrame) -> None:
-        s = _make_strategy()
+        s = _strategy_with_fake_classifier(proba=0.1)
         s.train(wide_df)
-        s._classifier = _FakeClassifier(  # type: ignore[assignment]
-            training_metadata=_leaf_metadata(
-                tuple(_derive_feature_columns(_FEATURE_TICKERS, _LAGS))
-            ),
-            proba=0.1,
-        )
         signals = s.generate_signals(wide_df).dropna()
         assert (signals == -1.0).all()
 
     def test_mid_p_up_yields_flat(self, wide_df: pd.DataFrame) -> None:
         """``1 - threshold < proba < threshold`` lands in the dead zone (signal=0)."""
-        s = _make_strategy()
+        s = _strategy_with_fake_classifier(proba=0.5)
         s.train(wide_df)
-        s._classifier = _FakeClassifier(  # type: ignore[assignment]
-            training_metadata=_leaf_metadata(
-                tuple(_derive_feature_columns(_FEATURE_TICKERS, _LAGS))
-            ),
-            proba=0.5,
-        )
         signals = s.generate_signals(wide_df).dropna()
         assert (signals == 0.0).all()
 
     def test_warmup_bars_are_nan(self, wide_df: pd.DataFrame) -> None:
-        s = _make_strategy()
+        s = _strategy_with_fake_classifier(proba=0.55)
         s.train(wide_df)
         signals = s.generate_signals(wide_df)
         warmup = max(_LAGS) + _LOG_RETURN_WARMUP
@@ -227,7 +223,7 @@ class TestTrainGenerate:
         assert signals.iloc[warmup:].notna().any()
 
     def test_deterministic_signals(self, wide_df: pd.DataFrame) -> None:
-        s = _make_strategy()
+        s = _strategy_with_fake_classifier(proba=0.55)
         s.train(wide_df)
         s1 = s.generate_signals(wide_df)
         s2 = s.generate_signals(wide_df)
