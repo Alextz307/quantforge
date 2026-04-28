@@ -10,6 +10,8 @@ runs the backtest.
 | --- | --- |
 | `IStrategy` | Abstract base. Required: `train`, `generate_signals`, `name`, `required_warmup_bars`, `suggest_params`. Default: `save`/`load` (raise), `hedge_ratio` (raise unless overridden), `get_all_training_metadata`, `_assert_fitted_with_metadata` (read-side guard), `_set_fitted_with_metadata` (atomic write-side commit). |
 | `IStrategy.is_pairs_strategy` | `ClassVar[bool]` — `True` only on pairs strategies. The walk-forward dispatcher branches on this to call `engine.run` vs `engine.run_pairs`. |
+| `IStrategy.is_multi_feature_strategy` | `ClassVar[bool]` — `True` for single-asset traded strategies that read N feature tickers from a wide `<ohlcv>_<TICKER>` frame. Mutually exclusive with `is_pairs_strategy`; the dispatcher slices the primary asset's OHLCV before calling `engine.run`. |
+| `IStrategy.primary_ticker` | Property — the asset a multi-feature strategy trades; default raises (override required). |
 | `AdaptiveBollingerStrategy` | Mean-reversion Bollinger bands with GARCH-scaled widths + SMA trend filter. |
 | `PairsTradingStrategy` | Cointegration (Engle-Granger) + rolling z-score on the spread. The only `is_pairs_strategy = True` member. |
 | `MomentumGatekeeperStrategy` | Long-only momentum gated by a 200-MA trend filter and an XGBoost `DirectionalClassifier`. |

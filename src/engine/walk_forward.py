@@ -78,6 +78,47 @@ def split_pairs_frame(bars: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
     return bars_a, bars_b
 
 
+def slice_primary_ohlcv(bars: pd.DataFrame, primary_ticker: str) -> pd.DataFrame:
+    """Slice the primary asset's OHLCV from a wide multi-feature frame.
+
+    Maps ``<ohlcv>_<primary_ticker>`` columns back to their canonical OHLCV
+    names so the engine sees a regular single-asset frame. Companion-ticker
+    columns are dropped — they were only there to feed the strategy's signal
+    computation, never the engine.
+    """
+    rename = {f"{c}_{primary_ticker}": c for c in OHLCV_COLUMNS}
+    missing = [c for c in rename if c not in bars.columns]
+    if missing:
+        raise ValueError(
+            f"multi-feature walk-forward dispatch expected wide-format columns "
+            f"{sorted(rename.keys())} for primary_ticker={primary_ticker!r}, "
+            f"missing {sorted(missing)}; fix by ensuring the multi-feature fetch "
+            f"path produced the primary leg before invoking walk-forward."
+        )
+    return bars[list(rename)].rename(columns=rename)
+
+
+def dispatch_engine_run(
+    engine: IBacktestEngine,
+    strategy: IStrategy,
+    bars: pd.DataFrame,
+    signals: pd.Series,
+    slippage: SlippageConfig,
+) -> BacktestResult:
+    """Route ``engine.run`` / ``engine.run_pairs`` based on strategy shape.
+
+    Single source of truth for the three-way capability-flag dispatch — the
+    walk-forward loop and the holdout-eval one-shot share this so a future
+    fourth shape only adds one branch here, not two.
+    """
+    if strategy.is_pairs_strategy:
+        bars_a, bars_b = split_pairs_frame(bars)
+        return engine.run_pairs(bars_a, bars_b, signals, strategy.hedge_ratio, slippage)
+    if strategy.is_multi_feature_strategy:
+        return engine.run(slice_primary_ohlcv(bars, strategy.primary_ticker), signals, slippage)
+    return engine.run(bars, signals, slippage)
+
+
 def validate_deep_metadata(
     strategy: IStrategy,
     *,
@@ -236,11 +277,7 @@ def evaluate_walk_forward(
         validate_deep_metadata(strategy, train_data=train_frame, test_data=test_frame)
 
         signals = strategy.generate_signals(test_frame)
-        if strategy.is_pairs_strategy:
-            bars_a, bars_b = split_pairs_frame(fold.test)
-            raw = engine.run_pairs(bars_a, bars_b, signals, strategy.hedge_ratio, slippage)
-        else:
-            raw = engine.run(fold.test, signals, slippage)
+        raw = dispatch_engine_run(engine, strategy, fold.test, signals, slippage)
         metrics = MetricsCalculator.compute(
             raw.equity_curve,
             annualization,

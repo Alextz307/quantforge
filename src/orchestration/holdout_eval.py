@@ -56,16 +56,12 @@ from src.core.persistence import (
     read_experiment_manifest,
 )
 from src.core.temporal import TemporalSplit, resolve_holdout_boundary
-from src.data.fingerprint import (
-    assert_data_hash_matches,
-    fingerprint_bars,
-    fingerprint_pair_bars,
-)
+from src.data.fingerprint import assert_data_hash_matches
 from src.engine.scenarios import SlippageScenario
-from src.engine.walk_forward import split_pairs_frame, validate_deep_metadata
+from src.engine.walk_forward import dispatch_engine_run, validate_deep_metadata
 from src.optimization.checkpointing import BEST_CONFIG_YAML_NAME, TRIAL_ARTIFACTS_SUBDIR
 from src.orchestration.builder import build_experiment
-from src.orchestration.experiment import fetch_bars
+from src.orchestration.experiment import compute_data_hash, fetch_bars
 from src.orchestration.git_info import read_git_sha
 
 _logger = get_logger(__name__)
@@ -265,10 +261,9 @@ def run_holdout_eval(
         )
 
     experiment = build_experiment(cfg)
-    bars_full = fetch_bars(experiment.data_source, cfg)
+    bars_full = fetch_bars(experiment.data_source, cfg, experiment.strategy)
 
-    is_pairs = len(cfg.data.tickers) == 2
-    actual_data_hash = fingerprint_pair_bars(bars_full) if is_pairs else fingerprint_bars(bars_full)
+    actual_data_hash = compute_data_hash(experiment.strategy, bars_full, cfg.data.tickers)
     assert_data_hash_matches(
         actual_data_hash, manifest.data_hash, context="holdout boundary anchor"
     )
@@ -327,13 +322,9 @@ def run_holdout_eval(
     validate_deep_metadata(experiment.strategy, train_data=train_frame, test_data=test_frame)
 
     signals = experiment.strategy.generate_signals(test_frame)
-    if experiment.strategy.is_pairs_strategy:
-        bars_a, bars_b = split_pairs_frame(holdout)
-        raw = experiment.engine.run_pairs(
-            bars_a, bars_b, signals, experiment.strategy.hedge_ratio, experiment.slippage
-        )
-    else:
-        raw = experiment.engine.run(holdout, signals, experiment.slippage)
+    raw = dispatch_engine_run(
+        experiment.engine, experiment.strategy, holdout, signals, experiment.slippage
+    )
 
     annualization = cfg.data.interval.annualization_factor()
     metrics = MetricsCalculator.compute(raw.equity_curve, annualization, cfg.risk_free_rate)

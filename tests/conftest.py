@@ -17,6 +17,7 @@ from src.core.types import BarData, Interval
 from src.engine.scenarios import SlippageScenario
 from src.orchestration.manifest import Manifest
 from src.orchestration.types import ExperimentResult, FoldRecord
+from tests import _strategy_stubs as _strategy_stubs  # noqa: F401  # registers test stubs
 
 # Deterministic seeds applied across all tests via the `deterministic_seed` fixture
 GLOBAL_NUMPY_SEED = 42
@@ -384,6 +385,80 @@ def make_pair_mini_experiment_fixture(
             "test_size": test_size,
             "gap": gap,
         },
+        "slippage": {"scenario": "normal"},
+    }
+    yaml_path = tmp_path / f"{name}.yaml"
+    with yaml_path.open("w") as f:
+        yaml.safe_dump(cfg_payload, f)
+    return yaml_path
+
+
+_MULTI_FEATURE_MINI_DEFAULT_NAME = "multi_feature_mini_smoke"
+_MULTI_FEATURE_MINI_DEFAULT_ROWS = 250
+_MULTI_FEATURE_MINI_DEFAULT_N_SPLITS = 2
+_MULTI_FEATURE_MINI_DEFAULT_TEST_SIZE = 50
+_MULTI_FEATURE_MINI_DEFAULT_GAP = 1
+_MULTI_FEATURE_MINI_DEFAULT_SEED = 17
+_MULTI_FEATURE_MINI_START_DATE = "2020-01-02"
+
+
+def make_multi_feature_mini_experiment_fixture(
+    tmp_path: Path,
+    *,
+    strategy_name: str,
+    primary_ticker: str,
+    feature_tickers: tuple[str, ...],
+    name: str = _MULTI_FEATURE_MINI_DEFAULT_NAME,
+    n_rows: int = _MULTI_FEATURE_MINI_DEFAULT_ROWS,
+    n_splits: int = _MULTI_FEATURE_MINI_DEFAULT_N_SPLITS,
+    test_size: int = _MULTI_FEATURE_MINI_DEFAULT_TEST_SIZE,
+    gap: int = _MULTI_FEATURE_MINI_DEFAULT_GAP,
+    extra_strategy_params: dict[str, object] | None = None,
+) -> Path:
+    """Drop one synthetic OHLCV CSV per ticker + a multi-feature YAML.
+
+    Sibling to :func:`make_pair_mini_experiment_fixture` for multi-feature
+    smoke tests. Each ticker gets its own deterministic random walk (different
+    seed offset per ticker so the inner-join produces distinct columns); all
+    legs share the same business-day index so the orchestrator's multi-feature
+    inner-join doesn't drop any bars on synthetic data.
+
+    ``strategy_name`` MUST already be registered on ``strategy_registry``
+    when ``build_experiment`` runs — caller's responsibility (typically by
+    importing the module that contains ``@strategy_registry.register(...)``).
+    The helper writes the YAML; it does not import strategies.
+    """
+    csv_dir = tmp_path / "csv_data"
+    csv_dir.mkdir()
+
+    tickers = (primary_ticker, *feature_tickers)
+    for offset, ticker in enumerate(tickers):
+        df = make_synthetic_ohlcv_df(
+            n_rows=n_rows,
+            start=_MULTI_FEATURE_MINI_START_DATE,
+            seed=_MULTI_FEATURE_MINI_DEFAULT_SEED + offset,
+        )
+        df.index.name = "date"
+        df.to_csv(csv_dir / f"{ticker}.csv")
+
+    params: dict[str, object] = {"primary_ticker": primary_ticker}
+    if feature_tickers:
+        params["feature_tickers"] = list(feature_tickers)
+    if extra_strategy_params is not None:
+        params.update(extra_strategy_params)
+
+    cfg_payload: dict[str, object] = {
+        "name": name,
+        "seed": _MULTI_FEATURE_MINI_DEFAULT_SEED,
+        "data": {
+            "source": {"name": "csv", "params": {"data_dir": str(csv_dir)}},
+            "tickers": list(tickers),
+            "start": datetime(2020, 1, 2).isoformat(),
+            "end": datetime(2021, 12, 31).isoformat(),
+            "interval": "daily",
+        },
+        "strategy": {"name": strategy_name, "params": params},
+        "validation": {"n_splits": n_splits, "test_size": test_size, "gap": gap},
         "slippage": {"scenario": "normal"},
     }
     yaml_path = tmp_path / f"{name}.yaml"

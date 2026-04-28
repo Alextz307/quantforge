@@ -77,6 +77,20 @@ def fingerprint_pair_bars(df: pd.DataFrame) -> str:
     return _fingerprint(df, leg_cols, "fingerprint_pair_bars")
 
 
+def fingerprint_multi_bars(df: pd.DataFrame, tickers: Sequence[str]) -> str:
+    """Wide-format multi-feature analogue of :func:`fingerprint_bars`.
+
+    Expects ``<ohlcv>_<TICKER>`` columns produced by the multi-feature
+    fetch path (e.g. ``close_SPY``, ``open_QQQ``). Tickers are sorted
+    before hashing so the digest is invariant to input ticker ORDER —
+    the same set of tickers always produces the same hash regardless of
+    whether the caller passed ``[SPY, QQQ]`` or ``[QQQ, SPY]``.
+    """
+    sorted_tickers = sorted(tickers)
+    leg_cols = [f"{c}_{t}" for t in sorted_tickers for c in OHLCV_COLUMNS]
+    return _fingerprint(df, leg_cols, "fingerprint_multi_bars")
+
+
 def assert_data_hash_matches(
     actual: str,
     expected: str,

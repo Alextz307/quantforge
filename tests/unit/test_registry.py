@@ -147,7 +147,16 @@ class TestPackageAutoDiscovery:
     def test_strategies_registry_matches_package_contents_exactly(self) -> None:
         import src.strategies
 
-        assert len(strategy_registry) == _count_non_interface_modules(src.strategies)
+        # Filter out underscore-prefixed entries: those are test-only stubs
+        # registered by ``tests/unit/test_*.py`` modules at import time. The
+        # convention is symmetric — production strategies use neither
+        # underscore-prefixed filenames (which the autoloader would skip) nor
+        # underscore-prefixed registry names. Filtering keeps the autoload
+        # invariant strict for production while tolerating test scaffolding.
+        production_names = [
+            name for name in strategy_registry.list_all() if not name.startswith("_")
+        ]
+        assert len(production_names) == _count_non_interface_modules(src.strategies)
 
     def test_data_sources_populated_after_package_import(self) -> None:
         import src.data  # noqa: F401

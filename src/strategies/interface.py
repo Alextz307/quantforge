@@ -62,7 +62,21 @@ class IStrategy(ABC):
 
     The walk-forward dispatcher reads this to decide whether to call
     ``engine.run`` (single-leg) or ``engine.run_pairs`` (two-leg, requires
-    ``hedge_ratio`` + a wide-format bar frame).
+    ``hedge_ratio`` + a wide-format bar frame). Mutually exclusive with
+    :attr:`is_multi_feature_strategy` — the validator rejects classes that
+    set both to ``True``.
+    """
+
+    is_multi_feature_strategy: ClassVar[bool] = False
+    """True for single-asset traded strategies that read N feature tickers.
+
+    A multi-feature strategy trades exactly one asset (the
+    :attr:`primary_ticker`) but its signal computation reads a wide-format
+    frame whose columns follow the ``<ohlcv>_<TICKER>`` suffix convention
+    (e.g. ``close_SPY``, ``close_QQQ``). The walk-forward dispatcher slices
+    the primary asset's OHLCV out of the wide frame before calling
+    ``engine.run`` — companion tickers never enter the engine's books.
+    Mutually exclusive with :attr:`is_pairs_strategy`.
     """
 
     # Subclasses inherit the unfitted state and must not re-declare this in
@@ -82,6 +96,24 @@ class IStrategy(ABC):
             f"{type(self).__name__}.hedge_ratio is only defined for pairs "
             f"strategies; fix by setting is_pairs_strategy=True and "
             f"overriding hedge_ratio if this strategy is two-legged."
+        )
+
+    @property
+    def primary_ticker(self) -> str:
+        """The single asset a multi-feature strategy trades and reports PnL against.
+
+        Only multi-feature strategies need to override; the default raises so
+        a misconfigured single-asset / pairs strategy doesn't silently route
+        the wrong column through the slicer. The dispatcher uses this name to
+        slice ``<ohlcv>_<primary_ticker>`` out of the wide frame; the value
+        MUST appear in the experiment's ``data.tickers`` list (validated in
+        :func:`src.orchestration.builder._validate_strategy_data_shape`).
+        """
+        raise NotImplementedError(
+            f"{type(self).__name__}.primary_ticker is only defined for "
+            f"multi-feature strategies; fix by setting "
+            f"is_multi_feature_strategy=True and overriding primary_ticker "
+            f"if this strategy reads a wide multi-ticker frame."
         )
 
     @staticmethod

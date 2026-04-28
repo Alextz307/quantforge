@@ -405,7 +405,7 @@ class TestFetchPairBars:
             }
         )
         source = data_source_registry.create_from_config(cfg.data.source)
-        bars = fetch_bars(source, cfg)
+        bars = fetch_bars(source, cfg, build_experiment(cfg).strategy)
         for col in (
             "open_a",
             "high_a",

@@ -33,6 +33,7 @@ from src.core.persistence import (
 )
 from src.core.registry import data_source_registry
 from src.data.fingerprint import fingerprint_pair_bars
+from src.orchestration.builder import build_experiment
 from src.orchestration.experiment import fetch_bars
 from tests.conftest import make_pair_mini_experiment_fixture
 
@@ -74,7 +75,7 @@ def test_pairs_run_produces_full_artifact_tree(tmp_path: Path) -> None:
     # frame and the resulting hash would no longer be sensitive to leg B.
     manifest = read_experiment_manifest(run_dir)
     source = data_source_registry.create_from_config(cfg.data.source)
-    refetched = fetch_bars(source, cfg)
+    refetched = fetch_bars(source, cfg, build_experiment(cfg).strategy)
     assert manifest.data_hash == fingerprint_pair_bars(refetched)
 
     # ``strategy.save()`` for PairsTrading writes weights.json with the

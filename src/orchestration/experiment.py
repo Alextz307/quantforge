@@ -24,7 +24,7 @@ implementation is contracted to reset its own fit state from scratch.
 from __future__ import annotations
 
 import secrets
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -49,7 +49,7 @@ from src.core.persistence import (
 )
 from src.core.seeding import seed_all
 from src.core.temporal import WalkForwardValidator, resolve_holdout_boundary
-from src.data.fingerprint import fingerprint_bars, fingerprint_pair_bars
+from src.data.fingerprint import fingerprint_bars, fingerprint_multi_bars, fingerprint_pair_bars
 from src.data.interface import IDataSource
 from src.engine.interface import IBacktestEngine
 from src.engine.walk_forward import FoldResult, evaluate_walk_forward
@@ -83,26 +83,45 @@ def _make_experiment_id(strategy_name: str, created_at: datetime, git_sha: str) 
     return f"{ts}_{strategy_name}_{git_sha}_{suffix}"
 
 
-def fetch_bars(data_source: IDataSource, cfg: ExperimentConfig) -> pd.DataFrame:
-    """Fetch OHLCV bars for a 1-ticker (single-asset) or 2-ticker (pairs) run.
+def fetch_bars(
+    data_source: IDataSource,
+    cfg: ExperimentConfig,
+    strategy: IStrategy,
+) -> pd.DataFrame:
+    """Fetch OHLCV bars dispatched by ``strategy``'s capability flags.
 
-    Two-ticker mode inner-joins on shared timestamps and suffixes the OHLCV
-    columns ``_a`` / ``_b``; >2 tickers is rejected — no current strategy
-    consumes more than two legs.
+    Three shapes:
+
+    * **single-asset** (1 ticker, no capability flag): direct fetch,
+      canonical OHLCV columns.
+    * **pairs** (2 tickers, ``is_pairs_strategy=True``): inner-join +
+      ``_a`` / ``_b`` suffix; consumed by ``PairsTradingStrategy``.
+    * **multi-feature** (N≥1 tickers, ``is_multi_feature_strategy=True``):
+      inner-join + ``_<TICKER>`` suffix; consumed by single-asset traded
+      strategies that use the other tickers as feature inputs only.
+
+    Strategy-driven dispatch keeps the pairs vs. multi-feature distinction
+    at N=2 unambiguous — the strategy class is the source of truth, not a
+    bool flag the caller has to remember to pass.
     """
     tickers = cfg.data.tickers
     if len(tickers) == 0:
         raise ValueError(
             "ExperimentConfig.data.tickers must be non-empty; fix by listing at least one ticker."
         )
+    if strategy.is_multi_feature_strategy:
+        return _fetch_multi_bars(data_source, cfg, tickers)
     if len(tickers) == 1:
         return data_source.fetch(tickers[0], cfg.data.start, cfg.data.end, cfg.data.interval)
     if len(tickers) == 2:
         return _fetch_pair_bars(data_source, cfg, tickers[0], tickers[1])
     raise ValueError(
         f"ExperimentConfig.data.tickers supports 1 ticker (single-asset) or 2 "
-        f"tickers (pairs); got {len(tickers)}: {tickers}. Fix by trimming "
-        f"data.tickers — three-leg strategies are not in scope."
+        f"tickers (pairs) for non-multi-feature strategies; got {len(tickers)}: "
+        f"{tickers}. Fix by trimming data.tickers, or — if the strategy reads "
+        f"a wide multi-ticker frame — by setting "
+        f"is_multi_feature_strategy=True on the strategy class so the caller "
+        f"routes through the multi-feature fetch path."
     )
 
 
@@ -129,6 +148,51 @@ def _fetch_pair_bars(
             f"the same calendar."
         )
     return joined
+
+
+def _fetch_multi_bars(
+    data_source: IDataSource,
+    cfg: ExperimentConfig,
+    tickers: Sequence[str],
+) -> pd.DataFrame:
+    """Fetch N legs, inner-join on shared timestamps, suffix columns ``_<TICKER>``.
+
+    Same inner-join rationale as ``_fetch_pair_bars`` (NaN poisoning on the
+    engine's bar-validity check rules out outer / left / right joins). The
+    suffix is the literal ticker name — strategies read e.g. ``close_SPY``
+    directly, which is more readable than ``_a / _b`` once N exceeds two.
+    """
+    suffixed = [
+        data_source.fetch(ticker, cfg.data.start, cfg.data.end, cfg.data.interval).add_suffix(
+            f"_{ticker}"
+        )
+        for ticker in tickers
+    ]
+    joined = suffixed[0]
+    for other in suffixed[1:]:
+        joined = joined.join(other, how="inner")
+    if joined.empty:
+        raise ValueError(
+            f"multi-feature fetch for {list(tickers)} produced zero overlapping "
+            f"bars after inner join over [{cfg.data.start}, {cfg.data.end}]; "
+            f"fix by widening the date range or by choosing tickers that trade "
+            f"on the same calendar."
+        )
+    return joined
+
+
+def compute_data_hash(strategy: IStrategy, bars: pd.DataFrame, tickers: Sequence[str]) -> str:
+    """Dispatch to the correct fingerprint helper based on strategy shape.
+
+    Single source of truth for "which fingerprint applies" — call sites in
+    ``Experiment.run`` and ``holdout_eval`` route through this so a future
+    fourth shape only adds one branch here, not three.
+    """
+    if strategy.is_multi_feature_strategy:
+        return fingerprint_multi_bars(bars, tickers)
+    if strategy.is_pairs_strategy:
+        return fingerprint_pair_bars(bars)
+    return fingerprint_bars(bars)
 
 
 def _slice_dev(bars: pd.DataFrame, boundary: pd.Timestamp | None) -> pd.DataFrame:
@@ -232,7 +296,7 @@ class Experiment:
 
         seed_all(self.config.seed)
 
-        bars_full = fetch_bars(self.data_source, self.config)
+        bars_full = fetch_bars(self.data_source, self.config, self.strategy)
         boundary = resolve_holdout_boundary(
             bars_full,
             holdout_pct=self.config.validation.holdout_pct,
@@ -249,11 +313,7 @@ class Experiment:
                 "fix by reducing validation.holdout_pct or widening data.start/end."
             )
 
-        data_hash = (
-            fingerprint_pair_bars(bars_full)
-            if len(self.config.data.tickers) == 2
-            else fingerprint_bars(bars_full)
-        )
+        data_hash = compute_data_hash(self.strategy, bars_full, self.config.data.tickers)
         manifest = Manifest(
             experiment_id=experiment_id,
             name=self.config.name,

@@ -91,12 +91,17 @@ def _load_pretrained_leaves(
 
 
 def _validate_strategy_data_shape(cfg: ExperimentConfig) -> None:
-    """Cross-check ticker count against strategy class.
+    """Cross-check ticker count + shape flags against the strategy class.
 
-    Pairs strategies need exactly two tickers (one per leg). Single-asset
-    strategies would silently get a wide-format frame they cannot consume
-    if two tickers were passed. The mismatch is rejected here, before any
-    data fetch.
+    Three valid shapes, all mutually exclusive:
+
+    * **Pairs**: exactly two tickers (one per leg); no feature pipeline.
+    * **Multi-feature**: N≥1 tickers; ``cfg.strategy.params['primary_ticker']``
+      MUST be in ``cfg.data.tickers``; no feature pipeline (the strategy
+      reads the wide frame directly).
+    * **Single-asset**: exactly one ticker.
+
+    Any mismatch is rejected here, before any data fetch.
     """
     n_tickers = len(cfg.data.tickers)
     strategy_cls = strategy_registry.get(cfg.strategy.name)
@@ -104,6 +109,13 @@ def _validate_strategy_data_shape(cfg: ExperimentConfig) -> None:
         raise TypeError(
             f"strategy '{cfg.strategy.name}' resolves to {strategy_cls!r}, "
             f"which does not subclass IStrategy."
+        )
+    if strategy_cls.is_pairs_strategy and strategy_cls.is_multi_feature_strategy:
+        raise TypeError(
+            f"strategy '{cfg.strategy.name}' ({strategy_cls.__name__}) sets both "
+            f"is_pairs_strategy=True and is_multi_feature_strategy=True; the two "
+            f"capability flags are mutually exclusive (different dispatch paths, "
+            f"different wide-frame conventions). Fix by clearing one ClassVar."
         )
     if strategy_cls.is_pairs_strategy:
         if n_tickers != 2:
@@ -119,6 +131,37 @@ def _validate_strategy_data_shape(cfg: ExperimentConfig) -> None:
                 f"engineered feature pipeline (it operates directly on the "
                 f"two close columns); got features={cfg.features.name!r}. "
                 f"Fix by removing the 'features:' block from the config."
+            )
+    elif strategy_cls.is_multi_feature_strategy:
+        if n_tickers < 1:
+            raise ValueError(
+                f"strategy '{cfg.strategy.name}' is multi-feature and requires "
+                f"at least 1 ticker (the primary); got 0. Fix by listing the "
+                f"primary plus any feature tickers under data.tickers."
+            )
+        primary_raw = cfg.strategy.params.get("primary_ticker")
+        if not isinstance(primary_raw, str) or not primary_raw:
+            raise ValueError(
+                f"strategy '{cfg.strategy.name}' is multi-feature; "
+                f"strategy.params must contain a non-empty string 'primary_ticker' "
+                f"naming the asset to trade. Got primary_ticker={primary_raw!r}. "
+                f"Fix by adding 'primary_ticker: <TICKER>' to strategy.params."
+            )
+        if primary_raw not in cfg.data.tickers:
+            raise ValueError(
+                f"strategy '{cfg.strategy.name}' declares primary_ticker="
+                f"{primary_raw!r}, but data.tickers={list(cfg.data.tickers)} "
+                f"does not contain it. Fix by adding {primary_raw!r} to "
+                f"data.tickers (the primary must be fetched alongside the "
+                f"feature tickers) or by choosing a different primary_ticker."
+            )
+        if cfg.features is not None:
+            raise ValueError(
+                f"strategy '{cfg.strategy.name}' is multi-feature and reads "
+                f"the wide multi-ticker frame directly; got features="
+                f"{cfg.features.name!r}. Fix by removing the 'features:' block "
+                f"from the config — multi-feature strategies engineer their "
+                f"own cross-asset features inline."
             )
     elif n_tickers != 1:
         raise ValueError(
