@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
@@ -21,7 +20,9 @@ from src.strategies.cross_asset_momentum import (
 )
 from tests.conftest import (
     GLOBAL_NUMPY_SEED,
+    FakeDirectionalClassifier,
     assert_params_match_constructor,
+    make_leaf_training_metadata,
     make_synthetic_ohlcv_df,
 )
 
@@ -39,10 +40,6 @@ COMPACT_MAX_DEPTH = 2
 # Bound markers from the strategy's threshold validator: ``[0.5, 1.0)``.
 _THRESHOLD_TOO_LOW = 0.49
 _THRESHOLD_TOO_HIGH = 1.0
-_LEAF_N_TRAIN_SAMPLES = 250
-_LEAF_TRAIN_START = pd.Timestamp("2019-01-02")
-_LEAF_TRAIN_END = pd.Timestamp("2019-12-31")
-_LEAF_FIT_TIMESTAMP = pd.Timestamp("2020-01-05")
 
 
 def _wide_frame(
@@ -57,39 +54,6 @@ def _wide_frame(
     for other in suffixed[1:]:
         joined = joined.join(other, how="inner")
     return joined
-
-
-def _leaf_metadata(
-    feature_columns: tuple[str, ...],
-    interval: Interval = Interval.DAILY,
-) -> TrainingMetadata:
-    return TrainingMetadata(
-        train_start=_LEAF_TRAIN_START,
-        train_end=_LEAF_TRAIN_END,
-        n_train_samples=_LEAF_N_TRAIN_SAMPLES,
-        fit_timestamp=_LEAF_FIT_TIMESTAMP,
-        interval=interval,
-        feature_columns=feature_columns,
-    )
-
-
-@dataclass
-class _FakeClassifier:
-    """Duck-types the DirectionalClassifier surface CrossAssetMomentum touches.
-
-    ``predict_proba`` returns a configurable constant — tests pin a high /
-    low / mid value to drive the 3-way gate into each branch deterministically.
-    """
-
-    training_metadata: TrainingMetadata | None
-    proba: float = 0.55
-    fit_calls: int = 0
-
-    def fit(self, df: pd.DataFrame, target: pd.Series, **_: object) -> None:
-        self.fit_calls += 1
-
-    def predict_proba(self, df: pd.DataFrame) -> pd.Series:
-        return pd.Series(self.proba, index=df.index, name="up_prob")
 
 
 @pytest.fixture(scope="module")
@@ -118,8 +82,9 @@ def _strategy_with_fake_classifier(proba: float) -> CrossAssetMomentumStrategy:
     ``proba`` for every bar, letting tests pin signals without paying the
     fit cost. ``train()`` still runs but skips the leaf rebuild.
     """
-    fake = _FakeClassifier(
-        training_metadata=_leaf_metadata(tuple(_derive_feature_columns(_FEATURE_TICKERS, _LAGS))),
+    feature_cols = tuple(_derive_feature_columns(_FEATURE_TICKERS, _LAGS))
+    fake = FakeDirectionalClassifier(
+        training_metadata=make_leaf_training_metadata(feature_cols),
         proba=proba,
     )
     return _make_strategy(pretrained_leaves={"directional_classifier": fake})
@@ -231,17 +196,17 @@ class TestTrainGenerate:
 
 
 class TestPretrainedLeafInjection:
-    def _matching_leaf_metadata(self) -> TrainingMetadata:
-        return _leaf_metadata(tuple(_derive_feature_columns(_FEATURE_TICKERS, _LAGS)))
+    def _matching_metadata(self) -> TrainingMetadata:
+        return make_leaf_training_metadata(tuple(_derive_feature_columns(_FEATURE_TICKERS, _LAGS)))
 
     def test_ctor_stores_leaf_and_skips_build(self) -> None:
-        fake = _FakeClassifier(training_metadata=self._matching_leaf_metadata())
+        fake = FakeDirectionalClassifier(training_metadata=self._matching_metadata())
         s = _make_strategy(pretrained_leaves={"directional_classifier": fake})
         assert id(s._classifier) == id(fake)
         assert "directional_classifier" in s._pretrained_leaves
 
     def test_train_does_not_refit_pretrained_leaf(self, wide_df: pd.DataFrame) -> None:
-        fake = _FakeClassifier(training_metadata=self._matching_leaf_metadata())
+        fake = FakeDirectionalClassifier(training_metadata=self._matching_metadata())
         s = _make_strategy(pretrained_leaves={"directional_classifier": fake})
         s.train(wide_df)
         assert fake.fit_calls == 0
@@ -251,7 +216,7 @@ class TestPretrainedLeafInjection:
     def test_get_all_training_metadata_marks_classifier_pretrained(
         self, wide_df: pd.DataFrame
     ) -> None:
-        fake = _FakeClassifier(training_metadata=self._matching_leaf_metadata())
+        fake = FakeDirectionalClassifier(training_metadata=self._matching_metadata())
         s = _make_strategy(pretrained_leaves={"directional_classifier": fake})
         s.train(wide_df)
         tracked = s.get_all_training_metadata()
@@ -263,13 +228,15 @@ class TestPretrainedLeafInjection:
         assert leaf_entries[0].is_pretrained is True
 
     def test_feature_columns_mismatch_rejected_at_ctor(self) -> None:
-        fake = _FakeClassifier(training_metadata=_leaf_metadata(("lag1_BBB", "lag5_BBB")))
+        fake = FakeDirectionalClassifier(
+            training_metadata=make_leaf_training_metadata(("lag1_BBB", "lag5_BBB"))
+        )
         with pytest.raises(ValueError, match="feature_columns mismatch"):
             _make_strategy(pretrained_leaves={"directional_classifier": fake})
 
     def test_interval_mismatch_rejected_at_ctor(self) -> None:
-        fake = _FakeClassifier(
-            training_metadata=_leaf_metadata(
+        fake = FakeDirectionalClassifier(
+            training_metadata=make_leaf_training_metadata(
                 tuple(_derive_feature_columns(_FEATURE_TICKERS, _LAGS)),
                 interval=Interval.HOUR,
             )

@@ -34,7 +34,11 @@ from src.strategies.momentum_gatekeeper import MomentumGatekeeperStrategy
 from src.strategies.pairs_trading import PairsTradingStrategy
 from src.strategies.return_forecast import ReturnForecastStrategy
 from src.strategies.volatility_targeting import VolatilityTargetingStrategy
-from tests.conftest import make_synthetic_ohlcv_df
+from tests.conftest import (
+    FakeDirectionalClassifier,
+    make_leaf_training_metadata,
+    make_synthetic_ohlcv_df,
+)
 
 if TYPE_CHECKING:
     pass
@@ -46,28 +50,9 @@ _FEATURES: tuple[str, ...] = ("sma_20", "rsi_14", "volume_z")
 # a subset of those produced columns; pick three with default periods so
 # the pipeline produces them at the ctor defaults.
 _MOMENTUM_FEATURES: tuple[str, ...] = ("rsi_14", "macd", "macd_signal")
-_INTERVAL = Interval.DAILY
 _LSTM_LOOKBACK = 10
 _TRAIN_ROWS = 80
 _OHLCV_SEED = 7
-_LEAF_N_TRAIN_SAMPLES = 250
-_TRAIN_START = pd.Timestamp("2019-01-02")
-_TRAIN_END = pd.Timestamp("2019-12-31")
-_LEAF_FIT_TIMESTAMP = pd.Timestamp("2020-01-05")
-
-
-def _leaf_metadata(
-    feature_columns: tuple[str, ...] = _FEATURES,
-    interval: Interval = _INTERVAL,
-) -> TrainingMetadata:
-    return TrainingMetadata(
-        train_start=_TRAIN_START,
-        train_end=_TRAIN_END,
-        n_train_samples=_LEAF_N_TRAIN_SAMPLES,
-        fit_timestamp=_LEAF_FIT_TIMESTAMP,
-        interval=interval,
-        feature_columns=feature_columns,
-    )
 
 
 @dataclass
@@ -89,8 +74,8 @@ class _FakeHybridLeaf:
     fit_calls: int = 0
     training_metadata_entries: tuple[TrackedMetadata, ...] = field(
         default_factory=lambda: (
-            TrackedMetadata(origin="arma", metadata=_leaf_metadata()),
-            TrackedMetadata(origin="lstm", metadata=_leaf_metadata()),
+            TrackedMetadata(origin="arma", metadata=make_leaf_training_metadata(_FEATURES)),
+            TrackedMetadata(origin="lstm", metadata=make_leaf_training_metadata(_FEATURES)),
         )
     )
 
@@ -102,25 +87,6 @@ class _FakeHybridLeaf:
 
     def get_all_training_metadata(self) -> tuple[TrackedMetadata, ...]:
         return self.training_metadata_entries
-
-
-@dataclass
-class _FakeClassifier:
-    """Duck-types the DirectionalClassifier surface MomentumGatekeeperStrategy
-    touches when the classifier is pretrained-injected. Different public API
-    than the hybrid leaves: ``predict_proba`` (not ``predict``) and no
-    recursive ``get_all_training_metadata`` — the strategy reads
-    ``training_metadata`` directly.
-    """
-
-    training_metadata: TrainingMetadata | None
-    fit_calls: int = 0
-
-    def fit(self, df: pd.DataFrame, target: pd.Series, **_: object) -> None:
-        self.fit_calls += 1
-
-    def predict_proba(self, df: pd.DataFrame) -> pd.Series:
-        return pd.Series([0.5] * len(df), index=df.index, name="up_prob")
 
 
 def _ohlcv_df() -> pd.DataFrame:
@@ -138,15 +104,15 @@ def train_df() -> pd.DataFrame:
 @pytest.fixture
 def fake_leaf() -> _FakeHybridLeaf:
     return _FakeHybridLeaf(
-        training_metadata=_leaf_metadata(),
+        training_metadata=make_leaf_training_metadata(_FEATURES),
         _lstm=_FakeLstm(_lookback=_LSTM_LOOKBACK),
     )
 
 
 @pytest.fixture
-def fake_classifier() -> _FakeClassifier:
-    return _FakeClassifier(
-        training_metadata=_leaf_metadata(feature_columns=_MOMENTUM_FEATURES),
+def fake_classifier() -> FakeDirectionalClassifier:
+    return FakeDirectionalClassifier(
+        training_metadata=make_leaf_training_metadata(_MOMENTUM_FEATURES),
     )
 
 
@@ -194,14 +160,7 @@ class TestReturnForecastPretrainedInjection:
         assert all(t.is_pretrained for t in leaf_entries)
 
     def test_interval_mismatch_rejected_at_ctor(self, fake_leaf: _FakeHybridLeaf) -> None:
-        fake_leaf.training_metadata = TrainingMetadata(
-            train_start=_TRAIN_START,
-            train_end=_TRAIN_END,
-            n_train_samples=_LEAF_N_TRAIN_SAMPLES,
-            fit_timestamp=_LEAF_FIT_TIMESTAMP,
-            interval=Interval.HOUR,
-            feature_columns=_FEATURES,
-        )
+        fake_leaf.training_metadata = make_leaf_training_metadata(_FEATURES, interval=Interval.HOUR)
         with pytest.raises(ValueError, match="interval mismatch"):
             ReturnForecastStrategy(
                 feature_columns=list(_FEATURES),
@@ -247,7 +206,9 @@ class TestVolatilityTargetingPretrainedInjection:
 
 
 class TestMomentumGatekeeperPretrainedInjection:
-    def test_ctor_stores_leaf_and_skips_build(self, fake_classifier: _FakeClassifier) -> None:
+    def test_ctor_stores_leaf_and_skips_build(
+        self, fake_classifier: FakeDirectionalClassifier
+    ) -> None:
         s = MomentumGatekeeperStrategy(
             feature_columns=list(_MOMENTUM_FEATURES),
             pretrained_leaves={"directional_classifier": fake_classifier},
@@ -258,7 +219,7 @@ class TestMomentumGatekeeperPretrainedInjection:
         assert "directional_classifier" in s._pretrained_leaves
 
     def test_ctor_auto_adopts_feature_columns_from_leaf(
-        self, fake_classifier: _FakeClassifier
+        self, fake_classifier: FakeDirectionalClassifier
     ) -> None:
         """Default ``feature_columns=None`` + injected leaf → ctor copies
         the leaf's ``training_metadata.feature_columns`` so the user isn't
@@ -269,7 +230,7 @@ class TestMomentumGatekeeperPretrainedInjection:
         assert s._resolved_feature_columns == list(_MOMENTUM_FEATURES)
 
     def test_train_does_not_refit_pretrained_leaf(
-        self, train_df: pd.DataFrame, fake_classifier: _FakeClassifier
+        self, train_df: pd.DataFrame, fake_classifier: FakeDirectionalClassifier
     ) -> None:
         s = MomentumGatekeeperStrategy(
             feature_columns=list(_MOMENTUM_FEATURES),
@@ -281,7 +242,7 @@ class TestMomentumGatekeeperPretrainedInjection:
         assert s.training_metadata.train_end == pd.Timestamp(train_df.index[-1])
 
     def test_get_all_training_metadata_marks_leaf_entries_pretrained(
-        self, train_df: pd.DataFrame, fake_classifier: _FakeClassifier
+        self, train_df: pd.DataFrame, fake_classifier: FakeDirectionalClassifier
     ) -> None:
         s = MomentumGatekeeperStrategy(
             feature_columns=list(_MOMENTUM_FEATURES),
@@ -296,8 +257,10 @@ class TestMomentumGatekeeperPretrainedInjection:
         assert leaf_entries[0].origin == "classifier"
         assert leaf_entries[0].is_pretrained is True
 
-    def test_interval_mismatch_rejected_at_ctor(self, fake_classifier: _FakeClassifier) -> None:
-        fake_classifier.training_metadata = _leaf_metadata(
+    def test_interval_mismatch_rejected_at_ctor(
+        self, fake_classifier: FakeDirectionalClassifier
+    ) -> None:
+        fake_classifier.training_metadata = make_leaf_training_metadata(
             feature_columns=_MOMENTUM_FEATURES, interval=Interval.HOUR
         )
         with pytest.raises(ValueError, match="interval mismatch"):
