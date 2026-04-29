@@ -250,11 +250,9 @@ def save_standard_scaler(scaler: StandardScaler, path: str | Path) -> None:
             "cannot save an unfitted StandardScaler; fix by calling scaler.fit() "
             "(or scaler.fit_transform()) on training data before save."
         )
-    # ``n_samples_seen_`` is a Python int when sklearn fits on a NaN-free
-    # frame and a 1-D ndarray of per-feature counts when NaNs are present
-    # (sklearn drops NaNs per column). The feature pipeline produces leading
-    # warmup NaNs in production, so the array form is the live path; storing
-    # as a list keeps both shapes serializable through one schema.
+    # ``n_samples_seen_`` is a scalar int when fit input has no NaNs, a
+    # per-feature ndarray otherwise (the live path: feature pipeline emits
+    # leading warmup NaNs). Storing as a list serialises both shapes.
     payload: dict[str, object] = {
         "mean_": np.asarray(scaler.mean_, dtype=np.float64).tolist(),
         "scale_": np.asarray(scaler.scale_, dtype=np.float64).tolist(),
@@ -286,8 +284,7 @@ def load_standard_scaler(path: str | Path) -> StandardScaler:
     scaler.scale_ = np.asarray(json_io.get_float_list(raw, "scale_"), dtype=np.float64)
     scaler.var_ = np.asarray(json_io.get_float_list(raw, "var_"), dtype=np.float64)
     scaler.n_features_in_ = json_io.get_int(raw, "n_features_in_")
-    # Length-1 → scalar int (NaN-free fit); length>1 → per-feature ndarray
-    # (NaN-bearing fit). Mirrors the two shapes sklearn itself produces.
+    # Length-1 → scalar; length>1 → per-feature ndarray. Mirrors sklearn.
     samples_seen = json_io.get_int_list(raw, "n_samples_seen_")
     if len(samples_seen) == 1:
         scaler.n_samples_seen_ = samples_seen[0]

@@ -116,10 +116,7 @@ class LSTMPredictor(IPredictor):
         self._val_split_ratio = val_split_ratio
         self._device = select_device(device)
         self._interval = interval
-        # Mixed-precision is opt-in and only takes effect on CUDA (the only
-        # backend where ``torch.amp.autocast`` actually quantises forward
-        # ops to FP16). MPS and CPU silently no-op even with ``amp=True``,
-        # preserving FP32 numerics for thesis runs that don't have a GPU.
+        # Mixed-precision opt-in; CUDA-only, no-op on MPS/CPU.
         self._amp = amp
 
         self._model: MarketLSTM | None = None
@@ -186,20 +183,21 @@ class LSTMPredictor(IPredictor):
             dropout=self._dropout,
         ).to(self._device)
 
-        # ``torch.compile`` wraps the module in a graph-tracing handle that
-        # specialises kernels on first forward. We use the wrapper for
-        # forward/backward inside the training loop only — autograd writes
-        # gradients back to ``self._model``'s parameters, so predict() (and
-        # save/load) read the trained weights through the original module
-        # without needing the compile wrapper to survive. The wrapper IS-A
-        # ``nn.Module`` at runtime (``OptimizedModule`` subclasses it); the
-        # cast tells mypy what the loose torch stub doesn't.
-        train_module = cast(nn.Module, torch.compile(self._model, mode="reduce-overhead"))
-
-        # AMP only meaningfully quantises on CUDA. ``autocast`` is a no-op
-        # context outside its supported backend and ``GradScaler`` has its
-        # own ``enabled`` flag that short-circuits the loss-scale arithmetic.
+        # ``torch.compile`` with ``reduce-overhead`` targets CUDAGraphs and
+        # only pays back its first-forward graph-trace cost on CUDA. On
+        # MPS/CPU the trace overhead can match or exceed the per-fold
+        # kernel speedup, so we skip the wrap there. Autograd writes
+        # gradients back to ``self._model``'s parameters either way, so
+        # predict() / save / load read the trained weights through the
+        # original module — the wrapper isn't needed past fit().
         use_amp = self._amp and self._device.type == "cuda"
+        if self._device.type == "cuda":
+            train_module = cast(nn.Module, torch.compile(self._model, mode="reduce-overhead"))
+        else:
+            train_module = self._model
+
+        # ``GradScaler.scale/step/update`` short-circuit when ``enabled``
+        # is False; safe to instantiate unconditionally.
         scaler = GradScaler(device=self._device.type, enabled=use_amp)
 
         criterion = _LOSS_FUNCTIONS[self._loss_fn]()

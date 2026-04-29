@@ -67,7 +67,7 @@ class GarchGridCache:
     @staticmethod
     def hash_returns(scaled: np.ndarray[tuple[int], np.dtype[np.float64]]) -> bytes:
         """SHA-256 of the scaled-returns bytes — stable across processes."""
-        return hashlib.sha256(np.ascontiguousarray(scaled, dtype=np.float64).tobytes()).digest()
+        return hashlib.sha256(scaled.tobytes()).digest()
 
     def lookup_or_compute(
         self,
