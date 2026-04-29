@@ -224,10 +224,15 @@ class VolatilityTargetingStrategy(IStrategy):
         """
         if LEAF_KEY_VOL_MODEL not in self._pretrained_leaves:
             self._hybrid_vol = self._build_hybrid_vol()
+            # Pass the FULL training window to the hybrid (don't pre-trim by
+            # ``realized_vol_window``). The hybrid drops NaN target rows
+            # internally when computing residuals, so the LSTM still sees
+            # the same clean window — but GARCH now fits on the full fold,
+            # giving the cross-trial AIC cache a fold-invariant input.
             realized_vol = self._compute_realized_vol(train_data)
-            target = realized_vol.dropna()
-            aligned = train_data.loc[target.index]
-            self._hybrid_vol.fit(aligned, target, checkpoint_path=checkpoint_path, **kwargs)
+            self._hybrid_vol.fit(
+                train_data, realized_vol, checkpoint_path=checkpoint_path, **kwargs
+            )
 
         self._set_fitted_with_metadata(
             TrainingMetadata.from_fit(
