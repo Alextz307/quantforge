@@ -53,6 +53,7 @@ from src.core.config import (
 from src.core.hpo_config import HPOConfig
 from src.core.logging import get_logger
 from src.core.persistence import HPO_SUBDIR
+from src.models._garch_cache import GarchGridCache, garch_cache_context
 from src.optimization.checkpointing import (
     BEST_CONFIG_YAML_NAME,
     TRIAL_ARTIFACTS_SUBDIR,
@@ -159,14 +160,19 @@ class StrategyTuner:
             self.hpo_cfg.objective.value,
         )
 
-        study.optimize(
-            lambda trial: self._objective(trial, objective),
-            n_trials=self.hpo_cfg.n_trials,
-            n_jobs=self.hpo_cfg.n_jobs,
-            timeout=self.hpo_cfg.timeout_s,
-            callbacks=[callback],
-            show_progress_bar=progress,
-        )
+        # Bind a study-scoped GARCH grid cache so two trials whose
+        # ``(p_max, q_max)`` overlap on the same fold reuse one another's
+        # AIC tables instead of re-fitting every cell. Strategies that
+        # don't construct GARCH simply never read the ContextVar.
+        with garch_cache_context(GarchGridCache()):
+            study.optimize(
+                lambda trial: self._objective(trial, objective),
+                n_trials=self.hpo_cfg.n_trials,
+                n_jobs=self.hpo_cfg.n_jobs,
+                timeout=self.hpo_cfg.timeout_s,
+                callbacks=[callback],
+                show_progress_bar=progress,
+            )
         return study
 
     def _objective(self, trial: optuna.Trial, objective: IObjective) -> float:

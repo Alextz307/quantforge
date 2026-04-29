@@ -64,6 +64,7 @@ class _HybridReturnParams:
     lstm_batch_size: int
     lstm_val_split_ratio: float
     lstm_device: Device | None
+    lstm_amp: bool
     interval: Interval
 
 
@@ -104,6 +105,7 @@ class ReturnForecastStrategy(IStrategy):
         lstm_batch_size: int = 32,
         lstm_val_split_ratio: float = 0.2,
         lstm_device: Device | None = None,
+        lstm_amp: bool = False,
         interval: Interval = Interval.DAILY,
         pretrained_leaves: Mapping[str, object] | None = None,
     ) -> None:
@@ -144,6 +146,7 @@ class ReturnForecastStrategy(IStrategy):
             lstm_batch_size=lstm_batch_size,
             lstm_val_split_ratio=lstm_val_split_ratio,
             lstm_device=lstm_device,
+            lstm_amp=lstm_amp,
             interval=interval,
         )
 
@@ -247,6 +250,7 @@ class ReturnForecastStrategy(IStrategy):
             "lstm_patience": p.lstm_patience,
             "lstm_batch_size": p.lstm_batch_size,
             "lstm_val_split_ratio": p.lstm_val_split_ratio,
+            "lstm_amp": p.lstm_amp,
             "interval": p.interval.value,
         }
 
@@ -282,6 +286,7 @@ class ReturnForecastStrategy(IStrategy):
             lstm_patience=json_io.get_int(config, "lstm_patience"),
             lstm_batch_size=json_io.get_int(config, "lstm_batch_size"),
             lstm_val_split_ratio=json_io.get_float(config, "lstm_val_split_ratio"),
+            lstm_amp=json_io.get_bool(config, "lstm_amp"),
             interval=Interval(json_io.get_str(config, "interval")),
         )
         instance._hybrid_return = HybridReturnModel.load(root / HYBRID_RETURN_SUBDIR)

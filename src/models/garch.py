@@ -23,6 +23,7 @@ from src.core.registry import model_registry
 from src.core.temporal import TrainingMetadata
 from src.core.types import Interval
 from src.core.utils import compute_log_returns
+from src.models._garch_cache import GarchGridCache, active_cache
 from src.models.interface import IPredictor
 
 if TYPE_CHECKING:
@@ -74,25 +75,39 @@ class GARCHPredictor(IPredictor):
         return best_p, best_q
 
     def _grid_search(self, scaled: pd.Series) -> tuple[ARCHModelResult, int, int]:
-        """Run AIC grid search and return (fitted_result, best_p, best_q)."""
-        best_aic = math.inf
-        best_p, best_q = 1, 1
-        best_result: ARCHModelResult | None = None
+        """Run AIC grid search and return (fitted_result, best_p, best_q).
 
-        for p in range(1, self._p_max + 1):
-            for q in range(1, self._q_max + 1):
-                try:
-                    model = arch_model(scaled, vol="GARCH", p=p, q=q, dist="skewt", mean="Zero")
-                    result = model.fit(disp="off", show_warning=False)
-                    if result.aic < best_aic:
-                        best_aic = result.aic
-                        best_p, best_q = p, q
-                        best_result = result
-                except (ValueError, RuntimeError, np.linalg.LinAlgError):
-                    continue
+        When a :class:`GarchGridCache` is bound via
+        :func:`garch_cache_context` (set by ``StrategyTuner.run`` for
+        the duration of an HPO study), grid cells already fitted on the
+        same returns window in a prior trial are looked up instead of
+        re-fit. Outside HPO the cache is unset and behaviour matches
+        the un-cached path exactly.
+        """
+
+        def _fit_cell(p: int, q: int) -> ARCHModelResult | None:
+            try:
+                model = arch_model(scaled, vol="GARCH", p=p, q=q, dist="skewt", mean="Zero")
+                return model.fit(disp="off", show_warning=False)
+            except (ValueError, RuntimeError, np.linalg.LinAlgError):
+                return None
+
+        cache = active_cache()
+        if cache is None:
+            # No HPO context → use a throwaway local cache. The hash is
+            # only meaningful when entries persist across calls; for a
+            # one-shot fit any constant key works.
+            cache = GarchGridCache()
+            returns_hash = b""
+        else:
+            returns_hash = GarchGridCache.hash_returns(np.asarray(scaled, dtype=np.float64))
+
+        best_result, best_p, best_q, best_aic = cache.lookup_or_compute(
+            returns_hash, self._p_max, self._q_max, _fit_cell
+        )
 
         if best_result is None:
-            # All (p,q) combos failed — fall back to GARCH(1,1)
+            # All (p,q) combos failed — fall back to GARCH(1,1).
             fallback = arch_model(scaled, vol="GARCH", p=1, q=1, dist="skewt", mean="Zero")
             best_result = fallback.fit(disp="off", show_warning=False)
             best_p, best_q = 1, 1

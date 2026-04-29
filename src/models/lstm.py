@@ -9,6 +9,8 @@ import numpy as np
 import pandas as pd
 import torch
 import torch.nn as nn
+from torch.amp.autocast_mode import autocast
+from torch.amp.grad_scaler import GradScaler
 from torch.utils.data import DataLoader
 
 from src.core import json_io
@@ -92,6 +94,7 @@ class LSTMPredictor(IPredictor):
         val_split_ratio: float = 0.2,
         device: Device | None = None,
         interval: Interval = Interval.DAILY,
+        amp: bool = False,
     ) -> None:
         if not feature_columns:
             raise ValueError(
@@ -113,6 +116,11 @@ class LSTMPredictor(IPredictor):
         self._val_split_ratio = val_split_ratio
         self._device = select_device(device)
         self._interval = interval
+        # Mixed-precision is opt-in and only takes effect on CUDA (the only
+        # backend where ``torch.amp.autocast`` actually quantises forward
+        # ops to FP16). MPS and CPU silently no-op even with ``amp=True``,
+        # preserving FP32 numerics for thesis runs that don't have a GPU.
+        self._amp = amp
 
         self._model: MarketLSTM | None = None
         self._feature_columns: list[str] = list(feature_columns)
@@ -178,6 +186,22 @@ class LSTMPredictor(IPredictor):
             dropout=self._dropout,
         ).to(self._device)
 
+        # ``torch.compile`` wraps the module in a graph-tracing handle that
+        # specialises kernels on first forward. We use the wrapper for
+        # forward/backward inside the training loop only — autograd writes
+        # gradients back to ``self._model``'s parameters, so predict() (and
+        # save/load) read the trained weights through the original module
+        # without needing the compile wrapper to survive. The wrapper IS-A
+        # ``nn.Module`` at runtime (``OptimizedModule`` subclasses it); the
+        # cast tells mypy what the loose torch stub doesn't.
+        train_module = cast(nn.Module, torch.compile(self._model, mode="reduce-overhead"))
+
+        # AMP only meaningfully quantises on CUDA. ``autocast`` is a no-op
+        # context outside its supported backend and ``GradScaler`` has its
+        # own ``enabled`` flag that short-circuits the loss-scale arithmetic.
+        use_amp = self._amp and self._device.type == "cuda"
+        scaler = GradScaler(device=self._device.type, enabled=use_amp)
+
         criterion = _LOSS_FUNCTIONS[self._loss_fn]()
         optimizer = torch.optim.Adam(self._model.parameters(), lr=self._lr)
 
@@ -188,17 +212,23 @@ class LSTMPredictor(IPredictor):
         patience_counter = 0
 
         for epoch in range(self._epochs):
-            self._model.train()
+            train_module.train()
             epoch_loss = 0.0
             n_batches = 0
             for features, targets in train_loader:
                 features = features.to(self._device)
                 targets = targets.to(self._device)
                 optimizer.zero_grad()
-                preds = self._model(features).squeeze(-1)
-                loss = criterion(preds, targets)
-                loss.backward()
-                optimizer.step()
+                with autocast(
+                    device_type=self._device.type,
+                    enabled=use_amp,
+                    dtype=torch.float16,
+                ):
+                    preds = train_module(features).squeeze(-1)
+                    loss = criterion(preds, targets)
+                scaler.scale(loss).backward()
+                scaler.step(optimizer)
+                scaler.update()
                 epoch_loss += loss.item()
                 n_batches += 1
 
@@ -206,15 +236,20 @@ class LSTMPredictor(IPredictor):
             self._train_losses.append(avg_train_loss)
 
             if val_loader is not None:
-                self._model.eval()
+                train_module.eval()
                 val_loss = 0.0
                 val_batches = 0
                 with torch.no_grad():
                     for features, targets in val_loader:
                         features = features.to(self._device)
                         targets = targets.to(self._device)
-                        preds = self._model(features).squeeze(-1)
-                        val_loss += criterion(preds, targets).item()
+                        with autocast(
+                            device_type=self._device.type,
+                            enabled=use_amp,
+                            dtype=torch.float16,
+                        ):
+                            preds = train_module(features).squeeze(-1)
+                            val_loss += criterion(preds, targets).item()
                         val_batches += 1
                 avg_val_loss = val_loss / max(val_batches, 1)
                 self._val_losses.append(avg_val_loss)
@@ -359,6 +394,7 @@ class LSTMPredictor(IPredictor):
                 "batch_size": self._batch_size,
                 "val_split_ratio": self._val_split_ratio,
                 "interval": self._interval.value,
+                "amp": self._amp,
             },
             training_metadata=metadata,
             write_weights=write_weights,
@@ -388,6 +424,7 @@ class LSTMPredictor(IPredictor):
             batch_size=json_io.get_int(config, "batch_size"),
             val_split_ratio=json_io.get_float(config, "val_split_ratio"),
             interval=Interval(json_io.get_str(config, "interval")),
+            amp=json_io.get_bool(config, "amp"),
         )
         model = MarketLSTM(
             input_size=len(instance._feature_columns),

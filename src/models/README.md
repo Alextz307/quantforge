@@ -14,7 +14,7 @@ native-format persistence.
 | `IClassifier` | ABC: `fit`, `predict_proba`, `predict`, default `save` / `load`, same metadata plumbing. |
 | `GARCHPredictor` (`"garch"`) | GARCH(p,q) volatility predictor; AIC/BIC order selection; params frozen after `fit`. |
 | `ARMAPredictor` (`"arma"`) | ARMA(p,q) return predictor; `pmdarima.auto_arima` order selection; one-step-ahead `predict`. |
-| `LSTMPredictor` (`"lstm"`) | torch LSTM with early stopping + best-state checkpointing (`best_state.pt`). |
+| `LSTMPredictor` (`"lstm"`) | torch LSTM with early stopping + best-state checkpointing (`best_state.pt`). The training module is wrapped in `torch.compile(mode="reduce-overhead")` for kernel reordering; the `amp: bool = False` ctor kwarg opts into mixed-precision (CUDA-only — MPS / CPU silently no-op even when `True`). |
 | `DirectionalClassifier` (`"directional_classifier"`) | XGBoost binary classifier (price-direction); early stopping + best-iteration checkpointing (`best_iteration.ubj`). |
 | `HybridVolatilityModel` (`"hybrid_volatility"`) | GARCH conditional variance + LSTM residual correction. Owns both leaves; rebuilt fresh per `fit`. |
 | `HybridReturnModel` (`"hybrid_return"`) | ARMA conditional mean + LSTM residual correction. Same composition pattern. |
@@ -38,6 +38,7 @@ instantiation and standalone-training artifacts.
 | `hybrid_return.py` | `HybridReturnModel` + frozen `_HybridReturnConfig`. |
 | `cointegration.py` | `CointegrationTester.engle_granger`. |
 | `dataset.py` | `TemporalDataset` (anti-leakage sliding window). |
+| `_garch_cache.py` | Module-private `GarchGridCache` + `garch_cache_context`; `StrategyTuner.run` binds the cache for an entire HPO study so two trials whose `(p_max, q_max)` grids overlap on the same fold reuse one another's `(p, q)` AIC tables. Outside HPO the `ContextVar` is unset and `_grid_search` runs a fresh sweep — same path as before the cache shipped. |
 
 ## Fit / persistence patterns
 
