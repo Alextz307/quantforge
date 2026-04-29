@@ -106,6 +106,40 @@ class TestStandardScalerRoundTrip:
             warnings.simplefilter("error")
             loaded.transform(frame)
 
+    def test_round_trip_with_nan_input_handles_per_feature_n_samples_seen(
+        self, tmp_path: Path
+    ) -> None:
+        """Sklearn's ``n_samples_seen_`` is a 1-D ndarray when the fit input
+        contains NaN values (per-feature non-NaN counts), not a scalar int.
+        The production feature pipeline produces leading warmup NaNs, so this
+        is the live path — the round-trip must serialize the array shape.
+        """
+        rng = np.random.default_rng(SCALER_MEAN_SEED)
+        data = rng.normal(0.0, 1.0, size=(N_SAMPLES, N_FEATURES))
+        # Punch a different number of NaNs into each column so sklearn's
+        # per-feature counts diverge — defeats any "all features saw the
+        # same N samples" shortcut.
+        data[0, 0] = np.nan
+        data[0:2, 1] = np.nan
+        scaler = StandardScaler().fit(data)
+        # Precondition for the regression: this fit must produce the array
+        # form, otherwise the test isn't exercising the bug shape.
+        assert isinstance(scaler.n_samples_seen_, np.ndarray)
+        assert scaler.n_samples_seen_.shape == (N_FEATURES,)
+
+        path = tmp_path / "scaler_nan.json"
+        save_standard_scaler(scaler, path)
+        loaded = load_standard_scaler(path)
+
+        np.testing.assert_array_equal(loaded.n_samples_seen_, scaler.n_samples_seen_)
+        np.testing.assert_allclose(
+            loaded.transform(data),
+            scaler.transform(data),
+            atol=ROUND_TRIP_ATOL,
+            rtol=0.0,
+            equal_nan=True,
+        )
+
     def test_fit_on_ndarray_does_not_persist_feature_names(self, tmp_path: Path) -> None:
         """A scaler fit on a bare ndarray has no ``feature_names_in_``; the
         persisted JSON must omit the key (not write a null) and the loaded

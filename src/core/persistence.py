@@ -250,12 +250,17 @@ def save_standard_scaler(scaler: StandardScaler, path: str | Path) -> None:
             "cannot save an unfitted StandardScaler; fix by calling scaler.fit() "
             "(or scaler.fit_transform()) on training data before save."
         )
+    # ``n_samples_seen_`` is a Python int when sklearn fits on a NaN-free
+    # frame and a 1-D ndarray of per-feature counts when NaNs are present
+    # (sklearn drops NaNs per column). The feature pipeline produces leading
+    # warmup NaNs in production, so the array form is the live path; storing
+    # as a list keeps both shapes serializable through one schema.
     payload: dict[str, object] = {
         "mean_": np.asarray(scaler.mean_, dtype=np.float64).tolist(),
         "scale_": np.asarray(scaler.scale_, dtype=np.float64).tolist(),
         "var_": np.asarray(scaler.var_, dtype=np.float64).tolist(),
         "n_features_in_": int(scaler.n_features_in_),
-        "n_samples_seen_": int(scaler.n_samples_seen_),
+        "n_samples_seen_": [int(v) for v in np.atleast_1d(scaler.n_samples_seen_)],
         "with_mean": bool(scaler.with_mean),
         "with_std": bool(scaler.with_std),
     }
@@ -281,7 +286,13 @@ def load_standard_scaler(path: str | Path) -> StandardScaler:
     scaler.scale_ = np.asarray(json_io.get_float_list(raw, "scale_"), dtype=np.float64)
     scaler.var_ = np.asarray(json_io.get_float_list(raw, "var_"), dtype=np.float64)
     scaler.n_features_in_ = json_io.get_int(raw, "n_features_in_")
-    scaler.n_samples_seen_ = json_io.get_int(raw, "n_samples_seen_")
+    # Length-1 → scalar int (NaN-free fit); length>1 → per-feature ndarray
+    # (NaN-bearing fit). Mirrors the two shapes sklearn itself produces.
+    samples_seen = json_io.get_int_list(raw, "n_samples_seen_")
+    if len(samples_seen) == 1:
+        scaler.n_samples_seen_ = samples_seen[0]
+    else:
+        scaler.n_samples_seen_ = np.asarray(samples_seen, dtype=np.int64)
     if "feature_names_in_" in raw:
         scaler.feature_names_in_ = np.asarray(
             json_io.get_str_list(raw, "feature_names_in_"), dtype=object
