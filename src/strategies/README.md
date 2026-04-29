@@ -68,6 +68,139 @@ All six register themselves at import time on `strategy_registry`
   wrapped model (e.g. `arma_p_max` on `ReturnForecast`) are flattened
   into the strategy's space, not resolved separately.
 
+## Adding a new strategy
+
+1. **Pick a shape.** All three shapes inherit from `IStrategy`; the only
+   difference is which class flag(s) they set and what frame the engine
+   passes to `generate_signals`.
+
+   | Shape | Capability flag | `primary_ticker` | Engine entry | Exemplar |
+   | --- | --- | --- | --- | --- |
+   | Single-asset (default) | none | not used | `engine.run` (single-leg) | `adaptive_bollinger.py` |
+   | Pairs (two-leg) | `is_pairs_strategy = True` | not used | `engine.run_pairs` | `pairs_trading.py` |
+   | Multi-feature single-asset | `is_multi_feature_strategy = True` | required override | `engine.run` after `slice_primary_ohlcv` | `cross_asset_momentum.py` |
+
+   The two flags are mutually exclusive — `_validate_strategy_data_shape`
+   in `src/orchestration/builder.py` rejects a class that sets both.
+
+2. **Copy `_template.py` → `<your_strategy>.py`** in this directory and
+   drop the leading underscore. The autoloader skips `_`-prefixed
+   modules on purpose, so the template never registers itself. Renaming
+   makes the autoloader import the module; to actually register the
+   class, also uncomment the `@strategy_registry.register("...")`
+   decorator at the top of the file.
+
+3. **Implement the five abstract methods** declared on `IStrategy`:
+   `train`, `generate_signals`, `name`, `required_warmup_bars`,
+   `suggest_params`. The template stubs each one with a
+   `NotImplementedError` that explains what goes there. See *Hidden
+   contracts* below for the rules each method must respect.
+
+4. **(Pairs / multi-feature only) Set the capability flag and required
+   overrides.** Pairs strategies set `is_pairs_strategy: ClassVar[bool]
+   = True` and override the `hedge_ratio` property. Multi-feature
+   strategies set `is_multi_feature_strategy: ClassVar[bool] = True`
+   and override the `primary_ticker` property; the value MUST appear in
+   the experiment's `data.tickers` list (validated at config-build time).
+
+5. **(Composite only) Wire pretrained-leaf injection.** If your
+   strategy owns one or more ML leaves whose weights you want to pin
+   across folds, follow the 6-piece composition checklist in *Hidden
+   contracts*. Skip this step entirely for non-ML strategies — the
+   ctor's `pretrained_leaves` kwarg is still accepted for API uniformity
+   but `normalize_pretrained_leaves` rejects any non-empty map.
+
+6. **Add `config/strategies/<name>.yaml`** with the default ctor kwargs,
+   plus a corresponding HPO YAML if the strategy will be tuned. The
+   YAML schema is enforced by Pydantic — string values for `Interval`
+   and `Device` fields are auto-coerced to the matching `StrEnum`.
+
+7. **Add `tests/unit/test_<your_strategy>.py`.** Minimum coverage:
+   train + signals smoke (warmup-NaN check, signal range check),
+   `assert_params_match_constructor` drift guard if you used a frozen
+   passthrough dataclass, `assert "<Name>" in strategy_registry`,
+   `suggest_params` keys match ctor kwargs.
+
+## Hidden contracts
+
+These are invariants the framework relies on but the type system can't
+fully express. Violating any of them produces silently-wrong predictions
+or surfaces only at backtest time, far from the bug.
+
+- **Atomic fitted-state commit.** `_set_fitted_with_metadata(metadata)`
+  is the *only* legal mutator of `_training_metadata`. It refuses
+  `None` and must be the last line of `train()` and `load()`. Never
+  assign `self._training_metadata = ...` directly. There is no separate
+  `_fitted` boolean — `training_metadata is not None` IS "fitted".
+- **Read-side guard.** Every method that requires a completed `train()`
+  (`generate_signals`, `save`, `hedge_ratio`) starts with
+  `self._assert_fitted_with_metadata()`. The helper auto-derives the
+  caller name from the calling frame for clean tracebacks. Composite
+  strategies layer leaf-presence checks (e.g. `if self._classifier is
+  None: raise RuntimeError(...)`) as separate statements after the
+  metadata guard.
+- **Engine shifts signals.** Positions returned at time `t` are
+  shifted to `t+1` outside the strategy. Do NOT call `.shift(-1)`
+  inside `generate_signals`. Strategies that compute targets like
+  `(close[t+1] > close[t])` must drop the trailing row, never
+  `fillna(0)` it.
+- **`suggest_params` keys ↔ ctor kwargs.** The dict returned by
+  `suggest_params` has its KEYS consumed as ctor kwargs by
+  `StrategyTuner`; mismatched keys surface as `TypeError` at trial-build
+  time. The Optuna parameter NAMES (the strings passed to
+  `trial.suggest_*`) are global identifiers in a study; prefix-namespace
+  them by strategy (e.g. `"bollinger_window"`, `"cross_asset_n_estimators"`)
+  to avoid cross-strategy collisions when multiple strategies share an
+  Optuna study.
+- **Pretrained-leaf composition (6 pieces).** Composite strategies that
+  accept frozen leaves wire all six in this order:
+
+  1. Declare the supported leaf keys: `_leaf_keys: ClassVar[frozenset[str]] = frozenset({...})`.
+  2. Accept the kwarg in `__init__`: `pretrained_leaves: Mapping[str, object] | None = None`.
+  3. Normalise + defensive-copy: `self._pretrained_leaves =
+     normalize_pretrained_leaves(pretrained_leaves, self._leaf_keys, type(self).__name__)`.
+  4. If a leaf was injected, validate the contract before storing it:
+     `validate_pretrained_leaf(leaf, interval=..., feature_columns=..., lstm_lookback=...)`.
+  5. In `train()`, gate the per-fold rebuild-and-fit on `if leaf_key
+     not in self._pretrained_leaves: ...` — a pinned leaf must never be
+     re-fit, only the strategy's own state advances.
+  6. In `get_all_training_metadata()`, build the deep-leakage-check
+     output via `self._build_strategy_plus_leaf_metadata(leaf_key,
+     collect_metadata((leaf_key, leaf.training_metadata)))`. The helper
+     marks the leaf entry `is_pretrained=True` so the walk-forward
+     orchestrator enforces the strict-no-overlap invariant against the
+     fold's *train* window (not just its test window).
+
+  The seam itself lives in `src/orchestration/pretrained_leaves.py`;
+  read it once before extending a composite.
+- **Composite passthrough bundle.** When a leaf has a fit-once scaler
+  AND >5 ctor kwargs (Hybrid* models, FeaturePipeline + classifier),
+  freeze every passthrough in a module-private
+  `@dataclass(frozen=True)` with `tuple[str, ...]` for any list-typed
+  field, rebuild the leaf at the top of `train()` from
+  `**asdict(self._params)`, and drift-guard with
+  `assert_params_match_constructor(_LeafParams, LeafClass)`. Exemplars:
+  `_HybridReturnParams`, `_HybridVolParams`, `_MomentumConfig`. For
+  ≤5 passthrough kwargs, plain `self._x` attributes are simpler.
+- **Autoload skip rules.** `autoload_package` (in
+  `src/core/registry.py`) imports every module in this package EXCEPT
+  ones whose name starts with `_` (templates, helpers) and the literal
+  `interface` (the ABC). Spelling a strategy module name with a leading
+  underscore silently produces "strategy not found" at YAML-load time —
+  rename to drop the underscore.
+
+## Templates and exemplars
+
+| Need | Look at |
+| --- | --- |
+| Skeleton to copy | `_template.py` |
+| Single-asset, no ML leaves | `adaptive_bollinger.py` |
+| Single-asset composite (owns pipeline + classifier) | `momentum_gatekeeper.py` |
+| Single-asset composite (passthrough bundle pattern) | `return_forecast.py`, `volatility_targeting.py` |
+| Pairs (two-leg) | `pairs_trading.py` |
+| Multi-feature single-asset (wide `<ohlcv>_<TICKER>` frame) | `cross_asset_momentum.py` |
+| Pretrained-leaf injection seam (validator + helpers) | `src/orchestration/pretrained_leaves.py` |
+
 ## Snippet
 
 ```python
