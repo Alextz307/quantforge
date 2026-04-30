@@ -20,13 +20,13 @@ holds the best config so far" is worth more than the tiny disk churn.
 
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 import optuna
 
+from src.core import json_io
 from src.core.config import write_frozen_yaml
 from src.core.logging import get_logger
 from src.optimization.sampling import sample_trial_params
@@ -95,10 +95,7 @@ class TrialCallback:
                 trial.datetime_complete.isoformat() if trial.datetime_complete is not None else None
             ),
         }
-        path = self.study_dir / TRIALS_JSONL_NAME
-        with path.open("a", encoding="utf-8") as f:
-            f.write(json.dumps(record, sort_keys=True))
-            f.write("\n")
+        json_io.append_jsonl(self.study_dir / TRIALS_JSONL_NAME, record)
 
     def _refresh_best_config(self, best: optuna.trial.FrozenTrial) -> None:
         """Write ``best_config.yaml`` = base config + best trial's sampled kwargs.

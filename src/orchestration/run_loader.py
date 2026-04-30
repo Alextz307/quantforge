@@ -10,18 +10,10 @@ Two readers, both anchored on the canonical persistence layout
   branch of compare when reused runs are passed in. The frozen
   ``config.yaml`` carries the data block we need to refetch bars for
   detector tagging.
-
-The regime-only :func:`src.orchestration.regime_run.load_run_from_disk`
-predates this module; it bundles the three pieces in a regime-specific
-``LoadedRun`` dataclass and stays where it is. The 7-line JSONL reader
-is duplicated rather than hoisted — the alternative is to make a
-private helper in ``regime_run`` part of an inter-module API, which
-isn't worth the coupling.
 """
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 from src.core import json_io
@@ -62,7 +54,7 @@ def load_experiment_result(run_dir: Path) -> ExperimentResult:
                 f"or pass a different path."
             )
     manifest = Manifest.from_dict(json_io.read_dict(manifest_path))
-    folds = _read_fold_jsonl(folds_path)
+    folds = tuple(FoldRecord.from_dict(d) for d in json_io.read_jsonl(folds_path))
     return ExperimentResult(
         experiment_id=manifest.experiment_id,
         folds=folds,
@@ -85,14 +77,3 @@ def load_experiment_config_from_run(run_dir: Path) -> ExperimentConfig:
             f"different path."
         )
     return load_experiment_config(config_path)
-
-
-def _read_fold_jsonl(path: Path) -> tuple[FoldRecord, ...]:
-    records: list[FoldRecord] = []
-    with path.open("r", encoding="utf-8") as f:
-        for line in f:
-            stripped = line.strip()
-            if not stripped:
-                continue
-            records.append(FoldRecord.from_dict(json.loads(stripped)))
-    return tuple(records)

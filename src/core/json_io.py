@@ -22,6 +22,7 @@ surface actionable errors instead of late-binding ``TypeError`` further down.
 from __future__ import annotations
 
 import json
+from collections.abc import Iterable
 from pathlib import Path
 
 import pandas as pd
@@ -50,6 +51,58 @@ def read_dict(path: str | Path) -> dict[str, object]:
     if not isinstance(raw, dict):
         raise ValueError(f"JSON at {path} must be an object, got {type(raw).__name__}")
     return raw
+
+
+def read_jsonl(path: str | Path) -> list[dict[str, object]]:
+    """Load a JSON-lines file (one JSON object per non-blank line).
+
+    Each line must parse to an object; non-object lines raise
+    :class:`ValueError` with the offending 1-based line number so a
+    malformed record surfaces actionably instead of late-binding deep
+    in caller code. Blank lines are skipped (trailing newlines are the
+    common case).
+    """
+    records: list[dict[str, object]] = []
+    with Path(path).open("r", encoding="utf-8") as f:
+        for lineno, line in enumerate(f, start=1):
+            stripped = line.strip()
+            if not stripped:
+                continue
+            parsed = json.loads(stripped)
+            if not isinstance(parsed, dict):
+                raise ValueError(
+                    f"JSONL at {path} line {lineno} must be an object, got {type(parsed).__name__}"
+                )
+            records.append(parsed)
+    return records
+
+
+def write_jsonl(path: str | Path, records: Iterable[object]) -> None:
+    """Write ``records`` to ``path`` as JSON-lines (one object per line).
+
+    JSONL over one-big-JSON-array lets long-running writers be tailed
+    via ``tail -f`` and the record count read via ``wc -l`` without
+    parsing. ``records`` is iterated once and each element is dumped
+    with sorted keys so two equivalent runs produce byte-identical
+    files (load paths can hash for cache invalidation).
+    """
+    with Path(path).open("w", encoding="utf-8") as f:
+        for record in records:
+            f.write(json.dumps(record, sort_keys=True))
+            f.write("\n")
+
+
+def append_jsonl(path: str | Path, record: object) -> None:
+    """Append a single ``record`` to ``path`` as one JSON line.
+
+    Used by streaming writers (HPO trial logs, progressive run dumps)
+    where each call adds one record. ``sort_keys=True`` mirrors
+    :func:`write_jsonl` so streamed and batched writers produce
+    byte-identical content for the same record sequence.
+    """
+    with Path(path).open("a", encoding="utf-8") as f:
+        f.write(json.dumps(record, sort_keys=True))
+        f.write("\n")
 
 
 # --- Typed JSON field accessors --------------------------------------------

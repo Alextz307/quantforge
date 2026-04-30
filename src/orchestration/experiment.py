@@ -206,20 +206,6 @@ def _slice_dev(bars: pd.DataFrame, boundary: pd.Timestamp | None) -> pd.DataFram
     return bars.loc[bars.index < boundary]
 
 
-def _write_fold_jsonl(path: Path, folds: tuple[FoldRecord, ...]) -> None:
-    """Write one JSON object per fold, newline-separated.
-
-    JSONL over one-big-JSON-array so ``tail -f`` works during long runs and
-    ``wc -l`` gives you the fold count without parsing.
-    """
-    import json
-
-    with path.open("w", encoding="utf-8") as f:
-        for fold in folds:
-            f.write(json.dumps(fold.to_dict(), sort_keys=True))
-            f.write("\n")
-
-
 @dataclass(frozen=True)
 class RunOptions:
     """Per-invocation knobs for :meth:`Experiment.run`.
@@ -360,7 +346,7 @@ class Experiment:
         )
         folds = tuple(FoldRecord.from_fold_result(fr) for fr in fold_results)
 
-        _write_fold_jsonl(run_dir / FOLD_RESULTS_JSONL, folds)
+        json_io.write_jsonl(run_dir / FOLD_RESULTS_JSONL, (f.to_dict() for f in folds))
         json_io.write(run_dir / EXPERIMENT_METRICS_JSON, aggregate_folds(folds).to_dict())
         _maybe_save_strategy(self.strategy, run_dir / EXPERIMENT_STRATEGY_SUBDIR)
 

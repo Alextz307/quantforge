@@ -15,7 +15,6 @@ spinning up the click runner.
 
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -88,7 +87,7 @@ def load_run_from_disk(run_dir: Path) -> LoadedRun:
 
     config = load_experiment_config(config_path)
     manifest = Manifest.from_dict(json_io.read_dict(manifest_path))
-    folds = _read_fold_jsonl(folds_path)
+    folds = tuple(FoldRecord.from_dict(d) for d in json_io.read_jsonl(folds_path))
     return LoadedRun(
         experiment_id=manifest.experiment_id,
         config=config,
@@ -171,18 +170,6 @@ def run_regime_report(
         run.experiment_id,
     )
     return report, out_dir
-
-
-def _read_fold_jsonl(path: Path) -> tuple[FoldRecord, ...]:
-    """Read ``fold_results.jsonl`` (one JSON object per line) into records."""
-    records: list[FoldRecord] = []
-    with path.open("r", encoding="utf-8") as f:
-        for line in f:
-            stripped = line.strip()
-            if not stripped:
-                continue
-            records.append(FoldRecord.from_dict(json.loads(stripped)))
-    return tuple(records)
 
 
 def resolve_run_dir(store_root: Path, experiment_id: str) -> Path:
