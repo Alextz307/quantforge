@@ -60,8 +60,10 @@ PARQUET_SMALL_ROW_COUNT = 5
 
 # Committed thesis-demo fixture (catches bit-rot / truncation in CI; the
 # `make thesis-demo` target itself is not exercised by CI). Date range
-# matches `config/thesis_demo.yaml`; row floor allows yfinance reruns to
-# vary by a few sessions while still catching gross truncation.
+# matches `config/strategies/adaptive_bollinger.yaml` (the canonical
+# strategy YAML the Makefile composes the demo from); row floor allows
+# yfinance reruns to vary by a few sessions while still catching gross
+# truncation.
 COMMITTED_FIXTURES_DIR = Path(__file__).resolve().parents[1] / "fixtures"
 THESIS_DEMO_TICKER = "SPY"
 THESIS_DEMO_START = datetime(2018, 1, 2)

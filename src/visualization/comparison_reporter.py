@@ -42,7 +42,7 @@ from src.orchestration.types import (
     PairwiseSignificance,
     StrategyComparisonReport,
 )
-from src.visualization.latex import write_booktabs_table
+from src.visualization.latex import validate_publish_label, write_booktabs_table
 from src.visualization.plots import (
     FIGURE_DPI,
     FIGURE_HEIGHT_IN,
@@ -72,6 +72,7 @@ class ComparisonReporter:
         out_dir: Path,
         *,
         folds_by_strategy: dict[str, tuple[FoldRecord, ...]] | None = None,
+        publish_label: str | None = None,
     ) -> Path:
         """Write every artifact under ``out_dir`` and return ``out_dir``.
 
@@ -81,10 +82,20 @@ class ComparisonReporter:
         already has them in hand. If ``None`` (report loaded from disk
         without fold data), the overlay plot is skipped and a log line
         records why.
+
+        ``publish_label`` overrides ``report.out_name`` in every emitted
+        ``\\caption`` / ``\\label``. Useful when the on-disk directory
+        name diverges from the citation slug (e.g. a re-run committed
+        under a fresh ``--out-name`` that should still ``\\ref`` to the
+        original label in thesis prose).
         """
         out_dir.mkdir(parents=True, exist_ok=True)
         plots_dir = out_dir / PLOTS_SUBDIR
         tables_dir = out_dir / TABLES_SUBDIR
+
+        slug = (
+            validate_publish_label(publish_label) if publish_label is not None else report.out_name
+        )
 
         _logger.info(
             "generating comparison report '%s' with %d strategies, %d pairwise entries",
@@ -98,8 +109,8 @@ class ComparisonReporter:
         write_booktabs_table(
             report.ranking,
             tables_dir / _RANKING_FILENAME,
-            caption=f"Strategy ranking — comparison {report.out_name}",
-            label=f"tab:ranking_{report.out_name}",
+            caption=f"Strategy ranking — comparison {slug}",
+            label=f"tab:ranking_{slug}",
         )
 
         if report.pairwise:
@@ -108,9 +119,9 @@ class ComparisonReporter:
                 tables_dir / _PAIRWISE_FILENAME,
                 caption=(
                     f"Pairwise Sharpe differential, 95\\% stationary bootstrap CI "
-                    f"(row - col) — comparison {report.out_name}"
+                    f"(row - col) — comparison {slug}"
                 ),
-                label=f"tab:pairwise_{report.out_name}",
+                label=f"tab:pairwise_{slug}",
             )
 
         if folds_by_strategy is None:
@@ -123,10 +134,9 @@ class ComparisonReporter:
                 _build_strategy_x_regime_df(report.per_strategy_per_regime_stats),
                 tables_dir / _STRATEGY_X_REGIME_TABLE_FILENAME,
                 caption=(
-                    f"Per-strategy mean Sharpe ($\\pm$ std) split by regime — "
-                    f"comparison {report.out_name}"
+                    f"Per-strategy mean Sharpe ($\\pm$ std) split by regime — comparison {slug}"
                 ),
-                label=f"tab:strategy_x_regime_{report.out_name}",
+                label=f"tab:strategy_x_regime_{slug}",
             )
             self._plot_strategy_x_regime_heatmap(
                 report.per_strategy_per_regime_stats,

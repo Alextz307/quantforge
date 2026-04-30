@@ -37,11 +37,13 @@ from pydantic import ValidationError
 
 from src.core import json_io
 from src.core.config import (
+    DataConfig,
     ExperimentConfig,
     StandaloneModelConfig,
     load_experiment_config,
     load_standalone_model_config,
 )
+from src.core.config_overrides import apply_overrides
 from src.core.exceptions import LeakageError
 from src.core.hpo_config import HPOConfig, load_hpo_config
 from src.core.logging import get_logger
@@ -62,7 +64,12 @@ from src.orchestration.experiment import RunOptions
 from src.orchestration.holdout_eval import resolve_source, run_holdout_eval
 from src.orchestration.model_artifact import ModelArtifactManifest, save_model_artifact
 from src.orchestration.regime_run import resolve_run_dir, run_regime_report
+from src.orchestration.run_loader import (
+    load_experiment_config_from_run,
+    load_experiment_result,
+)
 from src.orchestration.standalone_training import train_model_standalone
+from src.orchestration.types import ExperimentResult
 
 # ``optuna`` is deferred into ``tune_cmd`` so it does not load on every CLI
 # invocation (e.g., ``--help`` or ``compare``). The visualization reporters
@@ -137,6 +144,27 @@ def cli(log_level: str) -> None:
         "weights recoverable. HPO trials never checkpoint regardless of this flag."
     ),
 )
+@click.option(
+    "--override",
+    "overrides",
+    multiple=True,
+    help=(
+        "Dotted-path override applied to the loaded config (e.g. "
+        "data.tickers=[QQQ]). Value parsed as YAML; intermediate keys "
+        "must exist. Repeatable."
+    ),
+)
+@click.option(
+    "--publish-label",
+    "publish_label",
+    default=None,
+    help=(
+        "Stable LaTeX caption + label slug for the metrics table. When "
+        "set, replaces the volatile experiment_id in \\caption / \\label "
+        "so thesis prose can \\ref the table across reruns. Allowed "
+        "chars: letters, digits, _, -, :."
+    ),
+)
 def run_cmd(
     config_path: Path,
     name: str | None,
@@ -145,6 +173,8 @@ def run_cmd(
     write_report: bool,
     progress: bool,
     checkpoint: bool,
+    overrides: tuple[str, ...],
+    publish_label: str | None,
 ) -> None:
     """Execute a single walk-forward experiment end-to-end."""
     try:
@@ -154,6 +184,7 @@ def run_cmd(
 
     if name is not None or seed is not None:
         cfg = _override_experiment(cfg, name=name, seed=seed)
+    cfg = _apply_dotted_overrides(cfg, overrides)
 
     try:
         experiment = build_experiment(cfg)
@@ -168,6 +199,7 @@ def run_cmd(
                 write_report=write_report,
                 progress=progress,
                 checkpoint=checkpoint,
+                publish_label=publish_label,
             )
         )
     except LeakageError as e:
@@ -206,11 +238,22 @@ def run_cmd(
     type=click.Path(file_okay=False, path_type=Path),
     help="Override the experiment_results/ directory.",
 )
+@click.option(
+    "--override",
+    "overrides",
+    multiple=True,
+    help=(
+        "Dotted-path override applied to the loaded config (e.g. "
+        "data.tickers=[QQQ]). Value parsed as YAML; intermediate keys "
+        "must exist. Repeatable."
+    ),
+)
 def train_model_cmd(
     config_path: Path,
     name: str | None,
     seed: int | None,
     store_root: Path,
+    overrides: tuple[str, ...],
 ) -> None:
     """Train one model standalone and persist to experiment_results/models/<name>/.
 
@@ -225,6 +268,7 @@ def train_model_cmd(
 
     if name is not None or seed is not None:
         cfg = _override_standalone(cfg, name=name, seed=seed)
+    cfg = _apply_dotted_overrides(cfg, overrides)
 
     click.echo(
         f"training model '{cfg.name}' ({cfg.model.name} / "
@@ -360,6 +404,17 @@ def list_models_cmd(store_root: Path) -> None:
     default=False,
     help="Show Optuna's per-trial progress bar (TTY only).",
 )
+@click.option(
+    "--override",
+    "overrides",
+    multiple=True,
+    help=(
+        "Dotted-path override applied to the experiment config (e.g. "
+        "data.tickers=[QQQ]). Value parsed as YAML; intermediate keys "
+        "must exist. Repeatable. Does not modify the HPO config — use "
+        "--trials / --n-jobs for that."
+    ),
+)
 def tune_cmd(
     config_path: Path,
     hpo_config_path: Path,
@@ -368,6 +423,7 @@ def tune_cmd(
     store_root: Path,
     write_report: bool,
     progress: bool,
+    overrides: tuple[str, ...],
 ) -> None:
     """Run an Optuna study over an ExperimentConfig's hyperparameter space.
 
@@ -390,6 +446,7 @@ def tune_cmd(
     except (ValidationError, FileNotFoundError, ValueError) as e:
         raise click.ClickException(f"failed to load hpo config {hpo_config_path}: {e}") from e
 
+    experiment_cfg = _apply_dotted_overrides(experiment_cfg, overrides)
     hpo_cfg = _apply_hpo_overrides(hpo_cfg, n_trials=n_trials_override, n_jobs=n_jobs_override)
 
     tuner = StrategyTuner(
@@ -473,6 +530,41 @@ def tune_cmd(
     default=True,
     help="Write ranking.tex, pairwise_significance.tex, and equity overlay plot.",
 )
+@click.option(
+    "--override",
+    "overrides",
+    multiple=True,
+    help=(
+        "Dotted-path override applied to every --config in turn (e.g. "
+        "data.tickers=[QQQ]). Value parsed as YAML; intermediate keys "
+        "must exist. Repeatable."
+    ),
+)
+@click.option(
+    "--reuse-runs",
+    "reuse_runs",
+    default=None,
+    help=(
+        "Comma-separated list of completed run directories (one per "
+        "--config in matching order). When set, the per-strategy "
+        "walk-forward is skipped and ranking + bootstrap run against "
+        "the prior fold artifacts. With --regime-config, the data "
+        "block for bar refetch is read from the first reused run's "
+        "frozen config.yaml."
+    ),
+)
+@click.option(
+    "--publish-label",
+    "publish_label",
+    default=None,
+    help=(
+        "Stable LaTeX caption + label slug for ranking, pairwise, and "
+        "strategy-x-regime tables. When set, replaces out_name in every "
+        "emitted \\caption / \\label so a re-run committed under a "
+        "different --out-name still \\refs the original prose citation. "
+        "Allowed chars: letters, digits, _, -, :."
+    ),
+)
 def compare_cmd(
     config_paths: tuple[Path, ...],
     out_name: str,
@@ -481,6 +573,9 @@ def compare_cmd(
     store_root: Path,
     regime_config_path: Path | None,
     write_report: bool,
+    overrides: tuple[str, ...],
+    reuse_runs: str | None,
+    publish_label: str | None,
 ) -> None:
     """Run N configs, rank, optionally test pairwise significance.
 
@@ -500,9 +595,10 @@ def compare_cmd(
     configs: list[ExperimentConfig] = []
     for path in config_paths:
         try:
-            configs.append(load_experiment_config(path))
+            cfg = load_experiment_config(path)
         except (ValidationError, FileNotFoundError, ValueError) as e:
             raise click.ClickException(f"failed to load config {path}: {e}") from e
+        configs.append(_apply_dotted_overrides(cfg, overrides))
 
     regime_cfg = None
     if regime_config_path is not None:
@@ -513,11 +609,16 @@ def compare_cmd(
                 f"failed to load regime config {regime_config_path}: {e}"
             ) from e
 
+    reused_results, reused_data_cfg = _load_reused_runs(
+        reuse_runs, n_configs=len(configs), needs_data_cfg=regime_cfg is not None
+    )
+
     sig = SignificanceTest(significance_test)
     click.echo(
         f"comparing {len(configs)} strategies under '{out_name}' "
         f"(n_jobs={n_jobs}, significance={sig.value}, "
-        f"regime={regime_cfg.detector.name if regime_cfg is not None else 'none'}) ..."
+        f"regime={regime_cfg.detector.name if regime_cfg is not None else 'none'}, "
+        f"reuse={'yes' if reused_results is not None else 'no'}) ..."
     )
     try:
         report, folds_by_strategy = run_comparison(
@@ -527,6 +628,8 @@ def compare_cmd(
             n_jobs=n_jobs,
             significance_test=sig,
             regime_config=regime_cfg,
+            reused_results=reused_results,
+            reused_data_cfg=reused_data_cfg,
         )
     except LeakageError as e:
         raise click.ClickException(f"leakage tripwire fired: {e}") from e
@@ -536,7 +639,10 @@ def compare_cmd(
     cmp_dir = store_root / COMPARISONS_SUBDIR / out_name
     if write_report:
         ComparisonReporter().generate_full_report(
-            report, cmp_dir, folds_by_strategy=folds_by_strategy
+            report,
+            cmp_dir,
+            folds_by_strategy=folds_by_strategy,
+            publish_label=publish_label,
         )
 
     click.echo(f"out_name:   {report.out_name}")
@@ -578,12 +684,23 @@ def compare_cmd(
     default=True,
     help="Render the regime heatmap, timeline, and per-regime LaTeX summary.",
 )
+@click.option(
+    "--publish-label",
+    "publish_label",
+    default=None,
+    help=(
+        "Stable LaTeX caption + label slug for the regime summary table. "
+        "When set, replaces the volatile experiment_id / out_name pair "
+        "in \\caption / \\label. Allowed chars: letters, digits, _, -, :."
+    ),
+)
 def regime_cmd(
     experiment_id: str,
     regime_config_path: Path,
     out_name: str,
     store_root: Path,
     write_report: bool,
+    publish_label: str | None,
 ) -> None:
     """Re-analyse a persisted experiment by regime (period / trend / volatility).
 
@@ -616,7 +733,7 @@ def regime_cmd(
         raise click.ClickException(f"regime analysis failed: {e}") from e
 
     if write_report:
-        RegimeReporter().generate_full_report(report, out_dir)
+        RegimeReporter().generate_full_report(report, out_dir, publish_label=publish_label)
 
     click.echo(f"out_name:  {report.out_name}")
     click.echo(f"artifacts: {out_dir}")
@@ -668,12 +785,24 @@ def regime_cmd(
     default=True,
     help="Write the holdout-metrics LaTeX table and the holdout-equity plot.",
 )
+@click.option(
+    "--publish-label",
+    "publish_label",
+    default=None,
+    help=(
+        "Stable LaTeX caption + label slug for the holdout-metrics table. "
+        "When set, replaces source_id / out_name in \\caption / \\label "
+        "so thesis prose can \\ref the table across reruns. Allowed "
+        "chars: letters, digits, _, -, :."
+    ),
+)
 def holdout_eval_cmd(
     run_dir: Path | None,
     hpo_dir: Path | None,
     out_name: str | None,
     store_root: Path,
     write_report: bool,
+    publish_label: str | None,
 ) -> None:
     """Refit on full dev, evaluate once on the reserved holdout — honest OOS.
 
@@ -713,7 +842,7 @@ def holdout_eval_cmd(
         # Lazy: matplotlib's cold import is ~4s; --no-report skips it.
         from src.visualization.holdout_eval_reporter import HoldoutEvalReporter
 
-        HoldoutEvalReporter().generate_full_report(result, out_dir)
+        HoldoutEvalReporter().generate_full_report(result, out_dir, publish_label=publish_label)
 
     artifact_dir = store_root / HOLDOUT_EVALS_SUBDIR / resolved_out_name
     click.echo(f"out_name:        {result.out_name}")
@@ -761,6 +890,71 @@ def _override[CfgT: (ExperimentConfig, StandaloneModelConfig)](
     if seed is not None:
         payload["seed"] = seed
     return type(cfg).model_validate(payload)
+
+
+def _load_reused_runs(
+    raw: str | None, *, n_configs: int, needs_data_cfg: bool
+) -> tuple[list[ExperimentResult] | None, DataConfig | None]:
+    """Resolve ``--reuse-runs <a,b,c>`` into the data ``run_comparison`` needs.
+
+    Returns ``(reused_results, reused_data_cfg)``; both are ``None`` when
+    the flag is absent. ``reused_data_cfg`` is non-null only when
+    ``needs_data_cfg`` (i.e. ``--regime-config`` was set) and is read
+    from the first reused run's frozen ``config.yaml``.
+
+    Raises :class:`click.ClickException` on count mismatch or unreadable
+    run dirs so the user sees the usual CLI-error framing instead of a
+    raw traceback.
+    """
+    if raw is None:
+        return None, None
+    raw_paths = [p.strip() for p in raw.split(",") if p.strip()]
+    if len(raw_paths) != n_configs:
+        raise click.ClickException(
+            f"--reuse-runs has {len(raw_paths)} path(s) but --config has "
+            f"{n_configs}; pass one --reuse-runs path per --config in "
+            f"matching order."
+        )
+    results: list[ExperimentResult] = []
+    for raw_path in raw_paths:
+        run_dir = Path(raw_path)
+        try:
+            results.append(load_experiment_result(run_dir))
+        except (FileNotFoundError, ValueError) as e:
+            raise click.ClickException(f"failed to load reused run {run_dir}: {e}") from e
+    data_cfg: DataConfig | None = None
+    if needs_data_cfg:
+        first = Path(raw_paths[0])
+        try:
+            data_cfg = load_experiment_config_from_run(first).data
+        except (FileNotFoundError, ValidationError, ValueError) as e:
+            raise click.ClickException(
+                f"failed to read frozen config from reused run {first} "
+                f"(needed for regime overlay): {e}"
+            ) from e
+    return results, data_cfg
+
+
+def _apply_dotted_overrides[CfgT: (ExperimentConfig, StandaloneModelConfig)](
+    cfg: CfgT, overrides: tuple[str, ...]
+) -> CfgT:
+    """Apply repeatable ``--override key.path=value`` flags via dict round-trip.
+
+    Empty ``overrides`` is a no-op; otherwise we ``model_dump`` to JSON-safe
+    primitives, mutate the dict via :func:`apply_overrides`, then ``model_validate``
+    so the returned object is fully validated against the same schema.
+    """
+    if not overrides:
+        return cfg
+    payload = cfg.model_dump(mode="json")
+    try:
+        payload = apply_overrides(payload, overrides)
+    except ValueError as e:
+        raise click.ClickException(f"--override failed: {e}") from e
+    try:
+        return type(cfg).model_validate(payload)
+    except ValidationError as e:
+        raise click.ClickException(f"--override re-validation failed: {e}") from e
 
 
 # Type-narrowed aliases kept for call-site + test clarity — both are the

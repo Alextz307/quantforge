@@ -9,6 +9,7 @@ one file instead of five.
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import pandas as pd
@@ -16,6 +17,29 @@ import pandas as pd
 from src.core.fs import ensure_parent_dir
 
 LATEX_FLOAT_FORMAT = "%.3f"
+
+# A LaTeX label / file-friendly slug: starts with a letter, then any mix
+# of letters, digits, ``_``, ``-``, ``:``. The ``:`` is allowed because
+# the project's existing labels use it (``tab:metrics_demo``); ``_``
+# and ``-`` are universally safe in LaTeX. Anything else (spaces,
+# braces, percent, hash) breaks ``\\ref{...}`` or the .tex itself.
+_PUBLISH_LABEL_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_:\-]*$")
+
+
+def validate_publish_label(slug: str) -> str:
+    """Return ``slug`` unchanged when valid; raise :class:`ValueError` otherwise.
+
+    Used by every reporter that accepts a ``publish_label`` override —
+    one regex, one error message, no per-reporter drift.
+    """
+    if not _PUBLISH_LABEL_RE.fullmatch(slug):
+        raise ValueError(
+            f"invalid publish_label '{slug}': must start with a letter "
+            f"and contain only letters, digits, '_', '-', ':' (LaTeX "
+            f"label-friendly chars). Fix by passing a slug like "
+            f"'metrics_volatility_targeting_spy'."
+        )
+    return slug
 
 
 def build_booktabs_table(

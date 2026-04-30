@@ -9,12 +9,13 @@ PNG + SVG plots plus booktabs LaTeX tables under each report's
 
 | Symbol | Role |
 | --- | --- |
-| `StrategyReporter.generate_full_report(result, out_dir)` | Per-experiment artefacts: equity curves overlay, fold-stability scatter, per-fold metrics LaTeX. |
-| `ComparisonReporter.generate_full_report(report, folds_by_strategy, out_dir)` | Cross-strategy artefacts: ranking LaTeX, pairwise-significance LaTeX, equity overlay normalised at 1.0, optional strategy × regime heatmap + LaTeX table when `report.per_strategy_per_regime_stats` is populated, comparison `manifest.json`. |
-| `RegimeReporter.generate_full_report(report, out_dir)` | Per-regime artefacts: regime summary LaTeX, regime × metric heatmap, regime timeline tape, regime `manifest.json`. |
+| `StrategyReporter.generate_full_report(result, out_dir, *, publish_label=None)` | Per-experiment artefacts: equity curves overlay, fold-stability scatter, per-fold metrics LaTeX. |
+| `ComparisonReporter.generate_full_report(report, folds_by_strategy, out_dir, *, publish_label=None)` | Cross-strategy artefacts: ranking LaTeX, pairwise-significance LaTeX, equity overlay normalised at 1.0, optional strategy × regime heatmap + LaTeX table when `report.per_strategy_per_regime_stats` is populated, comparison `manifest.json`. |
+| `RegimeReporter.generate_full_report(report, out_dir, *, publish_label=None)` | Per-regime artefacts: regime summary LaTeX, regime × metric heatmap, regime timeline tape, regime `manifest.json`. |
 | `HPOReporter.generate_full_report(study, out_dir)` | Optuna-study artefacts: convergence curve, parameter-importance bars, top-trials LaTeX. |
-| `HoldoutEvalReporter.generate_full_report(result, out_dir)` | One-shot holdout-eval artefacts: holdout-metrics LaTeX (two-column metric · value), normalised holdout-equity curve. |
+| `HoldoutEvalReporter.generate_full_report(result, out_dir, *, publish_label=None)` | One-shot holdout-eval artefacts: holdout-metrics LaTeX (two-column metric · value), normalised holdout-equity curve. |
 | `build_booktabs_table(df, *, caption, label, ...)` / `write_booktabs_table` | Single LaTeX styling entry point — every reporter routes through here. |
+| `validate_publish_label(slug)` | Shared regex gate for the citation slug accepted by every reporter's `publish_label` kwarg. |
 | `save_png_and_svg(fig, png_path)` | PNG + SVG twin-write helper; pinned `FIGURE_WIDTH_IN`, `FIGURE_HEIGHT_IN`, `FIGURE_DPI`. |
 | `PLOTS_SUBDIR`, `TABLES_SUBDIR`, `MANIFEST_FILENAME` | Shared on-disk layout constants. |
 
@@ -44,6 +45,12 @@ PNG + SVG plots plus booktabs LaTeX tables under each report's
 - **booktabs everywhere.** All `.tex` outputs use the booktabs style
   via `build_booktabs_table`; caption/label conventions live in one
   place.
+- **Stable citation slugs via `publish_label`.** Every reporter that
+  emits LaTeX accepts a `publish_label: str | None` kwarg. When set,
+  it replaces the volatile `experiment_id` / `out_name` in
+  `\caption` / `\label` so a thesis-prose `\ref{tab:metrics_…}` keeps
+  resolving across reruns. The slug regex (`validate_publish_label`)
+  rejects anything that breaks LaTeX (spaces, braces, `%`, `#`).
 - **`manifest.json` per report bundle.** Each reporter writes a small
   identity sidecar (out_name, timestamp, git sha, key stats) so a
   reader can inspect the bundle without re-running.

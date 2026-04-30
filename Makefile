@@ -44,6 +44,14 @@ tune:
 
 THESIS_DEMO_DIR := experiment_results/thesis_demo
 
+# Compose the demo's offline data block from the canonical strategy YAMLs
+# via --override so we don't keep parquet-pointing duplicates in
+# config/. The strategy YAMLs default to yfinance + SPY + the same date
+# window, so only the data.source needs swapping.
+THESIS_DEMO_DATA_OVERRIDES := \
+	--override 'data.source.name=parquet' \
+	--override 'data.source.params.data_dir=tests/fixtures'
+
 thesis-demo:
 	@echo "──────────────────────────────────────────────────────────────"
 	@echo "  thesis-demo: end-to-end pipeline smoke on cached SPY"
@@ -55,13 +63,15 @@ thesis-demo:
 	        $(THESIS_DEMO_DIR)/comparisons \
 	        $(THESIS_DEMO_DIR)/regime_reports
 	python -m scripts.experiment run \
-		--config config/thesis_demo.yaml \
-		--store-root $(THESIS_DEMO_DIR)
+		--config config/strategies/adaptive_bollinger.yaml \
+		--store-root $(THESIS_DEMO_DIR) \
+		$(THESIS_DEMO_DATA_OVERRIDES)
 	python -m scripts.experiment compare \
-		--config config/thesis_demo.yaml \
-		--config config/thesis_demo_momentum.yaml \
+		--config config/strategies/adaptive_bollinger.yaml \
+		--config config/strategies/momentum_gatekeeper.yaml \
 		--out-name pipeline_compare \
-		--store-root $(THESIS_DEMO_DIR)
+		--store-root $(THESIS_DEMO_DIR) \
+		$(THESIS_DEMO_DATA_OVERRIDES)
 	@EXP_ID=$$(ls -1t $(THESIS_DEMO_DIR)/runs/ | head -n 1); \
 		test -n "$$EXP_ID" || { echo "no run found under $(THESIS_DEMO_DIR)/runs/"; exit 1; }; \
 		echo "regime split on $$EXP_ID"; \

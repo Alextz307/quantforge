@@ -17,6 +17,7 @@ device selection, and small JSON / FS helpers.
 | `TemporalSplit`, `TemporalTripleSplit`, `WalkForwardValidator`, `PurgedGroupTimeSeriesSplit`, `resolve_holdout_boundary` | Anti-leakage temporal primitives. |
 | `TrainingMetadata`, `TrackedMetadata`, `mark_pretrained`, `collect_metadata` | Per-component training-window record + composite-strategy aggregation. |
 | `ExperimentConfig` + `load_experiment_config(path)` + `write_frozen_yaml(...)` | Pydantic root config; loads the canonical `config/strategies/*.yaml`. |
+| `apply_overrides(payload, overrides)` | Dotted-path mutation of a config dict (e.g. `data.tickers=[QQQ]`); powers every CLI's `--override` flag. |
 | `HPOConfig` + `load_hpo_config(path)` | HPO study spec (sampler, pruner, n_trials, objective). |
 | `RegimeConfig` + `load_regime_config(path)` | Regime-detector spec for `experiment regime`. |
 | `LeakageError`, `DataQualityError`, `guard_scaler_fit_once` | Custom exceptions + the centralised fit-once helper. |
@@ -37,6 +38,7 @@ device selection, and small JSON / FS helpers.
 | `persistence.py` | Canonical filenames + subdirs (`config.json`, `weights.json`, `garch/`, `lstm/`, …) + `save_model_skeleton` + scaler round-trip helpers + `write_experiment_manifest`. |
 | `exceptions.py` | `LeakageError`, `DataQualityError`, `guard_scaler_fit_once`. |
 | `config.py` | `ExperimentConfig` + Pydantic validators; `_LEAF_KEY_OWNED_PARAMS` for the HPO pinned-leaf filter. |
+| `config_overrides.py` | `apply_overrides(payload, overrides)` — dotted-path mutation of a config dict before pydantic re-validation, used by every CLI's `--override` flag. |
 | `hpo_config.py`, `regime_config.py` | Sibling pydantic configs for HPO / regime CLIs. |
 | `logging.py` | `_ContextAdapter` + `get_logger`. |
 | `device.py` | torch / xgboost device selection helpers. |

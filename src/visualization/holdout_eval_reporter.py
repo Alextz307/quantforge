@@ -25,7 +25,7 @@ import pandas as pd
 
 from src.core.logging import get_logger
 from src.orchestration.holdout_eval import HoldoutEvalResult
-from src.visualization.latex import write_booktabs_table
+from src.visualization.latex import validate_publish_label, write_booktabs_table
 from src.visualization.plots import (
     FIGURE_DPI,
     FIGURE_HEIGHT_IN,
@@ -49,25 +49,40 @@ class HoldoutEvalReporter:
         self,
         result: HoldoutEvalResult,
         out_dir: Path,
+        *,
+        publish_label: str | None = None,
     ) -> Path:
         """Write both artifacts under ``out_dir/{plots,tables}/``.
 
         ``out_dir`` is the same directory the orchestration module wrote
         ``holdout_eval.json`` into, so the caller passes the path
         returned from :func:`run_holdout_eval`.
+
+        ``publish_label`` overrides ``result.source_id`` /
+        ``result.out_name`` in the table's ``\\caption`` and ``\\label``;
+        pass it when committed holdout artifacts are referenced from
+        prose so a re-run doesn't churn the citation slug.
         """
         out_dir.mkdir(parents=True, exist_ok=True)
         plots_dir = out_dir / PLOTS_SUBDIR
         tables_dir = out_dir / TABLES_SUBDIR
 
+        if publish_label is not None:
+            slug = validate_publish_label(publish_label)
+            caption = f"Holdout-eval metrics — {slug} (boundary {result.holdout_start.isoformat()})"
+            label = f"tab:holdout_{slug}"
+        else:
+            caption = (
+                f"Holdout-eval metrics — source {result.source_kind}: "
+                f"{result.source_id} (boundary {result.holdout_start.isoformat()})"
+            )
+            label = f"tab:holdout_{result.out_name}"
+
         write_booktabs_table(
             _build_metrics_df(result),
             tables_dir / _METRICS_FILENAME,
-            caption=(
-                f"Holdout-eval metrics — source {result.source_kind}: "
-                f"{result.source_id} (boundary {result.holdout_start.isoformat()})"
-            ),
-            label=f"tab:holdout_{result.out_name}",
+            caption=caption,
+            label=label,
         )
 
         self._plot_equity_curve(result, plots_dir / _EQUITY_FILENAME)

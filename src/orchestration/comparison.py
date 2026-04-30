@@ -107,6 +107,8 @@ def run_comparison(
     significance_test: SignificanceTest = SignificanceTest.BOOTSTRAP,
     n_resamples: int = _DEFAULT_PAIRWISE_N_RESAMPLES,
     regime_config: RegimeConfig | None = None,
+    reused_results: Sequence[ExperimentResult] | None = None,
+    reused_data_cfg: DataConfig | None = None,
 ) -> tuple[StrategyComparisonReport, dict[str, tuple[FoldRecord, ...]]]:
     """Run every config, aggregate, rank, optionally pairwise-test.
 
@@ -122,24 +124,45 @@ def run_comparison(
     checked against each strategy's ``manifest.data_hash``. For pairs
     configs the regime is tagged from ``tickers[0]`` — descriptive only,
     never feeds back into training.
+
+    When ``reused_results`` is supplied (one :class:`ExperimentResult`
+    per config, in matching order), the per-strategy walk-forward step
+    is skipped entirely — ranking, pairwise bootstrap, and (optional)
+    regime overlay run against the prior results. Every reused result's
+    ``manifest.data_hash`` must match for the bootstrap pairing to be
+    valid. ``reused_data_cfg`` is required when ``regime_config`` is
+    also set (the data block needed for bar refetch is recovered from
+    one of the reused runs' frozen ``config.yaml`` by the caller).
     """
     inputs = _validate_inputs(configs)
-    if regime_config is not None:
+    if reused_results is not None:
+        _validate_reused_results_alignment(inputs, reused_results)
+        if regime_config is not None and reused_data_cfg is None:
+            raise ValueError(
+                "regime overlay with reused_results requires reused_data_cfg "
+                "(read from one of the reused runs' frozen config.yaml); "
+                "fix by passing the data block alongside reused_results."
+            )
+    elif regime_config is not None:
         _validate_uniform_data(inputs.configs)
     store = store_root if store_root is not None else _DEFAULT_STORE_ROOT
     cmp_dir = Path(store) / COMPARISONS_SUBDIR / out_name
     cmp_dir.mkdir(parents=True, exist_ok=True)
 
     _logger.info(
-        "running comparison '%s' with %d configs (n_jobs=%d, significance=%s, regime=%s)",
+        "running comparison '%s' with %d configs (n_jobs=%d, significance=%s, regime=%s, reuse=%s)",
         out_name,
         len(inputs.configs),
         n_jobs,
         significance_test,
         regime_config.detector.name if regime_config is not None else "none",
+        "yes" if reused_results is not None else "no",
     )
 
-    if n_jobs == 1:
+    results: list[ExperimentResult]
+    if reused_results is not None:
+        results = list(reused_results)
+    elif n_jobs == 1:
         results = _run_sequential(inputs.configs, cmp_dir)
     elif n_jobs > 1:
         results = _run_parallel(inputs.configs, cmp_dir, n_jobs)
@@ -169,11 +192,14 @@ def run_comparison(
 
     per_strategy_per_regime_stats: dict[str, dict[str, AggregateStats]] | None
     if regime_config is not None:
+        overlay_data_cfg = (
+            reused_data_cfg if reused_data_cfg is not None else inputs.configs[0].data
+        )
         per_strategy_per_regime_stats = _compute_regime_overlay(
             inputs.strategy_names,
             results,
             regime_config=regime_config,
-            data_cfg=inputs.configs[0].data,
+            data_cfg=overlay_data_cfg,
         )
     else:
         per_strategy_per_regime_stats = None
@@ -412,6 +438,46 @@ def _compute_regime_overlay(
         )
         overlay[name] = aggregate_split(split_folds_by_tags(result.folds, tagged))
     return overlay
+
+
+def _validate_reused_results_alignment(
+    inputs: _ComparisonInputs,
+    reused_results: Sequence[ExperimentResult],
+) -> None:
+    """Cross-check reused runs against the configs they're paired with.
+
+    Three invariants:
+    * Count matches: one reused result per config, no off-by-one.
+    * Strategy name matches: the reused run's ``manifest.name`` was set
+      from ``cfg.name`` at write time, so a mismatch means the user
+      passed the wrong run dir for that config slot.
+    * ``manifest.data_hash`` is uniform across reused runs: the pairwise
+      bootstrap pairs bar-aligned per-fold returns; differing data hashes
+      mean differing underlying bars and the pairing is meaningless.
+    """
+    if len(reused_results) != len(inputs.configs):
+        raise ValueError(
+            f"reused_results count ({len(reused_results)}) does not match "
+            f"configs count ({len(inputs.configs)}); fix by passing one "
+            f"--reuse-runs path per --config in matching order."
+        )
+    for cfg_name, result in zip(inputs.strategy_names, reused_results, strict=True):
+        if result.manifest.name != cfg_name:
+            raise ValueError(
+                f"reused run strategy name '{result.manifest.name}' does not "
+                f"match paired config name '{cfg_name}'; --reuse-runs paths "
+                f"must be in the same order as --config paths."
+            )
+    head_hash = reused_results[0].manifest.data_hash
+    for name, result in zip(inputs.strategy_names[1:], reused_results[1:], strict=True):
+        if result.manifest.data_hash != head_hash:
+            raise ValueError(
+                f"reused run for '{name}' has data_hash {result.manifest.data_hash} "
+                f"but '{inputs.strategy_names[0]}' has {head_hash}; pairwise "
+                f"bootstrap requires every reused run to share the same bar "
+                f"index. Fix by re-running the experiments under aligned "
+                f"data.start / data.end / data.interval."
+            )
 
 
 def _validate_fold_alignment(

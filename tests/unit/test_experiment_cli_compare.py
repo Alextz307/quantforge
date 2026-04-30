@@ -168,3 +168,137 @@ class TestCompareSubcommandSmoke:
         )
         assert result.exit_code != 0
         assert "at least 2" in result.output
+
+
+def _materialise_run_dir(run_dir: Path, name: str, *, data_hash: str | None = None) -> None:
+    """Persist a stub :class:`ExperimentResult` to disk in the canonical layout.
+
+    Mirrors what :meth:`Experiment.run` writes — manifest.json and
+    fold_results.jsonl — so the loader has real on-disk artifacts to
+    rebuild from. ``data_hash`` defaults to the conftest stub hash;
+    pass an alternate value to exercise the cross-run alignment guard.
+    """
+    import json as _json
+
+    from src.core import json_io
+    from src.core.persistence import EXPERIMENT_MANIFEST_JSON, FOLD_RESULTS_JSONL
+
+    run_dir.mkdir(parents=True, exist_ok=True)
+    result = _stub_result(name, sharpe={"Alpha": 1.2, "Bravo": 0.7}.get(name, 1.0))
+    if data_hash is not None:
+        # Manifest is frozen; rebuild with the override hash.
+        from dataclasses import replace
+
+        result = ExperimentResult(
+            experiment_id=result.experiment_id,
+            folds=result.folds,
+            manifest=replace(result.manifest, data_hash=data_hash),
+        )
+    json_io.write(run_dir / EXPERIMENT_MANIFEST_JSON, result.manifest.to_dict())
+    with (run_dir / FOLD_RESULTS_JSONL).open("w", encoding="utf-8") as f:
+        for fold in result.folds:
+            f.write(_json.dumps(fold.to_dict(), sort_keys=True))
+            f.write("\n")
+
+
+@pytest.fixture
+def build_experiment_must_not_run(monkeypatch: pytest.MonkeyPatch) -> None:
+    """If --reuse-runs is wired correctly, no experiment is built/run."""
+
+    def _boom(_cfg: ExperimentConfig) -> object:
+        raise AssertionError("build_experiment must not be called when --reuse-runs is set")
+
+    monkeypatch.setattr(comparison_mod, "build_experiment", _boom)
+
+
+class TestCompareReuseRuns:
+    def test_skips_retrain_and_writes_ranking(
+        self, tmp_path: Path, build_experiment_must_not_run: None
+    ) -> None:
+        cfg_a = _write_cfg(tmp_path, "Alpha")
+        cfg_b = _write_cfg(tmp_path, "Bravo")
+        run_a = tmp_path / "prior_runs" / "alpha"
+        run_b = tmp_path / "prior_runs" / "bravo"
+        _materialise_run_dir(run_a, "Alpha")
+        _materialise_run_dir(run_b, "Bravo")
+        store_root = tmp_path / "results"
+
+        runner = CliRunner()
+        result = runner.invoke(
+            cli,
+            [
+                "compare",
+                "--config",
+                str(cfg_a),
+                "--config",
+                str(cfg_b),
+                "--out-name",
+                "reuse_smoke",
+                "--store-root",
+                str(store_root),
+                "--reuse-runs",
+                f"{run_a},{run_b}",
+            ],
+        )
+        assert result.exit_code == 0, result.output
+
+        cmp_dir = store_root / COMPARISONS_SUBDIR / "reuse_smoke"
+        ranking_tex = (cmp_dir / "tables" / "ranking.tex").read_text()
+        assert "Alpha" in ranking_tex
+        assert "Bravo" in ranking_tex
+
+    def test_count_mismatch_rejected(self, tmp_path: Path) -> None:
+        cfg_a = _write_cfg(tmp_path, "Alpha")
+        cfg_b = _write_cfg(tmp_path, "Bravo")
+        run_a = tmp_path / "prior_runs" / "alpha"
+        _materialise_run_dir(run_a, "Alpha")
+
+        runner = CliRunner()
+        result = runner.invoke(
+            cli,
+            [
+                "compare",
+                "--config",
+                str(cfg_a),
+                "--config",
+                str(cfg_b),
+                "--out-name",
+                "count_mismatch",
+                "--store-root",
+                str(tmp_path / "results"),
+                "--reuse-runs",
+                str(run_a),
+            ],
+        )
+        assert result.exit_code != 0
+        assert "1 path(s) but --config has 2" in result.output
+
+    def test_data_hash_drift_rejected(
+        self, tmp_path: Path, build_experiment_must_not_run: None
+    ) -> None:
+        cfg_a = _write_cfg(tmp_path, "Alpha")
+        cfg_b = _write_cfg(tmp_path, "Bravo")
+        run_a = tmp_path / "prior_runs" / "alpha"
+        run_b = tmp_path / "prior_runs" / "bravo"
+        _materialise_run_dir(run_a, "Alpha", data_hash="a" * 64)
+        _materialise_run_dir(run_b, "Bravo", data_hash="b" * 64)
+
+        runner = CliRunner()
+        result = runner.invoke(
+            cli,
+            [
+                "compare",
+                "--config",
+                str(cfg_a),
+                "--config",
+                str(cfg_b),
+                "--out-name",
+                "drift",
+                "--store-root",
+                str(tmp_path / "results"),
+                "--reuse-runs",
+                f"{run_a},{run_b}",
+            ],
+        )
+        assert result.exit_code != 0
+        assert "data_hash" in result.output

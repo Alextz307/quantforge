@@ -227,12 +227,17 @@ class RunOptions:
     Bundled so the run() signature doesn't grow a flag per concern. Defaults
     match the no-arguments behaviour: write to ``experiment_results/``, emit
     the strategy report, no progress bar, no per-fold checkpoints.
+
+    ``publish_label`` is forwarded to the strategy reporter so thesis-prose
+    citations stay stable across reruns; ``None`` keeps the legacy
+    ``experiment_id``-based caption + label.
     """
 
     store_root: Path | None = None
     write_report: bool = True
     progress: bool = False
     checkpoint: bool = False
+    publish_label: str | None = None
 
 
 @dataclass(frozen=True)
@@ -370,7 +375,9 @@ class Experiment:
             # reports are actually requested keeps the no-report path light.
             from src.visualization.strategy_reporter import StrategyReporter
 
-            StrategyReporter().generate_full_report(result, run_dir)
+            StrategyReporter().generate_full_report(
+                result, run_dir, publish_label=opts.publish_label
+            )
             logger.info("report generated under %s", run_dir)
 
         # Summary line after reports so the INFO trail reads

@@ -28,7 +28,7 @@ import pandas as pd
 
 from src.core.logging import get_logger
 from src.orchestration.types import ExperimentResult, FoldRecord
-from src.visualization.latex import write_booktabs_table
+from src.visualization.latex import validate_publish_label, write_booktabs_table
 from src.visualization.plots import (
     FIGURE_DPI,
     FIGURE_HEIGHT_IN,
@@ -53,8 +53,15 @@ class StrategyReporter:
         self,
         result: ExperimentResult,
         out_dir: Path,
+        *,
+        publish_label: str | None = None,
     ) -> Path:
         """Write every artifact under ``out_dir/{plots,tables}/`` and return ``out_dir``.
+
+        ``publish_label`` overrides the volatile ``experiment_id`` in the
+        ``\\caption`` text and ``\\label`` of the metrics table; pass it
+        when the .tex is committed and referenced from prose so a rerun
+        of the experiment doesn't churn the citation slug.
 
         Safe on an empty ``result.folds`` (the walk-forward validator could
         in principle yield zero folds if someone mis-configures): writes a
@@ -65,12 +72,20 @@ class StrategyReporter:
         plots_dir = out_dir / PLOTS_SUBDIR
         tables_dir = out_dir / TABLES_SUBDIR
 
+        if publish_label is not None:
+            slug = validate_publish_label(publish_label)
+            caption = f"Fold metrics — {slug}"
+            label = f"tab:metrics_{slug}"
+        else:
+            caption = f"Fold metrics — experiment {result.experiment_id}"
+            label = f"tab:metrics_{result.experiment_id}"
+
         metrics_df = self._build_metrics_dataframe(result.folds)
         write_booktabs_table(
             metrics_df,
             tables_dir / _METRICS_FILENAME,
-            caption=f"Fold metrics — experiment {result.experiment_id}",
-            label=f"tab:metrics_{result.experiment_id}",
+            caption=caption,
+            label=label,
         )
 
         if result.folds:

@@ -15,7 +15,6 @@ typos in user YAML fail at load time, not mid-run.
 | `models/` | Standalone leaf-training configs consumed by `experiment train-model` (output → `experiment_results/models/<name>/`). | `load_standalone_model_config(path)` |
 | `universes/` | Reusable `data:` fragments. Today these are stand-alone files that humans copy into a strategy YAML; the CLI does not auto-compose them. | manual paste |
 | `example.yaml` | Reference `ExperimentConfig` with every field documented inline. Copy-and-edit for new runs. | `load_experiment_config` |
-| `thesis_demo.yaml` | Cheapest end-to-end demo run (single SPY AdaptiveBollinger). Wired into the `make thesis-demo` Makefile target. | `load_experiment_config` |
 
 ## Top-level YAMLs (`strategies/`)
 
@@ -57,7 +56,6 @@ variants for the strategies where injection is interesting):
 ```
 config/
     example.yaml                  # reference ExperimentConfig
-    thesis_demo.yaml              # demo runner entry point
     strategies/
         adaptive_bollinger.yaml
         pairs_trading.yaml
@@ -97,7 +95,26 @@ python -m scripts.experiment tune \
 
 # Pairs run on GLD/SLV (multi-ticker fetch + pairs engine dispatch):
 python -m scripts.experiment run --config config/strategies/pairs_trading.yaml
+
+# Drive the same strategy YAML across universes via --override (avoids
+# committing one near-identical YAML per universe):
+python -m scripts.experiment run \
+    --config config/strategies/momentum_gatekeeper.yaml \
+    --override 'data.tickers=[QQQ]' \
+    --override 'data.start=2018-01-02'
 ```
+
+## Composing configs with `--override`
+
+Every CLI subcommand that loads a config (`run`, `train-model`, `tune`,
+`compare`) accepts repeated `--override key.path=value` flags. The
+value is parsed with `yaml.safe_load` so the surface matches the YAML
+files (e.g. `[QQQ]` → list, `false` → bool, `2024-01-01` → date).
+Intermediate keys must already exist in the loaded YAML — typos like
+`--override dat.tickers=[QQQ]` raise instead of silently no-op'ing. The
+`make thesis-demo` target uses this mechanism to compose the offline
+parquet data block from the canonical `config/strategies/*.yaml` files
+without keeping demo-specific duplicates.
 
 ## Cross-links
 

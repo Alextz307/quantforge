@@ -14,12 +14,14 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import click
 import numpy as np
 import pytest
 import yaml
 from click.testing import CliRunner
 
 from scripts.experiment import (
+    _apply_dotted_overrides,
     _override_experiment,
     _override_standalone,
     cli,
@@ -424,3 +426,82 @@ class TestOverrideHelpers:
         renamed = _override_experiment(cfg, name="renamed", seed=None)
         assert renamed.name == "renamed"
         assert renamed.seed == cfg.seed
+
+
+class TestDottedOverride:
+    """``--override key.path=value`` flow: helper round-trip + CLI integration."""
+
+    @staticmethod
+    def _minimal_cfg() -> ExperimentConfig:
+        payload = {
+            "name": "base",
+            "seed": 1,
+            "data": {
+                "source": {"name": "csv", "params": {"data_dir": "/tmp"}},
+                "tickers": ["SPY"],
+                "start": "2020-01-01",
+                "end": "2021-01-01",
+                "interval": "daily",
+            },
+            "strategy": {
+                "name": "AdaptiveBollinger",
+                "params": {
+                    "window": _BOLLINGER_WINDOW,
+                    "k": _BOLLINGER_K,
+                    "trend_window": _BOLLINGER_TREND,
+                },
+            },
+        }
+        return ExperimentConfig.model_validate(payload)
+
+    def test_helper_no_overrides_returns_same_object(self) -> None:
+        cfg = self._minimal_cfg()
+        assert _apply_dotted_overrides(cfg, ()) is cfg
+
+    def test_helper_applies_overrides_via_pydantic_round_trip(self) -> None:
+        cfg = self._minimal_cfg()
+        out = _apply_dotted_overrides(cfg, ("data.tickers=[QQQ]", "seed=99"))
+        assert out.data.tickers == ["QQQ"]
+        assert out.seed == 99
+        # Original untouched (round-trip semantics).
+        assert cfg.data.tickers == ["SPY"]
+        assert cfg.seed == 1
+
+    def test_helper_bad_path_surfaces_clickexception(self) -> None:
+        cfg = self._minimal_cfg()
+        with pytest.raises(click.ClickException, match="--override failed"):
+            _apply_dotted_overrides(cfg, ("dat.tickers=[QQQ]",))
+
+    def test_helper_pydantic_violation_surfaces_clickexception(self) -> None:
+        """A type-incompatible override (e.g. seed expects int, gets list)
+        re-raises through pydantic and gets wrapped as a ClickException
+        with a re-validation prefix.
+        """
+        cfg = self._minimal_cfg()
+        with pytest.raises(click.ClickException, match="re-validation failed"):
+            _apply_dotted_overrides(cfg, ("seed=[not, an, int]",))
+
+    def test_train_model_cli_applies_override(self, tmp_path: Path) -> None:
+        seed_globally()
+        cfg_path = _write_standalone_config(tmp_path, name="override_smoke")
+        store_root = tmp_path / "results"
+        runner = CliRunner()
+        result = runner.invoke(
+            cli,
+            [
+                "train-model",
+                "--config",
+                str(cfg_path),
+                "--store-root",
+                str(store_root),
+                "--override",
+                "seed=4242",
+            ],
+        )
+        assert result.exit_code == 0, result.output
+        artifact_dir = store_root / "models" / "override_smoke"
+        config_yaml = artifact_dir / "config.yaml"
+        assert config_yaml.is_file()
+        with config_yaml.open() as f:
+            persisted = yaml.safe_load(f)
+        assert persisted["seed"] == 4242

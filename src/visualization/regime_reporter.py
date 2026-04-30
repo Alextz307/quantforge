@@ -42,7 +42,7 @@ from src.analysis.metrics_aggregator import AggregateStats
 from src.core import json_io
 from src.core.logging import get_logger
 from src.orchestration.types import MIXED_REGIME_LABEL, RegimeReport, RegimeSlice
-from src.visualization.latex import write_booktabs_table
+from src.visualization.latex import validate_publish_label, write_booktabs_table
 from src.visualization.plots import (
     FIGURE_DPI,
     FIGURE_HEIGHT_IN,
@@ -81,6 +81,7 @@ class RegimeReporter:
         out_dir: Path,
         *,
         slices: Sequence[RegimeSlice] | None = None,
+        publish_label: str | None = None,
     ) -> Path:
         """Write every artifact under ``out_dir`` and return ``out_dir``.
 
@@ -88,6 +89,11 @@ class RegimeReporter:
         useful when the caller already has the full-range slices in hand
         from the detector and wants to render them without round-tripping
         through ``RegimeReport.slices``. Defaults to ``report.slices``.
+
+        ``publish_label`` overrides the volatile ``experiment_id`` /
+        ``out_name`` combination in the regime table's ``\\caption`` and
+        ``\\label``; pass it when the .tex is referenced from prose so a
+        rerun doesn't churn the citation slug.
         """
         out_dir.mkdir(parents=True, exist_ok=True)
         plots_dir = out_dir / PLOTS_SUBDIR
@@ -104,16 +110,24 @@ class RegimeReporter:
             len(report.mixed_fold_indices),
         )
 
+        if publish_label is not None:
+            slug = validate_publish_label(publish_label)
+            caption = f"Per-regime walk-forward summary — {slug} ({report.detector_name})"
+            label = f"tab:regime_{slug}"
+        else:
+            caption = (
+                f"Per-regime walk-forward summary — experiment "
+                f"{report.experiment_id} ({report.detector_name})"
+            )
+            label = f"tab:regime_{report.out_name}"
+
         json_io.write(out_dir / MANIFEST_FILENAME, _build_manifest_dict(report))
 
         write_booktabs_table(
             _build_summary_df(report.per_regime_stats),
             tables_dir / _SUMMARY_FILENAME,
-            caption=(
-                f"Per-regime walk-forward summary — experiment "
-                f"{report.experiment_id} ({report.detector_name})"
-            ),
-            label=f"tab:regime_{report.out_name}",
+            caption=caption,
+            label=label,
         )
 
         self._plot_metric_heatmap(report.per_regime_stats, plots_dir / _HEATMAP_FILENAME)
