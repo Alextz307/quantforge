@@ -36,6 +36,7 @@ from src.analysis.metrics_aggregator import aggregate_folds
 from src.core import json_io
 from src.core.config import ExperimentConfig, write_frozen_yaml
 from src.core.constants import PAIRS_LEG_SUFFIXES
+from src.core.exceptions import LeakageError
 from src.core.logging import get_logger
 from src.core.persistence import (
     EXPERIMENT_CHECKPOINTS_SUBDIR,
@@ -49,7 +50,12 @@ from src.core.persistence import (
 )
 from src.core.seeding import seed_all
 from src.core.temporal import WalkForwardValidator, resolve_holdout_boundary
-from src.data.fingerprint import fingerprint_bars, fingerprint_multi_bars, fingerprint_pair_bars
+from src.data.fingerprint import (
+    assert_data_hash_matches,
+    fingerprint_bars,
+    fingerprint_multi_bars,
+    fingerprint_pair_bars,
+)
 from src.data.interface import IDataSource
 from src.engine.interface import IBacktestEngine
 from src.engine.walk_forward import FoldResult, evaluate_walk_forward
@@ -181,6 +187,56 @@ def _fetch_multi_bars(
     return joined
 
 
+def _verify_pretrained_leaf_data_consistency(
+    bars_full: pd.DataFrame,
+    records: tuple[PretrainedLeafRecord, ...],
+    strategy: IStrategy,
+) -> None:
+    """Refute cross-universe leaf contamination via fingerprint comparison.
+
+    For every pretrained leaf, re-fingerprint the experiment's bars over
+    the leaf's training window and compare against the recorded
+    ``data_hash``. A mismatch means the leaf was trained on different
+    bars (different ticker, different vendor, different revision) — the
+    strategy ctor's ``validate_pretrained_leaf`` only catches interval /
+    feature / lookback shape mismatches, not "wrong universe altogether".
+    Pairs strategies don't accept pretrained leaves; multi-feature
+    strategies inner-join their wide frames so the leaf's single-asset
+    fingerprint can't be reconstructed from the experiment view (the
+    leaf may have seen bars the inner-join later dropped). Both are
+    skipped here.
+    """
+    if not records or strategy.is_pairs_strategy or strategy.is_multi_feature_strategy:
+        return
+    for record in records:
+        train_window = bars_full.loc[record.train_start : record.train_end]
+        if len(train_window) == 0:
+            raise LeakageError(
+                f"pretrained leaf '{record.key}' was trained on "
+                f"[{record.train_start} .. {record.train_end}], but the "
+                f"experiment's fetched bars [{bars_full.index[0]} .. "
+                f"{bars_full.index[-1]}] don't overlap that window. The "
+                f"leaf is for a different universe or time range. Fix by "
+                f"re-training the leaf for this universe (experiment "
+                f"train-model) or by widening data.start / data.end to "
+                f"cover the leaf's training window."
+            )
+        assert_data_hash_matches(
+            fingerprint_bars(train_window),
+            record.data_hash,
+            context=(
+                f"pretrained leaf '{record.key}' training window "
+                f"[{record.train_start} .. {record.train_end}]"
+            ),
+            fix_hint=(
+                "The leaf was trained on different bars (likely a different "
+                "universe, or vendor data has drifted since training). Fix "
+                "by re-training the leaf for this universe (experiment "
+                "train-model)."
+            ),
+        )
+
+
 def compute_data_hash(strategy: IStrategy, bars: pd.DataFrame, tickers: Sequence[str]) -> str:
     """Dispatch to the correct fingerprint helper based on strategy shape.
 
@@ -288,6 +344,9 @@ class Experiment:
         seed_all(self.config.seed)
 
         bars_full = fetch_bars(self.data_source, self.config, self.strategy)
+        _verify_pretrained_leaf_data_consistency(
+            bars_full, self.pretrained_leaf_records, self.strategy
+        )
         boundary = resolve_holdout_boundary(
             bars_full,
             holdout_pct=self.config.validation.holdout_pct,

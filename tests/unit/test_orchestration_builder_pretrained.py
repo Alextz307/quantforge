@@ -10,6 +10,10 @@ Tests the ``build_experiment`` pretrained-leaf glue:
 * The builder produces ``PretrainedLeafRecord`` instances on the
   Experiment object so ``Experiment.run()`` can stamp provenance into
   the manifest.
+* ``Experiment.run()``'s pre-walk-forward consistency check refuses to
+  proceed when a leaf trained on universe A is injected into a
+  universe-B experiment (data_hash mismatch over the leaf's training
+  window).
 
 Full walk-forward runs are gated — this file stays focused on the
 builder's glue.
@@ -18,15 +22,21 @@ builder's glue.
 from __future__ import annotations
 
 from pathlib import Path
+from typing import cast
 
 import numpy as np
 import pandas as pd
 import pytest
 
 from src.core.config import ExperimentConfig, StandaloneModelConfig
+from src.core.exceptions import LeakageError
+from src.data.fingerprint import fingerprint_bars
 from src.orchestration.builder import build_experiment
+from src.orchestration.experiment import _verify_pretrained_leaf_data_consistency
+from src.orchestration.manifest import PretrainedLeafRecord
 from src.orchestration.model_artifact import save_model_artifact
 from src.orchestration.standalone_training import train_model_standalone
+from src.strategies.interface import IStrategy
 from tests.conftest import (
     make_synthetic_ohlcv_df,
     seed_globally,
@@ -186,3 +196,90 @@ class TestBuilderLoadsPretrainedLeaves:
         leaf_entries = tracked[1:]
         assert len(leaf_entries) > 0
         assert all(t.is_pretrained for t in leaf_entries)
+
+
+class _StrategyStub:
+    def __init__(self, *, is_pairs: bool = False, is_multi_feature: bool = False) -> None:
+        self.is_pairs_strategy = is_pairs
+        self.is_multi_feature_strategy = is_multi_feature
+
+
+_VERIFY_N_BARS = 100
+_VERIFY_BARS_SEED = 1
+_VERIFY_TRAIN_START_IDX = 10
+_VERIFY_TRAIN_END_IDX = 80
+
+
+def _verify_bars(seed: int = _VERIFY_BARS_SEED) -> pd.DataFrame:
+    return make_synthetic_ohlcv_df(n_rows=_VERIFY_N_BARS, seed=seed)
+
+
+def _record_for(bars: pd.DataFrame, *, data_hash: str) -> PretrainedLeafRecord:
+    return PretrainedLeafRecord(
+        key="leaf",
+        path="/nonexistent/artifact",
+        data_hash=data_hash,
+        train_start=pd.Timestamp(bars.index[_VERIFY_TRAIN_START_IDX]),
+        train_end=pd.Timestamp(bars.index[_VERIFY_TRAIN_END_IDX]),
+    )
+
+
+def _as_strategy(stub: object) -> IStrategy:
+    """Cast a duck-typed flag stub through IStrategy.
+
+    The verification helper only reads ``is_pairs_strategy`` and
+    ``is_multi_feature_strategy``; constructing a real IStrategy
+    subclass for these tests would require ctor params + ``train`` /
+    ``generate_signals`` / ``save`` etc. that aren't exercised here.
+    """
+    return cast(IStrategy, stub)
+
+
+class TestCrossUniverseLeafContamination:
+    """Reject a leaf whose recorded fingerprint doesn't match the experiment's slice."""
+
+    def test_passes_when_record_hash_matches_experiment_slice(self) -> None:
+        bars = _verify_bars()
+        slice_hash = fingerprint_bars(
+            bars.loc[bars.index[_VERIFY_TRAIN_START_IDX] : bars.index[_VERIFY_TRAIN_END_IDX]]
+        )
+        record = _record_for(bars, data_hash=slice_hash)
+        # No raise: this is the in-universe happy path.
+        _verify_pretrained_leaf_data_consistency(bars, (record,), _as_strategy(_StrategyStub()))
+
+    def test_rejects_data_hash_mismatch(self) -> None:
+        bars = _verify_bars()
+        record = _record_for(bars, data_hash="0" * 64)  # deliberate mismatch
+        with pytest.raises(LeakageError, match="data_hash drift"):
+            _verify_pretrained_leaf_data_consistency(bars, (record,), _as_strategy(_StrategyStub()))
+
+    def test_rejects_disjoint_training_window(self) -> None:
+        """Leaf trained on a window the experiment doesn't cover at all."""
+        bars = _verify_bars()
+        far_future = pd.Timestamp(bars.index[-1]) + pd.Timedelta(days=365 * 5)
+        record = PretrainedLeafRecord(
+            key="leaf",
+            path="/nonexistent",
+            data_hash="anything",
+            train_start=far_future,
+            train_end=far_future + pd.Timedelta(days=30),
+        )
+        with pytest.raises(LeakageError, match="don't overlap"):
+            _verify_pretrained_leaf_data_consistency(bars, (record,), _as_strategy(_StrategyStub()))
+
+    def test_skips_pairs_strategy(self) -> None:
+        bars = _verify_bars()
+        record = _record_for(bars, data_hash="0" * 64)  # would normally fail
+        _verify_pretrained_leaf_data_consistency(
+            bars, (record,), _as_strategy(_StrategyStub(is_pairs=True))
+        )
+
+    def test_skips_multi_feature_strategy(self) -> None:
+        bars = _verify_bars()
+        record = _record_for(bars, data_hash="0" * 64)
+        _verify_pretrained_leaf_data_consistency(
+            bars, (record,), _as_strategy(_StrategyStub(is_multi_feature=True))
+        )
+
+    def test_no_records_is_a_no_op(self) -> None:
+        _verify_pretrained_leaf_data_consistency(_verify_bars(), (), _as_strategy(_StrategyStub()))

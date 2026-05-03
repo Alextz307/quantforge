@@ -96,6 +96,7 @@ def assert_data_hash_matches(
     expected: str,
     *,
     context: str,
+    fix_hint: str | None = None,
 ) -> None:
     """Refuse on ``data_hash`` drift between a refetch and the manifest.
 
@@ -109,16 +110,24 @@ def assert_data_hash_matches(
     caller fired the tripwire without the caller needing to spell out
     the consequence each time.
 
+    ``fix_hint`` overrides the default "use the same data source /
+    cache" instruction. Callers whose recovery path is different (e.g.
+    a pretrained-leaf cross-universe mismatch where the right fix is
+    to re-run ``experiment train-model``, not to re-fetch the source)
+    pass a more specific hint here.
+
     Callers that need to know the actual hash for a downstream payload
     compute it once and pass it in; the helper does NOT recompute (the
     fingerprint is O(N bars) and a comparison loop should pay it once).
     """
     if actual != expected:
+        hint = fix_hint or (
+            "Fix by using the same data source / cache as the original "
+            "run, or re-run the source so its manifest reflects the new bars."
+        )
         raise LeakageError(
             f"data_hash drift detected ({context}): manifest recorded "
             f"{expected[:12]}..., re-fetched {actual[:12]}...; using "
             f"drifted bars would silently shift temporal boundaries. "
-            f"Fix by using the same data source / cache as the original "
-            f"run, or re-run the source so its manifest reflects the "
-            f"new bars."
+            f"{hint}"
         )

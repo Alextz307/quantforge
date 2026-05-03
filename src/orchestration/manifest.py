@@ -47,14 +47,16 @@ class PretrainedLeafRecord:
 
     Enough to reproduce holdout-eval from the manifest alone: ``path`` to
     the artifact, ``data_hash`` the artifact trained on (cross-check
-    against the artifact's own manifest for drift), and the training
-    window endpoint so downstream checks can validate temporal separation
-    without reloading the artifact.
+    against the artifact's own manifest for drift), and the full training
+    window so downstream checks can validate temporal separation and
+    re-fingerprint the experiment's bars over the same range to refute
+    cross-universe contamination — without reloading the artifact.
     """
 
     key: str
     path: str
     data_hash: str
+    train_start: pd.Timestamp
     train_end: pd.Timestamp
 
     def to_dict(self) -> dict[str, object]:
@@ -62,6 +64,7 @@ class PretrainedLeafRecord:
             "key": self.key,
             "path": self.path,
             "data_hash": self.data_hash,
+            "train_start": self.train_start.isoformat(),
             "train_end": self.train_end.isoformat(),
         }
 
@@ -71,6 +74,7 @@ class PretrainedLeafRecord:
             key=json_io.get_str(d, "key"),
             path=json_io.get_str(d, "path"),
             data_hash=json_io.get_str(d, "data_hash"),
+            train_start=pd.Timestamp(json_io.get_str(d, "train_start")),
             train_end=pd.Timestamp(json_io.get_str(d, "train_end")),
         )
 

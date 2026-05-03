@@ -19,8 +19,6 @@ from __future__ import annotations
 import inspect
 from collections.abc import Callable
 
-import pandas as pd
-
 from src.core.config import ComponentConfig, ExperimentConfig
 from src.core.registry import (
     data_source_registry,
@@ -84,7 +82,8 @@ def _load_pretrained_leaves(
                 key=key,
                 path=str(path),
                 data_hash=artifact_manifest.data_hash,
-                train_end=pd.Timestamp(meta.train_end),
+                train_start=meta.train_start,
+                train_end=meta.train_end,
             )
         )
     return loaded, tuple(records)

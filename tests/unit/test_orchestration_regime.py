@@ -169,6 +169,26 @@ def test_trend_detector_flips_after_break() -> None:
     assert post_break == "bear"
 
 
+def test_trend_detector_tags_are_causal_under_appended_bars() -> None:
+    """Past bars' labels must not change when future bars are appended.
+
+    Tripwire for a non-causal regression: if the rolling MA were ever
+    swapped for a centered window or the detector grew a Viterbi-style
+    full-sequence smoother, the label at bar t would start depending on
+    bar t+k. That would silently inflate per-regime metrics in the
+    empirical study without raising. This test compares a prefix-only
+    tag against the full-series tag's matching prefix.
+    """
+    bars = _bars_with_break(N_BARS, break_at=N_BARS // 2)
+    detector = TrendRegimeDetector(window=TREND_WINDOW)
+
+    full_tags = detector.tag(bars)
+    prefix_n = N_BARS // 2 + TREND_WINDOW
+    prefix_tags = detector.tag(bars.iloc[:prefix_n])
+
+    pd.testing.assert_series_equal(full_tags.iloc[:prefix_n], prefix_tags)
+
+
 def test_trend_detector_rejects_short_window() -> None:
     with pytest.raises(ValueError, match=">= 2"):
         TrendRegimeDetector(window=1)

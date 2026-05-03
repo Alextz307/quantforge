@@ -48,12 +48,12 @@ def xgb_data() -> tuple[pd.DataFrame, pd.Series]:
     base = make_synthetic_close_df()
     close = base["close"]
     target = next_bar_direction(close)
-    return_1d = close.pct_change().fillna(0.0)
-    momentum_5 = close.pct_change(5).fillna(0.0)
-    rolling_vol = return_1d.rolling(VOL_WINDOW).std().fillna(return_1d.std())
+    return_1d = close.pct_change()
+    momentum_5 = close.pct_change(5)
+    rolling_vol = return_1d.rolling(VOL_WINDOW).std()
     # ``shift(1)`` gives yesterday's direction — autocorrelated with today's,
     # so the classifier sees weak but nonzero signal.
-    direction_lag1 = target.shift(1).reindex(base.index).fillna(0.0).astype(float)
+    direction_lag1 = target.shift(1).reindex(base.index).astype(float)
     features = pd.DataFrame(
         {
             "return_1d": return_1d,
@@ -61,8 +61,8 @@ def xgb_data() -> tuple[pd.DataFrame, pd.Series]:
             "rolling_vol": rolling_vol,
             "direction_lag1": direction_lag1,
         }
-    )
-    return features.iloc[:-1], target
+    ).dropna()
+    return features, target.reindex(features.index)
 
 
 @pytest.fixture
