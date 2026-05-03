@@ -23,6 +23,7 @@ jobs:
       # scikit-build-core fetches its own build deps in an isolated env.
       - run: pip install -e .
       - run: mypy --strict src/ tests/ scripts/
+      - run: python scripts/check_readme_test_counts.py
 
   cpp-build-and-test:
     runs-on: ${{ matrix.os }}

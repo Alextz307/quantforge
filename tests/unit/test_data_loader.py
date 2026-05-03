@@ -11,6 +11,7 @@ import pytest
 from src.core.constants import OHLCV_COLUMNS
 from src.data.cache import DataCache
 from src.data.csv_source import CSVSource
+from src.data.local_file_source import LocalFileSource
 from src.data.normalizer import DataNormalizer
 from src.data.parquet_source import ParquetSource
 from tests.conftest import make_synthetic_ohlcv_df
@@ -349,6 +350,12 @@ class TestParquetSource:
         result = source.fetch("RANGE", start=RANGE_FETCH_START, end=RANGE_FETCH_END)
         assert all(result.index >= RANGE_FETCH_START_TS)
         assert all(result.index <= RANGE_FETCH_END_TS)
+
+
+class TestLocalFileSource:
+    def test_abstract_base_cannot_be_instantiated(self) -> None:
+        with pytest.raises(TypeError):
+            LocalFileSource(data_dir=".")  # type: ignore[abstract]
 
 
 class TestRegistryIntegration:

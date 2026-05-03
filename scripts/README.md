@@ -12,7 +12,9 @@ pyproject, leaf-keys vs. strategy ctors).
 | `benchmark.py` (`make bench`) | Click group with `run`, `compare`, `latex`, `history`, `show-baseline` over `BenchmarkRunner` / `BenchmarkStore`. |
 | `check_ci_deps.py` | Drift guard: every runtime dep in `pyproject.toml` appears in CI's `python-test` pip install line; every `types-*` / `*-stubs` dev dep appears in CI's `lint-and-typecheck` pip install line. Runs in CI as an early lint step. |
 | `check_leaf_keys_consistent.py` | Drift guard: `_LEAF_KEY_OWNED_PARAMS` (config layer) vs. each strategy's `_leaf_keys` (ctor layer). |
+| `check_readme_test_counts.py` | Drift guard: README's "**N Python tests** (+M opt-in skips), **K C++ tests**" phrase agrees with `pytest --collect-only` and `ctest -N`. C++ check downgraded to a notice when `cpp/build/` is absent. |
 | `regen_stubs.py` (`make stubs`) | Regenerate `quant_engine` pybind11 stubs and apply ruff lint / format so the checked-in artefact passes `make lint`. |
+| `regen_spy_fixture.py` | Refetch + normalize + validate `tests/fixtures/SPY.parquet` (`SPY` daily, `2018-01-01` → `2024-12-31`, `auto_adjust=True`). Run when the committed fixture goes stale. |
 
 ## Layout
 
@@ -22,7 +24,9 @@ pyproject, leaf-keys vs. strategy ctors).
 | `benchmark.py` | `benchmark run / compare / latex / history / show-baseline`. |
 | `check_ci_deps.py` | Stdlib-only (no PyYAML) so it runs in CI before deps install. |
 | `check_leaf_keys_consistent.py` | Imports `src.strategies` so the registry is populated. |
+| `check_readme_test_counts.py` | Stdlib-only; runs after `pip install -e .` so it can spawn `pytest --collect-only`. |
 | `regen_stubs.py` | Wraps `pybind11-stubgen` + `ruff check --fix` + `ruff format`. |
+| `regen_spy_fixture.py` | Wraps `yfinance.download` + `DataNormalizer` + `validate_bars`; not run in CI. |
 
 ## `experiment` subcommands
 
@@ -54,9 +58,12 @@ special flag — the builder dispatches on the strategy class's
   fails `check_ci_deps.py` in the same PR.
 - **Config-layer leaf keys ↔ strategy ctor leaf keys.** The two sets
   are checked for equality per strategy by `check_leaf_keys_consistent.py`.
+- **README test counts ↔ runners.** `check_readme_test_counts.py`
+  re-collects the pytest + ctest counts and compares them against the
+  README prose; running tests but forgetting to update the README fails
+  CI lint.
 
-Both guards are stdlib-only so they run in CI's lint job before
-project deps install.
+All three guards are stdlib-only.
 
 ## Snippet
 

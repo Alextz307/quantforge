@@ -9,6 +9,7 @@ holdout-eval uses to detect vendor drift.
 | Symbol | Role |
 | --- | --- |
 | `IDataSource` | ABC. `fetch(ticker, start, end, interval)` is the public entry point — wraps `fetch_raw` (subclass-provided) with caching, normalisation, and `validate_bars`. |
+| `LocalFileSource` | Intermediate ABC: shared scaffolding for local-file sources (path resolution, date-range mask, empty-result error, `available_tickers`). Subclass overrides `_extension` + `_read_file`. |
 | `YFinanceSource` (`"yfinance"`) | yfinance-backed source with retry + exponential backoff. Registered on `data_source_registry`. |
 | `CSVSource` (`"csv"`) | Local-CSV source for offline / fixture work. |
 | `ParquetSource` (`"parquet"`) | Local-parquet source. Used by `make thesis-demo` against the committed `tests/fixtures/SPY.parquet` so the demo runs offline. |
@@ -23,9 +24,10 @@ holdout-eval uses to detect vendor drift.
 | File | Role |
 | --- | --- |
 | `interface.py` | `IDataSource` ABC + `fetch` (cache + normalise + validate). |
+| `local_file_source.py` | `LocalFileSource` ABC: shared parquet/CSV scaffolding. |
 | `loader.py` | `YFinanceSource`. |
-| `csv_source.py` | `CSVSource`. |
-| `parquet_source.py` | `ParquetSource` (offline parquet reader). |
+| `csv_source.py` | `CSVSource` (extends `LocalFileSource`). |
+| `parquet_source.py` | `ParquetSource` (extends `LocalFileSource`). |
 | `normalizer.py` | `DataNormalizer` (source → canonical OHLCV mapping). |
 | `validator.py` | `validate_bars` semantic checks. |
 | `cache.py` | `DataCache` (parquet, ~/.quant_cache by default). |

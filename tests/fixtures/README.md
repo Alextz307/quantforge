@@ -14,27 +14,5 @@ dependency on Yahoo or any other network endpoint.
 ## Regenerating `SPY.parquet`
 
 ```bash
-python -c "
-from pathlib import Path
-import yfinance as yf
-from src.data.normalizer import DataNormalizer
-from src.data.validator import validate_bars
-
-raw = yf.download('SPY', start='2018-01-01', end='2024-12-31', interval='1d', progress=False, auto_adjust=True)
-if raw.columns.nlevels > 1:
-    raw.columns = raw.columns.get_level_values(0)
-df = DataNormalizer('yfinance').normalize(raw)
-validate_bars(df)
-df.to_parquet(Path('tests/fixtures/SPY.parquet'))
-"
+python scripts/regen_spy_fixture.py
 ```
-
-The flatten step is required because `yf.download` returns a multi-index
-column header even for a single ticker; `YFinanceSource.fetch_raw` does
-not currently flatten it, so the normalizer rejects the frame. Doing the
-flatten + normalize once at write time keeps the on-disk file in the
-canonical OHLCV schema, which is what `ParquetSource` reads back.
-
-`auto_adjust=True` is intentional — adjusted closes already fold splits
-and dividends into the price series, so downstream return / strategy
-math matches what a long-only buy-and-hold backtest would produce.
