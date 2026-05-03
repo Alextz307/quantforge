@@ -1,0 +1,76 @@
+name: main_study
+description: >
+  Empirical study — five strategies evaluated across thirteen universes
+  (index ETFs, single large-caps, commodity, FX, GFC stress window). Each leg
+  is composed by deep-merging a universe profile (config/universes/<name>.yaml)
+  onto the strategy YAML, then running HPO + cross-strategy comparison + regime
+  split + holdout-eval. Pretrained-leaf workflows are used for ML-bearing
+  strategies to keep HPO compute tractable.
+seed: 42
+output_dir: experiment_results/studies/main
+
+legs:
+  - strategy: AdaptiveBollinger
+    strategy_config: config/strategies/adaptive_bollinger.yaml
+    hpo_config: config/hpo/adaptive_bollinger.yaml
+    universes:
+      - spy_daily_5y
+      - spy_daily_10y
+      - spy_daily_covid
+      - qqq_daily_5y
+      - iwm_daily_5y
+      - dia_daily_5y
+      - aapl_daily_5y
+      - msft_daily_5y
+      - jpm_daily_5y
+      - gld_daily_5y
+      - eurusd_daily_5y
+      - spy_daily_2008
+
+  - strategy: PairsTrading
+    strategy_config: config/strategies/pairs_trading.yaml
+    hpo_config: config/hpo/pairs_trading.yaml
+    universes:
+      - gld_slv_daily_5y
+
+  - strategy: MomentumGatekeeper
+    strategy_config: config/strategies/momentum_gatekeeper_pretrained.yaml
+    hpo_config: config/hpo/momentum_gatekeeper.yaml
+    universes:
+      - spy_daily_5y
+      - spy_daily_10y
+      - qqq_daily_5y
+      - iwm_daily_5y
+      - dia_daily_5y
+      - aapl_daily_5y
+      - msft_daily_5y
+      - jpm_daily_5y
+      - gld_daily_5y
+
+  - strategy: VolatilityTargeting
+    strategy_config: config/strategies/volatility_targeting.yaml
+    hpo_config: config/hpo/volatility_targeting.yaml
+    universes:
+      - spy_daily_5y
+      - spy_daily_10y
+      - qqq_daily_5y
+      - iwm_daily_5y
+      - dia_daily_5y
+      - aapl_daily_5y
+      - msft_daily_5y
+      - jpm_daily_5y
+      - gld_daily_5y
+
+  - strategy: ReturnForecast
+    strategy_config: config/strategies/return_forecast_pretrained.yaml
+    hpo_config: config/hpo/return_forecast.yaml
+    universes:
+      - spy_daily_5y
+      - spy_daily_10y
+      - qqq_daily_5y
+      - iwm_daily_5y
+      - dia_daily_5y
+      - aapl_daily_5y
+      - msft_daily_5y
+      - jpm_daily_5y
+      - gld_daily_5y

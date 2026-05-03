@@ -13,7 +13,11 @@ reported by the test runners:
 
 The README format this script understands:
 
-    "**1144 Python tests** (+17 opt-in skips), **222 C++ tests**"
+    "**<N> Python tests** (+<M> opt-in skips), **<K> C++ tests**"
+
+Pass ``--fix`` to rewrite the README counts in place from the live numbers
+instead of just reporting drift. The C++ count is only rewritten when
+``cpp/build/`` is present.
 
 Stdlib-only — runs in the lint job after the project's own deps are
 installed (so ``pytest --collect-only`` can import ``src/``).
@@ -21,6 +25,7 @@ installed (so ``pytest --collect-only`` can import ``src/``).
 
 from __future__ import annotations
 
+import argparse
 import re
 import subprocess
 import sys
@@ -30,15 +35,16 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 README = REPO_ROOT / "README.md"
 CPP_BUILD = REPO_ROOT / "cpp" / "build"
 
-# Bold around the Python count, parenthesized opt-in skip count, then bold around
-# the C++ count. The character class between groups tolerates intervening prose
-# (commas, "+", whitespace) but never another `**` so we don't span unrelated
-# bold spans.
-_README_RE = re.compile(
-    r"\*\*(?P<py>\d+)\s+Python tests\*\*"
-    r"\s*\(\+(?P<skips>\d+)\s+opt-in skips\)"
-    r"[^*]*\*\*(?P<cpp>\d+)\s+C\+\+ tests\*\*"
-)
+# Each bold half declared once. The combined `_README_RE` is used by the
+# read path; `_PY_PHRASE_RE` / `_CPP_PHRASE_RE` are used by the `--fix`
+# rewrite path. The `[^*]*` glue between halves tolerates intervening
+# prose ("CI is green ... with **N Python tests** (+M opt-in skips), **K
+# C++ tests**, ruff clean") but never another `**`.
+_PY_PHRASE_PATTERN = r"\*\*(?P<py>\d+)\s+Python tests\*\*\s*\(\+(?P<skips>\d+)\s+opt-in skips\)"
+_CPP_PHRASE_PATTERN = r"\*\*(?P<cpp>\d+)\s+C\+\+ tests\*\*"
+_README_RE = re.compile(_PY_PHRASE_PATTERN + r"[^*]*" + _CPP_PHRASE_PATTERN)
+_PY_PHRASE_RE = re.compile(_PY_PHRASE_PATTERN)
+_CPP_PHRASE_RE = re.compile(_CPP_PHRASE_PATTERN)
 _PYTEST_COLLECT_RE = re.compile(r"(?P<n>\d+)\s+tests?\s+collected\s+in\s+")
 _CTEST_TOTAL_RE = re.compile(r"^Total Tests:\s*(?P<n>\d+)", re.MULTILINE)
 
@@ -76,6 +82,43 @@ def collect_pytest_count() -> int:
     return int(match.group("n"))
 
 
+_PYTEST_SUMMARY_RE = re.compile(r"(?P<passed>\d+) passed(?:, (?P<skipped>\d+) skipped)?")
+
+
+def run_pytest_passed_skipped() -> tuple[int, int]:
+    """Return ``(passed, skipped)`` by actually running the suite.
+
+    Needed by ``--fix`` because ``--collect-only`` reports the combined
+    total but cannot split the bold "(+M opt-in skips)" half — the
+    skipif predicates that gate opt-in tests are only evaluated at run
+    time.
+
+    Refuses to return on a failing suite: if the README rewrite
+    proceeded after a partial run, we'd quietly bury the failures
+    behind freshly-correct numbers. The drift guard's contract is
+    "README equals truth", and silent partial truth is worse than
+    visible drift.
+    """
+    result = subprocess.run(
+        [sys.executable, "-m", "pytest", "-q", "tests/"],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(
+            f"pytest exited {result.returncode}; refusing to rewrite README from a "
+            f"failing run.\n--- pytest tail ---\n{result.stdout[-1000:]}"
+        )
+    match = _PYTEST_SUMMARY_RE.search(result.stdout)
+    if match is None:
+        raise RuntimeError(
+            f"pytest summary did not match expected format; got:\n{result.stdout[-500:]}"
+        )
+    return int(match.group("passed")), int(match.group("skipped") or 0)
+
+
 def collect_ctest_count() -> int | None:
     """Return ``Total Tests:`` from ``ctest -N`` or ``None`` if no build dir."""
     if not CPP_BUILD.is_dir():
@@ -92,9 +135,16 @@ def collect_ctest_count() -> int | None:
     return int(match.group("n"))
 
 
-def main() -> int:
-    py_passing, py_skipped, cpp_readme = parse_readme_counts(README.read_text())
+def rewrite_readme_counts(text: str, py_passed: int, py_skipped: int, cpp: int | None) -> str:
+    """Return ``text`` with the bold count phrases substituted in place."""
+    new = _PY_PHRASE_RE.sub(f"**{py_passed} Python tests** (+{py_skipped} opt-in skips)", text)
+    if cpp is not None:
+        new = _CPP_PHRASE_RE.sub(f"**{cpp} C++ tests**", new)
+    return new
 
+
+def _check(readme_text: str) -> int:
+    py_passing, py_skipped, cpp_readme = parse_readme_counts(readme_text)
     expected_collected = py_passing + py_skipped
     actual_collected = collect_pytest_count()
 
@@ -104,7 +154,7 @@ def main() -> int:
             f"README test-count drift: README says "
             f"{py_passing} passing + {py_skipped} skipped = {expected_collected} "
             f"Python tests, pytest --collect-only reports {actual_collected}. "
-            f"Update README.md (or fix the test fixture mismatch).",
+            f"Run `python scripts/check_readme_test_counts.py --fix` to update the README.",
             file=sys.stderr,
         )
         failed = True
@@ -119,7 +169,8 @@ def main() -> int:
     elif actual_cpp != cpp_readme:
         print(
             f"README test-count drift: README says {cpp_readme} C++ tests, "
-            f"ctest -N reports {actual_cpp}. Update README.md.",
+            f"ctest -N reports {actual_cpp}. "
+            f"Run `python scripts/check_readme_test_counts.py --fix` to update the README.",
             file=sys.stderr,
         )
         failed = True
@@ -133,6 +184,45 @@ def main() -> int:
         f"{py_passing} passing + {py_skipped} skipped Python, {cpp_msg}."
     )
     return 0
+
+
+def _fix(readme_text: str) -> int:
+    py_readme, skips_readme, cpp_readme = parse_readme_counts(readme_text)
+    cpp = collect_ctest_count()
+
+    # Cheap check first: only run the full suite when the Python totals
+    # actually differ. Re-running a 30-40s pytest pass to confirm a clean
+    # README is the wrong default for a `--fix` developer keeps reaching for.
+    python_in_sync = collect_pytest_count() == py_readme + skips_readme
+    if python_in_sync:
+        py_passed, py_skipped = py_readme, skips_readme
+    else:
+        py_passed, py_skipped = run_pytest_passed_skipped()
+
+    new_text = rewrite_readme_counts(readme_text, py_passed, py_skipped, cpp)
+    if new_text == readme_text:
+        print("OK: README already in sync, no rewrite needed.")
+        return 0
+    README.write_text(new_text)
+    cpp_msg = f"{cpp} C++" if cpp is not None else "C++ count untouched (cpp/build/ absent)"
+    print(f"Updated README: {py_passed} passing + {py_skipped} skipped Python, {cpp_msg}.")
+    return 0
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--fix",
+        action="store_true",
+        help=(
+            "Rewrite README counts in place from the live numbers (runs the full "
+            "pytest suite to split passed vs skipped). Default mode is read-only "
+            "drift detection."
+        ),
+    )
+    args = parser.parse_args(argv)
+    text = README.read_text()
+    return _fix(text) if args.fix else _check(text)
 
 
 if __name__ == "__main__":

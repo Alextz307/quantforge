@@ -12,7 +12,7 @@ pyproject, leaf-keys vs. strategy ctors).
 | `benchmark.py` (`make bench`) | Click group with `run`, `compare`, `latex`, `history`, `show-baseline` over `BenchmarkRunner` / `BenchmarkStore`. |
 | `check_ci_deps.py` | Drift guard: every runtime dep in `pyproject.toml` appears in CI's `python-test` pip install line; every `types-*` / `*-stubs` dev dep appears in CI's `lint-and-typecheck` pip install line. Runs in CI as an early lint step. |
 | `check_leaf_keys_consistent.py` | Drift guard: `_LEAF_KEY_OWNED_PARAMS` (config layer) vs. each strategy's `_leaf_keys` (ctor layer). |
-| `check_readme_test_counts.py` | Drift guard: README's "**N Python tests** (+M opt-in skips), **K C++ tests**" phrase agrees with `pytest --collect-only` and `ctest -N`. C++ check downgraded to a notice when `cpp/build/` is absent. |
+| `check_readme_test_counts.py` | Drift guard: README's "**N Python tests** (+M opt-in skips), **K C++ tests**" phrase agrees with `pytest --collect-only` and `ctest -N`. Pass `--fix` to rewrite the README in place from the live numbers (runs the suite to split passed vs skipped). C++ check downgraded to a notice when `cpp/build/` is absent. |
 | `regen_stubs.py` (`make stubs`) | Regenerate `quant_engine` pybind11 stubs and apply ruff lint / format so the checked-in artefact passes `make lint`. |
 | `regen_spy_fixture.py` | Refetch + normalize + validate `tests/fixtures/SPY.parquet` (`SPY` daily, `2018-01-01` → `2024-12-31`, `auto_adjust=True`). Run when the committed fixture goes stale. |
 

@@ -1,6 +1,0 @@
-# Reusable DataConfig fragment — gold / silver pair, 5-year window for pairs-trading experiments.
-source: yfinance
-tickers: [GLD, SLV]
-start: 2018-01-01
-end: 2022-12-31
-interval: daily

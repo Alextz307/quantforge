@@ -15,9 +15,9 @@ import pytest
 from click.testing import CliRunner
 
 from scripts.benchmark import cli
+from tests.conftest import REPO_ROOT
 
 RUN_GATE_ENV = "RUN_BENCH_SMOKE"
-REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 QUANT_BENCH = REPO_ROOT / "cpp" / "build" / "benchmarks" / "quant_bench"
 SMOKE_TAG = "smoke"
 SMOKE_FILTER = "BM_RSI/10000$"

@@ -14,6 +14,7 @@ trace from ``KeyError`` in ``ComponentRegistry.get``.
 
 from __future__ import annotations
 
+from collections import Counter
 from datetime import datetime
 from pathlib import Path
 from typing import Self
@@ -218,7 +219,7 @@ class ValidationConfig(BaseModel):
     5. **Per-fold training**: ``strategy.training_metadata.validate_no_overlap
        (fold.test)`` fires before signal generation if training somehow
        covered the test region.
-    6. **Final holdout eval** (post-Phase-7 command): loads the saved model,
+    6. **Final holdout eval** command: loads the saved model,
        reads ``holdout_start`` from the manifest (NOT the config — the
        manifest is the source of truth once written), and calls
        ``strategy.training_metadata.validate_no_overlap(holdout)`` — raises
@@ -447,6 +448,70 @@ class ExperimentConfig(BaseModel):
         return self
 
 
+def _find_duplicates[T](items: list[T]) -> list[T]:
+    """Return items that occur more than once, in first-occurrence order."""
+    return [item for item, count in Counter(items).items() if count > 1]
+
+
+class UniverseProfile(BaseModel):
+    """Reusable ``data:`` + ``validation:`` block deep-merged onto a strategy YAML."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    data: DataConfig
+    validation: ValidationConfig = Field(default_factory=ValidationConfig)
+
+
+class StudyLeg(BaseModel):
+    """One (strategy × set-of-universes) leg of an empirical study."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    strategy: str = Field(min_length=1)
+    strategy_config: Path
+    hpo_config: Path
+    universes: list[str] = Field(min_length=1)
+
+    @field_validator("universes")
+    @classmethod
+    def _no_duplicate_universes(cls, v: list[str]) -> list[str]:
+        dupes = _find_duplicates(v)
+        if dupes:
+            raise ValueError(
+                f"duplicate universe name(s) in leg: {dupes!r}; "
+                f"each universe must appear at most once per leg."
+            )
+        return v
+
+
+class StudySpec(BaseModel):
+    """Declarative enumeration of every (strategy × universe) leg of a study.
+
+    Path fields are typed ``Path`` but not checked for existence at schema
+    validation time so the schema stays pure. The orchestrator and the
+    test suite open the files.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    name: str = Field(min_length=1)
+    description: str | None = None
+    seed: int = 42
+    output_dir: Path
+    legs: list[StudyLeg] = Field(min_length=1)
+
+    @field_validator("legs")
+    @classmethod
+    def _no_duplicate_strategies(cls, v: list[StudyLeg]) -> list[StudyLeg]:
+        dupes = _find_duplicates([leg.strategy for leg in v])
+        if dupes:
+            raise ValueError(
+                f"duplicate strategy name(s) across legs: {dupes!r}; "
+                f"merge their universe lists into a single leg."
+            )
+        return v
+
+
 def write_frozen_yaml(path: str | Path, cfg: BaseModel, *, sort_keys: bool = True) -> None:
     """Dump a validated pydantic config to YAML at ``path``.
 
@@ -505,3 +570,23 @@ def load_standalone_model_config(path: str | Path) -> StandaloneModelConfig:
         ValueError: If the file is empty or pydantic validation fails.
     """
     return load_yaml_config(path, StandaloneModelConfig, "standalone-model")
+
+
+def load_universe_profile(path: str | Path) -> UniverseProfile:
+    """Load and validate a :class:`UniverseProfile` from YAML.
+
+    Raises:
+        FileNotFoundError: If ``path`` does not exist.
+        ValueError: If the file is empty or pydantic validation fails.
+    """
+    return load_yaml_config(path, UniverseProfile, "universe profile")
+
+
+def load_study_spec(path: str | Path) -> StudySpec:
+    """Load and validate a :class:`StudySpec` from YAML.
+
+    Raises:
+        FileNotFoundError: If ``path`` does not exist.
+        ValueError: If the file is empty or pydantic validation fails.
+    """
+    return load_yaml_config(path, StudySpec, "study spec")

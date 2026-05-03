@@ -13,7 +13,8 @@ typos in user YAML fail at load time, not mid-run.
 | `hpo/` | One per-strategy HPO study spec consumed by `experiment tune`. | `load_hpo_config(path)` |
 | `regimes/` | Detector specs consumed by `experiment regime`. | `load_regime_config(path)` |
 | `models/` | Standalone leaf-training configs consumed by `experiment train-model` (output → `experiment_results/models/<name>/`). | `load_standalone_model_config(path)` |
-| `universes/` | Reusable `data:` fragments. Today these are stand-alone files that humans copy into a strategy YAML; the CLI does not auto-compose them. | manual paste |
+| `universes/` | Reusable `UniverseProfile` files (`data:` + `validation:` blocks). Deep-merged onto a strategy YAML by the study orchestrator. See `universes/README.md`. | `load_universe_profile(path)` |
+| `study/` | Top-level study specs enumerating every (strategy × universe) leg the empirical sweep evaluates. See `study/README.md`. | `load_study_spec(path)` |
 | `example.yaml` | Reference `ExperimentConfig` with every field documented inline. Copy-and-edit for new runs. | `load_experiment_config` |
 
 ## Top-level YAMLs (`strategies/`)
@@ -79,7 +80,20 @@ config/
         spy_hybrid_return.yaml
     universes/
         spy_daily_5y.yaml
-        pairs_gld_slv.yaml
+        spy_daily_10y.yaml
+        spy_daily_covid.yaml
+        spy_daily_2008.yaml
+        qqq_daily_5y.yaml
+        iwm_daily_5y.yaml
+        dia_daily_5y.yaml
+        aapl_daily_5y.yaml
+        msft_daily_5y.yaml
+        jpm_daily_5y.yaml
+        gld_daily_5y.yaml
+        gld_slv_daily_5y.yaml
+        eurusd_daily_5y.yaml
+    study/
+        main_study.yaml
 ```
 
 ## Snippet

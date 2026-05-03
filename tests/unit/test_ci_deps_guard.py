@@ -2,28 +2,15 @@
 
 from __future__ import annotations
 
-import importlib.util
-from pathlib import Path
-from types import ModuleType
-
 import pytest
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
+from tests.conftest import REPO_ROOT, load_script_module
+
 GUARD_SCRIPT = REPO_ROOT / "scripts" / "check_ci_deps.py"
 PYPROJECT = REPO_ROOT / "pyproject.toml"
 CI_YAML = REPO_ROOT / ".github" / "workflows" / "ci.yml"
 
-
-def _load_guard_module() -> ModuleType:
-    """Import scripts/check_ci_deps.py by path (it's not under a package root)."""
-    spec = importlib.util.spec_from_file_location("check_ci_deps", GUARD_SCRIPT)
-    assert spec is not None and spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
-
-
-guard = _load_guard_module()
+guard = load_script_module(GUARD_SCRIPT, "check_ci_deps")
 
 # Minimal synthetic YAML exercising the same `python-test:` → `run: pip install …`
 # structure as the real workflow. Kept here to avoid depending on the repo's

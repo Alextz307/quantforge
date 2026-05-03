@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import importlib.util
 from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
+from types import ModuleType
 
 import numpy as np
 import pandas as pd
@@ -20,6 +22,18 @@ from src.engine.scenarios import SlippageScenario
 from src.orchestration.manifest import Manifest
 from src.orchestration.types import ExperimentResult, FoldRecord
 from tests import _strategy_stubs as _strategy_stubs  # noqa: F401  # registers test stubs
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+
+
+def load_script_module(path: Path, name: str) -> ModuleType:
+    """Import a top-level script (``scripts/foo.py``) by path for testing."""
+    spec = importlib.util.spec_from_file_location(name, path)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
 
 # Deterministic seeds applied across all tests via the `deterministic_seed` fixture
 GLOBAL_NUMPY_SEED = 42

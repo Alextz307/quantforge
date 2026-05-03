@@ -17,9 +17,11 @@ from src.core.config import (
     SlippageConfigSpec,
     ValidationConfig,
     load_experiment_config,
+    load_universe_profile,
 )
 from src.core.types import Interval
 from src.engine.scenarios import SlippageScenario
+from tests.conftest import REPO_ROOT
 
 _START = datetime(2020, 1, 1)
 _END = datetime(2023, 1, 1)
@@ -166,33 +168,24 @@ class TestReferenceConfigLoads:
     """The committed reference ``config/example.yaml`` must validate."""
 
     def test_example_yaml_validates(self) -> None:
-        repo_root = Path(__file__).resolve().parents[2]
-        cfg = load_experiment_config(repo_root / "config/example.yaml")
+        cfg = load_experiment_config(REPO_ROOT / "config/example.yaml")
         assert cfg.name
         assert cfg.data.tickers
         assert isinstance(cfg.validation, ValidationConfig)
         assert isinstance(cfg.slippage, SlippageConfigSpec)
 
 
-class TestUniverseFragmentsLoad:
-    """Committed universe fragments under ``config/universes/`` are
-    standalone :class:`DataConfig` payloads; the CLI will compose them into
-    a full :class:`ExperimentConfig` at run time."""
+_UNIVERSE_DIR = REPO_ROOT / "config" / "universes"
 
-    @pytest.mark.parametrize(
-        "relative_path",
-        [
-            "config/universes/spy_daily_5y.yaml",
-            "config/universes/pairs_gld_slv.yaml",
-        ],
-    )
-    def test_universe_yaml_parses_as_data_config(self, relative_path: str) -> None:
-        repo_root = Path(__file__).resolve().parents[2]
-        with open(repo_root / relative_path) as f:
-            raw = yaml.safe_load(f)
-        dc = DataConfig.model_validate(raw)
-        assert dc.tickers
-        assert dc.start < dc.end
+
+class TestUniverseProfilesLoad:
+    @pytest.mark.parametrize("profile_path", sorted(_UNIVERSE_DIR.glob("*.yaml")))
+    def test_universe_yaml_parses_as_profile(self, profile_path: Path) -> None:
+        profile = load_universe_profile(profile_path)
+        assert profile.data.tickers
+        assert profile.data.start < profile.data.end
+        assert isinstance(profile.validation, ValidationConfig)
+        assert profile.validation.holdout_pct >= 0.0
 
 
 _HOLDOUT_PCT = 0.15
