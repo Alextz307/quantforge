@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Iterable
+from datetime import datetime
 from pathlib import Path
 
 import pandas as pd
@@ -243,3 +244,37 @@ def get_timestamp(d: dict[str, object], key: str) -> pd.Timestamp:
             f"JSON field {key!r} must be an ISO timestamp string, got {type(value).__name__}"
         )
     return pd.Timestamp(value)
+
+
+def get_optional_str(d: dict[str, object], key: str) -> str | None:
+    """Pull ``key`` if present and non-null; ``None`` otherwise."""
+    raw = d.get(key)
+    if raw is None:
+        return None
+    if not isinstance(raw, str):
+        raise ValueError(f"JSON field {key!r} must be a string or null, got {type(raw).__name__}")
+    return raw
+
+
+def get_optional_iso_datetime(d: dict[str, object], key: str) -> datetime | None:
+    """Pull ``key`` if present and non-null and parse as ``datetime``."""
+    raw = d.get(key)
+    if raw is None:
+        return None
+    if not isinstance(raw, str):
+        raise ValueError(
+            f"JSON field {key!r} must be an ISO string or null, got {type(raw).__name__}"
+        )
+    return datetime.fromisoformat(raw)
+
+
+def get_optional_timestamp(d: dict[str, object], key: str) -> pd.Timestamp | None:
+    """Pull ``key`` if present and non-null and parse as ``pd.Timestamp``."""
+    raw = d.get(key)
+    if raw is None:
+        return None
+    if not isinstance(raw, str):
+        raise ValueError(
+            f"JSON field {key!r} must be an ISO string or null, got {type(raw).__name__}"
+        )
+    return pd.Timestamp(raw)

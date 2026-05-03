@@ -7,7 +7,7 @@ description: >
   split + holdout-eval. Pretrained-leaf workflows are used for ML-bearing
   strategies to keep HPO compute tractable.
 seed: 42
-output_dir: experiment_results/studies/main
+output_dir: studies/main
 
 legs:
   - strategy: AdaptiveBollinger
@@ -48,7 +48,7 @@ legs:
       - gld_daily_5y
 
   - strategy: VolatilityTargeting
-    strategy_config: config/strategies/volatility_targeting.yaml
+    strategy_config: config/strategies/volatility_targeting_pretrained.yaml
     hpo_config: config/hpo/volatility_targeting.yaml
     universes:
       - spy_daily_5y

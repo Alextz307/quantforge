@@ -16,7 +16,9 @@ multiple runs into comparison / regime reports.
 | `run_holdout_eval(source, out_name, store_root)` | Refit a fresh strategy on the full dev region, evaluate once on the reserved holdout. Cross-checks `data_hash` + `holdout_start` against the source manifest before fitting. |
 | `train_model_standalone(...)` | Fit a leaf model (HybridReturn, HybridVolatility, DirectionalClassifier) on the dev region and persist it for `pretrained_leaves` injection. |
 | `load_model_artifact(path)` | Inverse of the standalone training save — returns `(model, artifact_manifest)`. |
+| `run_study(spec_path, ...)` / `train_leaves(spec_path, ...)` | Drive a full `StudySpec` end-to-end — cross-strategy × cross-universe sweep with per-leg resume, plus the standalone-leaf-training counterpart needed by ML-bearing legs. |
 | `Manifest`, `PretrainedLeafRecord` | Frozen, round-tripable provenance dataclasses. |
+| `LegState`, `StudyState` | Frozen, round-tripable resume state for the study orchestrator. |
 
 ## Layout
 
@@ -33,6 +35,8 @@ multiple runs into comparison / regime reports.
 | `standalone_training.py` | Backend for `experiment train-model`; fits a leaf, writes the artifact + manifest. |
 | `model_artifact.py` | Artifact loader + `ArtifactManifest` (pairs with `standalone_training`). |
 | `pretrained_leaves.py` | `normalize_pretrained_leaves(...)`: validates the injected leaf map against the strategy's `_leaf_keys`. |
+| `study.py` | Empirical-study orchestrator: leg expansion, universe-profile composition, pretrained-leaf path rewriting per universe, per-universe cross-strategy compare, and the `train_leaves` counterpart that produces standalone leaf artifacts. |
+| `study_state.py` | `LegState` + `StudyState` resume dataclasses; atomic write via `os.replace`; spec-hash guard refuses to resume against a mutated spec. |
 | `git_info.py` | `read_git_sha()` — best-effort short SHA, `"unknown"` outside git. |
 | `types.py` | `ExperimentResult`, `FoldRecord`, `StrategyComparisonReport`, `PairwiseSignificance`, `RegimeReport`, `RegimeSlice`. |
 

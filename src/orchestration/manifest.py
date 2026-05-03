@@ -106,15 +106,7 @@ class Manifest:
 
     @classmethod
     def from_dict(cls, d: dict[str, object]) -> Manifest:
-        raw_holdout = d.get("holdout_start")
-        holdout = None
-        if raw_holdout is not None:
-            if not isinstance(raw_holdout, str):
-                raise ValueError(
-                    f"JSON field 'holdout_start' must be an ISO string or null, "
-                    f"got {type(raw_holdout).__name__}"
-                )
-            holdout = pd.Timestamp(raw_holdout)
+        holdout = json_io.get_optional_timestamp(d, "holdout_start")
         raw_leaves = d.get("pretrained_leaves", [])
         if not isinstance(raw_leaves, list):
             raise ValueError(

@@ -972,5 +972,10 @@ def _override_standalone(
     return _override(cfg, name=name, seed=seed)
 
 
+from scripts.study import study  # noqa: E402  — circular-free: study imports orchestrators only
+
+cli.add_command(study)
+
+
 if __name__ == "__main__":
     cli()
