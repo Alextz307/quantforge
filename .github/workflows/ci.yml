@@ -66,3 +66,21 @@ jobs:
         env:
           OMP_NUM_THREADS: "1"
         run: python -m pytest tests/ -v --tb=short
+
+  webapp:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Install webapp + dev dependencies
+        run: pip install fastapi 'uvicorn[standard]' pydantic pydantic-settings httpx pytest pytest-cov mypy ruff
+      - name: Lint webapp
+        run: |
+          ruff check webapp/backend
+          ruff format --check webapp/backend
+      - name: Typecheck webapp
+        run: mypy --strict webapp/backend
+      - name: Test webapp
+        run: pytest webapp/backend/tests/ -v --tb=short --cov=webapp/backend/app --cov-report=term-missing --cov-fail-under=80

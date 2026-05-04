@@ -1,4 +1,4 @@
-.PHONY: install test test-cpp test-python lint typecheck bench bench-cpp bench-baseline bench-report experiment thesis-demo stubs clean
+.PHONY: install test test-cpp test-python lint typecheck bench bench-cpp bench-baseline bench-report experiment thesis-demo stubs clean webapp webapp-dev webapp-test webapp-typecheck webapp-lint
 
 install:
 	pip install -e ".[dev]"
@@ -90,6 +90,23 @@ thesis-demo:
 
 stubs:
 	python scripts/regen_stubs.py
+
+webapp-dev:
+	uvicorn webapp.backend.app.main:create_app --factory --reload --host 127.0.0.1 --port 8000
+
+webapp:
+	WEBAPP_ENV=local uvicorn webapp.backend.app.main:create_app --factory --host 127.0.0.1 --port 8000
+
+webapp-test:
+	OMP_NUM_THREADS=1 pytest webapp/backend/tests/ -v --tb=short \
+		--cov=webapp/backend/app --cov-report=term-missing --cov-fail-under=80
+
+webapp-typecheck:
+	mypy --strict webapp/backend
+
+webapp-lint:
+	ruff check webapp/backend
+	ruff format --check webapp/backend
 
 clean:
 	rm -rf cpp/build/ dist/ *.egg-info .mypy_cache .pytest_cache

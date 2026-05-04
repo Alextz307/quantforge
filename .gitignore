@@ -84,3 +84,10 @@ _skbuild/
 data_cache/
 # Committed offline fixtures (used by `make thesis-demo` and offline tests).
 !tests/fixtures/*.parquet
+
+# ── Webapp ──
+webapp/data/
+webapp/.env
+webapp/frontend/node_modules/
+webapp/frontend/dist/
+webapp/frontend/src/api/generated/
