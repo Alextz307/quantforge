@@ -13,7 +13,8 @@ to the same command issued from `bash`.
 | --- | --- |
 | `backend/app/` | FastAPI application: `api/` routers, `core/` (settings, lifespan, version), `services/`, `infrastructure/`, `schemas/`. |
 | `backend/tests/` | `unit/` (service-layer + router-level tests via `TestClient`) and `integration/` (subprocess-driven). |
-| `frontend/` | React + TypeScript + Vite SPA. |
+| `frontend/` | React + TypeScript + Vite SPA. `src/{api,components,features,hooks,lib,pages}` — type-safe API client generated from the backend's OpenAPI spec via `openapi-typescript`. |
+| `frontend/openapi.snapshot.json` | Committed contract between backend and frontend; regenerated via `python -m scripts.dump_openapi`. |
 | `data/` | Local SQLite store for users + jobs. Gitignored. |
 
 ## Public surface (so far)
@@ -58,6 +59,8 @@ by default (override with `WEBAPP_DB_PATH`). Both paths are gitignored.
 
 ## Run it
 
+Backend:
+
 ```bash
 make webapp-dev      # uvicorn --factory --reload, http://127.0.0.1:8000
 make webapp          # production-style boot (no reload)
@@ -65,6 +68,23 @@ make webapp-test     # pytest + coverage gate
 make webapp-typecheck
 make webapp-lint
 ```
+
+Frontend (separate Vite dev server on port 5173, proxies `/api/*` to the
+backend on `:8000`):
+
+```bash
+make webapp-frontend-install     # npm ci (one-time)
+make webapp-openapi-snapshot     # regenerate openapi.snapshot.json
+make webapp-frontend-dev         # vite dev, http://localhost:5173
+make webapp-frontend-build       # gen:api + production build → dist/
+make webapp-frontend-test        # vitest + coverage gate (70%)
+make webapp-frontend-typecheck   # tsc --noEmit
+make webapp-frontend-lint        # eslint + prettier
+```
+
+For local dev, run the backend with `WEBAPP_ENV=development make webapp-dev`
+in one terminal and `make webapp-frontend-dev` in another. CORS is open to
+`http://localhost:5173` only when `WEBAPP_ENV=development`.
 
 ## Cross-links
 

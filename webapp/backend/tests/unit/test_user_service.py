@@ -45,6 +45,19 @@ def test_create_user_with_duplicate_username_raises(db_conn: sqlite3.Connection)
         create_user(db_conn, username=ALEX, password=PASSWORD, role=Role.USER)
 
 
+def test_create_user_reactivates_soft_deleted_username(db_conn: sqlite3.Connection) -> None:
+    original = create_user(db_conn, username=ALEX, password=PASSWORD, role=Role.USER)
+    soft_delete_user(db_conn, original.id)
+
+    revived = create_user(db_conn, username=ALEX, password=NEW_PASSWORD, role=Role.ADMIN)
+
+    assert revived.id == original.id
+    assert revived.role is Role.ADMIN
+    assert verify_password(NEW_PASSWORD, _password_hash_for(db_conn, ALEX))
+    fetched = get_user(db_conn, revived.id)
+    assert fetched is not None and fetched.role is Role.ADMIN
+
+
 def test_list_users_excludes_soft_deleted(db_conn: sqlite3.Connection) -> None:
     alex = create_user(db_conn, username=ALEX, password=PASSWORD, role=Role.ADMIN)
     guest = create_user(db_conn, username=GUEST, password=PASSWORD, role=Role.USER)

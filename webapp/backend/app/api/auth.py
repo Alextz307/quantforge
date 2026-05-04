@@ -6,7 +6,7 @@ import sqlite3
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 
-from webapp.backend.app.core.deps import get_current_user, get_db, get_sessions
+from webapp.backend.app.core.deps import get_db, get_optional_user, get_sessions
 from webapp.backend.app.core.rate_limit import LOGIN_RATE_LIMIT, login_limiter
 from webapp.backend.app.core.security import SessionCookies
 from webapp.backend.app.schemas.auth import LoginRequest
@@ -38,6 +38,6 @@ def logout(response: Response, sessions: SessionCookies = Depends(get_sessions))
     return {"status": "logged_out"}
 
 
-@router.get("/me", response_model=UserPublic)
-def me(user: UserPublic = Depends(get_current_user)) -> UserPublic:
+@router.get("/me", response_model=UserPublic | None)
+def me(user: UserPublic | None = Depends(get_optional_user)) -> UserPublic | None:
     return user

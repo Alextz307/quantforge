@@ -53,10 +53,11 @@ def test_login_for_unknown_user_returns_401(client: TestClient) -> None:
     assert response.status_code == HTTPStatus.UNAUTHORIZED
 
 
-def test_me_without_cookie_returns_401(client: TestClient) -> None:
+def test_me_without_cookie_returns_null(client: TestClient) -> None:
     response = client.get(ME_PATH)
 
-    assert response.status_code == HTTPStatus.UNAUTHORIZED
+    assert response.status_code == HTTPStatus.OK
+    assert response.json() is None
 
 
 def test_me_after_login_returns_current_user(
@@ -73,12 +74,13 @@ def test_me_after_login_returns_current_user(
     assert payload["role"] == Role.ADMIN.value
 
 
-def test_me_with_tampered_cookie_returns_401(client: TestClient) -> None:
+def test_me_with_tampered_cookie_returns_null(client: TestClient) -> None:
     client.cookies.set(SESSION_COOKIE_NAME, "tampered.value.here")
 
     response = client.get(ME_PATH)
 
-    assert response.status_code == HTTPStatus.UNAUTHORIZED
+    assert response.status_code == HTTPStatus.OK
+    assert response.json() is None
 
 
 def test_logout_clears_cookie(client: TestClient, db_conn: sqlite3.Connection) -> None:
@@ -88,4 +90,6 @@ def test_logout_clears_cookie(client: TestClient, db_conn: sqlite3.Connection) -
     response = client.post(LOGOUT_PATH)
 
     assert response.status_code == HTTPStatus.OK
-    assert client.get(ME_PATH).status_code == HTTPStatus.UNAUTHORIZED
+    me_response = client.get(ME_PATH)
+    assert me_response.status_code == HTTPStatus.OK
+    assert me_response.json() is None

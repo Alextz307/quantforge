@@ -1,0 +1,2521 @@
+{
+  "components": {
+    "schemas": {
+      "ComparisonDetail": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "git_sha": {
+            "title": "Git Sha",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "per_strategy_stats": {
+            "items": {
+              "$ref": "#/components/schemas/PerStrategyStatsRow"
+            },
+            "title": "Per Strategy Stats",
+            "type": "array"
+          },
+          "plots": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Plots",
+            "type": "array"
+          },
+          "store": {
+            "title": "Store",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "store",
+          "created_at",
+          "git_sha",
+          "per_strategy_stats",
+          "plots"
+        ],
+        "title": "ComparisonDetail",
+        "type": "object"
+      },
+      "ComparisonSummary": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "store": {
+            "title": "Store",
+            "type": "string"
+          },
+          "strategies": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Strategies",
+            "type": "array"
+          }
+        },
+        "required": [
+          "name",
+          "store",
+          "created_at",
+          "strategies"
+        ],
+        "title": "ComparisonSummary",
+        "type": "object"
+      },
+      "FoldRow": {
+        "properties": {
+          "annualized_return": {
+            "title": "Annualized Return",
+            "type": "number"
+          },
+          "annualized_volatility": {
+            "title": "Annualized Volatility",
+            "type": "number"
+          },
+          "calmar_ratio": {
+            "title": "Calmar Ratio",
+            "type": "number"
+          },
+          "equity_curve": {
+            "items": {
+              "type": "number"
+            },
+            "title": "Equity Curve",
+            "type": "array"
+          },
+          "fold_index": {
+            "title": "Fold Index",
+            "type": "integer"
+          },
+          "max_drawdown": {
+            "title": "Max Drawdown",
+            "type": "number"
+          },
+          "sharpe_ratio": {
+            "title": "Sharpe Ratio",
+            "type": "number"
+          },
+          "sortino_ratio": {
+            "title": "Sortino Ratio",
+            "type": "number"
+          },
+          "test_end": {
+            "format": "date-time",
+            "title": "Test End",
+            "type": "string"
+          },
+          "test_start": {
+            "format": "date-time",
+            "title": "Test Start",
+            "type": "string"
+          },
+          "total_return": {
+            "title": "Total Return",
+            "type": "number"
+          },
+          "trade_count": {
+            "title": "Trade Count",
+            "type": "integer"
+          },
+          "train_end": {
+            "format": "date-time",
+            "title": "Train End",
+            "type": "string"
+          },
+          "train_start": {
+            "format": "date-time",
+            "title": "Train Start",
+            "type": "string"
+          },
+          "win_rate": {
+            "title": "Win Rate",
+            "type": "number"
+          }
+        },
+        "required": [
+          "fold_index",
+          "train_start",
+          "train_end",
+          "test_start",
+          "test_end",
+          "total_return",
+          "annualized_return",
+          "annualized_volatility",
+          "sharpe_ratio",
+          "sortino_ratio",
+          "calmar_ratio",
+          "max_drawdown",
+          "win_rate",
+          "trade_count",
+          "equity_curve"
+        ],
+        "title": "FoldRow",
+        "type": "object"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "HealthResponse": {
+        "properties": {
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "version"
+        ],
+        "title": "HealthResponse",
+        "type": "object"
+      },
+      "HoldoutEvalDetail": {
+        "properties": {
+          "annualized_return": {
+            "title": "Annualized Return",
+            "type": "number"
+          },
+          "annualized_volatility": {
+            "title": "Annualized Volatility",
+            "type": "number"
+          },
+          "calmar_ratio": {
+            "title": "Calmar Ratio",
+            "type": "number"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "data_hash": {
+            "title": "Data Hash",
+            "type": "string"
+          },
+          "equity_curve": {
+            "items": {
+              "type": "number"
+            },
+            "title": "Equity Curve",
+            "type": "array"
+          },
+          "git_sha": {
+            "title": "Git Sha",
+            "type": "string"
+          },
+          "holdout_start": {
+            "format": "date-time",
+            "title": "Holdout Start",
+            "type": "string"
+          },
+          "max_drawdown": {
+            "title": "Max Drawdown",
+            "type": "number"
+          },
+          "n_dev_bars": {
+            "title": "N Dev Bars",
+            "type": "integer"
+          },
+          "n_holdout_bars": {
+            "title": "N Holdout Bars",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "plots": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Plots",
+            "type": "array"
+          },
+          "sharpe_ratio": {
+            "title": "Sharpe Ratio",
+            "type": "number"
+          },
+          "slippage_scenario": {
+            "$ref": "#/components/schemas/SlippageScenario"
+          },
+          "sortino_ratio": {
+            "title": "Sortino Ratio",
+            "type": "number"
+          },
+          "source_id": {
+            "title": "Source Id",
+            "type": "string"
+          },
+          "source_kind": {
+            "enum": [
+              "run",
+              "hpo"
+            ],
+            "title": "Source Kind",
+            "type": "string"
+          },
+          "source_path": {
+            "title": "Source Path",
+            "type": "string"
+          },
+          "store": {
+            "title": "Store",
+            "type": "string"
+          },
+          "total_return": {
+            "title": "Total Return",
+            "type": "number"
+          },
+          "trade_count": {
+            "title": "Trade Count",
+            "type": "integer"
+          },
+          "win_rate": {
+            "title": "Win Rate",
+            "type": "number"
+          }
+        },
+        "required": [
+          "name",
+          "store",
+          "created_at",
+          "git_sha",
+          "source_kind",
+          "source_id",
+          "source_path",
+          "holdout_start",
+          "data_hash",
+          "n_dev_bars",
+          "n_holdout_bars",
+          "slippage_scenario",
+          "total_return",
+          "annualized_return",
+          "annualized_volatility",
+          "sharpe_ratio",
+          "sortino_ratio",
+          "calmar_ratio",
+          "max_drawdown",
+          "win_rate",
+          "trade_count",
+          "equity_curve",
+          "plots"
+        ],
+        "title": "HoldoutEvalDetail",
+        "type": "object"
+      },
+      "HoldoutEvalSummary": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "holdout_start": {
+            "format": "date-time",
+            "title": "Holdout Start",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "source_id": {
+            "title": "Source Id",
+            "type": "string"
+          },
+          "source_kind": {
+            "enum": [
+              "run",
+              "hpo"
+            ],
+            "title": "Source Kind",
+            "type": "string"
+          },
+          "store": {
+            "title": "Store",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "store",
+          "created_at",
+          "source_kind",
+          "source_id",
+          "holdout_start"
+        ],
+        "title": "HoldoutEvalSummary",
+        "type": "object"
+      },
+      "HpoDetail": {
+        "properties": {
+          "best_config": {
+            "additionalProperties": true,
+            "title": "Best Config",
+            "type": "object"
+          },
+          "best_trial_number": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Best Trial Number"
+          },
+          "best_value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Best Value"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "n_complete": {
+            "title": "N Complete",
+            "type": "integer"
+          },
+          "n_trials": {
+            "title": "N Trials",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "store": {
+            "title": "Store",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "store",
+          "created_at",
+          "n_trials",
+          "n_complete",
+          "best_value",
+          "best_trial_number",
+          "best_config"
+        ],
+        "title": "HpoDetail",
+        "type": "object"
+      },
+      "HpoSummary": {
+        "properties": {
+          "best_trial_number": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Best Trial Number"
+          },
+          "best_value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Best Value"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "n_complete": {
+            "title": "N Complete",
+            "type": "integer"
+          },
+          "n_trials": {
+            "title": "N Trials",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "store": {
+            "title": "Store",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "store",
+          "created_at",
+          "n_trials",
+          "n_complete",
+          "best_value",
+          "best_trial_number"
+        ],
+        "title": "HpoSummary",
+        "type": "object"
+      },
+      "LegStateRow": {
+        "properties": {
+          "completed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "is_complete": {
+            "title": "Is Complete",
+            "type": "boolean"
+          },
+          "leg_id": {
+            "title": "Leg Id",
+            "type": "string"
+          },
+          "run_experiment_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Run Experiment Id"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "steps_completed": {
+            "items": {
+              "$ref": "#/components/schemas/LegStep"
+            },
+            "title": "Steps Completed",
+            "type": "array"
+          },
+          "strategy": {
+            "title": "Strategy",
+            "type": "string"
+          },
+          "universe": {
+            "title": "Universe",
+            "type": "string"
+          }
+        },
+        "required": [
+          "leg_id",
+          "strategy",
+          "universe",
+          "is_complete",
+          "error",
+          "run_experiment_id",
+          "started_at",
+          "completed_at",
+          "steps_completed"
+        ],
+        "title": "LegStateRow",
+        "type": "object"
+      },
+      "LegStep": {
+        "description": "The four sub-steps of a study leg, in canonical execution order.",
+        "enum": [
+          "tune",
+          "run",
+          "regime",
+          "holdout_eval"
+        ],
+        "title": "LegStep",
+        "type": "string"
+      },
+      "LoginRequest": {
+        "properties": {
+          "password": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Password",
+            "type": "string"
+          },
+          "username": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Username",
+            "type": "string"
+          }
+        },
+        "required": [
+          "username",
+          "password"
+        ],
+        "title": "LoginRequest",
+        "type": "object"
+      },
+      "ModelKind": {
+        "enum": [
+          "predictor",
+          "classifier"
+        ],
+        "title": "ModelKind",
+        "type": "string"
+      },
+      "ModelRegistryEntry": {
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/ModelKind"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "qualname": {
+            "title": "Qualname",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "qualname",
+          "kind"
+        ],
+        "title": "ModelRegistryEntry",
+        "type": "object"
+      },
+      "PerRegimeStatsRow": {
+        "properties": {
+          "calmar_ci95_high": {
+            "title": "Calmar Ci95 High",
+            "type": "number"
+          },
+          "calmar_ci95_low": {
+            "title": "Calmar Ci95 Low",
+            "type": "number"
+          },
+          "calmar_mean": {
+            "title": "Calmar Mean",
+            "type": "number"
+          },
+          "calmar_std": {
+            "title": "Calmar Std",
+            "type": "number"
+          },
+          "max_drawdown_mean": {
+            "title": "Max Drawdown Mean",
+            "type": "number"
+          },
+          "max_drawdown_worst": {
+            "title": "Max Drawdown Worst",
+            "type": "number"
+          },
+          "n_folds": {
+            "title": "N Folds",
+            "type": "integer"
+          },
+          "regime_label": {
+            "title": "Regime Label",
+            "type": "string"
+          },
+          "sharpe_ci95_high": {
+            "title": "Sharpe Ci95 High",
+            "type": "number"
+          },
+          "sharpe_ci95_low": {
+            "title": "Sharpe Ci95 Low",
+            "type": "number"
+          },
+          "sharpe_mean": {
+            "title": "Sharpe Mean",
+            "type": "number"
+          },
+          "sharpe_std": {
+            "title": "Sharpe Std",
+            "type": "number"
+          },
+          "sortino_ci95_high": {
+            "title": "Sortino Ci95 High",
+            "type": "number"
+          },
+          "sortino_ci95_low": {
+            "title": "Sortino Ci95 Low",
+            "type": "number"
+          },
+          "sortino_mean": {
+            "title": "Sortino Mean",
+            "type": "number"
+          },
+          "sortino_std": {
+            "title": "Sortino Std",
+            "type": "number"
+          },
+          "total_return_mean": {
+            "title": "Total Return Mean",
+            "type": "number"
+          },
+          "total_return_std": {
+            "title": "Total Return Std",
+            "type": "number"
+          },
+          "trade_count_total": {
+            "title": "Trade Count Total",
+            "type": "integer"
+          },
+          "win_rate_mean": {
+            "title": "Win Rate Mean",
+            "type": "number"
+          }
+        },
+        "required": [
+          "regime_label",
+          "n_folds",
+          "sharpe_mean",
+          "sharpe_std",
+          "sharpe_ci95_low",
+          "sharpe_ci95_high",
+          "sortino_mean",
+          "sortino_std",
+          "sortino_ci95_low",
+          "sortino_ci95_high",
+          "calmar_mean",
+          "calmar_std",
+          "calmar_ci95_low",
+          "calmar_ci95_high",
+          "total_return_mean",
+          "total_return_std",
+          "max_drawdown_mean",
+          "max_drawdown_worst",
+          "win_rate_mean",
+          "trade_count_total"
+        ],
+        "title": "PerRegimeStatsRow",
+        "type": "object"
+      },
+      "PerStrategyStatsRow": {
+        "properties": {
+          "calmar_ci95_high": {
+            "title": "Calmar Ci95 High",
+            "type": "number"
+          },
+          "calmar_ci95_low": {
+            "title": "Calmar Ci95 Low",
+            "type": "number"
+          },
+          "calmar_mean": {
+            "title": "Calmar Mean",
+            "type": "number"
+          },
+          "calmar_std": {
+            "title": "Calmar Std",
+            "type": "number"
+          },
+          "experiment_id": {
+            "title": "Experiment Id",
+            "type": "string"
+          },
+          "max_drawdown_mean": {
+            "title": "Max Drawdown Mean",
+            "type": "number"
+          },
+          "max_drawdown_worst": {
+            "title": "Max Drawdown Worst",
+            "type": "number"
+          },
+          "n_folds": {
+            "title": "N Folds",
+            "type": "integer"
+          },
+          "sharpe_ci95_high": {
+            "title": "Sharpe Ci95 High",
+            "type": "number"
+          },
+          "sharpe_ci95_low": {
+            "title": "Sharpe Ci95 Low",
+            "type": "number"
+          },
+          "sharpe_mean": {
+            "title": "Sharpe Mean",
+            "type": "number"
+          },
+          "sharpe_std": {
+            "title": "Sharpe Std",
+            "type": "number"
+          },
+          "sortino_ci95_high": {
+            "title": "Sortino Ci95 High",
+            "type": "number"
+          },
+          "sortino_ci95_low": {
+            "title": "Sortino Ci95 Low",
+            "type": "number"
+          },
+          "sortino_mean": {
+            "title": "Sortino Mean",
+            "type": "number"
+          },
+          "sortino_std": {
+            "title": "Sortino Std",
+            "type": "number"
+          },
+          "strategy": {
+            "title": "Strategy",
+            "type": "string"
+          },
+          "total_return_mean": {
+            "title": "Total Return Mean",
+            "type": "number"
+          },
+          "total_return_std": {
+            "title": "Total Return Std",
+            "type": "number"
+          },
+          "trade_count_total": {
+            "title": "Trade Count Total",
+            "type": "integer"
+          },
+          "win_rate_mean": {
+            "title": "Win Rate Mean",
+            "type": "number"
+          }
+        },
+        "required": [
+          "strategy",
+          "experiment_id",
+          "n_folds",
+          "sharpe_mean",
+          "sharpe_std",
+          "sharpe_ci95_low",
+          "sharpe_ci95_high",
+          "sortino_mean",
+          "sortino_std",
+          "sortino_ci95_low",
+          "sortino_ci95_high",
+          "calmar_mean",
+          "calmar_std",
+          "calmar_ci95_low",
+          "calmar_ci95_high",
+          "total_return_mean",
+          "total_return_std",
+          "max_drawdown_mean",
+          "max_drawdown_worst",
+          "win_rate_mean",
+          "trade_count_total"
+        ],
+        "title": "PerStrategyStatsRow",
+        "type": "object"
+      },
+      "PretrainedLeafDTO": {
+        "properties": {
+          "data_hash": {
+            "title": "Data Hash",
+            "type": "string"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          },
+          "train_end": {
+            "format": "date-time",
+            "title": "Train End",
+            "type": "string"
+          },
+          "train_start": {
+            "format": "date-time",
+            "title": "Train Start",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "path",
+          "data_hash",
+          "train_start",
+          "train_end"
+        ],
+        "title": "PretrainedLeafDTO",
+        "type": "object"
+      },
+      "RegimeKind": {
+        "description": "Detector family \u2014 encodes the *type* of split, not the labels.\n\nSurfaced on :class:`RegimeReport` so a downstream reader knows which\ndetector produced the labels without having to parse the YAML config\nagain. The labels themselves are arbitrary strings supplied by the\ndetector (e.g. ``\"bull\"`` / ``\"bear\"`` for trend, ``\"Q1\"``..``\"Q5\"``\nfor volatility quintiles).",
+        "enum": [
+          "period",
+          "trend",
+          "volatility"
+        ],
+        "title": "RegimeKind",
+        "type": "string"
+      },
+      "RegimeReportDetail": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "detector_name": {
+            "title": "Detector Name",
+            "type": "string"
+          },
+          "experiment_id": {
+            "title": "Experiment Id",
+            "type": "string"
+          },
+          "git_sha": {
+            "title": "Git Sha",
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/RegimeKind"
+          },
+          "mixed_fold_indices": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Mixed Fold Indices",
+            "type": "array"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "per_regime_fold_indices": {
+            "additionalProperties": {
+              "items": {
+                "type": "integer"
+              },
+              "type": "array"
+            },
+            "title": "Per Regime Fold Indices",
+            "type": "object"
+          },
+          "per_regime_stats": {
+            "items": {
+              "$ref": "#/components/schemas/PerRegimeStatsRow"
+            },
+            "title": "Per Regime Stats",
+            "type": "array"
+          },
+          "plots": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Plots",
+            "type": "array"
+          },
+          "slices": {
+            "items": {
+              "$ref": "#/components/schemas/RegimeSliceDTO"
+            },
+            "title": "Slices",
+            "type": "array"
+          },
+          "store": {
+            "title": "Store",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "store",
+          "created_at",
+          "git_sha",
+          "experiment_id",
+          "kind",
+          "detector_name",
+          "per_regime_stats",
+          "per_regime_fold_indices",
+          "mixed_fold_indices",
+          "slices",
+          "plots"
+        ],
+        "title": "RegimeReportDetail",
+        "type": "object"
+      },
+      "RegimeReportSummary": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "detector_name": {
+            "title": "Detector Name",
+            "type": "string"
+          },
+          "experiment_id": {
+            "title": "Experiment Id",
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/RegimeKind"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "regime_labels": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Regime Labels",
+            "type": "array"
+          },
+          "store": {
+            "title": "Store",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "store",
+          "created_at",
+          "experiment_id",
+          "kind",
+          "detector_name",
+          "regime_labels"
+        ],
+        "title": "RegimeReportSummary",
+        "type": "object"
+      },
+      "RegimeSliceDTO": {
+        "properties": {
+          "end": {
+            "format": "date-time",
+            "title": "End",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "start": {
+            "format": "date-time",
+            "title": "Start",
+            "type": "string"
+          }
+        },
+        "required": [
+          "label",
+          "start",
+          "end"
+        ],
+        "title": "RegimeSliceDTO",
+        "type": "object"
+      },
+      "RegistryEntry": {
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "qualname": {
+            "title": "Qualname",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "qualname"
+        ],
+        "title": "RegistryEntry",
+        "type": "object"
+      },
+      "Role": {
+        "enum": [
+          "user",
+          "admin"
+        ],
+        "title": "Role",
+        "type": "string"
+      },
+      "RunDetail": {
+        "description": "Detail-view payload for `/api/runs/{experiment_id}`.",
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "data_hash": {
+            "title": "Data Hash",
+            "type": "string"
+          },
+          "experiment_id": {
+            "title": "Experiment Id",
+            "type": "string"
+          },
+          "git_sha": {
+            "title": "Git Sha",
+            "type": "string"
+          },
+          "holdout_start": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Holdout Start"
+          },
+          "interval": {
+            "title": "Interval",
+            "type": "string"
+          },
+          "metrics": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Metrics",
+            "type": "object"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "plots": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Plots",
+            "type": "array"
+          },
+          "pretrained_leaves": {
+            "items": {
+              "$ref": "#/components/schemas/PretrainedLeafDTO"
+            },
+            "title": "Pretrained Leaves",
+            "type": "array"
+          },
+          "seed": {
+            "title": "Seed",
+            "type": "integer"
+          },
+          "slippage_scenario": {
+            "$ref": "#/components/schemas/SlippageScenario"
+          },
+          "store": {
+            "title": "Store",
+            "type": "string"
+          },
+          "strategy": {
+            "title": "Strategy",
+            "type": "string"
+          },
+          "tickers": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Tickers",
+            "type": "array"
+          }
+        },
+        "required": [
+          "experiment_id",
+          "name",
+          "strategy",
+          "tickers",
+          "interval",
+          "store",
+          "created_at",
+          "git_sha",
+          "seed",
+          "data_hash",
+          "slippage_scenario",
+          "holdout_start",
+          "pretrained_leaves",
+          "metrics",
+          "plots"
+        ],
+        "title": "RunDetail",
+        "type": "object"
+      },
+      "RunSummary": {
+        "description": "List-view row for `/api/runs`.\n\nStrategy/tickers/interval are sourced from the run's frozen\n`config.yaml` so any future strategy works without changing this code.",
+        "properties": {
+          "calmar_mean": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Calmar Mean"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "experiment_id": {
+            "title": "Experiment Id",
+            "type": "string"
+          },
+          "interval": {
+            "title": "Interval",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "sharpe_mean": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sharpe Mean"
+          },
+          "store": {
+            "title": "Store",
+            "type": "string"
+          },
+          "strategy": {
+            "title": "Strategy",
+            "type": "string"
+          },
+          "tickers": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Tickers",
+            "type": "array"
+          }
+        },
+        "required": [
+          "experiment_id",
+          "name",
+          "strategy",
+          "tickers",
+          "interval",
+          "store",
+          "created_at",
+          "sharpe_mean",
+          "calmar_mean"
+        ],
+        "title": "RunSummary",
+        "type": "object"
+      },
+      "SlippageScenario": {
+        "description": "Named lookup keys for ``SLIPPAGE_SCENARIOS``.",
+        "enum": [
+          "zero",
+          "normal",
+          "high",
+          "extreme"
+        ],
+        "title": "SlippageScenario",
+        "type": "string"
+      },
+      "StudyDetail": {
+        "properties": {
+          "completed_legs": {
+            "title": "Completed Legs",
+            "type": "integer"
+          },
+          "completion_pct": {
+            "title": "Completion Pct",
+            "type": "number"
+          },
+          "cross_strategy_compares_done": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Cross Strategy Compares Done",
+            "type": "array"
+          },
+          "legs": {
+            "items": {
+              "$ref": "#/components/schemas/LegStateRow"
+            },
+            "title": "Legs",
+            "type": "array"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "spec_hash": {
+            "title": "Spec Hash",
+            "type": "string"
+          },
+          "spec_name": {
+            "title": "Spec Name",
+            "type": "string"
+          },
+          "started_at": {
+            "format": "date-time",
+            "title": "Started At",
+            "type": "string"
+          },
+          "total_legs": {
+            "title": "Total Legs",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "name",
+          "spec_name",
+          "spec_hash",
+          "started_at",
+          "total_legs",
+          "completed_legs",
+          "completion_pct",
+          "cross_strategy_compares_done",
+          "legs"
+        ],
+        "title": "StudyDetail",
+        "type": "object"
+      },
+      "StudySummary": {
+        "properties": {
+          "completed_legs": {
+            "title": "Completed Legs",
+            "type": "integer"
+          },
+          "completion_pct": {
+            "title": "Completion Pct",
+            "type": "number"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "spec_name": {
+            "title": "Spec Name",
+            "type": "string"
+          },
+          "started_at": {
+            "format": "date-time",
+            "title": "Started At",
+            "type": "string"
+          },
+          "total_legs": {
+            "title": "Total Legs",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "name",
+          "spec_name",
+          "started_at",
+          "total_legs",
+          "completed_legs",
+          "completion_pct"
+        ],
+        "title": "StudySummary",
+        "type": "object"
+      },
+      "TrialRow": {
+        "properties": {
+          "datetime_complete": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Datetime Complete"
+          },
+          "datetime_start": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Datetime Start"
+          },
+          "experiment_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Experiment Id"
+          },
+          "number": {
+            "title": "Number",
+            "type": "integer"
+          },
+          "params": {
+            "additionalProperties": true,
+            "title": "Params",
+            "type": "object"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "required": [
+          "number",
+          "state",
+          "value",
+          "params",
+          "datetime_start",
+          "datetime_complete",
+          "experiment_id"
+        ],
+        "title": "TrialRow",
+        "type": "object"
+      },
+      "UserCreate": {
+        "properties": {
+          "password": {
+            "maxLength": 256,
+            "minLength": 8,
+            "title": "Password",
+            "type": "string"
+          },
+          "role": {
+            "$ref": "#/components/schemas/Role",
+            "default": "user"
+          },
+          "username": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Username",
+            "type": "string"
+          }
+        },
+        "required": [
+          "username",
+          "password"
+        ],
+        "title": "UserCreate",
+        "type": "object"
+      },
+      "UserPublic": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "role": {
+            "$ref": "#/components/schemas/Role"
+          },
+          "username": {
+            "title": "Username",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "username",
+          "role"
+        ],
+        "title": "UserPublic",
+        "type": "object"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "title": "Quant Webapp",
+    "version": "0.1.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/api/auth/login": {
+      "post": {
+        "operationId": "login_api_auth_login_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserPublic"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Login",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/auth/logout": {
+      "post": {
+        "operationId": "logout_api_auth_logout_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "title": "Response Logout Api Auth Logout Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Logout",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/auth/me": {
+      "get": {
+        "operationId": "me_api_auth_me_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/UserPublic"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "title": "Response Me Api Auth Me Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Me",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/comparisons": {
+      "get": {
+        "operationId": "get_comparisons_api_comparisons_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ComparisonSummary"
+                  },
+                  "title": "Response Get Comparisons Api Comparisons Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Comparisons",
+        "tags": [
+          "comparisons"
+        ]
+      }
+    },
+    "/api/comparisons/{name}": {
+      "get": {
+        "operationId": "get_comparison_detail_api_comparisons__name__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ComparisonDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Comparison Detail",
+        "tags": [
+          "comparisons"
+        ]
+      }
+    },
+    "/api/comparisons/{name}/plots/{plot_name}": {
+      "get": {
+        "operationId": "get_comparison_plot_api_comparisons__name__plots__plot_name__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "plot_name",
+            "required": true,
+            "schema": {
+              "title": "Plot Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Comparison Plot",
+        "tags": [
+          "comparisons"
+        ]
+      }
+    },
+    "/api/health": {
+      "get": {
+        "operationId": "health_api_health_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Health",
+        "tags": [
+          "health"
+        ]
+      }
+    },
+    "/api/holdout-evals": {
+      "get": {
+        "operationId": "get_holdout_evals_api_holdout_evals_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/HoldoutEvalSummary"
+                  },
+                  "title": "Response Get Holdout Evals Api Holdout Evals Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Holdout Evals",
+        "tags": [
+          "holdout"
+        ]
+      }
+    },
+    "/api/holdout-evals/{name}": {
+      "get": {
+        "operationId": "get_holdout_eval_detail_api_holdout_evals__name__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HoldoutEvalDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Holdout Eval Detail",
+        "tags": [
+          "holdout"
+        ]
+      }
+    },
+    "/api/holdout-evals/{name}/plots/{plot_name}": {
+      "get": {
+        "operationId": "get_holdout_eval_plot_api_holdout_evals__name__plots__plot_name__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "plot_name",
+            "required": true,
+            "schema": {
+              "title": "Plot Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Holdout Eval Plot",
+        "tags": [
+          "holdout"
+        ]
+      }
+    },
+    "/api/hpo": {
+      "get": {
+        "operationId": "get_hpo_studies_api_hpo_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/HpoSummary"
+                  },
+                  "title": "Response Get Hpo Studies Api Hpo Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Hpo Studies",
+        "tags": [
+          "hpo"
+        ]
+      }
+    },
+    "/api/hpo/{name}": {
+      "get": {
+        "operationId": "get_hpo_study_detail_api_hpo__name__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HpoDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Hpo Study Detail",
+        "tags": [
+          "hpo"
+        ]
+      }
+    },
+    "/api/hpo/{name}/trials": {
+      "get": {
+        "operationId": "get_hpo_trials_api_hpo__name__trials_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "after_trial",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "After Trial"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/TrialRow"
+                  },
+                  "title": "Response Get Hpo Trials Api Hpo  Name  Trials Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Hpo Trials",
+        "tags": [
+          "hpo"
+        ]
+      }
+    },
+    "/api/models": {
+      "get": {
+        "operationId": "get_models_api_models_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ModelRegistryEntry"
+                  },
+                  "title": "Response Get Models Api Models Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Models",
+        "tags": [
+          "models"
+        ]
+      }
+    },
+    "/api/regime-reports": {
+      "get": {
+        "operationId": "get_regime_reports_api_regime_reports_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/RegimeReportSummary"
+                  },
+                  "title": "Response Get Regime Reports Api Regime Reports Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Regime Reports",
+        "tags": [
+          "regime"
+        ]
+      }
+    },
+    "/api/regime-reports/{name}": {
+      "get": {
+        "operationId": "get_regime_report_detail_api_regime_reports__name__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegimeReportDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Regime Report Detail",
+        "tags": [
+          "regime"
+        ]
+      }
+    },
+    "/api/regime-reports/{name}/plots/{plot_name}": {
+      "get": {
+        "operationId": "get_regime_report_plot_api_regime_reports__name__plots__plot_name__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "plot_name",
+            "required": true,
+            "schema": {
+              "title": "Plot Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Regime Report Plot",
+        "tags": [
+          "regime"
+        ]
+      }
+    },
+    "/api/runs": {
+      "get": {
+        "operationId": "get_runs_api_runs_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/RunSummary"
+                  },
+                  "title": "Response Get Runs Api Runs Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Runs",
+        "tags": [
+          "runs"
+        ]
+      }
+    },
+    "/api/runs/{experiment_id}": {
+      "get": {
+        "operationId": "get_run_detail_api_runs__experiment_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "experiment_id",
+            "required": true,
+            "schema": {
+              "title": "Experiment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Run Detail",
+        "tags": [
+          "runs"
+        ]
+      }
+    },
+    "/api/runs/{experiment_id}/folds": {
+      "get": {
+        "operationId": "get_run_folds_api_runs__experiment_id__folds_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "experiment_id",
+            "required": true,
+            "schema": {
+              "title": "Experiment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/FoldRow"
+                  },
+                  "title": "Response Get Run Folds Api Runs  Experiment Id  Folds Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Run Folds",
+        "tags": [
+          "runs"
+        ]
+      }
+    },
+    "/api/runs/{experiment_id}/plots/{plot_name}": {
+      "get": {
+        "operationId": "get_run_plot_api_runs__experiment_id__plots__plot_name__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "experiment_id",
+            "required": true,
+            "schema": {
+              "title": "Experiment Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "plot_name",
+            "required": true,
+            "schema": {
+              "title": "Plot Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Run Plot",
+        "tags": [
+          "runs"
+        ]
+      }
+    },
+    "/api/strategies": {
+      "get": {
+        "operationId": "get_strategies_api_strategies_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/RegistryEntry"
+                  },
+                  "title": "Response Get Strategies Api Strategies Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Strategies",
+        "tags": [
+          "strategies"
+        ]
+      }
+    },
+    "/api/studies": {
+      "get": {
+        "operationId": "get_studies_api_studies_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/StudySummary"
+                  },
+                  "title": "Response Get Studies Api Studies Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Studies",
+        "tags": [
+          "studies"
+        ]
+      }
+    },
+    "/api/studies/{name}": {
+      "get": {
+        "operationId": "get_study_detail_api_studies__name__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StudyDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Study Detail",
+        "tags": [
+          "studies"
+        ]
+      }
+    },
+    "/api/users": {
+      "get": {
+        "operationId": "get_users_api_users_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/UserPublic"
+                  },
+                  "title": "Response Get Users Api Users Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Users",
+        "tags": [
+          "users"
+        ]
+      },
+      "post": {
+        "operationId": "post_user_api_users_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserPublic"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Post User",
+        "tags": [
+          "users"
+        ]
+      }
+    },
+    "/api/users/{user_id}": {
+      "delete": {
+        "operationId": "delete_user_api_users__user_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "title": "User Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete User",
+        "tags": [
+          "users"
+        ]
+      }
+    }
+  }
+}

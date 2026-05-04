@@ -1,0 +1,6 @@
+node_modules
+dist
+coverage
+src/api/generated
+openapi.snapshot.json
+package-lock.json

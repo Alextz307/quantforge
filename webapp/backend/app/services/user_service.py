@@ -36,10 +36,23 @@ def _insert_user(conn: sqlite3.Connection, username: str, password_hash: str, ro
 def create_user(
     conn: sqlite3.Connection, *, username: str, password: str, role: Role
 ) -> UserPublic:
-    try:
-        user_id = _insert_user(conn, username, hash_password(password), role)
-    except sqlite3.IntegrityError as exc:
-        raise UsernameAlreadyExistsError(f"username '{username}' already exists") from exc
+    # Reactivate a soft-deleted row with the same username instead of raising:
+    # the column-level UNIQUE constraint covers tombstones too, so a fresh INSERT
+    # would trip on a previously-deleted user that the admin can no longer see.
+    existing = conn.execute(
+        "SELECT id, deleted_at FROM users WHERE username = ?", (username,)
+    ).fetchone()
+    password_hash = hash_password(password)
+    if existing is not None:
+        if existing["deleted_at"] is None:
+            raise UsernameAlreadyExistsError(f"username '{username}' already exists")
+        user_id = int(existing["id"])
+        conn.execute(
+            "UPDATE users SET password_hash = ?, role = ?, deleted_at = NULL WHERE id = ?",
+            (password_hash, role.value, user_id),
+        )
+    else:
+        user_id = _insert_user(conn, username, password_hash, role)
     conn.commit()
     return UserPublic(id=user_id, username=username, role=role)
 

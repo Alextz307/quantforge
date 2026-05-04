@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from webapp.backend.app.api import (
     auth,
@@ -20,10 +21,11 @@ from webapp.backend.app.api import (
 from webapp.backend.app.core import rate_limit
 from webapp.backend.app.core.lifespan import lifespan
 from webapp.backend.app.core.security import SessionCookies
-from webapp.backend.app.core.settings import get_settings
+from webapp.backend.app.core.settings import WebappEnv, get_settings
 from webapp.backend.app.core.version import APP_TITLE, APP_VERSION
 
 SECONDS_PER_MINUTE = 60
+DEV_FRONTEND_ORIGIN = "http://localhost:5173"
 
 
 def create_app() -> FastAPI:
@@ -41,6 +43,15 @@ def create_app() -> FastAPI:
     )
     app.state.sessions = sessions
     rate_limit.attach(app)
+
+    if settings.env is WebappEnv.DEVELOPMENT:
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=[DEV_FRONTEND_ORIGIN],
+            allow_credentials=True,
+            allow_methods=["*"],
+            allow_headers=["*"],
+        )
 
     app.include_router(health.router, prefix="/api")
     app.include_router(auth.router, prefix="/api")

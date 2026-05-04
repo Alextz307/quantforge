@@ -90,4 +90,5 @@ webapp/data/
 webapp/.env
 webapp/frontend/node_modules/
 webapp/frontend/dist/
+webapp/frontend/coverage/
 webapp/frontend/src/api/generated/

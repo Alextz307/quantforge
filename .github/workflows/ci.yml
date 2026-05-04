@@ -84,3 +84,40 @@ jobs:
         run: mypy --strict webapp/backend
       - name: Test webapp
         run: pytest webapp/backend/tests/ -v --tb=short --cov=webapp/backend/app --cov-report=term-missing --cov-fail-under=80
+
+  webapp-frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: webapp/frontend/package-lock.json
+      - name: Install backend dependencies for OpenAPI snapshot
+        run: pip install fastapi 'uvicorn[standard]' pydantic pydantic-settings httpx bcrypt itsdangerous slowapi click
+      - name: Refresh OpenAPI snapshot
+        run: python -m scripts.dump_openapi
+      - name: Install frontend dependencies
+        working-directory: webapp/frontend
+        run: npm ci
+      - name: Generate OpenAPI types
+        working-directory: webapp/frontend
+        run: npm run gen:api
+      - name: Lint frontend
+        working-directory: webapp/frontend
+        run: |
+          npm run lint
+          npm run format:check
+      - name: Typecheck frontend
+        working-directory: webapp/frontend
+        run: npm run typecheck
+      - name: Test frontend
+        working-directory: webapp/frontend
+        run: npm run test:cov
+      - name: Build frontend
+        working-directory: webapp/frontend
+        run: npm run build

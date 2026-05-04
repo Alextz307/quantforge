@@ -1,4 +1,4 @@
-.PHONY: install test test-cpp test-python lint typecheck bench bench-cpp bench-baseline bench-report experiment thesis-demo stubs clean webapp webapp-dev webapp-test webapp-typecheck webapp-lint
+.PHONY: install test test-cpp test-python lint typecheck bench bench-cpp bench-baseline bench-report experiment thesis-demo stubs clean webapp webapp-dev webapp-test webapp-typecheck webapp-lint webapp-frontend-install webapp-frontend-dev webapp-frontend-build webapp-frontend-test webapp-frontend-typecheck webapp-frontend-lint webapp-openapi-snapshot
 
 install:
 	pip install -e ".[dev]"
@@ -107,6 +107,27 @@ webapp-typecheck:
 webapp-lint:
 	ruff check webapp/backend
 	ruff format --check webapp/backend
+
+webapp-openapi-snapshot:
+	python -m scripts.dump_openapi
+
+webapp-frontend-install:
+	cd webapp/frontend && npm ci
+
+webapp-frontend-dev:
+	cd webapp/frontend && npm run dev
+
+webapp-frontend-build:
+	cd webapp/frontend && npm run gen:api && npm run build
+
+webapp-frontend-test:
+	cd webapp/frontend && npm run gen:api && npm run test:cov
+
+webapp-frontend-typecheck:
+	cd webapp/frontend && npm run gen:api && npm run typecheck
+
+webapp-frontend-lint:
+	cd webapp/frontend && npm run gen:api && npm run lint && npm run format:check
 
 clean:
 	rm -rf cpp/build/ dist/ *.egg-info .mypy_cache .pytest_cache

@@ -12,9 +12,7 @@ from webapp.backend.app.core.settings import WebappEnv, WebappSettings, get_sett
 
 
 @pytest.fixture(autouse=True)
-def _isolate_settings(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
-    monkeypatch.delenv("WEBAPP_ENV", raising=False)
-    monkeypatch.delenv("WEBAPP_STORE_ROOT", raising=False)
+def _isolate_settings() -> Iterator[None]:
     get_settings.cache_clear()
     yield
     get_settings.cache_clear()

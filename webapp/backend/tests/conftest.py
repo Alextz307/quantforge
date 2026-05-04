@@ -52,6 +52,7 @@ TRIAL_STATE_FAIL = "FAIL"
 def _webapp_test_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     monkeypatch.setenv("WEBAPP_SECRET_KEY", TEST_SECRET_KEY)
     monkeypatch.setenv("WEBAPP_DB_PATH", str(tmp_path / "webapp.sqlite"))
+    monkeypatch.setenv("WEBAPP_ENV", "local")
     get_settings.cache_clear()
     login_limiter.reset()
     yield

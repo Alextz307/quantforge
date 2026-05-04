@@ -24,24 +24,23 @@ def get_sessions(request: Request) -> SessionCookies:
     return cast(SessionCookies, request.app.state.sessions)
 
 
-def get_current_user(
+def get_optional_user(
     request: Request,
     sessions: SessionCookies = Depends(get_sessions),
     conn: sqlite3.Connection = Depends(get_db),
-) -> UserPublic:
+) -> UserPublic | None:
     token = request.cookies.get(SESSION_COOKIE_NAME)
     if not token:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
+        return None
     user_id = sessions.decode(token)
     if user_id is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired session"
-        )
-    user = get_user(conn, user_id)
+        return None
+    return get_user(conn, user_id)
+
+
+def get_current_user(user: UserPublic | None = Depends(get_optional_user)) -> UserPublic:
     if user is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="User no longer exists"
-        )
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
     return user
 
 
