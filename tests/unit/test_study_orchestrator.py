@@ -73,7 +73,7 @@ def _write_minimal_spec(tmp_path: Path, output_dir: str = "studies/test") -> Pat
                 "strategy": "PairsTrading",
                 "strategy_config": "config/strategies/pairs_trading.yaml",
                 "hpo_config": "config/hpo/pairs_trading.yaml",
-                "universes": ["gld_slv_daily_5y"],
+                "universes": ["ivv_voo_daily_5y"],
             },
         ],
     }
@@ -345,7 +345,7 @@ class TestRunStudySpecHashGuard:
             for u in ("spy_daily_5y", "qqq_daily_5y")
         )
         pairs_leg = LegState.initial(
-            "PairsTrading__gld_slv_daily_5y", "PairsTrading", "gld_slv_daily_5y"
+            "PairsTrading__ivv_voo_daily_5y", "PairsTrading", "ivv_voo_daily_5y"
         )
         stale = StudyState(
             spec_name=spec.name,

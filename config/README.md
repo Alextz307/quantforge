@@ -23,7 +23,7 @@ Seven YAML files across five registered strategies (two pretrained-leaf
 variants for the strategies where injection is interesting):
 
 - `adaptive_bollinger.yaml`
-- `pairs_trading.yaml` — two-ticker (`tickers: [GLD, SLV]`); no
+- `pairs_trading.yaml` — two-ticker (`tickers: [IVV, VOO]`); no
   `features:` block (pairs strategies operate on raw price columns).
 - `momentum_gatekeeper.yaml` — full HPO from scratch.
 - `momentum_gatekeeper_pretrained.yaml` — injects a frozen
@@ -90,8 +90,7 @@ config/
         msft_daily_5y.yaml
         jpm_daily_5y.yaml
         gld_daily_5y.yaml
-        gld_slv_daily_5y.yaml
-        eurusd_daily_5y.yaml
+        ivv_voo_daily_5y.yaml
     study/
         main_study.yaml
 ```
@@ -107,7 +106,7 @@ python -m scripts.experiment tune \
     --config config/strategies/adaptive_bollinger.yaml \
     --hpo-config config/hpo/adaptive_bollinger.yaml
 
-# Pairs run on GLD/SLV (multi-ticker fetch + pairs engine dispatch):
+# Pairs run on IVV/VOO (multi-ticker fetch + pairs engine dispatch):
 python -m scripts.experiment run --config config/strategies/pairs_trading.yaml
 
 # Drive the same strategy YAML across universes via --override (avoids

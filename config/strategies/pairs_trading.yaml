@@ -1,5 +1,10 @@
-# Standalone PairsTrading experiment on the GLD / SLV (gold / silver)
-# cointegrated pair. Now runnable end-to-end:
+# Standalone PairsTrading experiment on the IVV / VOO (iShares Core /
+# Vanguard) S&P 500 ETF pair — two fund vehicles tracking the same
+# underlying index. Cointegration is structural (both authorized to
+# redeem at NAV against the same basket), so the relationship holds
+# across every walk-forward fold and the holdout window where
+# individual-asset pairs (GLD/SLV, V/MA, BRK-A/BRK-B) decouple over
+# longer windows. Runnable end-to-end:
 #
 #   python -m scripts.experiment run --config config/strategies/pairs_trading.yaml
 #
@@ -16,12 +21,12 @@
 # * No ``features:`` block — pairs strategies operate directly on price
 #   columns; the builder rejects features+PairsTrading at config time.
 
-name: gld_slv_pairs_trading
+name: ivv_voo_pairs_trading
 seed: 42
 
 data:
   source: yfinance
-  tickers: [GLD, SLV]
+  tickers: [IVV, VOO]
   start: 2018-01-02
   end: 2024-12-31
   interval: daily
@@ -36,7 +41,7 @@ strategy:
     p_value_threshold: 0.05
 
 validation:
-  n_splits: 4
+  n_splits: 3
   test_size: 252
   gap: 5
   expanding: true

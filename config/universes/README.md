@@ -42,7 +42,7 @@ GFC stress window:
 | `msft_daily_5y.yaml` | MSFT | 2020–2024 | single large-cap |
 | `jpm_daily_5y.yaml` | JPM | 2020–2024 | financial-sector single name |
 | `gld_daily_5y.yaml` | GLD | 2020–2024 | commodity ETF |
-| `gld_slv_daily_5y.yaml` | GLD, SLV | 2020–2024 | precious-metals pair |
+| `ivv_voo_daily_5y.yaml` | IVV, VOO | 2020–2024 | S&P 500 ETF pair |
 | `spy_daily_2008.yaml` | SPY | 2007–2010 | GFC stress; `holdout_pct: 0.0` |
 
 `spy_daily_2008` deliberately disables holdout — the regime IS the test;

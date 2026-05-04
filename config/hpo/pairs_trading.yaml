@@ -5,12 +5,13 @@
 #       --config config/strategies/pairs_trading.yaml \
 #       --hpo-config config/hpo/pairs_trading.yaml
 #
-# n_jobs=2 is conservative — pairs trials are CPU-light (no LSTM); raise
-# to ``-1`` on the CLI for full saturation.
+# n_jobs=1 — pairs trials are CPU-light (~0.7s each, ~21s total for 30 trials);
+# parallelism gives no speedup and joblib's process pool has been observed to
+# deadlock between the Optuna SQLite store and the parquet cache writes.
 
-study_name: gld_slv_pairs_sharpe
+study_name: ivv_voo_pairs_sharpe
 n_trials: 30
-n_jobs: 2
+n_jobs: 1
 sampler: tpe
 pruner: median
 objective: sharpe

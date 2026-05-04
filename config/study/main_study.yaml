@@ -30,7 +30,7 @@ legs:
     strategy_config: config/strategies/pairs_trading.yaml
     hpo_config: config/hpo/pairs_trading.yaml
     universes:
-      - gld_slv_daily_5y
+      - ivv_voo_daily_5y
 
   - strategy: MomentumGatekeeper
     strategy_config: config/strategies/momentum_gatekeeper_pretrained.yaml

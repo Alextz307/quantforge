@@ -314,18 +314,27 @@ def run_leg(
         # so resume logic treats the leg as done in the current invocation.
         if LEG_STEP_REGIME not in state.steps_completed:
             if regime_cfg is not None:
-                run_dir = resolve_run_dir(study_dir, run_experiment_id)
-                _logger.info("leg %s: starting regime split", leg.leg_id)
-                report, out_dir = run_regime_report(
-                    run_dir=run_dir,
-                    regime_cfg=regime_cfg,
-                    out_name=leg.leg_id,
-                    store_root=study_dir,
-                )
-                RegimeReporter().generate_full_report(
-                    report, out_dir, publish_label=f"study:regime:{leg.leg_id}"
-                )
-                _logger.info("leg %s: regime split done", leg.leg_id)
+                # Regime detectors operate on a single price series; the
+                # multi-ticker pair frame the engine consumes (close_a /
+                # close_b) has no canonical regime to split on.
+                if len(cfg.data.tickers) > 1:
+                    _logger.info(
+                        "leg %s: skipping regime split (multi-ticker pair leg)",
+                        leg.leg_id,
+                    )
+                else:
+                    run_dir = resolve_run_dir(study_dir, run_experiment_id)
+                    _logger.info("leg %s: starting regime split", leg.leg_id)
+                    report, out_dir = run_regime_report(
+                        run_dir=run_dir,
+                        regime_cfg=regime_cfg,
+                        out_name=leg.leg_id,
+                        store_root=study_dir,
+                    )
+                    RegimeReporter().generate_full_report(
+                        report, out_dir, publish_label=f"study:regime:{leg.leg_id}"
+                    )
+                    _logger.info("leg %s: regime split done", leg.leg_id)
             state = state.with_step_completed(LEG_STEP_REGIME)
 
         if LEG_STEP_HOLDOUT_EVAL not in state.steps_completed:
@@ -550,7 +559,7 @@ def _run_per_universe_compares(
 ) -> tuple[StudyState, int]:
     """Group completed runs by universe; run cross-strategy compare per universe.
 
-    Universes covered by a single strategy (e.g. gld_slv_daily_5y, the
+    Universes covered by a single strategy (e.g. ivv_voo_daily_5y, the
     only pairs universe) are silently skipped — pairwise ranking against
     one strategy is undefined.
     """

@@ -34,7 +34,7 @@ schema validation time — the orchestrator and the test suite open them.
 `main_study.yaml` — five strategies (`AdaptiveBollinger`, `PairsTrading`,
 `MomentumGatekeeper`, `VolatilityTargeting`, `ReturnForecast`) over the
 universes in `config/universes/`, with each strategy's universe list
-filtered for compatibility (e.g. only the GLD/SLV pair for
+filtered for compatibility (e.g. only the IVV/VOO pair for
 `PairsTrading`).
 
 ## Loading a spec

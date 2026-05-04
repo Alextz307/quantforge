@@ -7,6 +7,8 @@ from pathlib import Path
 
 import pandas as pd
 
+from src.core.fs import atomic_write_path
+
 
 class DataCache:
     """Local Parquet cache — no re-downloading on subsequent runs."""
@@ -35,9 +37,17 @@ class DataCache:
             raise FileNotFoundError(f"Cache miss for key: {key}") from None
 
     def save(self, key: str, df: pd.DataFrame) -> None:
-        """Save a DataFrame to cache."""
-        path = self._key_to_path(key)
-        df.to_parquet(path)
+        """Save a DataFrame to cache atomically.
+
+        Parallel HPO trials race on the same cache key. Writing directly
+        to the final path lets a reader observe a half-written parquet
+        between the writer's truncate and close — the symptom is a frame
+        with duplicated columns that breaks downstream Series ops.
+        ``atomic_write_path`` stages to a per-(pid,tid) tmp file, then
+        ``os.replace`` to commit.
+        """
+        with atomic_write_path(self._key_to_path(key)) as tmp:
+            df.to_parquet(tmp)
 
     def invalidate(self, key: str) -> None:
         """Remove a cache entry."""

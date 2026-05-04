@@ -27,7 +27,6 @@ against a mutated spec).
 from __future__ import annotations
 
 import hashlib
-import os
 from dataclasses import dataclass, replace
 from datetime import datetime
 from enum import StrEnum
@@ -35,6 +34,7 @@ from pathlib import Path
 from typing import Self
 
 from src.core import json_io
+from src.core.fs import atomic_write_path
 
 
 class LegStep(StrEnum):
@@ -200,13 +200,12 @@ def compute_spec_hash(spec_path: Path) -> str:
 def write_study_state(path: Path, state: StudyState) -> None:
     """Atomically persist ``state`` at ``path``.
 
-    Writes to ``<path>.tmp`` then ``os.replace`` so a crash mid-write
-    leaves the prior valid file intact (no half-written JSON).
+    A crash mid-write leaves the prior valid file intact (no half-written
+    JSON) — the orchestrator may take days to complete and routinely
+    survives Ctrl+C between legs.
     """
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_name(path.name + ".tmp")
-    json_io.write(tmp, state.to_dict())
-    os.replace(tmp, path)
+    with atomic_write_path(path) as tmp:
+        json_io.write(tmp, state.to_dict())
 
 
 def read_study_state(path: Path) -> StudyState:

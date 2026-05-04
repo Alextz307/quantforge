@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import threading
 from datetime import datetime
 from pathlib import Path
 
@@ -38,6 +39,7 @@ WIDE_FETCH_END = datetime(2024, 12, 31)
 
 # Cache-roundtrip dataset
 CACHE_DAY_COUNT = 3
+CONCURRENT_ITERATIONS = 30
 CACHE_VALUES = [1.0, 2.0, 3.0]
 SINGLE_VALUE = [1.0]
 
@@ -214,6 +216,53 @@ class TestDataCache:
         cache.clear()
         assert not cache.has("key1")
         assert not cache.has("key2")
+
+    def test_concurrent_save_no_partial_read(self, tmp_path: Path) -> None:
+        """Parallel HPO trials race on the same cache key; a reader between
+        truncate and close used to observe a half-written parquet whose
+        ``df[col]`` returns a DataFrame instead of a Series. Atomic
+        tmp-file + ``os.replace`` keeps the reader's view all-or-nothing.
+        """
+        cache = DataCache(cache_dir=tmp_path)
+        idx = pd.DatetimeIndex([datetime(2024, 1, i) for i in range(1, CACHE_DAY_COUNT + 1)])
+        df = pd.DataFrame({"close": CACHE_VALUES}, index=idx)
+        cache.save("k", df)
+
+        # Threading does not propagate exceptions back to the main thread,
+        # so we aggregate every failure mode (incl. AssertionError) and
+        # assert empty after join.
+        errors: list[BaseException] = []
+
+        def writer() -> None:
+            for _ in range(CONCURRENT_ITERATIONS):
+                try:
+                    cache.save("k", df)
+                except Exception as exc:  # noqa: BLE001
+                    errors.append(exc)
+
+        def reader() -> None:
+            for _ in range(CONCURRENT_ITERATIONS):
+                try:
+                    loaded = cache.load("k")
+                    assert isinstance(loaded["close"], pd.Series)
+                except Exception as exc:  # noqa: BLE001
+                    errors.append(exc)
+
+        threads = [
+            threading.Thread(target=writer),
+            threading.Thread(target=writer),
+            threading.Thread(target=reader),
+            threading.Thread(target=reader),
+        ]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert not errors, f"concurrent cache access raised: {errors}"
+
+        leftover = list(tmp_path.glob("*.tmp.*"))
+        assert not leftover, f"tmp files leaked: {leftover}"
 
 
 class TestCSVSource:
