@@ -15,10 +15,14 @@ from fastapi.testclient import TestClient
 
 from src.core import json_io
 from src.core.persistence import (
+    COMPARISONS_SUBDIR,
     EXPERIMENT_CONFIG_YAML,
     EXPERIMENT_MANIFEST_JSON,
     EXPERIMENT_METRICS_JSON,
     FOLD_RESULTS_JSONL,
+    HOLDOUT_EVAL_JSON,
+    HOLDOUT_EVALS_SUBDIR,
+    REGIME_REPORTS_SUBDIR,
 )
 from src.core.types import Interval
 from src.engine.scenarios import SlippageScenario
@@ -26,7 +30,7 @@ from webapp.backend.app.core.rate_limit import login_limiter
 from webapp.backend.app.core.settings import get_settings
 from webapp.backend.app.infrastructure.db import bootstrap_schema, open_db
 from webapp.backend.app.main import create_app
-from webapp.backend.app.services.run_service import PLOTS_DIRNAME
+from webapp.backend.app.services.plots import PLOTS_DIRNAME
 
 TEST_SECRET_KEY = secrets.token_urlsafe(48)
 
@@ -174,6 +178,167 @@ def make_synthetic_run(
     return run_dir
 
 
+def _aggregate_stats(sharpe_mean: float = 0.5) -> dict[str, object]:
+    """Synthetic per-strategy / per-regime aggregate-stats payload."""
+    return {
+        "n_folds": 3,
+        "sharpe_mean": sharpe_mean,
+        "sharpe_std": 0.1,
+        "sharpe_ci95_low": sharpe_mean - 0.2,
+        "sharpe_ci95_high": sharpe_mean + 0.2,
+        "sortino_mean": 0.7,
+        "sortino_std": 0.15,
+        "sortino_ci95_low": 0.5,
+        "sortino_ci95_high": 0.9,
+        "calmar_mean": 1.0,
+        "calmar_std": 0.2,
+        "calmar_ci95_low": 0.6,
+        "calmar_ci95_high": 1.4,
+        "total_return_mean": 0.05,
+        "total_return_std": 0.02,
+        "max_drawdown_mean": -0.05,
+        "max_drawdown_worst": -0.1,
+        "win_rate_mean": 0.55,
+        "trade_count_total": 60,
+    }
+
+
+def make_synthetic_comparison(
+    parent_dir: Path,
+    *,
+    name: str,
+    strategies: dict[str, str] | None = None,
+    created_at: datetime | None = None,
+    write_plot: bool = True,
+) -> Path:
+    """Materialize a minimal valid comparison directory under ``parent_dir``."""
+    cmp_dir = parent_dir / name
+    cmp_dir.mkdir(parents=True, exist_ok=True)
+    ts = (created_at or datetime(2026, 4, 1, tzinfo=UTC)).isoformat()
+    strategies = strategies or {
+        "AdaptiveBollinger": "20260101_120000_AdaptiveBollinger_abc1234_deadbeef",
+    }
+
+    json_io.write(
+        cmp_dir / EXPERIMENT_MANIFEST_JSON,
+        {
+            "out_name": name,
+            "created_at": ts,
+            "git_sha": "abc1234",
+            "per_strategy_experiment_id": strategies,
+            "per_strategy_stats": {s: _aggregate_stats() for s in strategies},
+        },
+    )
+
+    if write_plot:
+        plots = cmp_dir / PLOTS_DIRNAME
+        plots.mkdir(exist_ok=True)
+        (plots / PLOT_FILENAME).write_bytes(PLOT_BYTES)
+
+    return cmp_dir
+
+
+def make_synthetic_regime_report(
+    parent_dir: Path,
+    *,
+    name: str,
+    experiment_id: str = "20260101_120000_AdaptiveBollinger_abc1234_deadbeef",
+    kind: str = "trend",
+    detector_name: str = "trend",
+    regime_labels: tuple[str, ...] = ("bull", "bear"),
+    created_at: datetime | None = None,
+    write_plot: bool = True,
+) -> Path:
+    """Materialize a minimal valid regime-report directory under ``parent_dir``."""
+    report_dir = parent_dir / name
+    report_dir.mkdir(parents=True, exist_ok=True)
+    ts = (created_at or datetime(2026, 4, 2, tzinfo=UTC)).isoformat()
+
+    json_io.write(
+        report_dir / EXPERIMENT_MANIFEST_JSON,
+        {
+            "out_name": name,
+            "experiment_id": experiment_id,
+            "kind": kind,
+            "detector_name": detector_name,
+            "created_at": ts,
+            "git_sha": "abc1234",
+            "per_regime_stats": {label: _aggregate_stats() for label in regime_labels},
+            "per_regime_fold_indices": {label: [i] for i, label in enumerate(regime_labels)},
+            "mixed_fold_indices": [],
+            "slices": [
+                {
+                    "label": regime_labels[0],
+                    "start": "2020-01-01T00:00:00",
+                    "end": "2020-06-30T00:00:00",
+                }
+            ],
+        },
+    )
+
+    if write_plot:
+        plots = report_dir / PLOTS_DIRNAME
+        plots.mkdir(exist_ok=True)
+        (plots / PLOT_FILENAME).write_bytes(PLOT_BYTES)
+
+    return report_dir
+
+
+def make_synthetic_holdout_eval(
+    parent_dir: Path,
+    *,
+    name: str,
+    source_kind: str = "run",
+    source_id: str = "20260101_120000_AdaptiveBollinger_abc1234_deadbeef",
+    holdout_start: datetime | None = None,
+    created_at: datetime | None = None,
+    sharpe_ratio: float = 0.6,
+    write_plot: bool = True,
+) -> Path:
+    """Materialize a minimal valid holdout-eval directory under ``parent_dir``."""
+    eval_dir = parent_dir / name
+    eval_dir.mkdir(parents=True, exist_ok=True)
+    ts = (created_at or datetime(2026, 4, 3, tzinfo=UTC)).isoformat()
+    holdout_ts = (holdout_start or datetime(2024, 1, 1, tzinfo=UTC)).isoformat()
+
+    json_io.write(
+        eval_dir / HOLDOUT_EVAL_JSON,
+        {
+            "is_holdout_eval": True,
+            "out_name": name,
+            "source_kind": source_kind,
+            "source_id": source_id,
+            "source_path": f"experiment_results/runs/{source_id}",
+            "holdout_start": holdout_ts,
+            "data_hash": "deadbeef",
+            "git_sha": "abc1234",
+            "created_at": ts,
+            "n_dev_bars": 1000,
+            "n_holdout_bars": 200,
+            "slippage_scenario": SlippageScenario.NORMAL.value,
+            "metrics": {
+                "total_return": 0.07,
+                "annualized_return": 0.12,
+                "annualized_volatility": 0.18,
+                "sharpe_ratio": sharpe_ratio,
+                "sortino_ratio": 0.85,
+                "calmar_ratio": 1.1,
+                "max_drawdown": -0.06,
+                "win_rate": 0.56,
+                "trade_count": 25,
+            },
+            "equity_curve": [10000.0, 10100.0, 10500.0],
+        },
+    )
+
+    if write_plot:
+        plots = eval_dir / PLOTS_DIRNAME
+        plots.mkdir(exist_ok=True)
+        (plots / PLOT_FILENAME).write_bytes(PLOT_BYTES)
+
+    return eval_dir
+
+
 @pytest.fixture
 def webapp_store(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     """Synthetic store with two runs: one flat layout, one study-nested layout."""
@@ -192,6 +357,22 @@ def webapp_store(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
         strategy="PairsTrading",
         tickers=["IVV", "VOO"],
         created_at=datetime(2026, 2, 1, 9, 0, 0, tzinfo=UTC),
+    )
+    make_synthetic_comparison(
+        root / "thesis_demo" / COMPARISONS_SUBDIR,
+        name="flat_compare",
+        strategies={
+            "AdaptiveBollinger": "20260101_120000_AdaptiveBollinger_abc1234_deadbeef",
+            "PairsTrading": "20260201_090000_PairsTrading_def5678_cafebabe",
+        },
+    )
+    make_synthetic_regime_report(
+        root / "thesis_demo" / REGIME_REPORTS_SUBDIR,
+        name="flat_regime",
+    )
+    make_synthetic_holdout_eval(
+        root / "studies" / "main" / HOLDOUT_EVALS_SUBDIR,
+        name="study_holdout",
     )
     monkeypatch.setenv("WEBAPP_STORE_ROOT", str(root))
     get_settings.cache_clear()

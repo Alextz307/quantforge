@@ -23,19 +23,16 @@ from webapp.backend.app.schemas.runs import (
     RunDetail,
     RunSummary,
 )
+from webapp.backend.app.services.plots import (
+    PlotNotFoundError,
+    list_plots,
+    resolve_plot_path,
+)
 
 logger = logging.getLogger(__name__)
 
-PLOTS_DIRNAME = "plots"
 
-
-class PlotNotFoundError(LookupError):
-    """Raised when a requested plot file does not exist under a run's ``plots/``."""
-
-
-# Re-exported so the router catches all run-lookup errors via this module.
 __all__ = [
-    "PLOTS_DIRNAME",
     "PlotNotFoundError",
     "RunNotFoundError",
     "get_folds",
@@ -87,7 +84,7 @@ def get_run(root: Path, experiment_id: str) -> RunDetail:
             PretrainedLeafDTO.model_validate(r.to_dict()) for r in manifest.pretrained_leaves
         ],
         metrics=_read_metrics(run_dir),
-        plots=_list_plots(run_dir),
+        plots=list_plots(run_dir),
     )
 
 
@@ -119,12 +116,7 @@ def get_folds(root: Path, experiment_id: str) -> list[FoldRow]:
 
 def resolve_plot(root: Path, experiment_id: str, plot_name: str) -> Path:
     """Resolve a plot filename to an absolute path, blocking ``..`` traversal."""
-    run_dir = find_run_dir(root, experiment_id)
-    plots_dir = (run_dir / PLOTS_DIRNAME).resolve()
-    candidate = (plots_dir / plot_name).resolve()
-    if not candidate.is_relative_to(plots_dir) or not candidate.is_file():
-        raise PlotNotFoundError(f"plot not found: {experiment_id}/{plot_name}")
-    return candidate
+    return resolve_plot_path(find_run_dir(root, experiment_id), plot_name)
 
 
 def _summarize(run_dir: Path, root: Path) -> RunSummary:
@@ -150,10 +142,3 @@ def _summarize(run_dir: Path, root: Path) -> RunSummary:
 def _read_metrics(run_dir: Path) -> dict[str, float]:
     raw = json_io.read_dict(run_dir / EXPERIMENT_METRICS_JSON)
     return {k: float(v) for k, v in raw.items() if isinstance(v, (int, float))}
-
-
-def _list_plots(run_dir: Path) -> list[str]:
-    plots_dir = run_dir / PLOTS_DIRNAME
-    if not plots_dir.is_dir():
-        return []
-    return sorted(p.name for p in plots_dir.iterdir() if p.is_file())
