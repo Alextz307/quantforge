@@ -48,11 +48,15 @@ class DataNormalizer:
         """
         result = df.copy()
 
-        # Apply column renaming if mapping exists
+        # yfinance returns a (metric, ticker) MultiIndex even for single-ticker
+        # downloads in newer versions. Drop the ticker level so the rename map
+        # matches against flat column names.
+        if isinstance(result.columns, pd.MultiIndex):
+            result.columns = result.columns.get_level_values(0)
+
         if self._mapping:
             result = result.rename(columns=self._mapping)
 
-        # Lowercase all remaining columns
         result.columns = pd.Index([str(c).lower() for c in result.columns])
 
         # Ensure DatetimeIndex
@@ -64,10 +68,8 @@ class DataNormalizer:
                 result = result.set_index("timestamp")
                 result.index = pd.DatetimeIndex(result.index)
 
-        # Sort by time
         result = result.sort_index()
 
-        # Validate required columns exist
         missing = self.REQUIRED_COLUMNS - set(result.columns)
         if missing:
             raise ValueError(
@@ -76,5 +78,13 @@ class DataNormalizer:
                 f"upstream source to emit the OHLCV columns or by adding a "
                 f"per-source rename map covering the missing names."
             )
+
+        # auto_adjust=True (yfinance) rescales close for splits/dividends but
+        # leaves high/low approximate, occasionally violating the OHLC ordering
+        # invariant by tiny noise. Snap the envelope so downstream consumers
+        # (validator, indicators, C++ engine) see internally consistent bars.
+        if not result.empty:
+            result["high"] = result[["open", "high", "close"]].max(axis=1)
+            result["low"] = result[["open", "low", "close"]].min(axis=1)
 
         return result

@@ -550,9 +550,9 @@ def _run_per_universe_compares(
 ) -> tuple[StudyState, int]:
     """Group completed runs by universe; run cross-strategy compare per universe.
 
-    Universes covered by a single strategy (e.g. eurusd in the main
-    spec) are silently skipped — pairwise ranking against one strategy
-    is undefined.
+    Universes covered by a single strategy (e.g. gld_slv_daily_5y, the
+    only pairs universe) are silently skipped — pairwise ranking against
+    one strategy is undefined.
     """
     by_universe: dict[str, list[StudyLegRun]] = {}
     for leg in legs:

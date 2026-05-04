@@ -44,9 +44,9 @@ from tests.conftest import REPO_ROOT
 MAIN_STUDY_PATH = REPO_ROOT / "config" / "study" / "main_study.yaml"
 
 # Spec-derived counts (kept beside the spec path so a spec edit updates one
-# place). main_study composition: AdaptiveBollinger(12) + PairsTrading(1) +
-# MomentumGatekeeper(9) + VolatilityTargeting(9) + ReturnForecast(9) = 40.
-EXPECTED_MAIN_STUDY_LEG_COUNT = 40
+# place). main_study composition: AdaptiveBollinger(11) + PairsTrading(1) +
+# MomentumGatekeeper(9) + VolatilityTargeting(9) + ReturnForecast(9) = 39.
+EXPECTED_MAIN_STUDY_LEG_COUNT = 39
 # 9 universes * 3 ML-bearing strategies (Momentum, ReturnForecast,
 # VolatilityTargeting) = 27 (universe, leaf_key) pairs.
 EXPECTED_MAIN_STUDY_PRETRAINED_PAIR_COUNT = 27

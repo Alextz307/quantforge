@@ -1,8 +1,0 @@
-data:
-  source: yfinance
-  tickers: [EURUSD=X]
-  start: 2020-01-01
-  end: 2024-12-31
-  interval: daily
-validation:
-  holdout_pct: 0.20

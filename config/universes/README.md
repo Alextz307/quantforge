@@ -27,8 +27,8 @@ profiles intentionally only fix the data fetch and the holdout.
 
 ## Inventory
 
-Thirteen profiles cover index ETFs, single large-caps, commodity, FX,
-and a GFC stress window:
+Twelve profiles cover index ETFs, single large-caps, commodity, and a
+GFC stress window:
 
 | File | Tickers | Range | Notes |
 | --- | --- | --- | --- |
@@ -43,7 +43,6 @@ and a GFC stress window:
 | `jpm_daily_5y.yaml` | JPM | 2020–2024 | financial-sector single name |
 | `gld_daily_5y.yaml` | GLD | 2020–2024 | commodity ETF |
 | `gld_slv_daily_5y.yaml` | GLD, SLV | 2020–2024 | precious-metals pair |
-| `eurusd_daily_5y.yaml` | EURUSD=X | 2020–2024 | FX rate |
 | `spy_daily_2008.yaml` | SPY | 2007–2010 | GFC stress; `holdout_pct: 0.0` |
 
 `spy_daily_2008` deliberately disables holdout — the regime IS the test;

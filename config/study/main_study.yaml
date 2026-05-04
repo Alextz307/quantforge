@@ -1,7 +1,7 @@
 name: main_study
 description: >
-  Empirical study — five strategies evaluated across thirteen universes
-  (index ETFs, single large-caps, commodity, FX, GFC stress window). Each leg
+  Empirical study — five strategies evaluated across twelve universes
+  (index ETFs, single large-caps, commodity, GFC stress window). Each leg
   is composed by deep-merging a universe profile (config/universes/<name>.yaml)
   onto the strategy YAML, then running HPO + cross-strategy comparison + regime
   split + holdout-eval. Pretrained-leaf workflows are used for ML-bearing
@@ -24,7 +24,6 @@ legs:
       - msft_daily_5y
       - jpm_daily_5y
       - gld_daily_5y
-      - eurusd_daily_5y
       - spy_daily_2008
 
   - strategy: PairsTrading
