@@ -47,7 +47,7 @@ pretrained_leaves:
   directional_classifier: experiment_results/models/spy_xgb_directional_2024q4
 
 validation:
-  n_splits: 4
+  n_splits: 3
   test_size: 252
   gap: 5
   expanding: true

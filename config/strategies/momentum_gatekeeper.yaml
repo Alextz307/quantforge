@@ -46,7 +46,7 @@ strategy:
     val_split_ratio: 0.2
 
 validation:
-  n_splits: 4
+  n_splits: 3
   test_size: 252
   gap: 5
   expanding: true

@@ -58,7 +58,7 @@ pretrained_leaves:
   vol_model: experiment_results/models/spy_hybrid_volatility_2024q4
 
 validation:
-  n_splits: 4
+  n_splits: 3
   test_size: 252
   gap: 5
   expanding: true

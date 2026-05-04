@@ -27,7 +27,7 @@ strategy:
     garch_q_max: 3
 
 validation:
-  n_splits: 4
+  n_splits: 3
   test_size: 252
   gap: 5
   expanding: true
