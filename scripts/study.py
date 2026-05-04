@@ -28,6 +28,7 @@ import click
 from pydantic import ValidationError
 
 from src.core.exceptions import LeakageError
+from src.core.logging import attach_cli_log_file
 from src.core.regime_config import RegimeConfig, load_regime_config
 from src.orchestration.study import run_study, train_leaves
 from src.orchestration.study_report import consolidate_study
@@ -116,39 +117,41 @@ def run_cmd(
                 f"failed to load regime config {regime_config_path}: {e}"
             ) from e
 
-    click.echo(
-        f"running study from spec '{spec_path}' "
-        f"(store_root={store_root}, regime={'yes' if regime_cfg is not None else 'no'}, "
-        f"force_rerun={force_rerun}, only_legs={list(only_legs) or 'all'}, "
-        f"skip_compares={skip_compares}, skip_holdout_eval={skip_holdout_eval}) ..."
-    )
-    try:
-        result = run_study(
-            spec_path,
-            store_root=store_root,
-            regime_cfg=regime_cfg,
-            force_rerun=force_rerun,
-            only_legs=list(only_legs) if only_legs else None,
-            skip_compares=skip_compares,
-            skip_holdout_eval=skip_holdout_eval,
+    with attach_cli_log_file(store_root, "study_run") as log_path:
+        click.echo(
+            f"running study from spec '{spec_path}' "
+            f"(store_root={store_root}, regime={'yes' if regime_cfg is not None else 'no'}, "
+            f"force_rerun={force_rerun}, only_legs={list(only_legs) or 'all'}, "
+            f"skip_compares={skip_compares}, skip_holdout_eval={skip_holdout_eval}) "
+            f"→ log: {log_path}"
         )
-    except LeakageError as e:
-        raise click.ClickException(f"leakage tripwire fired: {e}") from e
-    except (ValidationError, FileNotFoundError, ValueError, RuntimeError) as e:
-        raise click.ClickException(f"study run failed: {e}") from e
+        try:
+            result = run_study(
+                spec_path,
+                store_root=store_root,
+                regime_cfg=regime_cfg,
+                force_rerun=force_rerun,
+                only_legs=list(only_legs) if only_legs else None,
+                skip_compares=skip_compares,
+                skip_holdout_eval=skip_holdout_eval,
+            )
+        except LeakageError as e:
+            raise click.ClickException(f"leakage tripwire fired: {e}") from e
+        except (ValidationError, FileNotFoundError, ValueError, RuntimeError) as e:
+            raise click.ClickException(f"study run failed: {e}") from e
 
-    click.echo(f"study_dir:    {result.study_dir}")
-    click.echo(f"completed:    {result.n_legs_completed}")
-    click.echo(f"failed:       {result.n_legs_failed}")
-    click.echo(f"skipped:      {result.n_legs_skipped}")
-    click.echo(f"compares:     {result.n_compares_done}")
-    if result.n_legs_failed > 0:
-        # Surface failure as a non-zero exit so CI / scripts catch it.
-        raise click.ClickException(
-            f"{result.n_legs_failed} leg(s) failed — inspect study_state.json "
-            f"under {result.study_dir} for per-leg error messages, then rerun "
-            f"the same command to retry."
-        )
+        click.echo(f"study_dir:    {result.study_dir}")
+        click.echo(f"completed:    {result.n_legs_completed}")
+        click.echo(f"failed:       {result.n_legs_failed}")
+        click.echo(f"skipped:      {result.n_legs_skipped}")
+        click.echo(f"compares:     {result.n_compares_done}")
+        if result.n_legs_failed > 0:
+            # Surface failure as a non-zero exit so CI / scripts catch it.
+            raise click.ClickException(
+                f"{result.n_legs_failed} leg(s) failed — inspect study_state.json "
+                f"under {result.study_dir} for per-leg error messages, then rerun "
+                f"the same command to retry."
+            )
 
 
 @study.command("train-leaves")
@@ -173,11 +176,14 @@ def train_leaves_cmd(spec_path: Path, store_root: Path) -> None:
     failure (e.g. a yfinance rate limit), rerun the same command — the
     skip-on-existing logic acts as resume.
     """
-    click.echo(f"training leaves from spec '{spec_path}' (store_root={store_root}) ...")
-    try:
-        statuses = train_leaves(spec_path, store_root=store_root)
-    except (ValidationError, FileNotFoundError, ValueError, RuntimeError) as e:
-        raise click.ClickException(f"train-leaves failed: {e}") from e
+    with attach_cli_log_file(store_root, "train_leaves") as log_path:
+        click.echo(
+            f"training leaves from spec '{spec_path}' (store_root={store_root}) → log: {log_path}"
+        )
+        try:
+            statuses = train_leaves(spec_path, store_root=store_root)
+        except (ValidationError, FileNotFoundError, ValueError, RuntimeError) as e:
+            raise click.ClickException(f"train-leaves failed: {e}") from e
 
     n_trained = sum(1 for v in statuses.values() if v == "trained")
     n_skipped = sum(1 for v in statuses.values() if v == "skipped")
@@ -224,18 +230,19 @@ def report_cmd(study_dir: Path, publish_label: str | None) -> None:
     plot copies. Read-only with respect to the per-leg tree — safe
     to rerun.
     """
-    click.echo(f"consolidating study at {study_dir} ...")
-    try:
-        report = consolidate_study(study_dir)
-    except (FileNotFoundError, ValueError) as e:
-        raise click.ClickException(f"consolidation failed: {e}") from e
+    with attach_cli_log_file(study_dir, "study_report") as log_path:
+        click.echo(f"consolidating study at {study_dir} → log: {log_path}")
+        try:
+            report = consolidate_study(study_dir)
+        except (FileNotFoundError, ValueError) as e:
+            raise click.ClickException(f"consolidation failed: {e}") from e
 
-    StudyReportReporter().generate_full_report(report, study_dir, publish_label=publish_label)
-    click.echo(f"study_name:       {report.study_name}")
-    click.echo(f"strategies:       {len(report.strategies)}")
-    click.echo(f"universes:        {len(report.universes)}")
-    click.echo(f"completed legs:   {len(report.per_leg_aggregate)}")
-    click.echo(f"incomplete legs:  {len(report.incomplete_leg_ids)}")
-    click.echo(f"legs w/ regime:   {len(report.per_leg_regime)}")
-    click.echo(f"legs w/ holdout:  {len(report.per_leg_holdout)}")
-    click.echo(f"output:           {study_dir}")
+        StudyReportReporter().generate_full_report(report, study_dir, publish_label=publish_label)
+        click.echo(f"study_name:       {report.study_name}")
+        click.echo(f"strategies:       {len(report.strategies)}")
+        click.echo(f"universes:        {len(report.universes)}")
+        click.echo(f"completed legs:   {len(report.per_leg_aggregate)}")
+        click.echo(f"incomplete legs:  {len(report.incomplete_leg_ids)}")
+        click.echo(f"legs w/ regime:   {len(report.per_leg_regime)}")
+        click.echo(f"legs w/ holdout:  {len(report.per_leg_holdout)}")
+        click.echo(f"output:           {study_dir}")

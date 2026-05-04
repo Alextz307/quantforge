@@ -46,7 +46,7 @@ from src.core.config import (
 from src.core.config_overrides import apply_overrides
 from src.core.exceptions import LeakageError
 from src.core.hpo_config import HPOConfig, load_hpo_config
-from src.core.logging import get_logger
+from src.core.logging import CLI_LOG_FORMAT, attach_cli_log_file, get_logger
 from src.core.persistence import (
     COMPARISONS_SUBDIR,
     HOLDOUT_EVALS_SUBDIR,
@@ -91,10 +91,7 @@ logger = get_logger(__name__)
 )
 def cli(log_level: str) -> None:
     """Quant-engine experiment orchestrator."""
-    logging.basicConfig(
-        level=log_level.upper(),
-        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
-    )
+    logging.basicConfig(level=log_level.upper(), format=CLI_LOG_FORMAT)
 
 
 @cli.command("run")
@@ -177,40 +174,44 @@ def run_cmd(
     publish_label: str | None,
 ) -> None:
     """Execute a single walk-forward experiment end-to-end."""
-    try:
-        cfg = load_experiment_config(config_path)
-    except (ValidationError, FileNotFoundError, ValueError) as e:
-        raise click.ClickException(f"failed to load config {config_path}: {e}") from e
+    with attach_cli_log_file(store_root, "experiment_run") as log_path:
+        try:
+            cfg = load_experiment_config(config_path)
+        except (ValidationError, FileNotFoundError, ValueError) as e:
+            raise click.ClickException(f"failed to load config {config_path}: {e}") from e
 
-    if name is not None or seed is not None:
-        cfg = _override_experiment(cfg, name=name, seed=seed)
-    cfg = _apply_dotted_overrides(cfg, overrides)
+        if name is not None or seed is not None:
+            cfg = _override_experiment(cfg, name=name, seed=seed)
+        cfg = _apply_dotted_overrides(cfg, overrides)
 
-    try:
-        experiment = build_experiment(cfg)
-    except (ValidationError, ValueError) as e:
-        raise click.ClickException(f"failed to build experiment: {e}") from e
+        try:
+            experiment = build_experiment(cfg)
+        except (ValidationError, ValueError) as e:
+            raise click.ClickException(f"failed to build experiment: {e}") from e
 
-    click.echo(f"running experiment '{cfg.name}' ({cfg.strategy.name} × {cfg.data.tickers[0]}) ...")
-    try:
-        result = experiment.run(
-            RunOptions(
-                store_root=store_root,
-                write_report=write_report,
-                progress=progress,
-                checkpoint=checkpoint,
-                publish_label=publish_label,
-            )
+        click.echo(
+            f"running experiment '{cfg.name}' ({cfg.strategy.name} × {cfg.data.tickers[0]}) "
+            f"→ log: {log_path}"
         )
-    except LeakageError as e:
-        raise click.ClickException(f"leakage tripwire fired: {e}") from e
-    except (NotImplementedError, ValueError, RuntimeError) as e:
-        raise click.ClickException(f"experiment failed: {e}") from e
+        try:
+            result = experiment.run(
+                RunOptions(
+                    store_root=store_root,
+                    write_report=write_report,
+                    progress=progress,
+                    checkpoint=checkpoint,
+                    publish_label=publish_label,
+                )
+            )
+        except LeakageError as e:
+            raise click.ClickException(f"leakage tripwire fired: {e}") from e
+        except (NotImplementedError, ValueError, RuntimeError) as e:
+            raise click.ClickException(f"experiment failed: {e}") from e
 
-    run_dir = store_root / RUNS_SUBDIR / result.experiment_id
-    click.echo(f"experiment_id: {result.experiment_id}")
-    click.echo(f"artifacts:    {run_dir}")
-    click.echo(f"folds:        {len(result.folds)}")
+        run_dir = store_root / RUNS_SUBDIR / result.experiment_id
+        click.echo(f"experiment_id: {result.experiment_id}")
+        click.echo(f"artifacts:    {run_dir}")
+        click.echo(f"folds:        {len(result.folds)}")
 
 
 @cli.command("train-model")
@@ -261,40 +262,41 @@ def train_model_cmd(
     — `experiment run --config strategy.yaml` with a matching ``pretrained_leaves``
     entry will load this model frozen into the strategy.
     """
-    try:
-        cfg = load_standalone_model_config(config_path)
-    except (ValidationError, FileNotFoundError, ValueError) as e:
-        raise click.ClickException(f"failed to load config {config_path}: {e}") from e
+    with attach_cli_log_file(store_root, "train_model") as log_path:
+        try:
+            cfg = load_standalone_model_config(config_path)
+        except (ValidationError, FileNotFoundError, ValueError) as e:
+            raise click.ClickException(f"failed to load config {config_path}: {e}") from e
 
-    if name is not None or seed is not None:
-        cfg = _override_standalone(cfg, name=name, seed=seed)
-    cfg = _apply_dotted_overrides(cfg, overrides)
+        if name is not None or seed is not None:
+            cfg = _override_standalone(cfg, name=name, seed=seed)
+        cfg = _apply_dotted_overrides(cfg, overrides)
 
-    click.echo(
-        f"training model '{cfg.name}' ({cfg.model.name} / "
-        f"{cfg.model_kind.value}) on {cfg.data.tickers}..."
-    )
-    try:
-        trained = train_model_standalone(cfg)
-    except (NotImplementedError, ValueError, RuntimeError) as e:
-        raise click.ClickException(f"standalone training failed: {e}") from e
-
-    artifact_dir = store_root / MODELS_SUBDIR / cfg.name
-    try:
-        save_model_artifact(
-            artifact_dir,
-            model=trained.model,
-            manifest=trained.manifest,
-            config=cfg,
+        click.echo(
+            f"training model '{cfg.name}' ({cfg.model.name} / "
+            f"{cfg.model_kind.value}) on {cfg.data.tickers} → log: {log_path}"
         )
-    except FileExistsError as e:
-        raise click.ClickException(
-            f"artifact path {artifact_dir} already exists and is non-empty; "
-            f"choose a fresh --name or delete the existing directory. ({e})"
-        ) from e
+        try:
+            trained = train_model_standalone(cfg)
+        except (NotImplementedError, ValueError, RuntimeError) as e:
+            raise click.ClickException(f"standalone training failed: {e}") from e
 
-    click.echo(f"artifact:  {artifact_dir}")
-    click.echo(f"data_hash: {trained.manifest.data_hash[:12]}...")
+        artifact_dir = store_root / MODELS_SUBDIR / cfg.name
+        try:
+            save_model_artifact(
+                artifact_dir,
+                model=trained.model,
+                manifest=trained.manifest,
+                config=cfg,
+            )
+        except FileExistsError as e:
+            raise click.ClickException(
+                f"artifact path {artifact_dir} already exists and is non-empty; "
+                f"choose a fresh --name or delete the existing directory. ({e})"
+            ) from e
+
+        click.echo(f"artifact:  {artifact_dir}")
+        click.echo(f"data_hash: {trained.manifest.data_hash[:12]}...")
     click.echo(f"git_sha:   {trained.manifest.git_sha}")
 
 
@@ -437,48 +439,51 @@ def tune_cmd(
     from src.optimization.tuner import StrategyTuner
     from src.visualization.hpo_reporter import HPOReporter
 
-    try:
-        experiment_cfg = load_experiment_config(config_path)
-    except (ValidationError, FileNotFoundError, ValueError) as e:
-        raise click.ClickException(f"failed to load experiment config {config_path}: {e}") from e
-    try:
-        hpo_cfg = load_hpo_config(hpo_config_path)
-    except (ValidationError, FileNotFoundError, ValueError) as e:
-        raise click.ClickException(f"failed to load hpo config {hpo_config_path}: {e}") from e
+    with attach_cli_log_file(store_root, "experiment_tune") as log_path:
+        try:
+            experiment_cfg = load_experiment_config(config_path)
+        except (ValidationError, FileNotFoundError, ValueError) as e:
+            raise click.ClickException(
+                f"failed to load experiment config {config_path}: {e}"
+            ) from e
+        try:
+            hpo_cfg = load_hpo_config(hpo_config_path)
+        except (ValidationError, FileNotFoundError, ValueError) as e:
+            raise click.ClickException(f"failed to load hpo config {hpo_config_path}: {e}") from e
 
-    experiment_cfg = _apply_dotted_overrides(experiment_cfg, overrides)
-    hpo_cfg = _apply_hpo_overrides(hpo_cfg, n_trials=n_trials_override, n_jobs=n_jobs_override)
+        experiment_cfg = _apply_dotted_overrides(experiment_cfg, overrides)
+        hpo_cfg = _apply_hpo_overrides(hpo_cfg, n_trials=n_trials_override, n_jobs=n_jobs_override)
 
-    tuner = StrategyTuner(
-        experiment_cfg=experiment_cfg,
-        hpo_cfg=hpo_cfg,
-        store_root=store_root,
-    )
+        tuner = StrategyTuner(
+            experiment_cfg=experiment_cfg,
+            hpo_cfg=hpo_cfg,
+            store_root=store_root,
+        )
 
-    click.echo(
-        f"tuning '{experiment_cfg.strategy.name}' on study '{hpo_cfg.study_name}' "
-        f"for {hpo_cfg.n_trials} trial(s) (n_jobs={hpo_cfg.n_jobs}) ..."
-    )
-    try:
-        study = tuner.run(progress=progress)
-    except LeakageError as e:
-        raise click.ClickException(f"leakage tripwire fired: {e}") from e
-    except (NotImplementedError, ValueError, RuntimeError) as e:
-        raise click.ClickException(f"tuning failed: {e}") from e
+        click.echo(
+            f"tuning '{experiment_cfg.strategy.name}' on study '{hpo_cfg.study_name}' "
+            f"for {hpo_cfg.n_trials} trial(s) (n_jobs={hpo_cfg.n_jobs}) → log: {log_path}"
+        )
+        try:
+            study = tuner.run(progress=progress)
+        except LeakageError as e:
+            raise click.ClickException(f"leakage tripwire fired: {e}") from e
+        except (NotImplementedError, ValueError, RuntimeError) as e:
+            raise click.ClickException(f"tuning failed: {e}") from e
 
-    if write_report:
-        HPOReporter().generate_full_report(study, tuner.study_dir)
+        if write_report:
+            HPOReporter().generate_full_report(study, tuner.study_dir)
 
-    study_dir = store_root / HPO_SUBDIR / hpo_cfg.study_name
-    click.echo(f"study_name:  {study.study_name}")
-    click.echo(f"artifacts:   {study_dir}")
-    click.echo(f"trials:      {len(study.trials)}")
-    try:
-        best = study.best_trial
-        click.echo(f"best_value:  {best.value}")
-        click.echo(f"best_trial:  {best.number}")
-    except ValueError:
-        click.echo("best_value:  n/a (no completed trials)")
+        study_dir = store_root / HPO_SUBDIR / hpo_cfg.study_name
+        click.echo(f"study_name:  {study.study_name}")
+        click.echo(f"artifacts:   {study_dir}")
+        click.echo(f"trials:      {len(study.trials)}")
+        try:
+            best = study.best_trial
+            click.echo(f"best_value:  {best.value}")
+            click.echo(f"best_trial:  {best.number}")
+        except ValueError:
+            click.echo("best_value:  n/a (no completed trials)")
 
 
 @cli.command("compare")
@@ -592,65 +597,66 @@ def compare_cmd(
             f"pass the option multiple times."
         )
 
-    configs: list[ExperimentConfig] = []
-    for path in config_paths:
-        try:
-            cfg = load_experiment_config(path)
-        except (ValidationError, FileNotFoundError, ValueError) as e:
-            raise click.ClickException(f"failed to load config {path}: {e}") from e
-        configs.append(_apply_dotted_overrides(cfg, overrides))
+    with attach_cli_log_file(store_root, "experiment_compare") as log_path:
+        configs: list[ExperimentConfig] = []
+        for path in config_paths:
+            try:
+                cfg = load_experiment_config(path)
+            except (ValidationError, FileNotFoundError, ValueError) as e:
+                raise click.ClickException(f"failed to load config {path}: {e}") from e
+            configs.append(_apply_dotted_overrides(cfg, overrides))
 
-    regime_cfg = None
-    if regime_config_path is not None:
-        try:
-            regime_cfg = load_regime_config(regime_config_path)
-        except (ValidationError, FileNotFoundError, ValueError) as e:
-            raise click.ClickException(
-                f"failed to load regime config {regime_config_path}: {e}"
-            ) from e
+        regime_cfg = None
+        if regime_config_path is not None:
+            try:
+                regime_cfg = load_regime_config(regime_config_path)
+            except (ValidationError, FileNotFoundError, ValueError) as e:
+                raise click.ClickException(
+                    f"failed to load regime config {regime_config_path}: {e}"
+                ) from e
 
-    reused_results, reused_data_cfg = _load_reused_runs(
-        reuse_runs, n_configs=len(configs), needs_data_cfg=regime_cfg is not None
-    )
-
-    sig = SignificanceTest(significance_test)
-    click.echo(
-        f"comparing {len(configs)} strategies under '{out_name}' "
-        f"(n_jobs={n_jobs}, significance={sig.value}, "
-        f"regime={regime_cfg.detector.name if regime_cfg is not None else 'none'}, "
-        f"reuse={'yes' if reused_results is not None else 'no'}) ..."
-    )
-    try:
-        report, folds_by_strategy = run_comparison(
-            configs,
-            out_name=out_name,
-            store_root=store_root,
-            n_jobs=n_jobs,
-            significance_test=sig,
-            regime_config=regime_cfg,
-            reused_results=reused_results,
-            reused_data_cfg=reused_data_cfg,
-        )
-    except LeakageError as e:
-        raise click.ClickException(f"leakage tripwire fired: {e}") from e
-    except (NotImplementedError, ValueError, RuntimeError) as e:
-        raise click.ClickException(f"comparison failed: {e}") from e
-
-    cmp_dir = store_root / COMPARISONS_SUBDIR / out_name
-    if write_report:
-        ComparisonReporter().generate_full_report(
-            report,
-            cmp_dir,
-            folds_by_strategy=folds_by_strategy,
-            publish_label=publish_label,
+        reused_results, reused_data_cfg = _load_reused_runs(
+            reuse_runs, n_configs=len(configs), needs_data_cfg=regime_cfg is not None
         )
 
-    click.echo(f"out_name:   {report.out_name}")
-    click.echo(f"artifacts:  {cmp_dir}")
-    click.echo(f"strategies: {', '.join(report.per_strategy_stats.keys())}")
-    if report.pairwise:
-        n_sig = sum(1 for p in report.pairwise if p.significant)
-        click.echo(f"pairwise:   {len(report.pairwise)} comparisons, {n_sig} significant")
+        sig = SignificanceTest(significance_test)
+        click.echo(
+            f"comparing {len(configs)} strategies under '{out_name}' "
+            f"(n_jobs={n_jobs}, significance={sig.value}, "
+            f"regime={regime_cfg.detector.name if regime_cfg is not None else 'none'}, "
+            f"reuse={'yes' if reused_results is not None else 'no'}) → log: {log_path}"
+        )
+        try:
+            report, folds_by_strategy = run_comparison(
+                configs,
+                out_name=out_name,
+                store_root=store_root,
+                n_jobs=n_jobs,
+                significance_test=sig,
+                regime_config=regime_cfg,
+                reused_results=reused_results,
+                reused_data_cfg=reused_data_cfg,
+            )
+        except LeakageError as e:
+            raise click.ClickException(f"leakage tripwire fired: {e}") from e
+        except (NotImplementedError, ValueError, RuntimeError) as e:
+            raise click.ClickException(f"comparison failed: {e}") from e
+
+        cmp_dir = store_root / COMPARISONS_SUBDIR / out_name
+        if write_report:
+            ComparisonReporter().generate_full_report(
+                report,
+                cmp_dir,
+                folds_by_strategy=folds_by_strategy,
+                publish_label=publish_label,
+            )
+
+        click.echo(f"out_name:   {report.out_name}")
+        click.echo(f"artifacts:  {cmp_dir}")
+        click.echo(f"strategies: {', '.join(report.per_strategy_stats.keys())}")
+        if report.pairwise:
+            n_sig = sum(1 for p in report.pairwise if p.significant)
+            click.echo(f"pairwise:   {len(report.pairwise)} comparisons, {n_sig} significant")
 
 
 @cli.command("regime")
@@ -712,34 +718,37 @@ def regime_cmd(
     """
     from src.visualization.regime_reporter import RegimeReporter
 
-    try:
-        regime_cfg = load_regime_config(regime_config_path)
-    except (ValidationError, FileNotFoundError, ValueError) as e:
-        raise click.ClickException(f"failed to load regime config {regime_config_path}: {e}") from e
+    with attach_cli_log_file(store_root, "experiment_regime") as log_path:
+        try:
+            regime_cfg = load_regime_config(regime_config_path)
+        except (ValidationError, FileNotFoundError, ValueError) as e:
+            raise click.ClickException(
+                f"failed to load regime config {regime_config_path}: {e}"
+            ) from e
 
-    run_dir = resolve_run_dir(store_root, experiment_id)
-    click.echo(
-        f"analysing experiment '{experiment_id}' with detector "
-        f"'{regime_cfg.detector.name}' (--out-name '{out_name}') ..."
-    )
-    try:
-        report, out_dir = run_regime_report(
-            run_dir=run_dir,
-            regime_cfg=regime_cfg,
-            out_name=out_name,
-            store_root=store_root,
+        run_dir = resolve_run_dir(store_root, experiment_id)
+        click.echo(
+            f"analysing experiment '{experiment_id}' with detector "
+            f"'{regime_cfg.detector.name}' (--out-name '{out_name}') → log: {log_path}"
         )
-    except (FileNotFoundError, NotImplementedError, ValueError, RuntimeError) as e:
-        raise click.ClickException(f"regime analysis failed: {e}") from e
+        try:
+            report, out_dir = run_regime_report(
+                run_dir=run_dir,
+                regime_cfg=regime_cfg,
+                out_name=out_name,
+                store_root=store_root,
+            )
+        except (FileNotFoundError, NotImplementedError, ValueError, RuntimeError) as e:
+            raise click.ClickException(f"regime analysis failed: {e}") from e
 
-    if write_report:
-        RegimeReporter().generate_full_report(report, out_dir, publish_label=publish_label)
+        if write_report:
+            RegimeReporter().generate_full_report(report, out_dir, publish_label=publish_label)
 
-    click.echo(f"out_name:  {report.out_name}")
-    click.echo(f"artifacts: {out_dir}")
-    click.echo(f"regimes:   {', '.join(report.per_regime_stats.keys()) or '(none)'}")
-    if report.mixed_fold_indices:
-        click.echo(f"mixed:     {len(report.mixed_fold_indices)} fold(s)")
+        click.echo(f"out_name:  {report.out_name}")
+        click.echo(f"artifacts: {out_dir}")
+        click.echo(f"regimes:   {', '.join(report.per_regime_stats.keys()) or '(none)'}")
+        if report.mixed_fold_indices:
+            click.echo(f"mixed:     {len(report.mixed_fold_indices)} fold(s)")
 
 
 @cli.command("holdout-eval")
@@ -817,42 +826,49 @@ def holdout_eval_cmd(
             "holdout-eval requires exactly one of --run-dir / --hpo-best; pass exactly one source."
         )
 
-    try:
-        source = resolve_source(run_dir=run_dir, hpo_dir=hpo_dir)
-    except (FileNotFoundError, ValueError) as e:
-        raise click.ClickException(f"failed to resolve source: {e}") from e
+    with attach_cli_log_file(store_root, "holdout_eval") as log_path:
+        try:
+            source = resolve_source(run_dir=run_dir, hpo_dir=hpo_dir)
+        except (FileNotFoundError, ValueError) as e:
+            raise click.ClickException(f"failed to resolve source: {e}") from e
 
-    resolved_out_name = out_name if out_name is not None else source.source_id
-    click.echo(
-        f"holdout-eval: source={source.kind} '{source.source_id}' "
-        f"-> out_name='{resolved_out_name}' ..."
-    )
-    try:
-        result, out_dir = run_holdout_eval(
-            source=source,
-            out_name=resolved_out_name,
-            store_root=store_root,
+        resolved_out_name = out_name if out_name is not None else source.source_id
+        click.echo(
+            f"holdout-eval: source={source.kind} '{source.source_id}' "
+            f"-> out_name='{resolved_out_name}' → log: {log_path}"
         )
-    except LeakageError as e:
-        raise click.ClickException(f"leakage tripwire fired: {e}") from e
-    except (FileNotFoundError, ValidationError, NotImplementedError, ValueError, RuntimeError) as e:
-        raise click.ClickException(f"holdout-eval failed: {e}") from e
+        try:
+            result, out_dir = run_holdout_eval(
+                source=source,
+                out_name=resolved_out_name,
+                store_root=store_root,
+            )
+        except LeakageError as e:
+            raise click.ClickException(f"leakage tripwire fired: {e}") from e
+        except (
+            FileNotFoundError,
+            ValidationError,
+            NotImplementedError,
+            ValueError,
+            RuntimeError,
+        ) as e:
+            raise click.ClickException(f"holdout-eval failed: {e}") from e
 
-    if write_report:
-        # Lazy: matplotlib's cold import is ~4s; --no-report skips it.
-        from src.visualization.holdout_eval_reporter import HoldoutEvalReporter
+        if write_report:
+            # Lazy: matplotlib's cold import is ~4s; --no-report skips it.
+            from src.visualization.holdout_eval_reporter import HoldoutEvalReporter
 
-        HoldoutEvalReporter().generate_full_report(result, out_dir, publish_label=publish_label)
+            HoldoutEvalReporter().generate_full_report(result, out_dir, publish_label=publish_label)
 
-    artifact_dir = store_root / HOLDOUT_EVALS_SUBDIR / resolved_out_name
-    click.echo(f"out_name:        {result.out_name}")
-    click.echo(f"artifacts:       {artifact_dir}")
-    click.echo(f"holdout_start:   {result.holdout_start.isoformat()}")
-    click.echo(f"dev_bars:        {result.n_dev_bars}")
-    click.echo(f"holdout_bars:    {result.n_holdout_bars}")
-    click.echo(f"sharpe:          {result.sharpe_ratio:+.4f}")
-    click.echo(f"total_return:    {result.total_return:+.4f}")
-    click.echo(f"max_drawdown:    {result.max_drawdown:+.4f}")
+        artifact_dir = store_root / HOLDOUT_EVALS_SUBDIR / resolved_out_name
+        click.echo(f"out_name:        {result.out_name}")
+        click.echo(f"artifacts:       {artifact_dir}")
+        click.echo(f"holdout_start:   {result.holdout_start.isoformat()}")
+        click.echo(f"dev_bars:        {result.n_dev_bars}")
+        click.echo(f"holdout_bars:    {result.n_holdout_bars}")
+        click.echo(f"sharpe:          {result.sharpe_ratio:+.4f}")
+        click.echo(f"total_return:    {result.total_return:+.4f}")
+        click.echo(f"max_drawdown:    {result.max_drawdown:+.4f}")
 
 
 def _apply_hpo_overrides(cfg: HPOConfig, *, n_trials: int | None, n_jobs: int | None) -> HPOConfig:

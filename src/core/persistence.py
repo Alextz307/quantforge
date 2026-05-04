@@ -92,6 +92,11 @@ HPO_SUBDIR = "hpo"
 COMPARISONS_SUBDIR = "comparisons"
 REGIME_REPORTS_SUBDIR = "regime_reports"
 HOLDOUT_EVALS_SUBDIR = "holdout_evals"
+#: Per-invocation log files written by every persistent CLI subcommand
+#: (run, tune, compare, regime, holdout-eval, study run, study train-leaves,
+#: study report). Lets the user inspect a multi-day sweep after a dropped
+#: terminal or audit "what command produced these artifacts" months later.
+CLI_LOGS_SUBDIR = "cli_logs"
 
 # Holdout-eval bundle filenames under ``<store>/holdout_evals/<out_name>/``.
 # The bundle deliberately does NOT write a typed ``Manifest`` — the

@@ -18,8 +18,20 @@ downstream record. Modules that don't need context keep using
 from __future__ import annotations
 
 import logging
-from collections.abc import Mapping, MutableMapping
+import os
+import time
+from collections.abc import Iterator, Mapping, MutableMapping
+from contextlib import contextmanager
+from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
+
+from src.core.persistence import CLI_LOGS_SUBDIR
+
+#: Format string shared by the stdout handler (``logging.basicConfig`` in the
+#: CLI entry point) and the file handler attached by :func:`attach_cli_log_file`.
+#: One source of truth so live ``tail -f`` stays grep-compatible with stdout.
+CLI_LOG_FORMAT = "%(asctime)s %(levelname)s %(name)s: %(message)s"
 
 
 # ``logging.LoggerAdapter`` became generic in Python 3.12 (parameterised over
@@ -65,3 +77,75 @@ def get_logger(name: str, **context: object) -> logging.LoggerAdapter:  # type: 
     base = logging.getLogger(name)
     extra: Mapping[str, object] = dict(context)
     return _ContextAdapter(base, extra)
+
+
+@contextmanager
+def attach_cli_log_file(root_dir: Path, command_name: str) -> Iterator[Path]:
+    """Tee root-logger output to a timestamped file under ``root_dir/cli_logs/``.
+
+    Used by every persistent CLI subcommand so a dropped terminal, a
+    detached ``nohup`` shell, or an after-the-fact "what actually
+    happened during the 13-hour sweep?" question all have the same
+    answer: read the file. ``root_dir`` is the artifact root (usually
+    ``store_root`` for ``experiment``/``study`` subcommands, or
+    ``study_dir`` for ``study report``); the helper joins
+    :data:`~src.core.persistence.CLI_LOGS_SUBDIR` so the file always
+    lands at ``<root_dir>/cli_logs/<command>_<UTC_ts>_<pid>.log``.
+
+    Filename is ``{command_name}_{YYYYMMDD_HHMMSS}_{pid}.log`` — the
+    timestamp + pid suffix lets multiple concurrent invocations land
+    in the same directory without colliding.
+
+    The handler uses :data:`CLI_LOG_FORMAT` so the file is grep-compatible
+    with the stdout stream set up by ``logging.basicConfig`` at the CLI
+    entry point. Removed unconditionally on exit so pytest captures and
+    repeat invocations don't accumulate handlers.
+
+    Not re-entrant: the handler is added to the *root* logger, so a
+    second concurrent call in the same process would tee both files'
+    output to each other. Single-shot CLI invocation only.
+    """
+    log_dir = root_dir / CLI_LOGS_SUBDIR
+    log_dir.mkdir(parents=True, exist_ok=True)
+    timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
+    log_path = log_dir / f"{command_name}_{timestamp}_{os.getpid()}.log"
+    handler = logging.FileHandler(log_path, mode="a", encoding="utf-8")
+    handler.setFormatter(logging.Formatter(CLI_LOG_FORMAT))
+    root = logging.getLogger()
+    root.addHandler(handler)
+    try:
+        yield log_path
+    finally:
+        root.removeHandler(handler)
+        handler.close()
+
+
+@contextmanager
+def log_stage(
+    logger: logging.Logger | logging.LoggerAdapter,  # type: ignore[type-arg]
+    label: str,
+    **fields: object,
+) -> Iterator[None]:
+    """Bracket a unit of work with start/done INFO logs and a perf timer.
+
+    Emits ``"<label> starting (k1=v1 k2=v2)"`` on enter (or just
+    ``"<label> starting"`` when no fields are bound) and ``"<label>
+    done in <secs>s"`` on exit. The duration is wall-clock via
+    :func:`time.perf_counter`; the ``done`` line fires from a ``finally``
+    so an exception still surfaces the elapsed time before propagating.
+
+    Designed for stage-level pipeline work (GARCH fit, LSTM fit, ARMA
+    fit) where the user wants per-stage progress in the persisted log
+    file. Avoid for sub-second hot-loop work — the two extra log
+    records per call dwarf the work itself.
+    """
+    if fields:
+        ctx = " ".join(f"{k}={v}" for k, v in fields.items())
+        logger.info("%s starting (%s)", label, ctx)
+    else:
+        logger.info("%s starting", label)
+    t0 = time.perf_counter()
+    try:
+        yield
+    finally:
+        logger.info("%s done in %.1fs", label, time.perf_counter() - t0)

@@ -132,6 +132,7 @@ class PairsTradingStrategy(IStrategy):
                 "'close_a' / 'close_b' before invoking train()."
             )
 
+        logger.info("%s train: %d bars", type(self).__name__, len(train_data))
         result = CointegrationTester.engle_granger(
             train_data["close_a"],
             train_data["close_b"],
@@ -150,6 +151,12 @@ class PairsTradingStrategy(IStrategy):
         self._spread_std = result.spread_std
         self._is_cointegrated = True
         self._cpp_coint = self._build_coint_params()
+        logger.info(
+            "PairsTrading cointegrated: p=%.4f hedge_ratio=%.4f spread_std=%.4f",
+            result.p_value,
+            result.hedge_ratio,
+            result.spread_std,
+        )
 
         self._set_fitted_with_metadata(
             TrainingMetadata.from_fit(train_data, self._interval, ("close_a", "close_b"))

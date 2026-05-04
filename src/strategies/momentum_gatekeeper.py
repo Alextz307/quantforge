@@ -224,6 +224,7 @@ class MomentumGatekeeperStrategy(IStrategy):
         classifier stays frozen (no rebuild, no ``fit()``); only the pipeline
         scaler and ``_training_metadata`` advance.
         """
+        logger.info("%s train: %d bars", type(self).__name__, len(train_data))
         self._pipeline = self._build_pipeline()
         self._pipeline.fit(train_data)
         features = self._pipeline.transform(train_data)
@@ -257,6 +258,11 @@ class MomentumGatekeeperStrategy(IStrategy):
                 interval=self._params.interval,
             )
             self._classifier.fit(features_ready, target_ready, checkpoint_path=checkpoint_path)
+        else:
+            logger.info(
+                "MomentumGatekeeper: pretrained %s in use, skipping classifier fit",
+                LEAF_KEY_DIRECTIONAL_CLASSIFIER,
+            )
 
         self._set_fitted_with_metadata(
             TrainingMetadata.from_fit(train_data, self._params.interval, tuple(resolved))

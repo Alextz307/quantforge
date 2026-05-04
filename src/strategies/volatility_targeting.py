@@ -222,6 +222,7 @@ class VolatilityTargetingStrategy(IStrategy):
         ``_training_metadata`` advances so the walk-forward deep metadata
         check records the strategy's own fold window.
         """
+        logger.info("%s train: %d bars", type(self).__name__, len(train_data))
         if LEAF_KEY_VOL_MODEL not in self._pretrained_leaves:
             self._hybrid_vol = self._build_hybrid_vol()
             # Pass the full training window (not the realized-vol-trimmed
@@ -230,6 +231,11 @@ class VolatilityTargetingStrategy(IStrategy):
             realized_vol = self._compute_realized_vol(train_data)
             self._hybrid_vol.fit(
                 train_data, realized_vol, checkpoint_path=checkpoint_path, **kwargs
+            )
+        else:
+            logger.info(
+                "VolatilityTargeting: pretrained %s in use, skipping leaf fit",
+                LEAF_KEY_VOL_MODEL,
             )
 
         self._set_fitted_with_metadata(

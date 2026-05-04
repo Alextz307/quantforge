@@ -187,11 +187,17 @@ class ReturnForecastStrategy(IStrategy):
         ``_training_metadata`` advances so the walk-forward deep metadata
         check records the strategy's own fold window.
         """
+        logger.info("%s train: %d bars", type(self).__name__, len(train_data))
         if LEAF_KEY_RETURN_MODEL not in self._pretrained_leaves:
             self._hybrid_return = self._build_hybrid_return()
             log_returns = compute_log_returns(train_data["close"]).dropna()
             aligned = train_data.loc[log_returns.index]
             self._hybrid_return.fit(aligned, log_returns, checkpoint_path=checkpoint_path, **kwargs)
+        else:
+            logger.info(
+                "ReturnForecast: pretrained %s in use, skipping leaf fit",
+                LEAF_KEY_RETURN_MODEL,
+            )
 
         self._set_fitted_with_metadata(
             TrainingMetadata.from_fit(

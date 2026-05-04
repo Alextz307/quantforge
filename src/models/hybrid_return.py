@@ -11,6 +11,7 @@ from sklearn.preprocessing import StandardScaler
 
 from src.core import json_io
 from src.core.exceptions import guard_scaler_fit_once
+from src.core.logging import get_logger, log_stage
 from src.core.persistence import (
     ARMA_SUBDIR,
     CONFIG_JSON,
@@ -29,6 +30,8 @@ from src.core.utils import compute_log_returns
 from src.models.arma import ARMAPredictor
 from src.models.interface import IPredictor
 from src.models.lstm import LSTMPredictor
+
+logger = get_logger(__name__)
 
 if TYPE_CHECKING:
     import optuna
@@ -173,10 +176,10 @@ class HybridReturnModel(IPredictor):
         guard_scaler_fit_once(self._scaler, "HybridReturnModel")
 
         target_clean = target.dropna()
-        self._arma.fit(train_data.loc[target_clean.index], target_clean)
-
-        arma_train_pred = self._arma.predict(train_data, returns=target_clean)
-        residuals = (target_clean - arma_train_pred).dropna()
+        with log_stage(logger, "HybridReturn [stage=arma]", n=len(target_clean)):
+            self._arma.fit(train_data.loc[target_clean.index], target_clean)
+            arma_train_pred = self._arma.predict(train_data, returns=target_clean)
+            residuals = (target_clean - arma_train_pred).dropna()
 
         self._scaler = StandardScaler()
         feature_frame = train_data.loc[residuals.index, self._feature_columns]
@@ -187,7 +190,13 @@ class HybridReturnModel(IPredictor):
             columns=self._feature_columns,
         )
 
-        self._lstm.fit(scaled_features, residuals, checkpoint_path=checkpoint_path, **kwargs)
+        with log_stage(
+            logger,
+            "HybridReturn [stage=lstm]",
+            n=len(residuals),
+            features=len(self._feature_columns),
+        ):
+            self._lstm.fit(scaled_features, residuals, checkpoint_path=checkpoint_path, **kwargs)
 
         self._set_fitted_with_metadata(
             TrainingMetadata.from_fit(

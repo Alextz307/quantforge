@@ -235,6 +235,7 @@ class CrossAssetMomentumStrategy(IStrategy):
         classifier stays frozen (no rebuild, no ``fit()``); only
         ``_training_metadata`` advances.
         """
+        logger.info("%s train: %d bars", type(self).__name__, len(train_data))
         features = self._build_feature_frame(train_data)
         primary_close = train_data[f"close_{self._params.primary_ticker}"]
         features_ready, target_ready = align_features_for_directional_target(
@@ -254,6 +255,11 @@ class CrossAssetMomentumStrategy(IStrategy):
                 interval=self._params.interval,
             )
             self._classifier.fit(features_ready, target_ready, checkpoint_path=checkpoint_path)
+        else:
+            logger.info(
+                "CrossAssetMomentum: pretrained %s in use, skipping classifier fit",
+                LEAF_KEY_DIRECTIONAL_CLASSIFIER,
+            )
 
         self._set_fitted_with_metadata(
             TrainingMetadata.from_fit(

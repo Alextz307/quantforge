@@ -107,6 +107,7 @@ class AdaptiveBollingerStrategy(IStrategy):
         **kwargs: object,
     ) -> None:
         """Fit the GARCH volatility model on training log returns."""
+        logger.info("%s train: %d bars", type(self).__name__, len(train_data))
         log_returns = compute_log_returns(train_data["close"]).dropna()
         aligned = train_data.loc[log_returns.index]
         self._garch.fit(aligned, log_returns)

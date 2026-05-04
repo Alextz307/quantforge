@@ -32,10 +32,11 @@ compare can resolve the run dir without re-walking ``runs/``.
 from __future__ import annotations
 
 import logging
+import time
 import traceback
 from collections.abc import Sequence
 from dataclasses import dataclass, replace
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import cast
 
@@ -508,13 +509,21 @@ def train_leaves(
     spec = load_study_spec(spec_path)
     legs = expand_spec_into_legs(spec, repo_root=repo)
 
-    needed = _collect_pretrained_leaf_pairs(legs)
+    needed = sorted(_collect_pretrained_leaf_pairs(legs))
+    n_total = len(needed)
     statuses: dict[str, str] = {}
-    for universe, leaf_key in sorted(needed):
+    train_durations_s: list[float] = []
+    for idx, (universe, leaf_key) in enumerate(needed, start=1):
         artifact_dir = expected_pretrained_leaf_path(store_root, universe, leaf_key)
         artifact_key = artifact_dir.name
         if artifact_dir.is_dir():
-            _logger.info("leaf %s: already trained at %s — skipping", artifact_key, artifact_dir)
+            _logger.info(
+                "leaf %d/%d %s: already trained at %s — skipping",
+                idx,
+                n_total,
+                artifact_key,
+                artifact_dir,
+            )
             statuses[artifact_key] = "skipped"
             continue
         try:
@@ -526,13 +535,16 @@ def train_leaves(
                 artifact_name=artifact_key,
             )
             _logger.info(
-                "leaf %s: training (%s on %s, %d->%d)",
+                "leaf %d/%d %s: training (%s on %s, %d->%d)",
+                idx,
+                n_total,
                 artifact_key,
                 cfg.model.name,
                 cfg.data.tickers[0],
                 cfg.data.start.year,
                 cfg.data.end.year,
             )
+            t0 = time.perf_counter()
             trained = train_model_standalone(cfg)
             save_model_artifact(
                 artifact_dir,
@@ -540,13 +552,32 @@ def train_leaves(
                 manifest=trained.manifest,
                 config=cfg,
             )
+            elapsed_s = time.perf_counter() - t0
+            train_durations_s.append(elapsed_s)
             statuses[artifact_key] = "trained"
-            _logger.info("leaf %s: saved to %s", artifact_key, artifact_dir)
+            mean_s = sum(train_durations_s) / len(train_durations_s)
+            n_remaining = n_total - idx
+            eta_s = mean_s * n_remaining
+            _logger.info(
+                "leaf %d/%d %s: trained in %s (mean=%s, ETA=%s for %d remaining)",
+                idx,
+                n_total,
+                artifact_key,
+                _format_duration(elapsed_s),
+                _format_duration(mean_s),
+                _format_duration(eta_s),
+                n_remaining,
+            )
         except Exception as exc:  # noqa: BLE001 — continue with remaining leaves
             tb = "".join(traceback.format_exception_only(type(exc), exc)).strip()
-            _logger.error("leaf %s: failed (%s)", artifact_key, tb)
+            _logger.error("leaf %d/%d %s: failed (%s)", idx, n_total, artifact_key, tb)
             statuses[artifact_key] = f"failed: {tb}"
     return statuses
+
+
+def _format_duration(seconds: float) -> str:
+    """Render a wall-clock duration as ``HH:MM:SS`` for log lines."""
+    return str(timedelta(seconds=int(seconds)))
 
 
 def _run_per_universe_compares(

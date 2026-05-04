@@ -56,6 +56,21 @@ special flag — the builder dispatches on the strategy class's
 | `--override key.path=value` (repeatable) | `run`, `train-model`, `tune`, `compare` | Dotted-path mutation of the loaded YAML before pydantic re-validation. Value parsed with `yaml.safe_load`; intermediate keys must already exist (typo guard). On `compare` the same set applies to every `--config`. |
 | `--publish-label <slug>` | `run`, `regime`, `compare`, `holdout-eval` | Stable LaTeX `\caption` + `\label` slug for the emitted tables. When unset the legacy volatile id (`experiment_id` / `out_name` / `source_id`) is used; when set the slug overrides it so thesis-prose `\ref` stays valid across reruns. Slug regex: starts with a letter, then letters / digits / `_` / `-` / `:`. |
 
+### Per-invocation log files (`cli_logs/`)
+
+Every persistent CLI subcommand (`run`, `train-model`, `tune`, `compare`,
+`regime`, `holdout-eval`, `study run`, `study train-leaves`, `study
+report`) tees its full Python-logger stream to a timestamped file under
+`<store_root>/cli_logs/<command>_<UTC_YYYYMMDD_HHMMSS>_<pid>.log` (or
+`<study_dir>/cli_logs/...` for `study report`). The first line of every
+invocation echoes the resolved log path, e.g.
+``running study from spec ... → log: experiment_results/cli_logs/study_run_20260504_193000_12345.log``.
+The file contains the same lines `tail -f` would show on stdout (same
+formatter), so a dropped terminal during a multi-day sweep doesn't lose
+the diagnostic trail. Utility commands (`list-models`, `clean`) skip the
+file handler since they're fast and produce no logger output worth
+persisting.
+
 ## Drift-guard invariants
 
 - **CI ↔ pyproject.** A new runtime / type-stub dep landing in

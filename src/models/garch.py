@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+import time
 from pathlib import Path
 from typing import TYPE_CHECKING, Self, cast
 
@@ -86,11 +87,27 @@ class GARCHPredictor(IPredictor):
         """
 
         def _fit_cell(p: int, q: int) -> ARCHModelResult | None:
+            t0 = time.perf_counter()
             try:
                 model = arch_model(scaled, vol="GARCH", p=p, q=q, dist="skewt", mean="Zero")
-                return model.fit(disp="off", show_warning=False)
-            except (ValueError, RuntimeError, np.linalg.LinAlgError):
+                result = model.fit(disp="off", show_warning=False)
+            except (ValueError, RuntimeError, np.linalg.LinAlgError) as exc:
+                logger.info(
+                    "GARCH cell (p=%d, q=%d): fit failed in %.2fs (%s)",
+                    p,
+                    q,
+                    time.perf_counter() - t0,
+                    type(exc).__name__,
+                )
                 return None
+            logger.info(
+                "GARCH cell (p=%d, q=%d): AIC=%.2f in %.2fs",
+                p,
+                q,
+                float(result.aic),
+                time.perf_counter() - t0,
+            )
+            return result
 
         cache = active_cache()
         if cache is None:

@@ -11,6 +11,7 @@ from sklearn.preprocessing import StandardScaler
 
 from src.core import json_io
 from src.core.exceptions import guard_scaler_fit_once
+from src.core.logging import get_logger, log_stage
 from src.core.persistence import (
     CONFIG_JSON,
     GARCH_SUBDIR,
@@ -29,6 +30,8 @@ from src.core.utils import compute_log_returns
 from src.models.garch import GARCHPredictor
 from src.models.interface import IPredictor
 from src.models.lstm import LSTMPredictor
+
+logger = get_logger(__name__)
 
 if TYPE_CHECKING:
     import optuna
@@ -173,10 +176,10 @@ class HybridVolatilityModel(IPredictor):
         guard_scaler_fit_once(self._scaler, "HybridVolatilityModel")
 
         log_returns = compute_log_returns(train_data["close"]).dropna()
-        self._garch.fit(train_data.loc[log_returns.index], log_returns)
-
-        garch_train_vol = self._garch.predict(train_data, returns=log_returns)
-        residuals = (target - garch_train_vol).dropna()
+        with log_stage(logger, "HybridVolatility [stage=garch]", n=len(log_returns)):
+            self._garch.fit(train_data.loc[log_returns.index], log_returns)
+            garch_train_vol = self._garch.predict(train_data, returns=log_returns)
+            residuals = (target - garch_train_vol).dropna()
 
         self._scaler = StandardScaler()
         feature_frame = train_data.loc[residuals.index, self._feature_columns]
@@ -187,7 +190,13 @@ class HybridVolatilityModel(IPredictor):
             columns=self._feature_columns,
         )
 
-        self._lstm.fit(scaled_features, residuals, checkpoint_path=checkpoint_path, **kwargs)
+        with log_stage(
+            logger,
+            "HybridVolatility [stage=lstm]",
+            n=len(residuals),
+            features=len(self._feature_columns),
+        ):
+            self._lstm.fit(scaled_features, residuals, checkpoint_path=checkpoint_path, **kwargs)
 
         self._set_fitted_with_metadata(
             TrainingMetadata.from_fit(
