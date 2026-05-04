@@ -1,4 +1,4 @@
-"""FastAPI lifespan: bootstrap the SQLite schema and warn on empty users."""
+"""FastAPI lifespan: bootstrap the SQLite schema and warm component registries."""
 
 from __future__ import annotations
 
@@ -25,4 +25,13 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
                 "<username> --role admin` to bootstrap an admin account.",
                 get_settings().db_path,
             )
+    # Warm component registries: each __init__.py calls autoload_package which
+    # fires every @<x>_registry.register decorator. Pulled in here (not from
+    # routers) so the torch/statsmodels/arch/xgboost cost is paid once at
+    # startup, surfaced as a single observable step.
+    import src.data  # noqa: F401
+    import src.features  # noqa: F401
+    import src.models  # noqa: F401
+    import src.strategies  # noqa: F401
+
     yield

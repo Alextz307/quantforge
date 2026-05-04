@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from fastapi import FastAPI
 
-from webapp.backend.app.api import auth, health, users
+from webapp.backend.app.api import auth, health, models, runs, strategies, users
 from webapp.backend.app.core import rate_limit
 from webapp.backend.app.core.lifespan import lifespan
 from webapp.backend.app.core.security import SessionCookies
@@ -33,4 +33,7 @@ def create_app() -> FastAPI:
     app.include_router(health.router, prefix="/api")
     app.include_router(auth.router, prefix="/api")
     app.include_router(users.router, prefix="/api")
+    app.include_router(runs.router, prefix="/api")
+    app.include_router(strategies.router, prefix="/api")
+    app.include_router(models.router, prefix="/api")
     return app
