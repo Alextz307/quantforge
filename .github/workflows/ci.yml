@@ -75,7 +75,7 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install webapp + dev dependencies
-        run: pip install fastapi 'uvicorn[standard]' pydantic pydantic-settings httpx pytest pytest-cov mypy ruff
+        run: pip install fastapi 'uvicorn[standard]' pydantic pydantic-settings httpx bcrypt itsdangerous slowapi click pytest pytest-cov mypy ruff
       - name: Lint webapp
         run: |
           ruff check webapp/backend

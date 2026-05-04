@@ -19,13 +19,33 @@ to the same command issued from `bash`.
 ## Public surface (so far)
 
 - `GET /api/health` — `{status, version}` liveness probe (no auth).
-- `GET /openapi.json` — OpenAPI 3.1 schema (drives the typed frontend client).
-- `GET /docs` — Swagger UI for dev convenience.
+- `GET /openapi.json`, `GET /docs` — OpenAPI 3.1 schema + Swagger UI.
+- `POST /api/auth/login` — `{username, password}` → `{user}` + sets HttpOnly session cookie. Rate-limited (5 / 15 minutes / IP).
+- `POST /api/auth/logout` — clears the session cookie.
+- `GET /api/auth/me` — returns the current authenticated user.
+- `GET /api/users`, `POST /api/users`, `DELETE /api/users/{id}` — admin-only user CRUD (soft delete).
+
+## First-run setup
+
+```bash
+# 1. Generate a session secret (≥32 chars). Set it via .env or shell:
+export WEBAPP_SECRET_KEY="$(python -c 'import secrets; print(secrets.token_urlsafe(48))')"
+
+# 2. Create your first admin account (prompts for password):
+python -m scripts.create_user alex --role admin
+
+# 3. Boot the server:
+make webapp
+```
+
+If `WEBAPP_SECRET_KEY` is unset or shorter than 32 chars, the server crashes
+at startup with a clear message. The DB lives at `webapp/data/webapp.sqlite`
+by default (override with `WEBAPP_DB_PATH`). Both paths are gitignored.
 
 ## Run it
 
 ```bash
-make webapp-dev      # uvicorn with --reload, http://127.0.0.1:8000
+make webapp-dev      # uvicorn --factory --reload, http://127.0.0.1:8000
 make webapp          # production-style boot (no reload)
 make webapp-test     # pytest + coverage gate
 make webapp-typecheck

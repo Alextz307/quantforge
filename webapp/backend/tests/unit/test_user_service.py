@@ -1,0 +1,126 @@
+"""Verify user_service CRUD: create, list, get, soft-delete, upsert."""
+
+from __future__ import annotations
+
+import sqlite3
+
+import pytest
+
+from webapp.backend.app.core.types import Role
+from webapp.backend.app.services.auth_service import verify_password
+from webapp.backend.app.services.user_service import (
+    UsernameAlreadyExistsError,
+    create_user,
+    get_user,
+    list_users,
+    soft_delete_user,
+    upsert_user,
+)
+
+ALEX = "alex"
+GUEST = "guest"
+PASSWORD = "password123"
+NEW_PASSWORD = "different456"
+
+
+def _password_hash_for(conn: sqlite3.Connection, username: str) -> str:
+    row = conn.execute("SELECT password_hash FROM users WHERE username = ?", (username,)).fetchone()
+    assert row is not None
+    return str(row["password_hash"])
+
+
+def test_create_user_inserts_active_row(db_conn: sqlite3.Connection) -> None:
+    user = create_user(db_conn, username=ALEX, password=PASSWORD, role=Role.ADMIN)
+
+    assert user.username == ALEX
+    assert user.role is Role.ADMIN
+    assert user.id > 0
+    assert verify_password(PASSWORD, _password_hash_for(db_conn, ALEX))
+
+
+def test_create_user_with_duplicate_username_raises(db_conn: sqlite3.Connection) -> None:
+    create_user(db_conn, username=ALEX, password=PASSWORD, role=Role.USER)
+
+    with pytest.raises(UsernameAlreadyExistsError):
+        create_user(db_conn, username=ALEX, password=PASSWORD, role=Role.USER)
+
+
+def test_list_users_excludes_soft_deleted(db_conn: sqlite3.Connection) -> None:
+    alex = create_user(db_conn, username=ALEX, password=PASSWORD, role=Role.ADMIN)
+    guest = create_user(db_conn, username=GUEST, password=PASSWORD, role=Role.USER)
+
+    soft_delete_user(db_conn, alex.id)
+
+    listed = list_users(db_conn)
+    assert [u.id for u in listed] == [guest.id]
+
+
+def test_list_users_orders_by_id(db_conn: sqlite3.Connection) -> None:
+    a = create_user(db_conn, username=ALEX, password=PASSWORD, role=Role.ADMIN)
+    g = create_user(db_conn, username=GUEST, password=PASSWORD, role=Role.USER)
+
+    listed = list_users(db_conn)
+
+    assert [u.id for u in listed] == [a.id, g.id]
+
+
+def test_get_user_returns_user(db_conn: sqlite3.Connection) -> None:
+    user = create_user(db_conn, username=ALEX, password=PASSWORD, role=Role.ADMIN)
+
+    fetched = get_user(db_conn, user.id)
+
+    assert fetched is not None
+    assert fetched.username == ALEX
+    assert fetched.role is Role.ADMIN
+
+
+def test_get_user_returns_none_for_missing(db_conn: sqlite3.Connection) -> None:
+    assert get_user(db_conn, 9999) is None
+
+
+def test_get_user_returns_none_for_soft_deleted(db_conn: sqlite3.Connection) -> None:
+    user = create_user(db_conn, username=ALEX, password=PASSWORD, role=Role.ADMIN)
+
+    soft_delete_user(db_conn, user.id)
+
+    assert get_user(db_conn, user.id) is None
+
+
+def test_soft_delete_returns_false_for_unknown(db_conn: sqlite3.Connection) -> None:
+    assert soft_delete_user(db_conn, 9999) is False
+
+
+def test_soft_delete_is_idempotent(db_conn: sqlite3.Connection) -> None:
+    user = create_user(db_conn, username=ALEX, password=PASSWORD, role=Role.USER)
+
+    assert soft_delete_user(db_conn, user.id) is True
+    assert soft_delete_user(db_conn, user.id) is False
+
+
+def test_upsert_creates_new_user(db_conn: sqlite3.Connection) -> None:
+    user = upsert_user(db_conn, username=ALEX, password=PASSWORD, role=Role.ADMIN)
+
+    fetched = get_user(db_conn, user.id)
+    assert fetched is not None
+    assert fetched.role is Role.ADMIN
+
+
+def test_upsert_overwrites_existing_password_and_role(db_conn: sqlite3.Connection) -> None:
+    original = create_user(db_conn, username=ALEX, password=PASSWORD, role=Role.USER)
+
+    updated = upsert_user(db_conn, username=ALEX, password=NEW_PASSWORD, role=Role.ADMIN)
+
+    assert updated.id == original.id
+    assert updated.role is Role.ADMIN
+    assert verify_password(NEW_PASSWORD, _password_hash_for(db_conn, ALEX))
+    assert not verify_password(PASSWORD, _password_hash_for(db_conn, ALEX))
+
+
+def test_upsert_revives_soft_deleted_user(db_conn: sqlite3.Connection) -> None:
+    user = create_user(db_conn, username=ALEX, password=PASSWORD, role=Role.USER)
+    soft_delete_user(db_conn, user.id)
+    assert get_user(db_conn, user.id) is None
+
+    upsert_user(db_conn, username=ALEX, password=PASSWORD, role=Role.USER)
+
+    assert get_user(db_conn, user.id) is not None
