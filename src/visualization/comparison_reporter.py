@@ -58,7 +58,7 @@ _logger = get_logger(__name__)
 
 _RANKING_FILENAME = "ranking.tex"
 _PAIRWISE_FILENAME = "pairwise_significance.tex"
-_EQUITY_OVERLAY_FILENAME = "equity_overlay.png"
+EQUITY_OVERLAY_FILENAME = "equity_overlay.png"
 _STRATEGY_X_REGIME_PLOT_FILENAME = "strategy_x_regime_heatmap.png"
 _STRATEGY_X_REGIME_TABLE_FILENAME = "strategy_x_regime.tex"
 
@@ -127,7 +127,7 @@ class ComparisonReporter:
         if folds_by_strategy is None:
             _logger.info("skipping equity overlay: folds_by_strategy not provided")
         else:
-            self._plot_equity_overlay(folds_by_strategy, plots_dir / _EQUITY_OVERLAY_FILENAME)
+            self._plot_equity_overlay(folds_by_strategy, plots_dir / EQUITY_OVERLAY_FILENAME)
 
         if report.per_strategy_per_regime_stats is not None:
             write_booktabs_table(
@@ -250,9 +250,9 @@ class ComparisonReporter:
 def _build_manifest_dict(report: StrategyComparisonReport) -> dict[str, object]:
     """Flatten :class:`StrategyComparisonReport` identity + stats for ``manifest.json``.
 
-    DataFrames (``ranking``) and heavy per-fold data are deliberately
-    omitted — the ranking is covered by ``ranking.tex`` and fold-level
-    data belongs in the per-run directories under ``runs/``.
+    DataFrames and heavy per-fold data are omitted; the ranking is covered
+    by ``ranking.tex`` and fold-level data belongs under ``runs/``.
+    Pairwise records round-trip via ``to_dict`` / ``from_dict``.
     """
     payload: dict[str, object] = {
         "out_name": report.out_name,
@@ -262,6 +262,7 @@ def _build_manifest_dict(report: StrategyComparisonReport) -> dict[str, object]:
         "per_strategy_stats": {
             name: stats.to_dict() for name, stats in report.per_strategy_stats.items()
         },
+        "pairwise": [p.to_dict() for p in report.pairwise],
     }
     if report.per_strategy_per_regime_stats is not None:
         payload["per_strategy_per_regime_stats"] = {

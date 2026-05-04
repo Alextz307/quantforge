@@ -1,6 +1,6 @@
 """Click adapter for the empirical-study orchestrator.
 
-Two subcommands under the ``experiment study`` group:
+Three subcommands under the ``experiment study`` group:
 
 * ``study run``           Drive the full sweep: tune -> run -> regime ->
                           holdout-eval per leg, then per-universe
@@ -10,10 +10,14 @@ Two subcommands under the ``experiment study`` group:
                           ML-bearing legs (DirectionalClassifier /
                           HybridReturn / HybridVolatility). Skips
                           artifacts already on disk.
+* ``study report``        Walk a completed study directory and consolidate
+                          per-leg artifacts into ``<study_dir>/{tables,
+                          plots,manifest.json}``. Read-only with respect
+                          to the per-leg tree.
 
-Logic lives in ``src/orchestration/study.py``; this module is a thin
-flag-parser + error-wrapper, mirroring the rest of ``experiment``'s
-subcommand layout.
+Logic lives in ``src/orchestration/study.py`` and
+``src/orchestration/study_report.py``; this module is a thin flag-parser
++ error-wrapper, mirroring the rest of ``experiment``'s subcommand layout.
 """
 
 from __future__ import annotations
@@ -26,6 +30,8 @@ from pydantic import ValidationError
 from src.core.exceptions import LeakageError
 from src.core.regime_config import RegimeConfig, load_regime_config
 from src.orchestration.study import run_study, train_leaves
+from src.orchestration.study_report import consolidate_study
+from src.visualization.study_report_reporter import StudyReportReporter
 
 DEFAULT_STORE_ROOT = Path("experiment_results")
 
@@ -187,3 +193,49 @@ def train_leaves_cmd(spec_path: Path, store_root: Path) -> None:
             f"Rerun the same command to retry only the failures (already-trained "
             f"artifacts are preserved)."
         )
+
+
+@study.command("report")
+@click.option(
+    "--study-dir",
+    "study_dir",
+    required=True,
+    type=click.Path(exists=True, file_okay=False, path_type=Path),
+    help="Path to a completed study directory (contains study_state.json).",
+)
+@click.option(
+    "--publish-label",
+    "publish_label",
+    default=None,
+    type=str,
+    help=(
+        "Optional slug used in every emitted LaTeX caption / label. "
+        "Pass when committed artifacts are referenced from prose so "
+        "re-running the consolidator doesn't churn citation slugs."
+    ),
+)
+def report_cmd(study_dir: Path, publish_label: str | None) -> None:
+    """Consolidate a completed study's per-leg artifacts into one tree.
+
+    Reads ``runs/``, ``regime_reports/``, ``holdout_evals/``, and
+    ``comparisons/`` under ``--study-dir``; writes
+    ``<study-dir>/{manifest.json,tables/,plots/}`` with cross-leg
+    rankings, heatmaps, and per-universe equity / regime / holdout
+    plot copies. Read-only with respect to the per-leg tree — safe
+    to rerun.
+    """
+    click.echo(f"consolidating study at {study_dir} ...")
+    try:
+        report = consolidate_study(study_dir)
+    except (FileNotFoundError, ValueError) as e:
+        raise click.ClickException(f"consolidation failed: {e}") from e
+
+    StudyReportReporter().generate_full_report(report, study_dir, publish_label=publish_label)
+    click.echo(f"study_name:       {report.study_name}")
+    click.echo(f"strategies:       {len(report.strategies)}")
+    click.echo(f"universes:        {len(report.universes)}")
+    click.echo(f"completed legs:   {len(report.per_leg_aggregate)}")
+    click.echo(f"incomplete legs:  {len(report.incomplete_leg_ids)}")
+    click.echo(f"legs w/ regime:   {len(report.per_leg_regime)}")
+    click.echo(f"legs w/ holdout:  {len(report.per_leg_holdout)}")
+    click.echo(f"output:           {study_dir}")

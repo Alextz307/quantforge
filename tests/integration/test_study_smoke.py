@@ -256,3 +256,39 @@ def test_study_run_resume_skips_complete_legs(
     # Resume should report 0 newly-completed + 2 skipped (both pre-existing).
     assert "completed:    0" in second.output
     assert "skipped:      2" in second.output
+
+
+def test_study_report_consolidates_completed_run(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """After a happy-path study run, ``study report`` produces the consolidated tree."""
+    spec_path, store = _build_smoke_workspace(tmp_path)
+    monkeypatch.chdir(tmp_path)
+    from scripts.experiment import cli as experiment_cli
+
+    runner = CliRunner()
+    run_result = runner.invoke(
+        experiment_cli,
+        ["study", "run", "--spec", str(spec_path), "--store-root", str(store), "--skip-compares"],
+    )
+    assert run_result.exit_code == 0, run_result.output
+
+    study_dir = store / "studies" / "smoke"
+    report_result = runner.invoke(
+        experiment_cli,
+        ["study", "report", "--study-dir", str(study_dir)],
+    )
+    assert report_result.exit_code == 0, report_result.output
+
+    # Manifest sidecar at the consolidated root.
+    assert (study_dir / "manifest.json").is_file()
+    # Master ranking + holdout results (both legs reserved a holdout).
+    assert (study_dir / "tables" / "master_ranking.tex").is_file()
+    assert (study_dir / "tables" / "master_ranking.csv").is_file()
+    assert (study_dir / "tables" / "holdout_results.csv").is_file()
+    # Strategy×universe heatmap always present when legs completed.
+    assert (study_dir / "plots" / "strategy_x_universe_heatmap.png").is_file()
+    # Per-leg holdout equity copies.
+    holdout_curves_dir = study_dir / "plots" / "holdout_equity_curves"
+    assert holdout_curves_dir.is_dir()
+    assert any(p.suffix == ".png" for p in holdout_curves_dir.iterdir())

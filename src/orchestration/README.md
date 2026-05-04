@@ -17,8 +17,10 @@ multiple runs into comparison / regime reports.
 | `train_model_standalone(...)` | Fit a leaf model (HybridReturn, HybridVolatility, DirectionalClassifier) on the dev region and persist it for `pretrained_leaves` injection. |
 | `load_model_artifact(path)` | Inverse of the standalone training save — returns `(model, artifact_manifest)`. |
 | `run_study(spec_path, ...)` / `train_leaves(spec_path, ...)` | Drive a full `StudySpec` end-to-end — cross-strategy × cross-universe sweep with per-leg resume, plus the standalone-leaf-training counterpart needed by ML-bearing legs. |
+| `consolidate_study(study_dir)` | Walk a completed study tree (`runs/`, `regime_reports/`, `holdout_evals/`, `comparisons/`); return a `ConsolidatedStudyReport` value object covering every completed leg. |
+| `plan_clean(store_root)` / `apply_clean(plan)` | Tidy ephemeral subdirs under an `experiment_results/` tree; default dry-run, refuse to delete dirs containing git-tracked files. |
 | `Manifest`, `PretrainedLeafRecord` | Frozen, round-tripable provenance dataclasses. |
-| `LegState`, `StudyState` | Frozen, round-tripable resume state for the study orchestrator. |
+| `LegState`, `StudyState`, `ConsolidatedStudyReport`, `HoldoutSnapshot` | Frozen, round-tripable resume / consolidation dataclasses. |
 
 ## Layout
 
@@ -37,8 +39,10 @@ multiple runs into comparison / regime reports.
 | `pretrained_leaves.py` | `normalize_pretrained_leaves(...)`: validates the injected leaf map against the strategy's `_leaf_keys`. |
 | `study.py` | Empirical-study orchestrator: leg expansion, universe-profile composition, pretrained-leaf path rewriting per universe, per-universe cross-strategy compare, and the `train_leaves` counterpart that produces standalone leaf artifacts. |
 | `study_state.py` | `LegState` + `StudyState` resume dataclasses; atomic write via `os.replace`; spec-hash guard refuses to resume against a mutated spec. |
+| `study_report.py` | `consolidate_study(study_dir)` walker + `ConsolidatedStudyReport` / `HoldoutSnapshot` value types — collapses per-leg artifacts into a cross-leg view consumed by `StudyReportReporter`. |
+| `clean.py` | `plan_clean` / `apply_clean` / `format_plan` — tidy ephemeral `experiment_results/` subdirs with a hard preserve on `thesis_demo/` and a `git ls-files` refusal on tracked content. |
 | `git_info.py` | `read_git_sha()` — best-effort short SHA, `"unknown"` outside git. |
-| `types.py` | `ExperimentResult`, `FoldRecord`, `StrategyComparisonReport`, `PairwiseSignificance`, `RegimeReport`, `RegimeSlice`. |
+| `types.py` | `ExperimentResult`, `FoldRecord`, `StrategyComparisonReport`, `PairwiseSignificance` (round-trips via `to_dict` / `from_dict`), `RegimeReport`, `RegimeSlice`. |
 
 ## Multi-ticker / pairs flow
 

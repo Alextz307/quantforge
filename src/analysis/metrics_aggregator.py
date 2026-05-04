@@ -28,6 +28,7 @@ import numpy as np
 import numpy.typing as npt
 
 from src.analysis.significance import percentile_ci
+from src.core import json_io
 
 if TYPE_CHECKING:
     from src.orchestration.types import FoldRecord
@@ -110,6 +111,41 @@ class AggregateStats:
             "win_rate_mean": self.win_rate_mean,
             "trade_count_total": self.trade_count_total,
         }
+
+    @classmethod
+    def from_dict(cls, d: dict[str, object]) -> AggregateStats:
+        """Round-trip the :meth:`to_dict` payload back into a typed instance.
+
+        Reads the ``{"n_folds": 0}`` short-circuit as :meth:`empty`. Used
+        by the study-report consolidator, which loads per-leg regime
+        stats persisted to ``manifest.json`` by the regime / comparison
+        reporters. Symmetric to :meth:`to_dict` so any payload that
+        round-trips through JSON returns to the same value.
+        """
+        n_folds = json_io.get_int(d, "n_folds")
+        if n_folds == 0:
+            return cls.empty()
+        return cls(
+            n_folds=n_folds,
+            sharpe_mean=json_io.get_float(d, "sharpe_mean"),
+            sharpe_std=json_io.get_float(d, "sharpe_std"),
+            sharpe_ci95_low=json_io.get_float(d, "sharpe_ci95_low"),
+            sharpe_ci95_high=json_io.get_float(d, "sharpe_ci95_high"),
+            sortino_mean=json_io.get_float(d, "sortino_mean"),
+            sortino_std=json_io.get_float(d, "sortino_std"),
+            sortino_ci95_low=json_io.get_float(d, "sortino_ci95_low"),
+            sortino_ci95_high=json_io.get_float(d, "sortino_ci95_high"),
+            calmar_mean=json_io.get_float(d, "calmar_mean"),
+            calmar_std=json_io.get_float(d, "calmar_std"),
+            calmar_ci95_low=json_io.get_float(d, "calmar_ci95_low"),
+            calmar_ci95_high=json_io.get_float(d, "calmar_ci95_high"),
+            max_drawdown_worst=json_io.get_float(d, "max_drawdown_worst"),
+            max_drawdown_mean=json_io.get_float(d, "max_drawdown_mean"),
+            total_return_mean=json_io.get_float(d, "total_return_mean"),
+            total_return_std=json_io.get_float(d, "total_return_std"),
+            win_rate_mean=json_io.get_float(d, "win_rate_mean"),
+            trade_count_total=json_io.get_int(d, "trade_count_total"),
+        )
 
     @classmethod
     def empty(cls) -> AggregateStats:

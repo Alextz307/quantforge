@@ -58,7 +58,7 @@ _logger = get_logger(__name__)
 
 _SUMMARY_FILENAME = "regime_summary.tex"
 _HEATMAP_FILENAME = "regime_metric_heatmap.png"
-_TIMELINE_FILENAME = "regime_timeline.png"
+TIMELINE_FILENAME = "regime_timeline.png"
 
 # Heatmap column metric keys — mean fields on AggregateStats. Display
 # names are LaTeX-friendly (escape=False is on).
@@ -134,7 +134,7 @@ class RegimeReporter:
 
         timeline_slices = tuple(slices) if slices is not None else report.slices
         if timeline_slices:
-            self._plot_timeline(timeline_slices, plots_dir / _TIMELINE_FILENAME)
+            self._plot_timeline(timeline_slices, plots_dir / TIMELINE_FILENAME)
         else:
             _logger.info("skipping regime timeline: no slices available")
 

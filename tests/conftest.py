@@ -877,19 +877,22 @@ def comparison_curve_seed(name: str, fold_index: int) -> int:
 def make_stub_aggregate_stats(
     *,
     sharpe: float,
+    n_folds: int = 1,
     max_drawdown_worst: float = -0.1,
     total_return_mean: float = 0.05,
 ) -> AggregateStats:
-    """Build a single-fold :class:`AggregateStats` from a scalar Sharpe.
+    """Build a stub :class:`AggregateStats` from a scalar Sharpe.
 
     Used by tuner / CLI tests that monkeypatch ``aggregate_folds`` and only
     care about the objective-driving sharpe/sortino/calmar fields — every
     other numeric field mirrors ``sharpe`` so the dict emitted by
     ``to_dict()`` is a well-formed superset regardless of which objective
-    the test happens to select.
+    the test happens to select. ``n_folds`` defaults to 1 for the tuner
+    callers; the consolidator tests pass higher values to exercise
+    fold-weighted pooling.
     """
     return AggregateStats(
-        n_folds=1,
+        n_folds=n_folds,
         sharpe_mean=sharpe,
         sharpe_std=0.0,
         sharpe_ci95_low=sharpe,

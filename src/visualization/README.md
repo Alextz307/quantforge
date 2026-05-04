@@ -1,9 +1,11 @@
 # `src/visualization/`
 
-Thesis-ready report renderers. Five sibling reporters consume the
-in-memory result types from `src/orchestration/types.py` and emit
-PNG + SVG plots plus booktabs LaTeX tables under each report's
-`plots/` and `tables/` subdirectories.
+Thesis-ready report renderers. Six sibling reporters consume the
+in-memory result types from `src/orchestration/types.py` (and the
+cross-leg `ConsolidatedStudyReport` from
+`src/orchestration/study_report.py`) and emit PNG + SVG plots plus
+booktabs LaTeX tables under each report's `plots/` and `tables/`
+subdirectories.
 
 ## Public surface
 
@@ -14,6 +16,7 @@ PNG + SVG plots plus booktabs LaTeX tables under each report's
 | `RegimeReporter.generate_full_report(report, out_dir, *, publish_label=None)` | Per-regime artefacts: regime summary LaTeX, regime × metric heatmap, regime timeline tape, regime `manifest.json`. |
 | `HPOReporter.generate_full_report(study, out_dir)` | Optuna-study artefacts: convergence curve, parameter-importance bars, top-trials LaTeX. |
 | `HoldoutEvalReporter.generate_full_report(result, out_dir, *, publish_label=None)` | One-shot holdout-eval artefacts: holdout-metrics LaTeX (two-column metric · value), normalised holdout-equity curve. |
+| `StudyReportReporter.generate_full_report(report, out_dir, *, publish_label=None)` | Cross-leg consolidated artefacts: master / per-universe / per-regime / holdout rankings (`.tex` + `.csv`), strategy × universe + strategy × regime heatmaps, dev-vs-holdout scatter, per-universe equity-overlay copies, regime-timeline copies, per-leg holdout-equity copies. |
 | `build_booktabs_table(df, *, caption, label, ...)` / `write_booktabs_table` | Single LaTeX styling entry point — every reporter routes through here. |
 | `validate_publish_label(slug)` | Shared regex gate for the citation slug accepted by every reporter's `publish_label` kwarg. |
 | `save_png_and_svg(fig, png_path)` | PNG + SVG twin-write helper; pinned `FIGURE_WIDTH_IN`, `FIGURE_HEIGHT_IN`, `FIGURE_DPI`. |
@@ -30,6 +33,7 @@ PNG + SVG plots plus booktabs LaTeX tables under each report's
 | `regime_reporter.py` | `RegimeReporter` (per-regime aggregation + timeline). |
 | `hpo_reporter.py` | `HPOReporter` (Optuna study convergence + importance + top trials). |
 | `holdout_eval_reporter.py` | `HoldoutEvalReporter` (one-shot holdout-eval table + equity plot). |
+| `study_report_reporter.py` | `StudyReportReporter` (cross-leg consolidated tables + heatmaps + dev-vs-holdout scatter + per-leg artefact copies). |
 
 ## Conventions enforced here
 

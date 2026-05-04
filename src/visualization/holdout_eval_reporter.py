@@ -39,7 +39,7 @@ from src.visualization.plots import (
 _logger = get_logger(__name__)
 
 _METRICS_FILENAME = "holdout_metrics.tex"
-_EQUITY_FILENAME = "holdout_equity.png"
+HOLDOUT_EQUITY_FILENAME = "holdout_equity.png"
 
 
 class HoldoutEvalReporter:
@@ -85,7 +85,7 @@ class HoldoutEvalReporter:
             label=label,
         )
 
-        self._plot_equity_curve(result, plots_dir / _EQUITY_FILENAME)
+        self._plot_equity_curve(result, plots_dir / HOLDOUT_EQUITY_FILENAME)
         return out_dir
 
     def _plot_equity_curve(self, result: HoldoutEvalResult, out_path: Path) -> Path:

@@ -977,5 +977,51 @@ from scripts.study import study  # noqa: E402  — circular-free: study imports 
 cli.add_command(study)
 
 
+@cli.command("clean")
+@click.option(
+    "--store-root",
+    default=str(DEFAULT_STORE_ROOT),
+    type=click.Path(file_okay=False, path_type=Path),
+    help="Directory to clean (default: experiment_results/).",
+)
+@click.option(
+    "--apply",
+    "apply",
+    is_flag=True,
+    default=False,
+    help="Actually delete (default: dry-run that prints what would be removed).",
+)
+@click.option(
+    "--keep",
+    "keep",
+    multiple=True,
+    help=(
+        "Additional directory name to preserve under <store-root>. Repeatable. "
+        "thesis_demo is always preserved."
+    ),
+)
+def clean_cmd(store_root: Path, apply: bool, keep: tuple[str, ...]) -> None:
+    """Remove ephemeral subdirs under ``--store-root`` (default: experiment_results/).
+
+    Always preserves ``thesis_demo/`` (the only committed artifact bundle).
+    Refuses to delete any directory containing git-tracked files; pass
+    ``--keep <name>`` for each to exclude them and rerun.
+    """
+    from src.orchestration.clean import apply_clean, format_plan, plan_clean
+
+    plan = plan_clean(store_root, keep=keep)
+    click.echo(format_plan(plan))
+    if not apply:
+        return
+    if plan.refused:
+        names = ", ".join(c.path.name for c in plan.refused)
+        raise click.ClickException(
+            f"refusing to apply: tracked files under {names}. "
+            f"`git rm` first or pass --keep for each."
+        )
+    deleted = apply_clean(plan)
+    click.echo(f"deleted {len(deleted)} directory(ies).")
+
+
 if __name__ == "__main__":
     cli()

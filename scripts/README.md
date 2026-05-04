@@ -8,7 +8,7 @@ pyproject, leaf-keys vs. strategy ctors).
 
 | Script | Role |
 | --- | --- |
-| `experiment.py` (`make experiment`) | Click group with `run`, `train-model`, `list-models`, `tune`, `compare`, `regime`, `holdout-eval`, `study` subcommands. Drives the orchestration layer end to end. |
+| `experiment.py` (`make experiment`) | Click group with `run`, `train-model`, `list-models`, `tune`, `compare`, `regime`, `holdout-eval`, `study`, `clean` subcommands. Drives the orchestration layer end to end. |
 | `benchmark.py` (`make bench`) | Click group with `run`, `compare`, `latex`, `history`, `show-baseline` over `BenchmarkRunner` / `BenchmarkStore`. |
 | `check_ci_deps.py` | Drift guard: every runtime dep in `pyproject.toml` appears in CI's `python-test` pip install line; every `types-*` / `*-stubs` dev dep appears in CI's `lint-and-typecheck` pip install line. Runs in CI as an early lint step. |
 | `check_leaf_keys_consistent.py` | Drift guard: `_LEAF_KEY_OWNED_PARAMS` (config layer) vs. each strategy's `_leaf_keys` (ctor layer). |
@@ -20,8 +20,8 @@ pyproject, leaf-keys vs. strategy ctors).
 
 | File | Role |
 | --- | --- |
-| `experiment.py` | `experiment run / train-model / list-models / tune / compare / regime / holdout-eval / study`. |
-| `study.py` | `experiment study run / train-leaves` — sub-group registered under `experiment.py`'s `cli`. |
+| `experiment.py` | `experiment run / train-model / list-models / tune / compare / regime / holdout-eval / study / clean`. |
+| `study.py` | `experiment study run / train-leaves / report` — sub-group registered under `experiment.py`'s `cli`. |
 | `benchmark.py` | `benchmark run / compare / latex / history / show-baseline`. |
 | `check_ci_deps.py` | Stdlib-only (no PyYAML) so it runs in CI before deps install. |
 | `check_leaf_keys_consistent.py` | Imports `src.strategies` so the registry is populated. |
@@ -42,6 +42,8 @@ pyproject, leaf-keys vs. strategy ctors).
 | `holdout-eval --run-dir <path> \| --hpo-best <path>` | `experiment_results/holdout_evals/<out>/` | Refit on full dev, evaluate once on the reserved holdout — the honest one-shot OOS number. Sources are mutually exclusive; manifest cross-checks `holdout_start` + `data_hash` before fitting. |
 | `study run --spec <yaml>` | `<store_root>/<spec.output_dir>/` | Cross-strategy × cross-universe sweep: tune → run → regime → holdout-eval per leg, then per-universe cross-strategy compare. Resumable via `study_state.json`; per-leg failures isolated. |
 | `study train-leaves --spec <yaml>` | `<store_root>/models/{universe}_{leaf_key}/` | Trains every standalone leaf needed by ML-bearing legs (one per universe × leaf_key). Skips artifacts already on disk. |
+| `study report --study-dir <path>` | `<study_dir>/{tables,plots,manifest.json}` | Walk a completed study tree; emit master / per-universe / per-regime / holdout rankings (`.tex`+`.csv`), strategy×universe + strategy×regime heatmaps, dev-vs-holdout scatter, and per-universe equity-overlay / regime-timeline / per-leg holdout-equity copies. Read-only with respect to the per-leg tree. |
+| `clean [--store-root experiment_results] [--apply] [--keep <name>]` | `<store-root>/` | Remove ephemeral child directories under the store root (default: `experiment_results/`). Always preserves `thesis_demo/`; refuses to delete any directory containing git-tracked files. Default = dry-run; pass `--apply` to delete. |
 
 Multi-ticker pairs configs route through `experiment run` with no
 special flag — the builder dispatches on the strategy class's

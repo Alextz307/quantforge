@@ -161,6 +161,29 @@ class PairwiseSignificance:
     confidence: float
     significant: bool
 
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "name_a": self.name_a,
+            "name_b": self.name_b,
+            "point_differential": self.point_differential,
+            "lower": self.lower,
+            "upper": self.upper,
+            "confidence": self.confidence,
+            "significant": self.significant,
+        }
+
+    @classmethod
+    def from_dict(cls, d: dict[str, object]) -> PairwiseSignificance:
+        return cls(
+            name_a=json_io.get_str(d, "name_a"),
+            name_b=json_io.get_str(d, "name_b"),
+            point_differential=json_io.get_float(d, "point_differential"),
+            lower=json_io.get_float(d, "lower"),
+            upper=json_io.get_float(d, "upper"),
+            confidence=json_io.get_float(d, "confidence"),
+            significant=json_io.get_bool(d, "significant"),
+        )
+
 
 @dataclass(frozen=True)
 class StrategyComparisonReport:
