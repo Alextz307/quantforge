@@ -256,6 +256,16 @@ def get_optional_str(d: dict[str, object], key: str) -> str | None:
     return raw
 
 
+def get_optional_float(d: dict[str, object], key: str) -> float | None:
+    """Pull ``key`` if present and non-null and narrow to ``float``."""
+    raw = d.get(key)
+    if raw is None:
+        return None
+    if isinstance(raw, bool) or not isinstance(raw, (int, float)):
+        raise ValueError(f"JSON field {key!r} must be a number or null, got {type(raw).__name__}")
+    return float(raw)
+
+
 def get_optional_iso_datetime(d: dict[str, object], key: str) -> datetime | None:
     """Pull ``key`` if present and non-null and parse as ``datetime``."""
     raw = d.get(key)

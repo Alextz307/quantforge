@@ -11,19 +11,33 @@ to the same command issued from `bash`.
 
 | Path | Role |
 | --- | --- |
-| `backend/app/` | FastAPI application: `api/` routers, `core/` (settings, lifespan, version), and (later) `services/`, `infrastructure/`, `schemas/`. |
+| `backend/app/` | FastAPI application: `api/` routers, `core/` (settings, lifespan, version), `services/`, `infrastructure/`, `schemas/`. |
 | `backend/tests/` | `unit/` (service-layer + router-level tests via `TestClient`) and `integration/` (subprocess-driven). |
-| `frontend/` | React + TypeScript + Vite SPA (added in a later sub-batch). |
+| `frontend/` | React + TypeScript + Vite SPA. |
 | `data/` | Local SQLite store for users + jobs. Gitignored. |
 
 ## Public surface (so far)
 
-- `GET /api/health` — `{status, version}` liveness probe (no auth).
+Public:
+- `GET /api/health` — `{status, version}` liveness probe.
 - `GET /openapi.json`, `GET /docs` — OpenAPI 3.1 schema + Swagger UI.
+
+Auth:
 - `POST /api/auth/login` — `{username, password}` → `{user}` + sets HttpOnly session cookie. Rate-limited (5 / 15 minutes / IP).
 - `POST /api/auth/logout` — clears the session cookie.
 - `GET /api/auth/me` — returns the current authenticated user.
-- `GET /api/users`, `POST /api/users`, `DELETE /api/users/{id}` — admin-only user CRUD (soft delete).
+
+Admin (role=admin):
+- `GET /api/users`, `POST /api/users`, `DELETE /api/users/{id}` — user CRUD (soft delete).
+
+Read-only artifact API (auth-gated, all `GET`):
+- `/api/strategies`, `/api/models` — registry introspection.
+- `/api/runs`, `/api/runs/{id}`, `/api/runs/{id}/folds`, `/api/runs/{id}/plots/{plot_name}` — persisted runs.
+- `/api/comparisons`, `/api/comparisons/{name}`, `/api/comparisons/{name}/plots/{plot_name}` — cross-strategy comparisons.
+- `/api/regime-reports`, `/api/regime-reports/{name}`, `/api/regime-reports/{name}/plots/{plot_name}` — regime analyses.
+- `/api/holdout-evals`, `/api/holdout-evals/{name}`, `/api/holdout-evals/{name}/plots/{plot_name}` — holdout evaluations.
+- `/api/studies`, `/api/studies/{name}` — multi-leg study state + completion progress.
+- `/api/hpo`, `/api/hpo/{name}`, `/api/hpo/{name}/trials?after_trial=N` — HPO study summaries + Optuna trial feeds.
 
 ## First-run setup
 

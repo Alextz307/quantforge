@@ -18,8 +18,13 @@ from src.core.persistence import (
     EXPERIMENT_MANIFEST_JSON,
     HOLDOUT_EVAL_JSON,
     HOLDOUT_EVALS_SUBDIR,
+    HPO_SUBDIR,
     REGIME_REPORTS_SUBDIR,
 )
+from src.optimization.checkpointing import TRIALS_JSONL_NAME
+from src.orchestration.study import STUDY_STATE_FILENAME
+
+STUDIES_SUBDIR = "studies"
 
 
 class ArtifactNotFoundError(LookupError):
@@ -40,6 +45,14 @@ class RegimeReportNotFoundError(ArtifactNotFoundError):
 
 class HoldoutEvalNotFoundError(ArtifactNotFoundError):
     """Raised when a holdout-eval name does not match anything under the store root."""
+
+
+class StudyNotFoundError(ArtifactNotFoundError):
+    """Raised when a study name does not match anything under the store root."""
+
+
+class HpoStudyNotFoundError(ArtifactNotFoundError):
+    """Raised when an HPO-study name does not match anything under the store root."""
 
 
 _RUNS_SUBDIR = "runs"
@@ -149,4 +162,36 @@ def find_holdout_eval_dir(root: Path, name: str) -> Path:
         HOLDOUT_EVAL_JSON,
         name,
         not_found=HoldoutEvalNotFoundError,
+    )
+
+
+def iter_study_dirs(root: Path) -> Iterator[Path]:
+    """Yield every study directory under ``root``."""
+    return iter_artifact_dirs(root, STUDIES_SUBDIR, STUDY_STATE_FILENAME)
+
+
+def find_study_dir(root: Path, name: str) -> Path:
+    """Resolve a study ``name`` to its directory."""
+    return find_artifact_dir(
+        root,
+        STUDIES_SUBDIR,
+        STUDY_STATE_FILENAME,
+        name,
+        not_found=StudyNotFoundError,
+    )
+
+
+def iter_hpo_study_dirs(root: Path) -> Iterator[Path]:
+    """Yield every HPO-study directory under ``root``."""
+    return iter_artifact_dirs(root, HPO_SUBDIR, TRIALS_JSONL_NAME)
+
+
+def find_hpo_study_dir(root: Path, name: str) -> Path:
+    """Resolve an HPO-study ``name`` to its directory."""
+    return find_artifact_dir(
+        root,
+        HPO_SUBDIR,
+        TRIALS_JSONL_NAME,
+        name,
+        not_found=HpoStudyNotFoundError,
     )

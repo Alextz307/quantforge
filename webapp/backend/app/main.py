@@ -9,10 +9,12 @@ from webapp.backend.app.api import (
     comparisons,
     health,
     holdout,
+    hpo,
     models,
     regime,
     runs,
     strategies,
+    studies,
     users,
 )
 from webapp.backend.app.core import rate_limit
@@ -47,6 +49,8 @@ def create_app() -> FastAPI:
     app.include_router(comparisons.router, prefix="/api")
     app.include_router(regime.router, prefix="/api")
     app.include_router(holdout.router, prefix="/api")
+    app.include_router(studies.router, prefix="/api")
+    app.include_router(hpo.router, prefix="/api")
     app.include_router(strategies.router, prefix="/api")
     app.include_router(models.router, prefix="/api")
     return app

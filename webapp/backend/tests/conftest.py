@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import os
 import secrets
 import sqlite3
 from collections.abc import Iterator
+from dataclasses import replace
 from datetime import UTC, datetime
 from http import HTTPStatus
 from pathlib import Path
@@ -22,10 +24,14 @@ from src.core.persistence import (
     FOLD_RESULTS_JSONL,
     HOLDOUT_EVAL_JSON,
     HOLDOUT_EVALS_SUBDIR,
+    HPO_SUBDIR,
     REGIME_REPORTS_SUBDIR,
 )
 from src.core.types import Interval
 from src.engine.scenarios import SlippageScenario
+from src.optimization.checkpointing import BEST_CONFIG_YAML_NAME, TRIALS_JSONL_NAME
+from src.orchestration.study import STUDY_STATE_FILENAME
+from src.orchestration.study_state import LEG_STEPS_ORDER, LegState, StudyState
 from webapp.backend.app.core.rate_limit import login_limiter
 from webapp.backend.app.core.settings import get_settings
 from webapp.backend.app.infrastructure.db import bootstrap_schema, open_db
@@ -38,6 +44,8 @@ PLOT_FILENAME = "equity.png"
 PLOT_BYTES = b"\x89PNG\r\n\x1a\n"
 DEFAULT_TICKER = "SPY"
 DEFAULT_INTERVAL = Interval.DAILY.value
+TRIAL_STATE_COMPLETE = "COMPLETE"
+TRIAL_STATE_FAIL = "FAIL"
 
 
 @pytest.fixture(autouse=True)
@@ -339,6 +347,113 @@ def make_synthetic_holdout_eval(
     return eval_dir
 
 
+def make_synthetic_study(
+    parent_studies_dir: Path,
+    *,
+    name: str,
+    spec_name: str = "demo_spec",
+    spec_hash: str = "deadbeef" * 8,
+    started_at: datetime | None = None,
+    legs: tuple[tuple[str, str, bool], ...] = (
+        ("AdaptiveBollinger", "spy_daily_5y", True),
+        ("AdaptiveBollinger", "spy_daily_10y", False),
+    ),
+    cross_strategy_compares_done: tuple[str, ...] = (),
+) -> Path:
+    """Materialize a minimal valid study directory.
+
+    ``legs`` is ``(strategy, universe, is_complete)``. Complete legs get a
+    ``run_experiment_id`` and a ``completed_at``; incomplete legs match the
+    ``LegState.initial`` shape.
+    """
+    study_dir = parent_studies_dir / name
+    study_dir.mkdir(parents=True, exist_ok=True)
+    ts = started_at or datetime(2026, 4, 1, tzinfo=UTC)
+    leg_states: list[LegState] = []
+    for strategy, universe, is_complete in legs:
+        base = LegState.initial(f"{strategy}__{universe}", strategy, universe)
+        if is_complete:
+            base = replace(
+                base,
+                started_at=ts,
+                completed_at=ts,
+                steps_completed=LEG_STEPS_ORDER,
+                is_complete=True,
+                run_experiment_id=f"20260101_120000_{strategy}_abc1234_deadbeef",
+            )
+        leg_states.append(base)
+    state = StudyState(
+        spec_name=spec_name,
+        spec_hash=spec_hash,
+        started_at=ts,
+        legs=tuple(leg_states),
+        cross_strategy_compares_done=cross_strategy_compares_done,
+    )
+    json_io.write(study_dir / STUDY_STATE_FILENAME, state.to_dict())
+    return study_dir
+
+
+def make_synthetic_hpo_study(
+    parent_hpo_dir: Path,
+    *,
+    name: str,
+    n_trials: int = 3,
+    n_complete: int | None = None,
+    best_value: float = 0.8,
+    best_trial_number: int | None = None,
+    created_at: datetime | None = None,
+    write_best_config: bool = True,
+) -> Path:
+    """Materialize a minimal valid HPO-study directory.
+
+    Writes ``trials.jsonl`` with ``n_trials`` records (the first
+    ``n_complete`` are ``COMPLETE`` and carry monotonically-increasing
+    ``value`` fields, peaking at ``best_value`` on ``best_trial_number``).
+    The trials.jsonl mtime is stamped to ``created_at`` so summary tests
+    can assert deterministic ordering.
+    """
+    if n_complete is None:
+        n_complete = n_trials
+    if best_trial_number is None:
+        best_trial_number = max(0, n_complete - 1)
+    study_dir = parent_hpo_dir / name
+    study_dir.mkdir(parents=True, exist_ok=True)
+    ts = (created_at or datetime(2026, 4, 1, tzinfo=UTC)).isoformat()
+
+    trials: list[dict[str, object]] = []
+    for i in range(n_trials):
+        is_complete = i < n_complete
+        value: float | None = None
+        if is_complete:
+            value = best_value if i == best_trial_number else best_value - 0.5
+        trials.append(
+            {
+                "number": i,
+                "state": TRIAL_STATE_COMPLETE if is_complete else TRIAL_STATE_FAIL,
+                "value": value,
+                "params": {"window": 30 + i, "k": 1.5 + 0.1 * i},
+                "user_attrs": {"experiment_id": f"20260101_120000_synthetic_abc_{i:04d}"},
+                "datetime_start": ts,
+                "datetime_complete": ts if is_complete else None,
+            }
+        )
+    json_io.write_jsonl(study_dir / TRIALS_JSONL_NAME, trials)
+
+    if write_best_config:
+        best_cfg = {
+            "name": "demo",
+            "seed": 42,
+            "strategy": {"name": "AdaptiveBollinger", "params": {"window": 30, "k": 2.0}},
+        }
+        (study_dir / BEST_CONFIG_YAML_NAME).write_text(yaml.safe_dump(best_cfg), encoding="utf-8")
+
+    if created_at is not None:
+        epoch = created_at.timestamp()
+        os.utime(study_dir / TRIALS_JSONL_NAME, (epoch, epoch))
+
+    return study_dir
+
+
 @pytest.fixture
 def webapp_store(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     """Synthetic store with two runs: one flat layout, one study-nested layout."""
@@ -373,6 +488,14 @@ def webapp_store(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     make_synthetic_holdout_eval(
         root / "studies" / "main" / HOLDOUT_EVALS_SUBDIR,
         name="study_holdout",
+    )
+    make_synthetic_study(
+        root / "studies",
+        name="main",
+    )
+    make_synthetic_hpo_study(
+        root / "studies" / "main" / HPO_SUBDIR,
+        name="AdaptiveBollinger__spy_daily_5y",
     )
     monkeypatch.setenv("WEBAPP_STORE_ROOT", str(root))
     get_settings.cache_clear()
