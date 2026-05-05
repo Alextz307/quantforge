@@ -5,14 +5,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FilterField } from "@/components/FilterField";
 import { Input } from "@/components/ui/input";
 import { QueryRenderer } from "@/components/QueryRenderer";
+import { ALL_OPTION, uniqSorted } from "@/lib/filters";
 import { formatDateTime, formatMetric } from "@/lib/format";
 import { runDetailPath } from "@/lib/routes";
-
-const ALL_OPTION = "__all__";
-
-function uniqSorted(values: readonly string[]): string[] {
-  return Array.from(new Set(values)).sort();
-}
 
 function applyFilters(
   runs: readonly RunSummary[],

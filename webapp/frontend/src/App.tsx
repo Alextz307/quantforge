@@ -5,6 +5,8 @@ import { AppShell } from "@/components/layout/AppShell";
 import { RequireAdmin } from "@/components/auth/RequireAdmin";
 import { RequireAuth } from "@/components/auth/RequireAuth";
 import { AdminPage } from "@/pages/AdminPage";
+import { ComparisonsPage } from "@/pages/ComparisonsPage";
+import { HoldoutPage } from "@/pages/HoldoutPage";
 import { LoginPage } from "@/pages/LoginPage";
 import { NotFoundPage } from "@/pages/NotFoundPage";
 import { RunsPage } from "@/pages/RunsPage";
@@ -12,6 +14,12 @@ import { ROUTES } from "@/lib/routes";
 
 const RunDetailPage = lazy(() =>
   import("@/pages/RunDetailPage").then((m) => ({ default: m.RunDetailPage })),
+);
+const ComparisonDetailPage = lazy(() =>
+  import("@/pages/ComparisonDetailPage").then((m) => ({ default: m.ComparisonDetailPage })),
+);
+const HoldoutDetailPage = lazy(() =>
+  import("@/pages/HoldoutDetailPage").then((m) => ({ default: m.HoldoutDetailPage })),
 );
 
 function ChartFallback() {
@@ -42,6 +50,24 @@ export function App() {
           element={
             <Suspense fallback={<ChartFallback />}>
               <RunDetailPage />
+            </Suspense>
+          }
+        />
+        <Route path={ROUTES.comparisons} element={<ComparisonsPage />} />
+        <Route
+          path={ROUTES.comparisonDetail}
+          element={
+            <Suspense fallback={<ChartFallback />}>
+              <ComparisonDetailPage />
+            </Suspense>
+          }
+        />
+        <Route path={ROUTES.holdout} element={<HoldoutPage />} />
+        <Route
+          path={ROUTES.holdoutDetail}
+          element={
+            <Suspense fallback={<ChartFallback />}>
+              <HoldoutDetailPage />
             </Suspense>
           }
         />

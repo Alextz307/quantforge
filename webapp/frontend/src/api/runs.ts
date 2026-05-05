@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { apiClient, type components } from "./client";
 import { extractApiError } from "./errors";
-import { API_PATHS } from "./paths";
+import { API_PATHS, fillPath } from "./paths";
 import { queryKeys } from "./queryKeys";
 
 export type RunSummary = components["schemas"]["RunSummary"];
@@ -30,7 +30,7 @@ export function useRun(experimentId: string) {
       if (!response.ok || !data) throw new Error(extractApiError(error, "Failed to load run"));
       return data;
     },
-    staleTime: 60_000,
+    staleTime: Infinity,
   });
 }
 
@@ -44,12 +44,10 @@ export function useRunFolds(experimentId: string) {
       if (!response.ok || !data) throw new Error(extractApiError(error, "Failed to load folds"));
       return data;
     },
-    staleTime: 60_000,
+    staleTime: Infinity,
   });
 }
 
 export function plotDownloadUrl(experimentId: string, plotName: string): string {
-  return API_PATHS.runPlot
-    .replace("{experiment_id}", encodeURIComponent(experimentId))
-    .replace("{plot_name}", encodeURIComponent(plotName));
+  return fillPath(API_PATHS.runPlot, { experiment_id: experimentId, plot_name: plotName });
 }

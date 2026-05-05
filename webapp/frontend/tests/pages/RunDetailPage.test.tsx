@@ -24,7 +24,7 @@ describe("RunDetailPage", () => {
     expect(screen.getByText(RUN_SPY_DETAIL.strategy)).toBeInTheDocument();
 
     const chart = await screen.findByTestId("equity-chart");
-    expect(chart).toHaveAttribute("data-fold-count", String(RUN_SPY_FOLDS.length));
+    expect(chart).toHaveAttribute("data-trace-count", String(RUN_SPY_FOLDS.length));
 
     const plotLink = screen.getByRole("link", { name: "equity.png" });
     expect(plotLink).toHaveAttribute("href", `/api/runs/${RUN_SPY.experiment_id}/plots/equity.png`);

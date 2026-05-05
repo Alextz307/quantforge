@@ -1,11 +1,12 @@
 import { useMemo } from "react";
-import { Link, useParams } from "react-router-dom";
-import { useRun, useRunFolds } from "@/api/runs";
+import { useParams } from "react-router-dom";
+import { plotDownloadUrl, useRun, useRunFolds, type FoldRow } from "@/api/runs";
+import { BackLink } from "@/components/BackLink";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { EquityChart } from "@/components/charts/EquityChart";
+import { EquityChart, type EquityTrace } from "@/components/charts/EquityChart";
 import { FoldMetricsTable } from "@/components/runs/FoldMetricsTable";
 import { ManifestPanel } from "@/components/runs/ManifestPanel";
-import { PlotIndex } from "@/components/runs/PlotIndex";
+import { PlotIndex } from "@/components/PlotIndex";
 import { QueryRenderer } from "@/components/QueryRenderer";
 import { formatMetric } from "@/lib/format";
 import { ROUTES } from "@/lib/routes";
@@ -30,6 +31,10 @@ function MetricsGrid({ metrics }: { metrics: Record<string, number> }) {
   );
 }
 
+function foldsToTraces(folds: readonly FoldRow[]): EquityTrace[] {
+  return folds.map((f) => ({ name: `Fold ${String(f.fold_index)}`, equity: f.equity_curve }));
+}
+
 export function RunDetailPage() {
   const { experimentId = "" } = useParams<{ experimentId: string }>();
   const runQuery = useRun(experimentId);
@@ -39,11 +44,7 @@ export function RunDetailPage() {
     <QueryRenderer query={runQuery} errorTitle="Failed to load run" loadingMessage="Loading run…">
       {(run) => (
         <div className="flex flex-col gap-4">
-          <div>
-            <Link to={ROUTES.runs} className="text-xs text-primary hover:underline">
-              ← All runs
-            </Link>
-          </div>
+          <BackLink to={ROUTES.runs}>All runs</BackLink>
           <ManifestPanel run={run} />
 
           <Card>
@@ -65,7 +66,7 @@ export function RunDetailPage() {
                 errorTitle="Failed to load folds"
                 loadingMessage="Loading folds…"
               >
-                {(folds) => <EquityChart folds={folds} />}
+                {(folds) => <EquityChart traces={foldsToTraces(folds)} xLabel="Bar within fold" />}
               </QueryRenderer>
             </CardContent>
           </Card>
@@ -90,7 +91,11 @@ export function RunDetailPage() {
               <CardTitle>Static figures</CardTitle>
             </CardHeader>
             <CardContent>
-              <PlotIndex experimentId={run.experiment_id} plots={run.plots} />
+              <PlotIndex
+                plots={run.plots}
+                urlForPlot={(name) => plotDownloadUrl(run.experiment_id, name)}
+                emptyMessage="No static figures produced for this run."
+              />
             </CardContent>
           </Card>
         </div>

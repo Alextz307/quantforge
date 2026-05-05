@@ -2,11 +2,23 @@ export const ROUTES = {
   login: "/login",
   runs: "/runs",
   runDetail: "/runs/:experimentId",
+  comparisons: "/comparisons",
+  comparisonDetail: "/comparisons/:name",
+  holdout: "/holdout",
+  holdoutDetail: "/holdout/:name",
   admin: "/admin",
 } as const;
 
 export function runDetailPath(experimentId: string): string {
   return `/runs/${encodeURIComponent(experimentId)}`;
+}
+
+export function comparisonDetailPath(name: string): string {
+  return `/comparisons/${encodeURIComponent(name)}`;
+}
+
+export function holdoutDetailPath(name: string): string {
+  return `/holdout/${encodeURIComponent(name)}`;
 }
 
 export const FROM_QUERY_PARAM = "from";

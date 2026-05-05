@@ -1,5 +1,5 @@
 import { NavLink } from "react-router-dom";
-import { LayoutDashboard, Shield } from "lucide-react";
+import { BarChart3, LayoutDashboard, Shield, Target } from "lucide-react";
 import { ROLE_ADMIN, type UserPublic } from "@/api/users";
 import { cn } from "@/lib/cn";
 import { ROUTES } from "@/lib/routes";
@@ -17,6 +17,8 @@ interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   { to: ROUTES.runs, label: "Runs", icon: LayoutDashboard },
+  { to: ROUTES.comparisons, label: "Comparisons", icon: BarChart3 },
+  { to: ROUTES.holdout, label: "Holdout", icon: Target },
   { to: ROUTES.admin, label: "Admin", icon: Shield, adminOnly: true },
 ];
 
