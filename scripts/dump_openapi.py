@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import click
 
@@ -36,7 +36,9 @@ def build_openapi_spec() -> dict[str, Any]:
     os.environ.setdefault("WEBAPP_SECRET_KEY", DUMMY_SECRET)
     from webapp.backend.app.main import create_app
 
-    return create_app().openapi()
+    # cast: in the lint-and-typecheck job the [mypy-webapp.*] override treats
+    # webapp.* as Any, so mypy can't see that openapi() returns a dict.
+    return cast(dict[str, Any], create_app().openapi())
 
 
 @click.command()
