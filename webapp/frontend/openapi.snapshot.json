@@ -411,6 +411,9 @@
             "title": "Created At",
             "type": "string"
           },
+          "direction": {
+            "$ref": "#/components/schemas/StudyDirection"
+          },
           "n_complete": {
             "title": "N Complete",
             "type": "integer"
@@ -436,6 +439,7 @@
           "n_complete",
           "best_value",
           "best_trial_number",
+          "direction",
           "best_config"
         ],
         "title": "HpoDetail",
@@ -470,6 +474,9 @@
             "title": "Created At",
             "type": "string"
           },
+          "direction": {
+            "$ref": "#/components/schemas/StudyDirection"
+          },
           "n_complete": {
             "title": "N Complete",
             "type": "integer"
@@ -494,7 +501,8 @@
           "n_trials",
           "n_complete",
           "best_value",
-          "best_trial_number"
+          "best_trial_number",
+          "direction"
         ],
         "title": "HpoSummary",
         "type": "object"
@@ -1284,6 +1292,91 @@
         "title": "SlippageScenario",
         "type": "string"
       },
+      "StudyConsolidatedDTO": {
+        "description": "Read view of a study's consolidated report (tables + plots tree).",
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "git_sha": {
+            "title": "Git Sha",
+            "type": "string"
+          },
+          "incomplete_leg_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Incomplete Leg Ids",
+            "type": "array"
+          },
+          "n_legs_with_holdout": {
+            "title": "N Legs With Holdout",
+            "type": "integer"
+          },
+          "n_legs_with_regime": {
+            "title": "N Legs With Regime",
+            "type": "integer"
+          },
+          "n_universes_with_pairwise": {
+            "title": "N Universes With Pairwise",
+            "type": "integer"
+          },
+          "plots": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Plots",
+            "type": "array"
+          },
+          "publish_label": {
+            "title": "Publish Label",
+            "type": "string"
+          },
+          "strategies": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Strategies",
+            "type": "array"
+          },
+          "study_name": {
+            "title": "Study Name",
+            "type": "string"
+          },
+          "tables": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Tables",
+            "type": "array"
+          },
+          "universes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Universes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "study_name",
+          "publish_label",
+          "created_at",
+          "git_sha",
+          "strategies",
+          "universes",
+          "incomplete_leg_ids",
+          "n_legs_with_regime",
+          "n_legs_with_holdout",
+          "n_universes_with_pairwise",
+          "tables",
+          "plots"
+        ],
+        "title": "StudyConsolidatedDTO",
+        "type": "object"
+      },
       "StudyDetail": {
         "properties": {
           "completed_legs": {
@@ -1343,6 +1436,15 @@
         ],
         "title": "StudyDetail",
         "type": "object"
+      },
+      "StudyDirection": {
+        "description": "Optimization direction surfaced from the Optuna study.\n\nThe framework hardcodes ``maximize`` (loss-style metrics negate at\nthe objective layer); this enum exists so the chart layer can pick\ncummax vs cummin without re-reading the optuna sqlite per request.",
+        "enum": [
+          "minimize",
+          "maximize"
+        ],
+        "title": "StudyDirection",
+        "type": "string"
       },
       "StudySummary": {
         "properties": {
@@ -2413,6 +2515,146 @@
           }
         },
         "summary": "Get Study Detail",
+        "tags": [
+          "studies"
+        ]
+      }
+    },
+    "/api/studies/{name}/consolidated": {
+      "get": {
+        "operationId": "get_study_consolidated_api_studies__name__consolidated_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StudyConsolidatedDTO"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Study Consolidated",
+        "tags": [
+          "studies"
+        ]
+      }
+    },
+    "/api/studies/{name}/consolidated/plots/{plot_name}": {
+      "get": {
+        "operationId": "get_study_consolidated_plot_api_studies__name__consolidated_plots__plot_name__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "plot_name",
+            "required": true,
+            "schema": {
+              "title": "Plot Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Study Consolidated Plot",
+        "tags": [
+          "studies"
+        ]
+      }
+    },
+    "/api/studies/{name}/consolidated/tables/{table_name}": {
+      "get": {
+        "operationId": "get_study_consolidated_table_api_studies__name__consolidated_tables__table_name__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "table_name",
+            "required": true,
+            "schema": {
+              "title": "Table Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Study Consolidated Table",
         "tags": [
           "studies"
         ]

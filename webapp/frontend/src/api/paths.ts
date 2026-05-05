@@ -9,6 +9,17 @@ export const API_PATHS = {
   holdoutEvals: "/api/holdout-evals",
   holdoutEval: "/api/holdout-evals/{name}",
   holdoutEvalPlot: "/api/holdout-evals/{name}/plots/{plot_name}",
+  regimeReports: "/api/regime-reports",
+  regimeReport: "/api/regime-reports/{name}",
+  regimePlot: "/api/regime-reports/{name}/plots/{plot_name}",
+  studies: "/api/studies",
+  study: "/api/studies/{name}",
+  studyConsolidated: "/api/studies/{name}/consolidated",
+  studyConsolidatedPlot: "/api/studies/{name}/consolidated/plots/{plot_name}",
+  studyConsolidatedTable: "/api/studies/{name}/consolidated/tables/{table_name}",
+  hpoStudies: "/api/hpo",
+  hpoStudy: "/api/hpo/{name}",
+  hpoTrials: "/api/hpo/{name}/trials",
 } as const;
 
 // MSW v2 expects `:name` path params; openapi-fetch (matching FastAPI's path

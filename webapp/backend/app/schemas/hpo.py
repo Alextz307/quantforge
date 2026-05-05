@@ -3,8 +3,21 @@
 from __future__ import annotations
 
 from datetime import datetime
+from enum import StrEnum
 
 from pydantic import BaseModel
+
+
+class StudyDirection(StrEnum):
+    """Optimization direction surfaced from the Optuna study.
+
+    The framework hardcodes ``maximize`` (loss-style metrics negate at
+    the objective layer); this enum exists so the chart layer can pick
+    cummax vs cummin without re-reading the optuna sqlite per request.
+    """
+
+    MINIMIZE = "minimize"
+    MAXIMIZE = "maximize"
 
 
 class TrialRow(BaseModel):
@@ -25,6 +38,7 @@ class HpoSummary(BaseModel):
     n_complete: int
     best_value: float | None
     best_trial_number: int | None
+    direction: StudyDirection
 
 
 class HpoDetail(BaseModel):
@@ -35,4 +49,5 @@ class HpoDetail(BaseModel):
     n_complete: int
     best_value: float | None
     best_trial_number: int | None
+    direction: StudyDirection
     best_config: dict[str, object]

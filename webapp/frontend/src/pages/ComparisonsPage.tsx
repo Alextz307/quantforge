@@ -1,6 +1,10 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { useComparisons, type ComparisonSummary } from "@/api/comparisons";
+import {
+  useComparisons,
+  usePrefetchComparison,
+  type ComparisonSummary,
+} from "@/api/comparisons";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FilterField } from "@/components/FilterField";
 import { Input } from "@/components/ui/input";
@@ -60,6 +64,7 @@ interface BodyProps {
 function ComparisonsBody({ rows, strategy, since, onStrategy, onSince }: BodyProps) {
   const strategies = useMemo(() => uniqSorted(rows.flatMap((r) => r.strategies)), [rows]);
   const filtered = useMemo(() => applyFilters(rows, strategy, since), [rows, strategy, since]);
+  const prefetchComparison = usePrefetchComparison();
 
   return (
     <>
@@ -108,7 +113,13 @@ function ComparisonsBody({ rows, strategy, since, onStrategy, onSince }: BodyPro
             </thead>
             <tbody>
               {filtered.map((r) => (
-                <tr key={r.name} className="border-b last:border-0">
+                <tr
+                  key={r.name}
+                  className="border-b last:border-0"
+                  onMouseEnter={() => {
+                    prefetchComparison(r.name);
+                  }}
+                >
                   <td className="py-2 pr-4">
                     <Link
                       to={comparisonDetailPath(r.name)}

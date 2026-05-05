@@ -12,6 +12,7 @@ EXPECTED_NAME = "AdaptiveBollinger__spy_daily_5y"
 EXPECTED_STORE = "studies/main"
 EXPECTED_HPO_COUNT = 1
 EXPECTED_N_TRIALS = 3
+EXPECTED_DIRECTION = "maximize"
 AFTER_TRIAL_FILTER = 0
 
 
@@ -28,6 +29,7 @@ def test_list_returns_hpo_summary(authed_client: TestClient, webapp_store: Path)
     assert payload[0]["name"] == EXPECTED_NAME
     assert payload[0]["store"] == EXPECTED_STORE
     assert payload[0]["n_trials"] == EXPECTED_N_TRIALS
+    assert payload[0]["direction"] == EXPECTED_DIRECTION
 
 
 def test_detail_returns_best_config(authed_client: TestClient, webapp_store: Path) -> None:
@@ -36,6 +38,7 @@ def test_detail_returns_best_config(authed_client: TestClient, webapp_store: Pat
     assert response.status_code == HTTPStatus.OK
     detail = response.json()
     assert detail["best_config"]["strategy"]["name"] == "AdaptiveBollinger"
+    assert detail["direction"] == EXPECTED_DIRECTION
 
 
 def test_detail_404_for_unknown_name(authed_client: TestClient, webapp_store: Path) -> None:

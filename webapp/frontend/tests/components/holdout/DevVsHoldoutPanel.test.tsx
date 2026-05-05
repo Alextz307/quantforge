@@ -3,11 +3,12 @@ import { describe, expect, it } from "vitest";
 import { MemoryRouter } from "react-router-dom";
 import { DevVsHoldoutPanel } from "@/components/holdout/DevVsHoldoutPanel";
 import { HOLDOUT_DEMO_DETAIL, RUN_SPY } from "../../msw/handlers";
+import { ROUTER_FUTURE_FLAGS } from "../../util/router";
 
 describe("DevVsHoldoutPanel", () => {
   it("renders dev source identity, holdout metrics, and a link to the source run", () => {
     render(
-      <MemoryRouter>
+      <MemoryRouter future={ROUTER_FUTURE_FLAGS}>
         <DevVsHoldoutPanel holdout={HOLDOUT_DEMO_DETAIL} />
       </MemoryRouter>,
     );
@@ -27,7 +28,7 @@ describe("DevVsHoldoutPanel", () => {
       source_id: "trial_42",
     };
     render(
-      <MemoryRouter>
+      <MemoryRouter future={ROUTER_FUTURE_FLAGS}>
         <DevVsHoldoutPanel holdout={hpoSourced} />
       </MemoryRouter>,
     );

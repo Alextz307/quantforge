@@ -394,6 +394,52 @@ def make_synthetic_study(
     return study_dir
 
 
+CONSOLIDATED_TABLE_FILENAME = "master_ranking.tex"
+CONSOLIDATED_PLOT_FILENAME = "strategy_x_universe_heatmap.png"
+
+
+def make_synthetic_consolidated_report(
+    study_dir: Path,
+    *,
+    study_name: str,
+    publish_label: str | None = None,
+    created_at: datetime | None = None,
+    git_sha: str = "deadbeef" * 5,
+    strategies: tuple[str, ...] = ("AdaptiveBollinger", "PairsTrading"),
+    universes: tuple[str, ...] = ("spy_daily_5y", "spy_daily_10y"),
+    incomplete_leg_ids: tuple[str, ...] = (),
+    n_legs_with_regime: int = 2,
+    n_legs_with_holdout: int = 1,
+    n_universes_with_pairwise: int = 1,
+) -> Path:
+    """Materialize a minimal valid consolidated-report tree under ``study_dir``."""
+    from src.visualization.plots import MANIFEST_FILENAME
+
+    plots_dir = study_dir / PLOTS_DIRNAME
+    tables_dir = study_dir / "tables"
+    plots_dir.mkdir(parents=True, exist_ok=True)
+    tables_dir.mkdir(parents=True, exist_ok=True)
+    (plots_dir / CONSOLIDATED_PLOT_FILENAME).write_bytes(PLOT_BYTES)
+    (tables_dir / CONSOLIDATED_TABLE_FILENAME).write_text("% latex table stub", encoding="utf-8")
+    ts = created_at or datetime(2026, 4, 5, tzinfo=UTC)
+    manifest = {
+        "study_name": study_name,
+        "publish_label": publish_label or study_name,
+        "study_dir": str(study_dir),
+        "created_at": ts.isoformat(),
+        "git_sha": git_sha,
+        "strategies": list(strategies),
+        "universes": list(universes),
+        "incomplete_leg_ids": list(incomplete_leg_ids),
+        "per_leg_run_id": {},
+        "n_legs_with_regime": n_legs_with_regime,
+        "n_legs_with_holdout": n_legs_with_holdout,
+        "n_universes_with_pairwise": n_universes_with_pairwise,
+    }
+    json_io.write(study_dir / MANIFEST_FILENAME, manifest)
+    return study_dir
+
+
 def make_synthetic_hpo_study(
     parent_hpo_dir: Path,
     *,

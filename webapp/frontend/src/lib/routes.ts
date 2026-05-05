@@ -6,6 +6,12 @@ export const ROUTES = {
   comparisonDetail: "/comparisons/:name",
   holdout: "/holdout",
   holdoutDetail: "/holdout/:name",
+  regime: "/regime",
+  regimeDetail: "/regime/:name",
+  studies: "/studies",
+  studyDetail: "/studies/:name",
+  hpo: "/hpo",
+  hpoDetail: "/hpo/:name",
   admin: "/admin",
 } as const;
 
@@ -19,6 +25,18 @@ export function comparisonDetailPath(name: string): string {
 
 export function holdoutDetailPath(name: string): string {
   return `/holdout/${encodeURIComponent(name)}`;
+}
+
+export function regimeDetailPath(name: string): string {
+  return `/regime/${encodeURIComponent(name)}`;
+}
+
+export function studyDetailPath(name: string): string {
+  return `/studies/${encodeURIComponent(name)}`;
+}
+
+export function hpoDetailPath(name: string): string {
+  return `/hpo/${encodeURIComponent(name)}`;
 }
 
 export const FROM_QUERY_PARAM = "from";

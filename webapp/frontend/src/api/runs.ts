@@ -1,6 +1,12 @@
-import { useQuery } from "@tanstack/react-query";
-import { apiClient, type components } from "./client";
-import { extractApiError } from "./errors";
+import { useCallback } from "react";
+import { useQueryClient, type UseQueryResult } from "@tanstack/react-query";
+import {
+  apiClient,
+  prefetchApiQuery,
+  useApiQuery,
+  type ApiQueryOptions,
+  type components,
+} from "./client";
 import { API_PATHS, fillPath } from "./paths";
 import { queryKeys } from "./queryKeys";
 
@@ -8,44 +14,57 @@ export type RunSummary = components["schemas"]["RunSummary"];
 export type RunDetail = components["schemas"]["RunDetail"];
 export type FoldRow = components["schemas"]["FoldRow"];
 
-export function useRuns() {
-  return useQuery({
+const LIST_STALE_TIME = 30_000;
+
+function runsConfig(): ApiQueryOptions<RunSummary[]> {
+  return {
     queryKey: queryKeys.runs,
-    queryFn: async (): Promise<RunSummary[]> => {
-      const { data, error, response } = await apiClient.GET(API_PATHS.runs);
-      if (!response.ok || !data) throw new Error(extractApiError(error, "Failed to load runs"));
-      return data;
-    },
-    staleTime: 30_000,
-  });
+    fetcher: () => apiClient.GET(API_PATHS.runs),
+    errorMsg: "Failed to load runs",
+    staleTime: LIST_STALE_TIME,
+  };
 }
 
-export function useRun(experimentId: string) {
-  return useQuery({
+function runConfig(experimentId: string): ApiQueryOptions<RunDetail> {
+  return {
     queryKey: queryKeys.run(experimentId),
-    queryFn: async (): Promise<RunDetail> => {
-      const { data, error, response } = await apiClient.GET(API_PATHS.run, {
-        params: { path: { experiment_id: experimentId } },
-      });
-      if (!response.ok || !data) throw new Error(extractApiError(error, "Failed to load run"));
-      return data;
-    },
+    fetcher: () =>
+      apiClient.GET(API_PATHS.run, { params: { path: { experiment_id: experimentId } } }),
+    errorMsg: "Failed to load run",
     staleTime: Infinity,
-  });
+  };
 }
 
-export function useRunFolds(experimentId: string) {
-  return useQuery({
+function runFoldsConfig(experimentId: string): ApiQueryOptions<FoldRow[]> {
+  return {
     queryKey: queryKeys.runFolds(experimentId),
-    queryFn: async (): Promise<FoldRow[]> => {
-      const { data, error, response } = await apiClient.GET(API_PATHS.runFolds, {
-        params: { path: { experiment_id: experimentId } },
-      });
-      if (!response.ok || !data) throw new Error(extractApiError(error, "Failed to load folds"));
-      return data;
-    },
+    fetcher: () =>
+      apiClient.GET(API_PATHS.runFolds, { params: { path: { experiment_id: experimentId } } }),
+    errorMsg: "Failed to load folds",
     staleTime: Infinity,
-  });
+  };
+}
+
+export function useRuns(): UseQueryResult<RunSummary[]> {
+  return useApiQuery(runsConfig());
+}
+
+export function useRun(experimentId: string): UseQueryResult<RunDetail> {
+  return useApiQuery(runConfig(experimentId));
+}
+
+export function useRunFolds(experimentId: string): UseQueryResult<FoldRow[]> {
+  return useApiQuery(runFoldsConfig(experimentId));
+}
+
+export function usePrefetchRun(): (experimentId: string) => void {
+  const qc = useQueryClient();
+  return useCallback(
+    (experimentId: string) => {
+      void prefetchApiQuery(qc, runConfig(experimentId));
+    },
+    [qc],
+  );
 }
 
 export function plotDownloadUrl(experimentId: string, plotName: string): string {

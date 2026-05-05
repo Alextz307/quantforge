@@ -8,4 +8,12 @@ export const queryKeys = {
   comparison: (name: string) => ["comparisons", name] as const,
   holdoutEvals: ["holdoutEvals"] as const,
   holdoutEval: (name: string) => ["holdoutEvals", name] as const,
+  regimeReports: ["regimeReports"] as const,
+  regimeReport: (name: string) => ["regimeReports", name] as const,
+  studies: ["studies"] as const,
+  study: (name: string) => ["studies", name] as const,
+  studyConsolidated: (name: string) => ["studies", name, "consolidated"] as const,
+  hpoStudies: ["hpoStudies"] as const,
+  hpoStudy: (name: string) => ["hpoStudies", name] as const,
+  hpoTrials: (name: string) => ["hpoStudies", name, "trials"] as const,
 } as const;

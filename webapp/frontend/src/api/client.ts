@@ -1,5 +1,12 @@
 import createClient, { type Middleware } from "openapi-fetch";
+import {
+  useQuery,
+  type QueryClient,
+  type QueryKey,
+  type UseQueryResult,
+} from "@tanstack/react-query";
 import { FROM_QUERY_PARAM, ROUTES } from "@/lib/routes";
+import { extractApiError } from "./errors";
 import type { paths } from "./generated/schema";
 
 const UNAUTHORIZED = 401;
@@ -29,3 +36,43 @@ apiClient.use(redirectOn401);
 
 export type { paths } from "./generated/schema";
 export type { components } from "./generated/schema";
+
+interface ApiResponse<T> {
+  data?: T;
+  error?: unknown;
+  response: { ok: boolean };
+}
+
+type Fetcher<T> = () => Promise<ApiResponse<T>>;
+
+async function runFetch<T>(fetcher: Fetcher<T>, errorMsg: string): Promise<T> {
+  const { data, error, response } = await fetcher();
+  if (!response.ok || !data) throw new Error(extractApiError(error, errorMsg));
+  return data;
+}
+
+export interface ApiQueryOptions<T> {
+  queryKey: QueryKey;
+  fetcher: Fetcher<T>;
+  errorMsg: string;
+  staleTime?: number;
+}
+
+export function useApiQuery<T>(opts: ApiQueryOptions<T>): UseQueryResult<T> {
+  return useQuery<T>({
+    queryKey: opts.queryKey,
+    queryFn: () => runFetch(opts.fetcher, opts.errorMsg),
+    ...(opts.staleTime !== undefined ? { staleTime: opts.staleTime } : {}),
+  });
+}
+
+export function prefetchApiQuery<T>(
+  queryClient: QueryClient,
+  opts: ApiQueryOptions<T>,
+): Promise<void> {
+  return queryClient.prefetchQuery({
+    queryKey: opts.queryKey,
+    queryFn: () => runFetch(opts.fetcher, opts.errorMsg),
+    ...(opts.staleTime !== undefined ? { staleTime: opts.staleTime } : {}),
+  });
+}

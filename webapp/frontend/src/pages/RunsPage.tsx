@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { useRuns, type RunSummary } from "@/api/runs";
+import { usePrefetchRun, useRuns, type RunSummary } from "@/api/runs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FilterField } from "@/components/FilterField";
 import { Input } from "@/components/ui/input";
@@ -71,6 +71,7 @@ function RunsBody({ runs, strategy, ticker, since, onStrategy, onTicker, onSince
     () => applyFilters(runs, strategy, ticker, since),
     [runs, strategy, ticker, since],
   );
+  const prefetchRun = usePrefetchRun();
 
   return (
     <>
@@ -139,7 +140,13 @@ function RunsBody({ runs, strategy, ticker, since, onStrategy, onTicker, onSince
             </thead>
             <tbody>
               {filtered.map((r) => (
-                <tr key={r.experiment_id} className="border-b last:border-0">
+                <tr
+                  key={r.experiment_id}
+                  className="border-b last:border-0"
+                  onMouseEnter={() => {
+                    prefetchRun(r.experiment_id);
+                  }}
+                >
                   <td className="py-2 pr-4">
                     <Link
                       to={runDetailPath(r.experiment_id)}

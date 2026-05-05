@@ -4,11 +4,10 @@ import { MetadataField } from "@/components/MetadataField";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatMetric, formatPercent } from "@/lib/format";
 import { runDetailPath } from "@/lib/routes";
-
-const SOURCE_KIND_RUN = "run";
+import { isRunSource, sourceKindLabel } from "@/lib/sourceKind";
 
 function SourceLabel({ holdout }: { holdout: HoldoutEvalDetail }) {
-  if (holdout.source_kind === SOURCE_KIND_RUN) {
+  if (isRunSource(holdout.source_kind)) {
     return (
       <Link to={runDetailPath(holdout.source_id)} className="text-primary hover:underline">
         {holdout.source_id}
@@ -26,7 +25,7 @@ export function DevVsHoldoutPanel({ holdout }: { holdout: HoldoutEvalDetail }) {
           <CardTitle>Dev source</CardTitle>
         </CardHeader>
         <CardContent className="grid grid-cols-2 gap-4">
-          <MetadataField label="Source kind" value={holdout.source_kind} />
+          <MetadataField label="Source kind" value={sourceKindLabel(holdout.source_kind)} />
           <MetadataField label="Source ID" value={<SourceLabel holdout={holdout} />} />
           <MetadataField label="Source path" value={holdout.source_path} />
           <MetadataField label="Dev bars" value={holdout.n_dev_bars} />

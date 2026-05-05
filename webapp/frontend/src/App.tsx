@@ -7,9 +7,12 @@ import { RequireAuth } from "@/components/auth/RequireAuth";
 import { AdminPage } from "@/pages/AdminPage";
 import { ComparisonsPage } from "@/pages/ComparisonsPage";
 import { HoldoutPage } from "@/pages/HoldoutPage";
+import { HpoPage } from "@/pages/HpoPage";
 import { LoginPage } from "@/pages/LoginPage";
 import { NotFoundPage } from "@/pages/NotFoundPage";
+import { RegimePage } from "@/pages/RegimePage";
 import { RunsPage } from "@/pages/RunsPage";
+import { StudiesPage } from "@/pages/StudiesPage";
 import { ROUTES } from "@/lib/routes";
 
 const RunDetailPage = lazy(() =>
@@ -20,6 +23,15 @@ const ComparisonDetailPage = lazy(() =>
 );
 const HoldoutDetailPage = lazy(() =>
   import("@/pages/HoldoutDetailPage").then((m) => ({ default: m.HoldoutDetailPage })),
+);
+const RegimeDetailPage = lazy(() =>
+  import("@/pages/RegimeDetailPage").then((m) => ({ default: m.RegimeDetailPage })),
+);
+const StudyDetailPage = lazy(() =>
+  import("@/pages/StudyDetailPage").then((m) => ({ default: m.StudyDetailPage })),
+);
+const HpoDetailPage = lazy(() =>
+  import("@/pages/HpoDetailPage").then((m) => ({ default: m.HpoDetailPage })),
 );
 
 function ChartFallback() {
@@ -68,6 +80,33 @@ export function App() {
           element={
             <Suspense fallback={<ChartFallback />}>
               <HoldoutDetailPage />
+            </Suspense>
+          }
+        />
+        <Route path={ROUTES.regime} element={<RegimePage />} />
+        <Route
+          path={ROUTES.regimeDetail}
+          element={
+            <Suspense fallback={<ChartFallback />}>
+              <RegimeDetailPage />
+            </Suspense>
+          }
+        />
+        <Route path={ROUTES.studies} element={<StudiesPage />} />
+        <Route
+          path={ROUTES.studyDetail}
+          element={
+            <Suspense fallback={<ChartFallback />}>
+              <StudyDetailPage />
+            </Suspense>
+          }
+        />
+        <Route path={ROUTES.hpo} element={<HpoPage />} />
+        <Route
+          path={ROUTES.hpoDetail}
+          element={
+            <Suspense fallback={<ChartFallback />}>
+              <HpoDetailPage />
             </Suspense>
           }
         />

@@ -1,9 +1,6 @@
 import { useMemo } from "react";
-import createPlotlyComponent from "react-plotly.js/factory";
-import Plotly from "plotly.js-cartesian-dist-min";
 import type { Data, Layout } from "plotly.js";
-
-const Plot = createPlotlyComponent(Plotly);
+import { Plot } from "@/components/charts/plot";
 
 export interface EquityTrace {
   name: string;

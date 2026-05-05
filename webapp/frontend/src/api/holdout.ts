@@ -1,38 +1,54 @@
-import { useQuery } from "@tanstack/react-query";
-import { apiClient, type components } from "./client";
-import { extractApiError } from "./errors";
+import { useCallback } from "react";
+import { useQueryClient, type UseQueryResult } from "@tanstack/react-query";
+import {
+  apiClient,
+  prefetchApiQuery,
+  useApiQuery,
+  type ApiQueryOptions,
+  type components,
+} from "./client";
 import { API_PATHS, fillPath } from "./paths";
 import { queryKeys } from "./queryKeys";
 
 export type HoldoutEvalSummary = components["schemas"]["HoldoutEvalSummary"];
 export type HoldoutEvalDetail = components["schemas"]["HoldoutEvalDetail"];
 
-export function useHoldoutEvals() {
-  return useQuery({
+const LIST_STALE_TIME = 30_000;
+
+function holdoutEvalsConfig(): ApiQueryOptions<HoldoutEvalSummary[]> {
+  return {
     queryKey: queryKeys.holdoutEvals,
-    queryFn: async (): Promise<HoldoutEvalSummary[]> => {
-      const { data, error, response } = await apiClient.GET(API_PATHS.holdoutEvals);
-      if (!response.ok || !data)
-        throw new Error(extractApiError(error, "Failed to load holdout evaluations"));
-      return data;
-    },
-    staleTime: 30_000,
-  });
+    fetcher: () => apiClient.GET(API_PATHS.holdoutEvals),
+    errorMsg: "Failed to load holdout evaluations",
+    staleTime: LIST_STALE_TIME,
+  };
 }
 
-export function useHoldoutEval(name: string) {
-  return useQuery({
+function holdoutEvalConfig(name: string): ApiQueryOptions<HoldoutEvalDetail> {
+  return {
     queryKey: queryKeys.holdoutEval(name),
-    queryFn: async (): Promise<HoldoutEvalDetail> => {
-      const { data, error, response } = await apiClient.GET(API_PATHS.holdoutEval, {
-        params: { path: { name } },
-      });
-      if (!response.ok || !data)
-        throw new Error(extractApiError(error, "Failed to load holdout evaluation"));
-      return data;
-    },
+    fetcher: () => apiClient.GET(API_PATHS.holdoutEval, { params: { path: { name } } }),
+    errorMsg: "Failed to load holdout evaluation",
     staleTime: Infinity,
-  });
+  };
+}
+
+export function useHoldoutEvals(): UseQueryResult<HoldoutEvalSummary[]> {
+  return useApiQuery(holdoutEvalsConfig());
+}
+
+export function useHoldoutEval(name: string): UseQueryResult<HoldoutEvalDetail> {
+  return useApiQuery(holdoutEvalConfig(name));
+}
+
+export function usePrefetchHoldoutEval(): (name: string) => void {
+  const qc = useQueryClient();
+  return useCallback(
+    (name: string) => {
+      void prefetchApiQuery(qc, holdoutEvalConfig(name));
+    },
+    [qc],
+  );
 }
 
 export function holdoutPlotDownloadUrl(name: string, plotName: string): string {

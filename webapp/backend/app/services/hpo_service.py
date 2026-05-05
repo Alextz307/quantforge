@@ -15,7 +15,7 @@ from webapp.backend.app.infrastructure.store import (
     iter_hpo_study_dirs,
     store_label,
 )
-from webapp.backend.app.schemas.hpo import HpoDetail, HpoSummary, TrialRow
+from webapp.backend.app.schemas.hpo import HpoDetail, HpoSummary, StudyDirection, TrialRow
 
 __all__ = [
     "HpoStudyNotFoundError",
@@ -50,6 +50,7 @@ def get_hpo_study(root: Path, name: str) -> HpoDetail:
         n_complete=summary.n_complete,
         best_value=summary.best_value,
         best_trial_number=summary.best_trial_number,
+        direction=summary.direction,
         best_config=_read_best_config(study_dir),
     )
 
@@ -89,6 +90,7 @@ def _summary_from_trials(
         n_complete=n_complete,
         best_value=best_value,
         best_trial_number=best_number,
+        direction=StudyDirection.MAXIMIZE,
     )
 
 

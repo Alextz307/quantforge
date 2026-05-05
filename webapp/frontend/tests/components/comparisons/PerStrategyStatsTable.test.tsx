@@ -3,10 +3,11 @@ import { describe, expect, it } from "vitest";
 import { MemoryRouter } from "react-router-dom";
 import { PerStrategyStatsTable } from "@/components/comparisons/PerStrategyStatsTable";
 import { COMPARISON_DEMO_DETAIL, RUN_SPY } from "../../msw/handlers";
+import { ROUTER_FUTURE_FLAGS } from "../../util/router";
 
 function renderTable(rows: typeof COMPARISON_DEMO_DETAIL.per_strategy_stats) {
   render(
-    <MemoryRouter>
+    <MemoryRouter future={ROUTER_FUTURE_FLAGS}>
       <PerStrategyStatsTable rows={rows} />
     </MemoryRouter>,
   );

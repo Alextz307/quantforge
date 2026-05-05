@@ -3,14 +3,24 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import FileResponse
 
 from webapp.backend.app.core.deps import get_current_user
 from webapp.backend.app.core.settings import get_settings
-from webapp.backend.app.schemas.studies import StudyDetail, StudySummary
+from webapp.backend.app.schemas.studies import (
+    StudyConsolidatedDTO,
+    StudyDetail,
+    StudySummary,
+)
 from webapp.backend.app.services.study_service import (
+    ConsolidatedReportNotFoundError,
+    PlotNotFoundError,
     StudyNotFoundError,
+    get_consolidated,
     get_study,
     list_studies,
+    resolve_consolidated_plot,
+    resolve_consolidated_table,
 )
 
 router = APIRouter(prefix="/studies", tags=["studies"], dependencies=[Depends(get_current_user)])
@@ -27,3 +37,29 @@ def get_study_detail(name: str) -> StudyDetail:
         return get_study(get_settings().store_root, name)
     except StudyNotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+
+
+@router.get("/{name}/consolidated", response_model=StudyConsolidatedDTO)
+def get_study_consolidated(name: str) -> StudyConsolidatedDTO:
+    try:
+        return get_consolidated(get_settings().store_root, name)
+    except (StudyNotFoundError, ConsolidatedReportNotFoundError) as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+
+
+@router.get("/{name}/consolidated/plots/{plot_name}")
+def get_study_consolidated_plot(name: str, plot_name: str) -> FileResponse:
+    try:
+        path = resolve_consolidated_plot(get_settings().store_root, name, plot_name)
+    except (StudyNotFoundError, PlotNotFoundError) as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    return FileResponse(path)
+
+
+@router.get("/{name}/consolidated/tables/{table_name}")
+def get_study_consolidated_table(name: str, table_name: str) -> FileResponse:
+    try:
+        path = resolve_consolidated_table(get_settings().store_root, name, table_name)
+    except (StudyNotFoundError, PlotNotFoundError) as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    return FileResponse(path)

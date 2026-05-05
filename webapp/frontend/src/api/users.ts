@@ -1,5 +1,5 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { apiClient, type components } from "./client";
+import { useMutation, useQueryClient, type UseQueryResult } from "@tanstack/react-query";
+import { apiClient, useApiQuery, type ApiQueryOptions, type components } from "./client";
 import { extractApiError } from "./errors";
 import { queryKeys } from "./queryKeys";
 
@@ -14,16 +14,19 @@ export const ROLE_ADMIN: Role = "admin";
 const USERS_PATH = "/api/users";
 const USER_BY_ID_PATH = "/api/users/{user_id}";
 
-export function useUsers() {
-  return useQuery({
+const LIST_STALE_TIME = 30_000;
+
+function usersConfig(): ApiQueryOptions<UserPublic[]> {
+  return {
     queryKey: queryKeys.users,
-    queryFn: async (): Promise<UserPublic[]> => {
-      const { data, error, response } = await apiClient.GET(USERS_PATH);
-      if (!response.ok || !data) throw new Error(extractApiError(error, "Failed to load users"));
-      return data;
-    },
-    staleTime: 30_000,
-  });
+    fetcher: () => apiClient.GET(USERS_PATH),
+    errorMsg: "Failed to load users",
+    staleTime: LIST_STALE_TIME,
+  };
+}
+
+export function useUsers(): UseQueryResult<UserPublic[]> {
+  return useApiQuery(usersConfig());
 }
 
 export function useCreateUser() {

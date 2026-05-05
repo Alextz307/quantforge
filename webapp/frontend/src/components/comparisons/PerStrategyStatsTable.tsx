@@ -1,11 +1,7 @@
 import { Link } from "react-router-dom";
 import type { PerStrategyStatsRow } from "@/api/comparisons";
-import { formatMetric, formatPercent } from "@/lib/format";
+import { formatPercent, withCi } from "@/lib/format";
 import { runDetailPath } from "@/lib/routes";
-
-function withCi(mean: number, low: number, high: number): string {
-  return `${formatMetric(mean)} [${formatMetric(low)}, ${formatMetric(high)}]`;
-}
 
 export function PerStrategyStatsTable({ rows }: { rows: readonly PerStrategyStatsRow[] }) {
   if (rows.length === 0) {

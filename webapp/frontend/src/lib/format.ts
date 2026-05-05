@@ -19,3 +19,7 @@ export function formatPercent(value: number, digits = 2): string {
 export function shortHash(hash: string, prefixLen = 12): string {
   return hash.length > prefixLen ? `${hash.slice(0, prefixLen)}…` : hash;
 }
+
+export function withCi(mean: number, low: number, high: number, digits = 3): string {
+  return `${formatMetric(mean, digits)} [${formatMetric(low, digits)}, ${formatMetric(high, digits)}]`;
+}

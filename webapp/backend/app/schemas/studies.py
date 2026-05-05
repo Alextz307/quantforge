@@ -40,3 +40,20 @@ class StudyDetail(BaseModel):
     completion_pct: float
     cross_strategy_compares_done: list[str]
     legs: list[LegStateRow]
+
+
+class StudyConsolidatedDTO(BaseModel):
+    """Read view of a study's consolidated report (tables + plots tree)."""
+
+    study_name: str
+    publish_label: str
+    created_at: datetime
+    git_sha: str
+    strategies: list[str]
+    universes: list[str]
+    incomplete_leg_ids: list[str]
+    n_legs_with_regime: int
+    n_legs_with_holdout: int
+    n_universes_with_pairwise: int
+    tables: list[str]
+    plots: list[str]

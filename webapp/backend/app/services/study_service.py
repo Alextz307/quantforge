@@ -4,8 +4,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from src.core import json_io
 from src.orchestration.study import STUDY_STATE_FILENAME
 from src.orchestration.study_state import StudyState, read_study_state
+from src.visualization.plots import MANIFEST_FILENAME
 from webapp.backend.app.infrastructure.store import (
     StudyNotFoundError,
     find_study_dir,
@@ -13,15 +15,32 @@ from webapp.backend.app.infrastructure.store import (
 )
 from webapp.backend.app.schemas.studies import (
     LegStateRow,
+    StudyConsolidatedDTO,
     StudyDetail,
     StudySummary,
 )
+from webapp.backend.app.services.plots import (
+    PLOTS_DIRNAME,
+    TABLES_DIRNAME,
+    PlotNotFoundError,
+    list_files_under,
+    resolve_file_under,
+)
 
 __all__ = [
+    "ConsolidatedReportNotFoundError",
+    "PlotNotFoundError",
     "StudyNotFoundError",
+    "get_consolidated",
     "get_study",
     "list_studies",
+    "resolve_consolidated_plot",
+    "resolve_consolidated_table",
 ]
+
+
+class ConsolidatedReportNotFoundError(LookupError):
+    """Raised when a study has no consolidated report (``manifest.json`` absent)."""
 
 
 def list_studies(root: Path) -> list[StudySummary]:
@@ -63,6 +82,40 @@ def get_study(root: Path, name: str) -> StudyDetail:
             for leg in state.legs
         ],
     )
+
+
+def get_consolidated(root: Path, name: str) -> StudyConsolidatedDTO:
+    """Read the consolidated-report manifest + tables/plots index for one study."""
+    study_dir = find_study_dir(root, name)
+    manifest_path = study_dir / MANIFEST_FILENAME
+    try:
+        raw = json_io.read_dict(manifest_path)
+    except FileNotFoundError as exc:
+        raise ConsolidatedReportNotFoundError(name) from exc
+    return StudyConsolidatedDTO(
+        study_name=json_io.get_str(raw, "study_name"),
+        publish_label=json_io.get_str(raw, "publish_label"),
+        created_at=json_io.get_timestamp(raw, "created_at"),
+        git_sha=json_io.get_str(raw, "git_sha"),
+        strategies=list(json_io.get_str_list(raw, "strategies")),
+        universes=list(json_io.get_str_list(raw, "universes")),
+        incomplete_leg_ids=list(json_io.get_str_list(raw, "incomplete_leg_ids")),
+        n_legs_with_regime=json_io.get_int(raw, "n_legs_with_regime"),
+        n_legs_with_holdout=json_io.get_int(raw, "n_legs_with_holdout"),
+        n_universes_with_pairwise=json_io.get_int(raw, "n_universes_with_pairwise"),
+        tables=list_files_under(study_dir, TABLES_DIRNAME),
+        plots=list_files_under(study_dir, PLOTS_DIRNAME),
+    )
+
+
+def resolve_consolidated_plot(root: Path, name: str, plot_name: str) -> Path:
+    """Resolve a consolidated plot filename to an absolute path, blocking traversal."""
+    return resolve_file_under(find_study_dir(root, name), PLOTS_DIRNAME, plot_name)
+
+
+def resolve_consolidated_table(root: Path, name: str, table_name: str) -> Path:
+    """Resolve a consolidated table filename to an absolute path, blocking traversal."""
+    return resolve_file_under(find_study_dir(root, name), TABLES_DIRNAME, table_name)
 
 
 def _summary_from_state(name: str, state: StudyState) -> StudySummary:
