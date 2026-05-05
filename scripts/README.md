@@ -10,7 +10,7 @@ pyproject, leaf-keys vs. strategy ctors).
 | --- | --- |
 | `experiment.py` (`make experiment`) | Click group with `run`, `train-model`, `list-models`, `tune`, `compare`, `regime`, `holdout-eval`, `study`, `clean` subcommands. Drives the orchestration layer end to end. |
 | `benchmark.py` (`make bench`) | Click group with `run`, `compare`, `latex`, `history`, `show-baseline` over `BenchmarkRunner` / `BenchmarkStore`. |
-| `check_ci_deps.py` | Drift guard: every runtime dep in `pyproject.toml` appears in CI's `python-test` pip install line; every `types-*` / `*-stubs` dev dep appears in CI's `lint-and-typecheck` pip install line; every `[webapp]` extra (+ pytest/pytest-cov/mypy/ruff) appears in CI's `webapp` and `webapp-frontend` pip install lines. Runs in CI as an early lint step. |
+| `check_ci_deps.py` | Drift guard: every runtime dep in `pyproject.toml` appears in CI's `python-test` pip install line; every `types-*` / `*-stubs` dev dep appears in CI's `lint-and-typecheck` pip install line. Runs in CI as an early lint step. (The `webapp` + `webapp-frontend` jobs use `pip install -e ".[webapp]"` so their installs cannot drift from `[webapp]` extras.) |
 | `check_leaf_keys_consistent.py` | Drift guard: `_LEAF_KEY_OWNED_PARAMS` (config layer) vs. each strategy's `_leaf_keys` (ctor layer). |
 | `check_readme_test_counts.py` | Drift guard: README's "**N Python tests** (+M opt-in skips), **K C++ tests**" phrase agrees with `pytest --collect-only` and `ctest -N`. Pass `--fix` to rewrite the README in place from the live numbers (runs the suite to split passed vs skipped). C++ check downgraded to a notice when `cpp/build/` is absent. |
 | `dump_openapi.py` (`make webapp-openapi-snapshot`) | Boot FastAPI, write its OpenAPI 3.1 spec to `webapp/frontend/openapi.snapshot.json` (the committed contract that `npm run gen:api` reads). |
@@ -79,9 +79,11 @@ persisting.
 
 ## Drift-guard invariants
 
-- **CI ↔ pyproject.** A new runtime / type-stub / webapp dep landing in
+- **CI ↔ pyproject.** A new runtime / type-stub dep landing in
   `pyproject.toml` without a matching update to `.github/workflows/ci.yml`
-  fails `check_ci_deps.py` in the same PR.
+  fails `check_ci_deps.py` in the same PR. The `webapp` + `webapp-frontend`
+  jobs use `pip install -e ".[webapp]"`, so their installs cannot drift from
+  `[webapp]` extras and need no separate guard.
 - **Config-layer leaf keys ↔ strategy ctor leaf keys.** The two sets
   are checked for equality per strategy by `check_leaf_keys_consistent.py`.
 - **README test counts ↔ runners.** `check_readme_test_counts.py`

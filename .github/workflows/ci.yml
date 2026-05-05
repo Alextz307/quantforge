@@ -74,8 +74,12 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
-      - name: Install webapp + dev dependencies
-        run: pip install fastapi 'uvicorn[standard]' pydantic pydantic-settings httpx bcrypt itsdangerous slowapi click pytest pytest-cov mypy ruff
+      - name: Install project + dev + webapp dependencies
+        # `[webapp]` pulls fastapi/uvicorn/etc; base `[project]` deps cover pandas
+        # numpy optuna matplotlib (needed transitively via webapp's `from src...`
+        # imports); `[dev]` brings the type stubs + ruff/mypy/pytest. `-e .` also
+        # builds the `quant_engine` C++ extension via scikit-build-core.
+        run: pip install -e ".[dev,webapp]"
       - name: Lint webapp
         run: |
           ruff check webapp/backend
@@ -97,8 +101,11 @@ jobs:
           node-version: "22"
           cache: npm
           cache-dependency-path: webapp/frontend/package-lock.json
-      - name: Install backend dependencies for OpenAPI snapshot
-        run: pip install fastapi 'uvicorn[standard]' pydantic pydantic-settings httpx bcrypt itsdangerous slowapi click
+      - name: Install project + webapp dependencies
+        # Full project install needed because `create_app()` cascades imports
+        # through src/orchestration/run_loader and friends (pandas/numpy);
+        # `-e .` builds the `quant_engine` C++ extension via scikit-build-core.
+        run: pip install -e ".[webapp]"
       - name: Check OpenAPI snapshot is current
         run: python -m scripts.check_openapi_snapshot
       - name: Check Pydantic ↔ zod schema mirror is current

@@ -2,10 +2,11 @@
 
 Intentionally free of domain imports (sklearn, torch, our own
 ``TrainingMetadata`` etc.): this module is a generic namespace usable
-anywhere the codebase reads or writes JSON. ``pandas`` is imported solely
-for :func:`get_timestamp` — the JSON round-trip format for timestamps is
-ISO strings, and handing callers back a ``pd.Timestamp`` is the one place
-this module can't stay pandas-agnostic. Import as a namespace:
+anywhere the codebase reads or writes JSON. ``pandas`` is imported lazily
+inside the two timestamp helpers — slim CI subprocesses (e.g. the OpenAPI
+snapshot dumper) can call :func:`write` / :func:`read_dict` /
+:func:`diff_against_snapshot` without dragging pandas into their env.
+Import as a namespace:
 
     from src.core import json_io
 
@@ -25,8 +26,10 @@ import json
 from collections.abc import Iterable
 from datetime import datetime
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-import pandas as pd
+if TYPE_CHECKING:
+    import pandas as pd
 
 
 def write(path: str | Path, obj: object) -> None:
@@ -263,6 +266,8 @@ def get_timestamp(d: dict[str, object], key: str) -> pd.Timestamp:
     pre-parsed ``pd.Timestamp`` instances for callers that pass already-
     decoded dicts.
     """
+    import pandas as pd
+
     if key not in d:
         raise KeyError(f"missing required JSON field {key!r}")
     value = d[key]
@@ -309,6 +314,8 @@ def get_optional_iso_datetime(d: dict[str, object], key: str) -> datetime | None
 
 def get_optional_timestamp(d: dict[str, object], key: str) -> pd.Timestamp | None:
     """Pull ``key`` if present and non-null and parse as ``pd.Timestamp``."""
+    import pandas as pd
+
     raw = d.get(key)
     if raw is None:
         return None

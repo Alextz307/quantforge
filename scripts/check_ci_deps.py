@@ -1,6 +1,6 @@
 """Guard against CI/pyproject dependency drift.
 
-Four checks:
+Two checks:
 
 1. Every runtime dependency declared in ``pyproject.toml`` appears in the
    ``python-test`` job's ``pip install`` line of ``.github/workflows/ci.yml``.
@@ -8,10 +8,11 @@ Four checks:
    ``pyproject.toml`` ``[project.optional-dependencies] dev`` appears in the
    ``lint-and-typecheck`` job's ``pip install`` line — otherwise mypy strict
    fails in CI with "Library stubs not installed for ...".
-3. Every ``[webapp]`` extra dep plus the dev tooling the webapp tests/lint need
-   (pytest, pytest-cov, mypy, ruff) appears in the ``webapp`` job's pip install.
-4. Every ``[webapp]`` extra dep appears in the ``webapp-frontend`` job's pip
-   install (it boots the FastAPI app to dump the OpenAPI snapshot).
+
+The webapp + webapp-frontend jobs intentionally use ``pip install -e
+".[webapp]"`` (project install) instead of a hand-listed package set, so no
+drift check is needed there: pip resolves directly from the ``[webapp]``
+extras and the base ``[project] dependencies``.
 
 Run locally with ``python scripts/check_ci_deps.py``; also wired into CI so a
 forgotten dep update fails the same PR that introduced it.
@@ -44,18 +45,6 @@ _LINT_INSTALL_RE = re.compile(
     r"^\s*lint-and-typecheck:.*?run: pip install (?P<pkgs>[^\n]+)$",
     re.DOTALL | re.MULTILINE,
 )
-_WEBAPP_INSTALL_RE = re.compile(
-    r"^\s*webapp:.*?run: pip install (?P<pkgs>[^\n]+)$",
-    re.DOTALL | re.MULTILINE,
-)
-_WEBAPP_FRONTEND_INSTALL_RE = re.compile(
-    r"^\s*webapp-frontend:.*?run: pip install (?P<pkgs>[^\n]+)$",
-    re.DOTALL | re.MULTILINE,
-)
-
-# The webapp job runs pytest/mypy/ruff against webapp/backend; these dev tools
-# are not in [webapp] extras (they're shared dev deps) but must be present.
-_WEBAPP_DEV_TOOLING = ("pytest", "pytest-cov", "mypy", "ruff")
 
 
 def _extract_name(spec: str) -> str:
@@ -89,13 +78,6 @@ def _dev_type_stub_names(pyproject_text: str) -> list[str]:
     return [name for d in dev_deps if _is_type_stub(name := _extract_name(d))]
 
 
-def _webapp_extra_names(pyproject_text: str) -> list[str]:
-    """Canonicalized dep names from the ``webapp`` optional-deps group."""
-    parsed = tomllib.loads(pyproject_text)
-    webapp_deps = parsed.get("project", {}).get("optional-dependencies", {}).get("webapp", [])
-    return [_extract_name(d) for d in webapp_deps]
-
-
 def _ci_install_packages(ci_yaml_text: str, regex: re.Pattern[str], job_label: str) -> set[str]:
     match = regex.search(ci_yaml_text)
     if match is None:
@@ -125,36 +107,12 @@ def find_missing_type_stubs(pyproject_text: str, ci_yaml_text: str) -> list[str]
     return sorted(stubs - ci_packages)
 
 
-def find_missing_webapp_deps(pyproject_text: str, ci_yaml_text: str) -> list[str]:
-    """Return sorted list of [webapp] extras + dev tooling absent from the webapp job.
-
-    Raises:
-        ValueError: if the ``webapp`` pip install line cannot be located.
-    """
-    required = set(_webapp_extra_names(pyproject_text)) | set(_WEBAPP_DEV_TOOLING)
-    ci_packages = _ci_install_packages(ci_yaml_text, _WEBAPP_INSTALL_RE, "webapp")
-    return sorted(required - ci_packages)
-
-
-def find_missing_webapp_frontend_deps(pyproject_text: str, ci_yaml_text: str) -> list[str]:
-    """Return sorted list of [webapp] extras absent from the webapp-frontend job.
-
-    Raises:
-        ValueError: if the ``webapp-frontend`` pip install line cannot be located.
-    """
-    required = set(_webapp_extra_names(pyproject_text))
-    ci_packages = _ci_install_packages(ci_yaml_text, _WEBAPP_FRONTEND_INSTALL_RE, "webapp-frontend")
-    return sorted(required - ci_packages)
-
-
 def main() -> int:
     pyproject_text = PYPROJECT.read_text()
     ci_text = CI_YAML.read_text()
     try:
         missing_runtime = find_missing_deps(pyproject_text, ci_text)
         missing_stubs = find_missing_type_stubs(pyproject_text, ci_text)
-        missing_webapp = find_missing_webapp_deps(pyproject_text, ci_text)
-        missing_webapp_frontend = find_missing_webapp_frontend_deps(pyproject_text, ci_text)
     except ValueError as e:
         print(f"ERROR: {e}", file=sys.stderr)
         return 2
@@ -177,35 +135,15 @@ def main() -> int:
         for name in missing_stubs:
             print(f"  - {name}", file=sys.stderr)
         failed = True
-    if missing_webapp:
-        print(
-            "CI dep drift: pyproject.toml [webapp] extras / dev tooling missing from "
-            "webapp pip install:",
-            file=sys.stderr,
-        )
-        for name in missing_webapp:
-            print(f"  - {name}", file=sys.stderr)
-        failed = True
-    if missing_webapp_frontend:
-        print(
-            "CI dep drift: pyproject.toml [webapp] extras missing from "
-            "webapp-frontend pip install:",
-            file=sys.stderr,
-        )
-        for name in missing_webapp_frontend:
-            print(f"  - {name}", file=sys.stderr)
-        failed = True
 
     if failed:
         return 1
 
     total_runtime = len(_runtime_dep_names(pyproject_text))
     total_stubs = len(_dev_type_stub_names(pyproject_text))
-    total_webapp = len(_webapp_extra_names(pyproject_text))
     print(
         f"OK: all {total_runtime} runtime deps present in python-test CI step; "
-        f"all {total_stubs} type-stubs present in lint-and-typecheck CI step; "
-        f"all {total_webapp} [webapp] extras present in webapp + webapp-frontend CI steps"
+        f"all {total_stubs} type-stubs present in lint-and-typecheck CI step"
     )
     return 0
 
