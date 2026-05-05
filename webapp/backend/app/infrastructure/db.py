@@ -23,7 +23,11 @@ CREATE TABLE IF NOT EXISTS users (
 
 def get_connection(db_path: Path) -> sqlite3.Connection:
     db_path.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(db_path)
+    # check_same_thread=False: FastAPI's threadpool can resolve a `with`-yielding
+    # dependency on one worker and invoke the consuming endpoint on another.
+    # Each request still owns its connection (open_db is a per-call context
+    # manager) so two threads never touch the same connection concurrently.
+    conn = sqlite3.connect(db_path, check_same_thread=False)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
     return conn

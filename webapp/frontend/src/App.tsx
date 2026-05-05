@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { useMe } from "@/api/auth";
 import { AppShell } from "@/components/layout/AppShell";
@@ -8,6 +9,14 @@ import { LoginPage } from "@/pages/LoginPage";
 import { NotFoundPage } from "@/pages/NotFoundPage";
 import { RunsPage } from "@/pages/RunsPage";
 import { ROUTES } from "@/lib/routes";
+
+const RunDetailPage = lazy(() =>
+  import("@/pages/RunDetailPage").then((m) => ({ default: m.RunDetailPage })),
+);
+
+function ChartFallback() {
+  return <p className="text-sm text-muted-foreground">Loading…</p>;
+}
 
 function ProtectedShell() {
   const { data: user } = useMe();
@@ -28,6 +37,14 @@ export function App() {
       >
         <Route index element={<Navigate to={ROUTES.runs} replace />} />
         <Route path={ROUTES.runs} element={<RunsPage />} />
+        <Route
+          path={ROUTES.runDetail}
+          element={
+            <Suspense fallback={<ChartFallback />}>
+              <RunDetailPage />
+            </Suspense>
+          }
+        />
         <Route
           path={ROUTES.admin}
           element={
