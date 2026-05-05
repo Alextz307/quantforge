@@ -35,7 +35,6 @@ function foldsToTraces(folds: readonly FoldRow[]): EquityTrace[] {
   return folds.map((f) => ({ name: `Fold ${String(f.fold_index)}`, equity: f.equity_curve }));
 }
 
-
 export function RunDetailPage() {
   const { experimentId = "" } = useParams<{ experimentId: string }>();
   const runQuery = useRun(experimentId);

@@ -1,10 +1,9 @@
 import { useMemo, useState } from "react";
 import { useRegimeReports, usePrefetchRegimeReport, type RegimeReportSummary } from "@/api/regime";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { FilterField } from "@/components/FilterField";
+import { FilterDate } from "@/components/FilterDate";
 import { FilterableTablePage } from "@/components/FilterableTablePage";
 import { FilterSelect } from "@/components/FilterSelect";
-import { Input } from "@/components/ui/input";
 import { QueryRenderer } from "@/components/QueryRenderer";
 import { ALL_OPTION, uniqSorted } from "@/lib/filters";
 import { formatDateTime } from "@/lib/format";
@@ -82,16 +81,7 @@ function RegimeBody({ rows, detector, since, onDetector, onSince }: BodyProps) {
             allLabel="All detectors"
             options={detectors}
           />
-          <FilterField id="filter-since" label="Since">
-            <Input
-              id="filter-since"
-              type="date"
-              value={since}
-              onChange={(e) => {
-                onSince(e.target.value);
-              }}
-            />
-          </FilterField>
+          <FilterDate id="filter-since" label="Since" value={since} onChange={onSince} />
         </>
       }
       rowKey={(r) => r.name}

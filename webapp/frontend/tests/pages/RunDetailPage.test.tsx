@@ -29,5 +29,4 @@ describe("RunDetailPage", () => {
     const plotLink = screen.getByRole("link", { name: "equity.png" });
     expect(plotLink).toHaveAttribute("href", `/api/runs/${RUN_SPY.experiment_id}/plots/equity.png`);
   });
-
 });

@@ -66,11 +66,8 @@ def list_runs(root: Path) -> list[RunSummary]:
 def _ensure_plots(run_dir: Path) -> None:
     """Render the canonical static plots into ``<run_dir>/plots/`` if missing.
 
-    Comparison legs (``src/orchestration/comparison.py``) and HPO trials
-    (``src/optimization/tuner.py``) skip plot generation during the sweep
-    to save wall-clock; this lazy renderer fills the gap on first webapp
-    access. Idempotent — no-op if any plot file already exists, or if
-    fold data is unavailable (e.g., partial/aborted run).
+    Idempotent: no-op if any plot file already exists, or if fold data is
+    unavailable (partial/aborted runs surface via the empty PlotIndex).
     """
     plots_dir = run_dir / PLOTS_DIRNAME
     if plots_dir.is_dir() and any(plots_dir.iterdir()):
@@ -138,10 +135,17 @@ def get_folds(root: Path, experiment_id: str) -> list[FoldRow]:
 
 
 def resolve_plot(root: Path, experiment_id: str, plot_name: str) -> Path:
-    """Resolve a plot filename to an absolute path, blocking ``..`` traversal."""
+    """Resolve a plot filename to an absolute path, blocking ``..`` traversal.
+
+    Lazily renders missing plots on first access (covers direct/bookmarked
+    plot URLs that bypass ``get_run``).
+    """
     run_dir = find_run_dir(root, experiment_id)
-    _ensure_plots(run_dir)
-    return resolve_plot_path(run_dir, plot_name)
+    try:
+        return resolve_plot_path(run_dir, plot_name)
+    except PlotNotFoundError:
+        _ensure_plots(run_dir)
+        return resolve_plot_path(run_dir, plot_name)
 
 
 def _summarize(run_dir: Path, root: Path) -> RunSummary:

@@ -1,10 +1,9 @@
 import { useMemo, useState } from "react";
 import { usePrefetchRun, useRuns, type RunSummary } from "@/api/runs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { FilterField } from "@/components/FilterField";
+import { FilterDate } from "@/components/FilterDate";
 import { FilterableTablePage } from "@/components/FilterableTablePage";
 import { FilterSelect } from "@/components/FilterSelect";
-import { Input } from "@/components/ui/input";
 import { QueryRenderer } from "@/components/QueryRenderer";
 import { ALL_OPTION, uniqSorted } from "@/lib/filters";
 import { formatDateTime, formatMetric } from "@/lib/format";
@@ -99,16 +98,7 @@ function RunsBody({ runs, strategy, ticker, since, onStrategy, onTicker, onSince
             allLabel="All tickers"
             options={tickers}
           />
-          <FilterField id="filter-since" label="Since">
-            <Input
-              id="filter-since"
-              type="date"
-              value={since}
-              onChange={(e) => {
-                onSince(e.target.value);
-              }}
-            />
-          </FilterField>
+          <FilterDate id="filter-since" label="Since" value={since} onChange={onSince} />
         </>
       }
       rowKey={(r) => r.experiment_id}

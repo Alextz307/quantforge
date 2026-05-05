@@ -1,10 +1,9 @@
 import { useMemo, useState } from "react";
 import { useStudies, usePrefetchStudy, type StudySummary } from "@/api/studies";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { FilterField } from "@/components/FilterField";
+import { FilterDate } from "@/components/FilterDate";
 import { FilterableTablePage } from "@/components/FilterableTablePage";
 import { FilterSelect } from "@/components/FilterSelect";
-import { Input } from "@/components/ui/input";
 import { QueryRenderer } from "@/components/QueryRenderer";
 import { ALL_OPTION, uniqSorted } from "@/lib/filters";
 import { formatDateTime, formatPercent } from "@/lib/format";
@@ -79,16 +78,7 @@ function StudiesBody({ rows, spec, since, onSpec, onSince }: BodyProps) {
             allLabel="All specs"
             options={specs}
           />
-          <FilterField id="filter-since" label="Started since">
-            <Input
-              id="filter-since"
-              type="date"
-              value={since}
-              onChange={(e) => {
-                onSince(e.target.value);
-              }}
-            />
-          </FilterField>
+          <FilterDate id="filter-since" label="Started since" value={since} onChange={onSince} />
         </>
       }
       rowKey={(r) => r.name}
