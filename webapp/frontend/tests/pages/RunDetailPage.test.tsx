@@ -49,4 +49,21 @@ describe("RunDetailPage", () => {
     expect(await screen.findByText(/nested inside a comparison/i)).toBeInTheDocument();
     expect(screen.queryByTestId("plot-index")).not.toBeInTheDocument();
   });
+
+  it("explains the empty plot index when the run is an HPO trial", async () => {
+    server.use(
+      http.get(toMswPath(API_PATHS.run), () =>
+        HttpResponse.json({
+          ...RUN_SPY_DETAIL,
+          store: "studies/main/hpo/AdaptiveBollinger__spy_daily_5y/trials_artifacts",
+          plots: [],
+        }),
+      ),
+    );
+
+    renderWithProviders(<Tree />, { initialEntries: [runDetailPath(RUN_SPY.experiment_id)] });
+
+    expect(await screen.findByText(/individual HPO trial/i)).toBeInTheDocument();
+    expect(screen.queryByTestId("plot-index")).not.toBeInTheDocument();
+  });
 });

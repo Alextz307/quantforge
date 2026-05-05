@@ -35,14 +35,22 @@ function foldsToTraces(folds: readonly FoldRow[]): EquityTrace[] {
   return folds.map((f) => ({ name: `Fold ${String(f.fold_index)}`, equity: f.equity_curve }));
 }
 
-function isComparisonNested(store: string): boolean {
-  return store.split("/").includes("comparisons");
+function nestingKind(store: string): "comparison" | "hpo" | null {
+  const segs = store.split("/");
+  if (segs.includes("comparisons")) return "comparison";
+  if (segs.includes("hpo")) return "hpo";
+  return null;
 }
 
 function emptyPlotsMessage(store: string): string {
-  return isComparisonNested(store)
-    ? "No static figures — this run is nested inside a comparison; the comparison renders its own figures. Re-run via `experiment run` for per-run figures."
-    : "No static figures produced for this run.";
+  const kind = nestingKind(store);
+  if (kind === "comparison") {
+    return "No static figures — this run is nested inside a comparison; the comparison renders its own figures. Re-run via `experiment run` for per-run figures.";
+  }
+  if (kind === "hpo") {
+    return "No static figures — this run is an individual HPO trial. Per-trial figures are skipped during the sweep; the HPO study page shows convergence and best-trial views.";
+  }
+  return "No static figures produced for this run.";
 }
 
 export function RunDetailPage() {
