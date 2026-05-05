@@ -54,8 +54,8 @@ class TemporalDataset(Dataset[tuple[torch.Tensor, torch.Tensor]]):
         if feature_columns is None:
             feature_columns = [c for c in df.columns if c != target_column]
 
-        self._features = torch.from_numpy(df[feature_columns].to_numpy(dtype=np.float32))
-        self._targets = torch.from_numpy(df[target_column].to_numpy(dtype=np.float32))
+        self._features = torch.from_numpy(df[feature_columns].to_numpy(dtype=np.float32).copy())
+        self._targets = torch.from_numpy(df[target_column].to_numpy(dtype=np.float32).copy())
         self._lookback = lookback_window
 
     def __len__(self) -> int:
