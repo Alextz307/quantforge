@@ -1,22 +1,27 @@
 import { useMemo, useState } from "react";
-import { Link } from "react-router-dom";
 import { useComparisons, usePrefetchComparison, type ComparisonSummary } from "@/api/comparisons";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FilterField } from "@/components/FilterField";
+import { FilterableTablePage } from "@/components/FilterableTablePage";
+import { FilterSelect } from "@/components/FilterSelect";
 import { Input } from "@/components/ui/input";
 import { QueryRenderer } from "@/components/QueryRenderer";
 import { ALL_OPTION, uniqSorted } from "@/lib/filters";
 import { formatDateTime } from "@/lib/format";
 import { comparisonDetailPath } from "@/lib/routes";
 
+interface ComparisonsFilters {
+  strategy: string;
+  since: string;
+}
+
 function applyFilters(
   rows: readonly ComparisonSummary[],
-  strategy: string,
-  since: string,
-): ComparisonSummary[] {
-  const sinceMs = since ? new Date(since).getTime() : null;
+  f: ComparisonsFilters,
+): readonly ComparisonSummary[] {
+  const sinceMs = f.since ? new Date(f.since).getTime() : null;
   return rows.filter((r) => {
-    if (strategy !== ALL_OPTION && !r.strategies.includes(strategy)) return false;
+    if (f.strategy !== ALL_OPTION && !r.strategies.includes(f.strategy)) return false;
     if (sinceMs != null && new Date(r.created_at).getTime() < sinceMs) return false;
     return true;
   });
@@ -59,80 +64,57 @@ interface BodyProps {
 
 function ComparisonsBody({ rows, strategy, since, onStrategy, onSince }: BodyProps) {
   const strategies = useMemo(() => uniqSorted(rows.flatMap((r) => r.strategies)), [rows]);
-  const filtered = useMemo(() => applyFilters(rows, strategy, since), [rows, strategy, since]);
+  const filters = useMemo<ComparisonsFilters>(() => ({ strategy, since }), [strategy, since]);
   const prefetchComparison = usePrefetchComparison();
 
   return (
-    <>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <FilterField id="filter-strategy" label="Strategy">
-          <select
+    <FilterableTablePage<ComparisonSummary, ComparisonsFilters>
+      rows={rows}
+      filters={filters}
+      applyFilters={applyFilters}
+      filterControls={
+        <>
+          <FilterSelect
             id="filter-strategy"
-            className="h-9 rounded-md border bg-background px-2 text-sm"
+            label="Strategy"
             value={strategy}
-            onChange={(e) => {
-              onStrategy(e.target.value);
-            }}
-          >
-            <option value={ALL_OPTION}>All strategies</option>
-            {strategies.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </select>
-        </FilterField>
-        <FilterField id="filter-since" label="Since">
-          <Input
-            id="filter-since"
-            type="date"
-            value={since}
-            onChange={(e) => {
-              onSince(e.target.value);
-            }}
+            onChange={onStrategy}
+            allLabel="All strategies"
+            options={strategies}
           />
-        </FilterField>
-      </div>
-
-      {filtered.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No comparisons match the current filters.</p>
-      ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm" data-testid="comparisons-table">
-            <thead>
-              <tr className="border-b text-left text-muted-foreground">
-                <th className="py-2 pr-4">Name</th>
-                <th className="py-2 pr-4">Store</th>
-                <th className="py-2 pr-4">Strategies</th>
-                <th className="py-2 pr-0">Created</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((r) => (
-                <tr
-                  key={r.name}
-                  className="border-b last:border-0"
-                  onMouseEnter={() => {
-                    prefetchComparison(r.name);
-                  }}
-                >
-                  <td className="py-2 pr-4">
-                    <Link
-                      to={comparisonDetailPath(r.name)}
-                      className="text-primary hover:underline"
-                    >
-                      {r.name}
-                    </Link>
-                  </td>
-                  <td className="py-2 pr-4 font-mono">{r.store}</td>
-                  <td className="py-2 pr-4 font-mono">{r.strategies.join(", ")}</td>
-                  <td className="py-2 pr-0 font-mono text-xs">{formatDateTime(r.created_at)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </>
+          <FilterField id="filter-since" label="Since">
+            <Input
+              id="filter-since"
+              type="date"
+              value={since}
+              onChange={(e) => {
+                onSince(e.target.value);
+              }}
+            />
+          </FilterField>
+        </>
+      }
+      rowKey={(r) => r.name}
+      rowName={(r) => r.name}
+      rowHref={(r) => comparisonDetailPath(r.name)}
+      rowOnHover={(r) => {
+        prefetchComparison(r.name);
+      }}
+      tableTestId="comparisons-table"
+      emptyMessage="No comparisons match the current filters."
+      columns={[
+        { header: "Store", cellClassName: "font-mono", render: (r) => r.store },
+        {
+          header: "Strategies",
+          cellClassName: "font-mono",
+          render: (r) => r.strategies.join(", "),
+        },
+        {
+          header: "Created",
+          cellClassName: "font-mono text-xs",
+          render: (r) => formatDateTime(r.created_at),
+        },
+      ]}
+    />
   );
 }

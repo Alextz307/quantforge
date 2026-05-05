@@ -1,24 +1,26 @@
 import { useMemo, useState } from "react";
-import { Link } from "react-router-dom";
 import { usePrefetchRun, useRuns, type RunSummary } from "@/api/runs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FilterField } from "@/components/FilterField";
+import { FilterableTablePage } from "@/components/FilterableTablePage";
+import { FilterSelect } from "@/components/FilterSelect";
 import { Input } from "@/components/ui/input";
 import { QueryRenderer } from "@/components/QueryRenderer";
 import { ALL_OPTION, uniqSorted } from "@/lib/filters";
 import { formatDateTime, formatMetric } from "@/lib/format";
 import { runDetailPath } from "@/lib/routes";
 
-function applyFilters(
-  runs: readonly RunSummary[],
-  strategy: string,
-  ticker: string,
-  since: string,
-): RunSummary[] {
-  const sinceMs = since ? new Date(since).getTime() : null;
+interface RunsFilters {
+  strategy: string;
+  ticker: string;
+  since: string;
+}
+
+function applyFilters(runs: readonly RunSummary[], f: RunsFilters): readonly RunSummary[] {
+  const sinceMs = f.since ? new Date(f.since).getTime() : null;
   return runs.filter((r) => {
-    if (strategy !== ALL_OPTION && r.strategy !== strategy) return false;
-    if (ticker !== ALL_OPTION && !r.tickers.includes(ticker)) return false;
+    if (f.strategy !== ALL_OPTION && r.strategy !== f.strategy) return false;
+    if (f.ticker !== ALL_OPTION && !r.tickers.includes(f.ticker)) return false;
     if (sinceMs != null && new Date(r.created_at).getTime() < sinceMs) return false;
     return true;
   });
@@ -67,110 +69,78 @@ interface RunsBodyProps {
 function RunsBody({ runs, strategy, ticker, since, onStrategy, onTicker, onSince }: RunsBodyProps) {
   const strategies = useMemo(() => uniqSorted(runs.map((r) => r.strategy)), [runs]);
   const tickers = useMemo(() => uniqSorted(runs.flatMap((r) => r.tickers)), [runs]);
-  const filtered = useMemo(
-    () => applyFilters(runs, strategy, ticker, since),
-    [runs, strategy, ticker, since],
+  const filters = useMemo<RunsFilters>(
+    () => ({ strategy, ticker, since }),
+    [strategy, ticker, since],
   );
   const prefetchRun = usePrefetchRun();
 
   return (
-    <>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <FilterField id="filter-strategy" label="Strategy">
-          <select
+    <FilterableTablePage<RunSummary, RunsFilters>
+      rows={runs}
+      filters={filters}
+      applyFilters={applyFilters}
+      filterGridClassName="md:grid-cols-3"
+      filterControls={
+        <>
+          <FilterSelect
             id="filter-strategy"
-            className="h-9 rounded-md border bg-background px-2 text-sm"
+            label="Strategy"
             value={strategy}
-            onChange={(e) => {
-              onStrategy(e.target.value);
-            }}
-          >
-            <option value={ALL_OPTION}>All strategies</option>
-            {strategies.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </select>
-        </FilterField>
-        <FilterField id="filter-ticker" label="Ticker">
-          <select
-            id="filter-ticker"
-            className="h-9 rounded-md border bg-background px-2 text-sm"
-            value={ticker}
-            onChange={(e) => {
-              onTicker(e.target.value);
-            }}
-          >
-            <option value={ALL_OPTION}>All tickers</option>
-            {tickers.map((t) => (
-              <option key={t} value={t}>
-                {t}
-              </option>
-            ))}
-          </select>
-        </FilterField>
-        <FilterField id="filter-since" label="Since">
-          <Input
-            id="filter-since"
-            type="date"
-            value={since}
-            onChange={(e) => {
-              onSince(e.target.value);
-            }}
+            onChange={onStrategy}
+            allLabel="All strategies"
+            options={strategies}
           />
-        </FilterField>
-      </div>
-
-      {filtered.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No runs match the current filters.</p>
-      ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm" data-testid="runs-table">
-            <thead>
-              <tr className="border-b text-left text-muted-foreground">
-                <th className="py-2 pr-4">Name</th>
-                <th className="py-2 pr-4">Strategy</th>
-                <th className="py-2 pr-4">Tickers</th>
-                <th className="py-2 pr-4">Interval</th>
-                <th className="py-2 pr-4">Created</th>
-                <th className="py-2 pr-4 text-right">Sharpe</th>
-                <th className="py-2 pr-0 text-right">Calmar</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((r) => (
-                <tr
-                  key={r.experiment_id}
-                  className="border-b last:border-0"
-                  onMouseEnter={() => {
-                    prefetchRun(r.experiment_id);
-                  }}
-                >
-                  <td className="py-2 pr-4">
-                    <Link
-                      to={runDetailPath(r.experiment_id)}
-                      className="text-primary hover:underline"
-                    >
-                      {r.name}
-                    </Link>
-                  </td>
-                  <td className="py-2 pr-4 font-mono">{r.strategy}</td>
-                  <td className="py-2 pr-4 font-mono">{r.tickers.join(", ")}</td>
-                  <td className="py-2 pr-4 font-mono">{r.interval}</td>
-                  <td className="py-2 pr-4 font-mono text-xs">{formatDateTime(r.created_at)}</td>
-                  <td className="py-2 pr-4 text-right font-mono">
-                    {formatMetric(r.sharpe_mean, 3)}
-                  </td>
-                  <td className="py-2 pr-0 text-right font-mono">
-                    {formatMetric(r.calmar_mean, 3)}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </>
+          <FilterSelect
+            id="filter-ticker"
+            label="Ticker"
+            value={ticker}
+            onChange={onTicker}
+            allLabel="All tickers"
+            options={tickers}
+          />
+          <FilterField id="filter-since" label="Since">
+            <Input
+              id="filter-since"
+              type="date"
+              value={since}
+              onChange={(e) => {
+                onSince(e.target.value);
+              }}
+            />
+          </FilterField>
+        </>
+      }
+      rowKey={(r) => r.experiment_id}
+      rowName={(r) => r.name}
+      rowHref={(r) => runDetailPath(r.experiment_id)}
+      rowOnHover={(r) => {
+        prefetchRun(r.experiment_id);
+      }}
+      tableTestId="runs-table"
+      emptyMessage="No runs match the current filters."
+      columns={[
+        { header: "Strategy", cellClassName: "font-mono", render: (r) => r.strategy },
+        { header: "Tickers", cellClassName: "font-mono", render: (r) => r.tickers.join(", ") },
+        { header: "Interval", cellClassName: "font-mono", render: (r) => r.interval },
+        {
+          header: "Created",
+          cellClassName: "font-mono text-xs",
+          render: (r) => formatDateTime(r.created_at),
+        },
+        {
+          header: "Sharpe",
+          align: "right",
+          cellClassName: "font-mono",
+          render: (r) => formatMetric(r.sharpe_mean, 3),
+        },
+        {
+          header: "Calmar",
+          align: "right",
+          cellClassName: "font-mono",
+          render: (r) => formatMetric(r.calmar_mean, 3),
+        },
+      ]}
+    />
   );
 }

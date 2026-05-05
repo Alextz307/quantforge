@@ -5,6 +5,7 @@ import { Plot } from "@/components/charts/plot";
 export interface EquityTrace {
   name: string;
   equity: readonly number[];
+  xs?: readonly number[];
 }
 
 export interface EquityChartProps {
@@ -23,7 +24,7 @@ export function EquityChart({
   const plotData = useMemo<Data[]>(
     () =>
       traces.map((t) => ({
-        x: t.equity.map((_, i) => i),
+        x: t.xs ? [...t.xs] : t.equity.map((_, i) => i),
         y: [...t.equity],
         name: t.name,
         type: "scatter",
