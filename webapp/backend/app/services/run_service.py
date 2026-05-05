@@ -24,6 +24,7 @@ from webapp.backend.app.schemas.runs import (
     RunSummary,
 )
 from webapp.backend.app.services.plots import (
+    PLOTS_DIRNAME,
     PlotNotFoundError,
     list_plots,
     resolve_plot_path,
@@ -62,9 +63,31 @@ def list_runs(root: Path) -> list[RunSummary]:
     return summaries
 
 
+def _ensure_plots(run_dir: Path) -> None:
+    """Render the canonical static plots into ``<run_dir>/plots/`` if missing.
+
+    Comparison legs (``src/orchestration/comparison.py``) and HPO trials
+    (``src/optimization/tuner.py``) skip plot generation during the sweep
+    to save wall-clock; this lazy renderer fills the gap on first webapp
+    access. Idempotent — no-op if any plot file already exists, or if
+    fold data is unavailable (e.g., partial/aborted run).
+    """
+    plots_dir = run_dir / PLOTS_DIRNAME
+    if plots_dir.is_dir() and any(plots_dir.iterdir()):
+        return
+    try:
+        result = load_experiment_result(run_dir)
+    except FileNotFoundError:
+        return
+    from src.visualization.strategy_reporter import StrategyReporter
+
+    StrategyReporter().generate_full_report(result, run_dir)
+
+
 def get_run(root: Path, experiment_id: str) -> RunDetail:
     """Read the full detail payload for one run."""
     run_dir = find_run_dir(root, experiment_id)
+    _ensure_plots(run_dir)
     manifest = read_experiment_manifest(run_dir)
     config = load_experiment_config_from_run(run_dir)
     return RunDetail(
@@ -116,7 +139,9 @@ def get_folds(root: Path, experiment_id: str) -> list[FoldRow]:
 
 def resolve_plot(root: Path, experiment_id: str, plot_name: str) -> Path:
     """Resolve a plot filename to an absolute path, blocking ``..`` traversal."""
-    return resolve_plot_path(find_run_dir(root, experiment_id), plot_name)
+    run_dir = find_run_dir(root, experiment_id)
+    _ensure_plots(run_dir)
+    return resolve_plot_path(run_dir, plot_name)
 
 
 def _summarize(run_dir: Path, root: Path) -> RunSummary:
