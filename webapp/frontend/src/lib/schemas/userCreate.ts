@@ -10,7 +10,7 @@ export const userCreateSchema = z.object({
     .string()
     .min(8, "Password must be at least 8 characters")
     .max(256, "Password must be at most 256 characters"),
-  role: z.enum(ROLES),
+  role: z.enum(ROLES).default("user"),
 });
 
 export type UserCreateFormValues = z.infer<typeof userCreateSchema>;

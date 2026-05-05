@@ -69,7 +69,10 @@ export function TrialTable({ trials, bestTrialNumber }: TrialTableProps) {
                 </td>
                 <td className="py-2 pr-0 font-mono text-xs">
                   {t.experiment_id && t.state === TRIAL_STATE_COMPLETE ? (
-                    <Link to={runDetailPath(t.experiment_id)} className="text-primary hover:underline">
+                    <Link
+                      to={runDetailPath(t.experiment_id)}
+                      className="text-primary hover:underline"
+                    >
                       open
                     </Link>
                   ) : (

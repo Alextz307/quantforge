@@ -1,10 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import {
-  useComparisons,
-  usePrefetchComparison,
-  type ComparisonSummary,
-} from "@/api/comparisons";
+import { useComparisons, usePrefetchComparison, type ComparisonSummary } from "@/api/comparisons";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FilterField } from "@/components/FilterField";
 import { Input } from "@/components/ui/input";

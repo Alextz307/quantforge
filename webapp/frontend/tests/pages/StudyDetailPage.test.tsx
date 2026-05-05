@@ -3,11 +3,7 @@ import { describe, expect, it } from "vitest";
 import { Route, Routes } from "react-router-dom";
 import { StudyDetailPage } from "@/pages/StudyDetailPage";
 import { ROUTES } from "@/lib/routes";
-import {
-  STUDY_CONSOLIDATED_DEMO,
-  STUDY_DEMO_DETAIL,
-  STUDY_DEMO_SUMMARY,
-} from "../msw/handlers";
+import { STUDY_CONSOLIDATED_DEMO, STUDY_DEMO_DETAIL, STUDY_DEMO_SUMMARY } from "../msw/handlers";
 import { renderWithProviders } from "../util/render";
 
 function Tree() {

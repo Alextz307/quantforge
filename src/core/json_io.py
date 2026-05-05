@@ -54,6 +54,35 @@ def read_dict(path: str | Path) -> dict[str, object]:
     return raw
 
 
+def diff_against_snapshot(
+    actual: object,
+    snapshot_path: str | Path,
+    *,
+    label: str,
+    fix_command: str,
+) -> list[str]:
+    """Return error lines describing how the JSON file at ``snapshot_path`` drifts from ``actual``.
+
+    Empty list means the snapshot is current. ``label`` appears verbatim in
+    the human-readable messages (e.g. ``"OpenAPI snapshot"``); ``fix_command``
+    is the shell command callers should run to regenerate the file.
+    """
+    snapshot = Path(snapshot_path)
+    try:
+        committed = read_dict(snapshot)
+    except FileNotFoundError:
+        return [
+            f"{label} is missing at {snapshot}",
+            f"  Run `{fix_command}` and commit the file.",
+        ]
+    if committed == actual:
+        return []
+    return [
+        f"{label} at {snapshot} is stale",
+        f"  Run `{fix_command}` and commit the regenerated file.",
+    ]
+
+
 def read_jsonl(path: str | Path) -> list[dict[str, object]]:
     """Load a JSON-lines file (one JSON object per non-blank line).
 

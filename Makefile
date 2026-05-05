@@ -1,4 +1,4 @@
-.PHONY: install test test-cpp test-python lint typecheck bench bench-cpp bench-baseline bench-report experiment thesis-demo stubs clean webapp webapp-dev webapp-test webapp-typecheck webapp-lint webapp-frontend-install webapp-frontend-dev webapp-frontend-build webapp-frontend-test webapp-frontend-typecheck webapp-frontend-lint webapp-openapi-snapshot
+.PHONY: install test test-cpp test-python lint typecheck bench bench-cpp bench-baseline bench-report experiment thesis-demo stubs clean webapp webapp-dev webapp-test webapp-typecheck webapp-lint webapp-frontend-install webapp-frontend-dev webapp-frontend-build webapp-frontend-test webapp-frontend-typecheck webapp-frontend-lint webapp-openapi-snapshot webapp-check-openapi-snapshot webapp-check-schema-mirror
 
 install:
 	pip install -e ".[dev]"
@@ -110,6 +110,12 @@ webapp-lint:
 
 webapp-openapi-snapshot:
 	python -m scripts.dump_openapi
+
+webapp-check-openapi-snapshot:
+	python -m scripts.check_openapi_snapshot
+
+webapp-check-schema-mirror:
+	python -m scripts.check_webapp_schema_mirror
 
 webapp-frontend-install:
 	cd webapp/frontend && npm ci

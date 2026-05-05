@@ -10,9 +10,12 @@ pyproject, leaf-keys vs. strategy ctors).
 | --- | --- |
 | `experiment.py` (`make experiment`) | Click group with `run`, `train-model`, `list-models`, `tune`, `compare`, `regime`, `holdout-eval`, `study`, `clean` subcommands. Drives the orchestration layer end to end. |
 | `benchmark.py` (`make bench`) | Click group with `run`, `compare`, `latex`, `history`, `show-baseline` over `BenchmarkRunner` / `BenchmarkStore`. |
-| `check_ci_deps.py` | Drift guard: every runtime dep in `pyproject.toml` appears in CI's `python-test` pip install line; every `types-*` / `*-stubs` dev dep appears in CI's `lint-and-typecheck` pip install line. Runs in CI as an early lint step. |
+| `check_ci_deps.py` | Drift guard: every runtime dep in `pyproject.toml` appears in CI's `python-test` pip install line; every `types-*` / `*-stubs` dev dep appears in CI's `lint-and-typecheck` pip install line; every `[webapp]` extra (+ pytest/pytest-cov/mypy/ruff) appears in CI's `webapp` and `webapp-frontend` pip install lines. Runs in CI as an early lint step. |
 | `check_leaf_keys_consistent.py` | Drift guard: `_LEAF_KEY_OWNED_PARAMS` (config layer) vs. each strategy's `_leaf_keys` (ctor layer). |
 | `check_readme_test_counts.py` | Drift guard: README's "**N Python tests** (+M opt-in skips), **K C++ tests**" phrase agrees with `pytest --collect-only` and `ctest -N`. Pass `--fix` to rewrite the README in place from the live numbers (runs the suite to split passed vs skipped). C++ check downgraded to a notice when `cpp/build/` is absent. |
+| `dump_openapi.py` (`make webapp-openapi-snapshot`) | Boot FastAPI, write its OpenAPI 3.1 spec to `webapp/frontend/openapi.snapshot.json` (the committed contract that `npm run gen:api` reads). |
+| `check_openapi_snapshot.py` (`make webapp-check-openapi-snapshot`) | Drift guard: re-build the OpenAPI spec, fail if it diverges from the committed snapshot. Tells the developer to rerun `make webapp-openapi-snapshot` and commit. |
+| `check_webapp_schema_mirror.py` (`make webapp-check-schema-mirror`) | Drift guard: extract every Pydantic write-DTO mirrored as a zod schema (`LoginRequest`, `UserCreate`) into `webapp/frontend/schema-mirror.snapshot.json`; pair vitest test asserts the zod schema agrees on field names, types, min/max constraints. `--write` regenerates the snapshot. |
 | `regen_stubs.py` (`make stubs`) | Regenerate `quant_engine` pybind11 stubs and apply ruff lint / format so the checked-in artefact passes `make lint`. |
 | `regen_spy_fixture.py` | Refetch + normalize + validate `tests/fixtures/SPY.parquet` (`SPY` daily, `2018-01-01` → `2024-12-31`, `auto_adjust=True`). Run when the committed fixture goes stale. |
 
@@ -26,6 +29,9 @@ pyproject, leaf-keys vs. strategy ctors).
 | `check_ci_deps.py` | Stdlib-only (no PyYAML) so it runs in CI before deps install. |
 | `check_leaf_keys_consistent.py` | Imports `src.strategies` so the registry is populated. |
 | `check_readme_test_counts.py` | Stdlib-only; runs after `pip install -e .` so it can spawn `pytest --collect-only`. |
+| `dump_openapi.py` | Lazy-imports `webapp.backend.app.main` so `--out` consumers without webapp deps can still load the module's `DEFAULT_SNAPSHOT_PATH` constant. |
+| `check_openapi_snapshot.py` | Reuses `dump_openapi.build_openapi_spec()` for the live spec; lazy webapp import keeps `diff_against_snapshot` testable without fastapi. |
+| `check_webapp_schema_mirror.py` | Walks `model_fields` on Pydantic v2 models; `--write` regenerates the snapshot, default mode diffs. Frontend pair: `webapp/frontend/tests/lib/schemas/mirror.test.ts`. |
 | `regen_stubs.py` | Wraps `pybind11-stubgen` + `ruff check --fix` + `ruff format`. |
 | `regen_spy_fixture.py` | Wraps `yfinance.download` + `DataNormalizer` + `validate_bars`; not run in CI. |
 
@@ -73,7 +79,7 @@ persisting.
 
 ## Drift-guard invariants
 
-- **CI ↔ pyproject.** A new runtime / type-stub dep landing in
+- **CI ↔ pyproject.** A new runtime / type-stub / webapp dep landing in
   `pyproject.toml` without a matching update to `.github/workflows/ci.yml`
   fails `check_ci_deps.py` in the same PR.
 - **Config-layer leaf keys ↔ strategy ctor leaf keys.** The two sets
@@ -82,8 +88,20 @@ persisting.
   re-collects the pytest + ctest counts and compares them against the
   README prose; running tests but forgetting to update the README fails
   CI lint.
+- **OpenAPI snapshot ↔ live FastAPI app.** `check_openapi_snapshot.py`
+  re-dumps the spec and fails if it diverges from
+  `webapp/frontend/openapi.snapshot.json`. The committed snapshot is
+  what `npm run gen:api` reads to emit `src/api/generated/schema.ts`.
+- **Pydantic write-DTOs ↔ zod form schemas.**
+  `check_webapp_schema_mirror.py` extracts the canonical Pydantic shape
+  into `webapp/frontend/schema-mirror.snapshot.json`; the paired vitest
+  test asserts each zod schema's `.shape` agrees on field names, types,
+  and min/max constraints.
 
-All three guards are stdlib-only.
+`check_ci_deps.py`, `check_leaf_keys_consistent.py`, and
+`check_readme_test_counts.py` are stdlib-only;
+`check_openapi_snapshot.py` and `check_webapp_schema_mirror.py` need
+`[webapp]` deps installed.
 
 ## Snippet
 

@@ -19,9 +19,7 @@ function Tree() {
 describe("RegimePage", () => {
   it("lists every regime report returned by the API", async () => {
     renderWithProviders(<Tree />, { initialEntries: [ROUTES.regime] });
-    expect(
-      await screen.findByRole("link", { name: REGIME_DEMO_SUMMARY.name }),
-    ).toBeInTheDocument();
+    expect(await screen.findByRole("link", { name: REGIME_DEMO_SUMMARY.name })).toBeInTheDocument();
   });
 
   it("navigates to the detail page when a row link is clicked", async () => {

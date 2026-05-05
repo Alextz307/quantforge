@@ -19,9 +19,7 @@ function Tree() {
 describe("StudiesPage", () => {
   it("lists every study returned by the API", async () => {
     renderWithProviders(<Tree />, { initialEntries: [ROUTES.studies] });
-    expect(
-      await screen.findByRole("link", { name: STUDY_DEMO_SUMMARY.name }),
-    ).toBeInTheDocument();
+    expect(await screen.findByRole("link", { name: STUDY_DEMO_SUMMARY.name })).toBeInTheDocument();
   });
 
   it("navigates to the detail page when a row link is clicked", async () => {

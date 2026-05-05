@@ -47,11 +47,7 @@ export function StudyDetailPage() {
   const query = useStudy(name);
 
   return (
-    <QueryRenderer
-      query={query}
-      errorTitle="Failed to load study"
-      loadingMessage="Loading study…"
-    >
+    <QueryRenderer query={query} errorTitle="Failed to load study" loadingMessage="Loading study…">
       {(study) => (
         <div className="flex flex-col gap-4">
           <BackLink to={ROUTES.studies}>All studies</BackLink>

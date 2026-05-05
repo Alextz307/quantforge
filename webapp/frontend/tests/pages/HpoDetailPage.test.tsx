@@ -31,9 +31,7 @@ describe("HpoDetailPage", () => {
     });
 
     for (const t of HPO_DEMO_TRIALS) {
-      expect(
-        await screen.findByTestId(`trial-row-${String(t.number)}`),
-      ).toBeInTheDocument();
+      expect(await screen.findByTestId(`trial-row-${String(t.number)}`)).toBeInTheDocument();
     }
     const bestRow = await screen.findByTestId(
       `trial-row-${String(HPO_DEMO_DETAIL.best_trial_number)}`,

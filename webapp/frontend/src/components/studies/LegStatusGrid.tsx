@@ -88,7 +88,11 @@ export function LegStatusGrid({ legs }: { legs: readonly LegStateRow[] }) {
                 const leg = row.byUniverse.get(u);
                 return (
                   <td key={u} className="py-2 pr-4">
-                    {leg ? <StatusPill leg={leg} /> : <span className="text-muted-foreground">—</span>}
+                    {leg ? (
+                      <StatusPill leg={leg} />
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
                   </td>
                 );
               })}

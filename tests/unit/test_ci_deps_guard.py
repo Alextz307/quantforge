@@ -1,4 +1,7 @@
 """Tests for the CI/pyproject dependency drift guard."""
+# Long YAML/TOML fixture lines mirror real CI shapes verbatim — wrapping them
+# breaks the regex anchoring the guard relies on.
+# ruff: noqa: E501
 
 from __future__ import annotations
 
@@ -25,9 +28,37 @@ jobs:
     steps:
       - name: Install
         run: pip install pytest pandas numpy
+  webapp:
+    steps:
+      - name: Install
+        run: pip install fastapi 'uvicorn[standard]' bcrypt itsdangerous slowapi httpx pytest pytest-cov mypy ruff
+  webapp-frontend:
+    steps:
+      - name: Install
+        run: pip install fastapi 'uvicorn[standard]' bcrypt itsdangerous slowapi httpx
   other:
     steps:
       - run: echo hi
+"""
+
+_FAKE_PYPROJECT_WITH_WEBAPP = """\
+[project]
+name = "x"
+dependencies = ["pandas>=2.0", "numpy>=1.0"]
+
+[project.optional-dependencies]
+dev = ["mypy>=1.8", "pandas-stubs", "types-PyYAML", "ruff"]
+webapp = ["fastapi>=0.115", "uvicorn[standard]>=0.32", "bcrypt", "itsdangerous", "slowapi", "httpx"]
+"""
+
+_FAKE_PYPROJECT_WITH_MISSING_WEBAPP = """\
+[project]
+name = "x"
+dependencies = ["pandas>=2.0", "numpy>=1.0"]
+
+[project.optional-dependencies]
+dev = ["mypy>=1.8", "pandas-stubs", "types-PyYAML", "ruff"]
+webapp = ["fastapi>=0.115", "uvicorn[standard]>=0.32", "bcrypt", "itsdangerous", "slowapi", "httpx", "python-multipart"]
 """
 
 _FAKE_PYPROJECT_ALL_PRESENT = """\
@@ -108,6 +139,53 @@ class TestFindMissingTypeStubs:
         assert guard.find_missing_type_stubs(pyproject, ci) == []
 
 
+class TestFindMissingWebappDeps:
+    def test_no_drift_when_all_webapp_deps_present(self) -> None:
+        assert guard.find_missing_webapp_deps(_FAKE_PYPROJECT_WITH_WEBAPP, _FAKE_CI_YAML) == []
+
+    def test_reports_missing_webapp_extra_dep(self) -> None:
+        missing = guard.find_missing_webapp_deps(_FAKE_PYPROJECT_WITH_MISSING_WEBAPP, _FAKE_CI_YAML)
+        assert missing == ["python-multipart"]
+
+    def test_reports_missing_dev_tooling(self) -> None:
+        ci_without_cov = _FAKE_CI_YAML.replace(" pytest-cov", "")
+        missing = guard.find_missing_webapp_deps(_FAKE_PYPROJECT_WITH_WEBAPP, ci_without_cov)
+        assert missing == ["pytest-cov"]
+
+    def test_raises_when_webapp_job_absent(self) -> None:
+        ci_without_job = _FAKE_CI_YAML.replace("webapp:", "renamed-job:")
+        with pytest.raises(ValueError, match="webapp"):
+            guard.find_missing_webapp_deps(_FAKE_PYPROJECT_WITH_WEBAPP, ci_without_job)
+
+
+class TestFindMissingWebappFrontendDeps:
+    def test_no_drift_when_all_webapp_extras_present(self) -> None:
+        assert (
+            guard.find_missing_webapp_frontend_deps(_FAKE_PYPROJECT_WITH_WEBAPP, _FAKE_CI_YAML)
+            == []
+        )
+
+    def test_reports_missing_webapp_extra_dep(self) -> None:
+        missing = guard.find_missing_webapp_frontend_deps(
+            _FAKE_PYPROJECT_WITH_MISSING_WEBAPP, _FAKE_CI_YAML
+        )
+        assert missing == ["python-multipart"]
+
+    def test_dev_tooling_not_required_in_frontend_job(self) -> None:
+        # The webapp-frontend job only boots FastAPI for the OpenAPI dump; it
+        # doesn't run pytest/mypy/ruff. The frontend check should ignore the
+        # absence of pytest/mypy/ruff even though the webapp check would flag it.
+        pyproject = _FAKE_PYPROJECT_WITH_WEBAPP
+        assert guard.find_missing_webapp_frontend_deps(pyproject, _FAKE_CI_YAML) == []
+        ci_without_test_tools = _FAKE_CI_YAML.replace("httpx pytest pytest-cov mypy ruff", "httpx")
+        assert sorted(guard.find_missing_webapp_deps(pyproject, ci_without_test_tools)) == [
+            "mypy",
+            "pytest",
+            "pytest-cov",
+            "ruff",
+        ]
+
+
 class TestRepoStateIsClean:
     """End-to-end: the real repo's pyproject/ci.yml must pass the guard."""
 
@@ -117,4 +195,14 @@ class TestRepoStateIsClean:
 
     def test_real_repo_type_stubs_clean(self) -> None:
         missing = guard.find_missing_type_stubs(PYPROJECT.read_text(), CI_YAML.read_text())
+        assert missing == []
+
+    def test_real_repo_webapp_deps_clean(self) -> None:
+        missing = guard.find_missing_webapp_deps(PYPROJECT.read_text(), CI_YAML.read_text())
+        assert missing == []
+
+    def test_real_repo_webapp_frontend_deps_clean(self) -> None:
+        missing = guard.find_missing_webapp_frontend_deps(
+            PYPROJECT.read_text(), CI_YAML.read_text()
+        )
         assert missing == []

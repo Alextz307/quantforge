@@ -1,10 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import {
-  useRegimeReports,
-  usePrefetchRegimeReport,
-  type RegimeReportSummary,
-} from "@/api/regime";
+import { useRegimeReports, usePrefetchRegimeReport, type RegimeReportSummary } from "@/api/regime";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FilterField } from "@/components/FilterField";
 import { Input } from "@/components/ui/input";
@@ -99,7 +95,9 @@ function RegimeBody({ rows, detector, since, onDetector, onSince }: BodyProps) {
       </div>
 
       {filtered.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No regime reports match the current filters.</p>
+        <p className="text-sm text-muted-foreground">
+          No regime reports match the current filters.
+        </p>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-sm" data-testid="regime-table">

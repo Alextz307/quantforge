@@ -1,10 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import {
-  useHoldoutEvals,
-  usePrefetchHoldoutEval,
-  type HoldoutEvalSummary,
-} from "@/api/holdout";
+import { useHoldoutEvals, usePrefetchHoldoutEval, type HoldoutEvalSummary } from "@/api/holdout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FilterField } from "@/components/FilterField";
 import { Input } from "@/components/ui/input";
@@ -12,11 +8,7 @@ import { QueryRenderer } from "@/components/QueryRenderer";
 import { ALL_OPTION, uniqSorted } from "@/lib/filters";
 import { formatDateTime } from "@/lib/format";
 import { holdoutDetailPath } from "@/lib/routes";
-import {
-  SOURCE_KINDS,
-  sourceKindLabel,
-  type SourceKind,
-} from "@/lib/sourceKind";
+import { SOURCE_KINDS, sourceKindLabel, type SourceKind } from "@/lib/sourceKind";
 
 type SourceKindFilter = SourceKind | typeof ALL_OPTION;
 

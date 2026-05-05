@@ -23,10 +23,7 @@ function IdentityCard({ study }: { study: HpoDetail }) {
         <MetadataField label="Total trials" value={study.n_trials} />
         <MetadataField label="Completed" value={study.n_complete} />
         <MetadataField label="Best value" value={formatMetric(study.best_value)} />
-        <MetadataField
-          label="Best trial #"
-          value={study.best_trial_number ?? "—"}
-        />
+        <MetadataField label="Best trial #" value={study.best_trial_number ?? "—"} />
       </CardContent>
     </Card>
   );
@@ -58,9 +55,7 @@ export function HpoDetailPage() {
                 errorTitle="Failed to load trials"
                 loadingMessage="Loading trials…"
               >
-                {(trials) => (
-                  <HpoConvergenceChart trials={trials} direction={study.direction} />
-                )}
+                {(trials) => <HpoConvergenceChart trials={trials} direction={study.direction} />}
               </QueryRenderer>
             </CardContent>
           </Card>

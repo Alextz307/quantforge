@@ -19,9 +19,7 @@ function Tree() {
 describe("HpoPage", () => {
   it("lists every HPO study returned by the API", async () => {
     renderWithProviders(<Tree />, { initialEntries: [ROUTES.hpo] });
-    expect(
-      await screen.findByRole("link", { name: HPO_DEMO_SUMMARY.name }),
-    ).toBeInTheDocument();
+    expect(await screen.findByRole("link", { name: HPO_DEMO_SUMMARY.name })).toBeInTheDocument();
   });
 
   it("navigates to the detail page when a row link is clicked", async () => {

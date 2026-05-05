@@ -9,11 +9,7 @@ import { ALL_OPTION, uniqSorted } from "@/lib/filters";
 import { formatDateTime, formatPercent } from "@/lib/format";
 import { studyDetailPath } from "@/lib/routes";
 
-function applyFilters(
-  rows: readonly StudySummary[],
-  spec: string,
-  since: string,
-): StudySummary[] {
+function applyFilters(rows: readonly StudySummary[], spec: string, since: string): StudySummary[] {
   const sinceMs = since ? new Date(since).getTime() : null;
   return rows.filter((r) => {
     if (spec !== ALL_OPTION && r.spec_name !== spec) return false;

@@ -12,8 +12,6 @@ describe("RegimeTimeline", () => {
   it("renders the chart wrapper with a slice count when slices exist", () => {
     render(<RegimeTimeline slices={REGIME_DEMO_DETAIL.slices} />);
     const wrapper = screen.getByTestId("regime-timeline");
-    expect(wrapper.getAttribute("data-slice-count")).toBe(
-      String(REGIME_DEMO_DETAIL.slices.length),
-    );
+    expect(wrapper.getAttribute("data-slice-count")).toBe(String(REGIME_DEMO_DETAIL.slices.length));
   });
 });

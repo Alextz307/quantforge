@@ -14,18 +14,29 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+from typing import Any
 
 import click
+
+from src.core import json_io
+from src.core.fs import ensure_parent_dir
 
 DEFAULT_SNAPSHOT_PATH = Path("webapp/frontend/openapi.snapshot.json")
 DUMMY_SECRET = "x" * 64
 
-# WebappSettings rejects secret_key shorter than 32 chars at construction time;
-# this script only needs the OpenAPI shape, so seed a dummy before the import below.
-os.environ.setdefault("WEBAPP_SECRET_KEY", DUMMY_SECRET)
 
-from src.core import json_io  # noqa: E402
-from webapp.backend.app.main import create_app  # noqa: E402
+def build_openapi_spec() -> dict[str, Any]:
+    """Return the FastAPI OpenAPI dict — single source for dump + drift check.
+
+    Webapp imports are lazy so importers that only need ``DEFAULT_SNAPSHOT_PATH``
+    (e.g. the drift-guard unit test) don't pay for fastapi at import time.
+    """
+    # WebappSettings rejects secret_key shorter than 32 chars at construction time;
+    # this script only needs the OpenAPI shape, so seed a dummy before the import below.
+    os.environ.setdefault("WEBAPP_SECRET_KEY", DUMMY_SECRET)
+    from webapp.backend.app.main import create_app
+
+    return create_app().openapi()
 
 
 @click.command()
@@ -35,9 +46,7 @@ from webapp.backend.app.main import create_app  # noqa: E402
     default=DEFAULT_SNAPSHOT_PATH,
 )
 def main(out: Path) -> None:
-    spec = create_app().openapi()
-    out.parent.mkdir(parents=True, exist_ok=True)
-    json_io.write(out, spec)
+    json_io.write(ensure_parent_dir(out), build_openapi_spec())
     click.echo(f"Wrote {out}")
 
 

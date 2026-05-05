@@ -3,16 +3,9 @@ import type { ComparisonDetail, ComparisonSummary } from "@/api/comparisons";
 import type { HoldoutEvalDetail, HoldoutEvalSummary } from "@/api/holdout";
 import type { HpoDetail, HpoSummary, TrialRow } from "@/api/hpo";
 import { API_PATHS, toMswPath } from "@/api/paths";
-import type {
-  RegimeReportDetail,
-  RegimeReportSummary,
-} from "@/api/regime";
+import type { RegimeReportDetail, RegimeReportSummary } from "@/api/regime";
 import type { FoldRow, RunDetail, RunSummary } from "@/api/runs";
-import type {
-  StudyConsolidatedDTO,
-  StudyDetail,
-  StudySummary,
-} from "@/api/studies";
+import type { StudyConsolidatedDTO, StudyDetail, StudySummary } from "@/api/studies";
 import { ROLE_ADMIN, ROLE_USER, type UserCreate, type UserPublic } from "@/api/users";
 
 export const ADMIN_USER: UserPublic = { id: 1, username: "alex", role: ROLE_ADMIN };

@@ -43,6 +43,42 @@ class TestReadDict:
         assert json_io.read_dict(path) == {"a": 1}
 
 
+class TestDiffAgainstSnapshot:
+    _SAMPLE: dict[str, object] = {"a": 1, "b": [1, 2, 3]}
+
+    def test_returns_no_errors_when_snapshot_matches(self, tmp_path: Path) -> None:
+        snapshot = tmp_path / "snap.json"
+        json_io.write(snapshot, self._SAMPLE)
+        assert (
+            json_io.diff_against_snapshot(
+                self._SAMPLE, snapshot, label="test", fix_command="make regen"
+            )
+            == []
+        )
+
+    def test_reports_drift_when_snapshot_is_stale(self, tmp_path: Path) -> None:
+        snapshot = tmp_path / "snap.json"
+        json_io.write(snapshot, self._SAMPLE)
+        mutated: dict[str, object] = {**self._SAMPLE, "a": 2}
+        errors = json_io.diff_against_snapshot(
+            mutated, snapshot, label="OpenAPI snapshot", fix_command="make webapp-openapi-snapshot"
+        )
+        assert errors
+        assert "OpenAPI snapshot" in errors[0]
+        assert "stale" in errors[0]
+        assert "make webapp-openapi-snapshot" in errors[1]
+
+    def test_reports_missing_snapshot(self, tmp_path: Path) -> None:
+        missing = tmp_path / "does-not-exist.json"
+        errors = json_io.diff_against_snapshot(
+            self._SAMPLE, missing, label="Schema-mirror snapshot", fix_command="--write"
+        )
+        assert errors
+        assert "Schema-mirror snapshot" in errors[0]
+        assert "missing" in errors[0]
+        assert "--write" in errors[1]
+
+
 class TestReadJsonl:
     def test_round_trip_records(self, tmp_path: Path) -> None:
         path = tmp_path / "records.jsonl"

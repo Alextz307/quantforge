@@ -5,7 +5,10 @@ export type SourceKind = components["schemas"]["HoldoutEvalSummary"]["source_kin
 export const SOURCE_KIND_RUN: SourceKind = "run";
 export const SOURCE_KIND_HPO: SourceKind = "hpo";
 
-export const SOURCE_KINDS = [SOURCE_KIND_RUN, SOURCE_KIND_HPO] as const satisfies readonly SourceKind[];
+export const SOURCE_KINDS = [
+  SOURCE_KIND_RUN,
+  SOURCE_KIND_HPO,
+] as const satisfies readonly SourceKind[];
 
 export function isRunSource(kind: SourceKind): boolean {
   return kind === SOURCE_KIND_RUN;

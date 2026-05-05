@@ -32,9 +32,7 @@ describe("TrialTable", () => {
 
   it("highlights the best trial row with the primary background", () => {
     renderTable();
-    const bestRow = screen.getByTestId(
-      `trial-row-${String(HPO_DEMO_DETAIL.best_trial_number)}`,
-    );
+    const bestRow = screen.getByTestId(`trial-row-${String(HPO_DEMO_DETAIL.best_trial_number)}`);
     expect(bestRow.className).toMatch(/bg-primary/);
   });
 
@@ -45,9 +43,6 @@ describe("TrialTable", () => {
     );
     if (!completedWithExp) throw new Error("expected a completed trial with experiment_id");
     const link = screen.getAllByRole("link", { name: "open" })[0];
-    expect(link).toHaveAttribute(
-      "href",
-      `/runs/${completedWithExp.experiment_id ?? ""}`,
-    );
+    expect(link).toHaveAttribute("href", `/runs/${completedWithExp.experiment_id ?? ""}`);
   });
 });
