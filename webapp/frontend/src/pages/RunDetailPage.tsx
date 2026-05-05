@@ -35,6 +35,16 @@ function foldsToTraces(folds: readonly FoldRow[]): EquityTrace[] {
   return folds.map((f) => ({ name: `Fold ${String(f.fold_index)}`, equity: f.equity_curve }));
 }
 
+function isComparisonNested(store: string): boolean {
+  return store.split("/").includes("comparisons");
+}
+
+function emptyPlotsMessage(store: string): string {
+  return isComparisonNested(store)
+    ? "No static figures — this run is nested inside a comparison; the comparison renders its own figures. Re-run via `experiment run` for per-run figures."
+    : "No static figures produced for this run.";
+}
+
 export function RunDetailPage() {
   const { experimentId = "" } = useParams<{ experimentId: string }>();
   const runQuery = useRun(experimentId);
@@ -94,7 +104,7 @@ export function RunDetailPage() {
               <PlotIndex
                 plots={run.plots}
                 urlForPlot={(name) => plotDownloadUrl(run.experiment_id, name)}
-                emptyMessage="No static figures produced for this run."
+                emptyMessage={emptyPlotsMessage(run.store)}
               />
             </CardContent>
           </Card>

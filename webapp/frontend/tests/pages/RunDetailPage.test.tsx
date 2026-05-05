@@ -1,9 +1,12 @@
 import { screen } from "@testing-library/react";
+import { http, HttpResponse } from "msw";
 import { describe, expect, it } from "vitest";
 import { Route, Routes } from "react-router-dom";
+import { API_PATHS, toMswPath } from "@/api/paths";
 import { RunDetailPage } from "@/pages/RunDetailPage";
 import { ROUTES, runDetailPath } from "@/lib/routes";
 import { RUN_SPY, RUN_SPY_DETAIL, RUN_SPY_FOLDS } from "../msw/handlers";
+import { server } from "../msw/server";
 import { renderWithProviders } from "../util/render";
 
 function Tree() {
@@ -28,5 +31,22 @@ describe("RunDetailPage", () => {
 
     const plotLink = screen.getByRole("link", { name: "equity.png" });
     expect(plotLink).toHaveAttribute("href", `/api/runs/${RUN_SPY.experiment_id}/plots/equity.png`);
+  });
+
+  it("explains the empty plot index when the run is nested inside a comparison", async () => {
+    server.use(
+      http.get(toMswPath(API_PATHS.run), () =>
+        HttpResponse.json({
+          ...RUN_SPY_DETAIL,
+          store: "thesis_demo/comparisons/pipeline_compare",
+          plots: [],
+        }),
+      ),
+    );
+
+    renderWithProviders(<Tree />, { initialEntries: [runDetailPath(RUN_SPY.experiment_id)] });
+
+    expect(await screen.findByText(/nested inside a comparison/i)).toBeInTheDocument();
+    expect(screen.queryByTestId("plot-index")).not.toBeInTheDocument();
   });
 });
