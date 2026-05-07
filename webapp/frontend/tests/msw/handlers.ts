@@ -443,13 +443,14 @@ export const STRATEGY_SCHEMA_AB: StrategySchema = {
   name: "AdaptiveBollinger",
   qualname: "src.strategies.adaptive.AdaptiveBollinger",
   params: [
-    { name: "window", kind: "int", default: 20, required: false, choices: null },
-    { name: "k", kind: "float", default: 2.0, required: false, choices: null },
+    { name: "window", kind: "int", default: 20, required: false, nullable: false, choices: null },
+    { name: "k", kind: "float", default: 2.0, required: false, nullable: false, choices: null },
     {
       name: "interval",
       kind: "enum",
       default: "daily",
       required: false,
+      nullable: false,
       choices: ["daily", "hour"],
     },
   ],

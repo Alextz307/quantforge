@@ -1,7 +1,8 @@
-import { useId } from "react";
+import { useId, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/cn";
+import { parseStringList } from "@/lib/schemas/configureForm";
 import type { StrategyParam, StrategySchema } from "@/api/strategies";
 
 interface StrategyParamsEditorProps {
@@ -146,11 +147,30 @@ function ParamInput({ id, param, value, onChange, disabled }: ParamInputProps) {
           }}
         />
       );
+    case "str_list":
+      return (
+        <Input
+          id={id}
+          type="text"
+          disabled={disabled}
+          placeholder={strListPlaceholder(param.name)}
+          value={
+            Array.isArray(value) && value.every((v) => typeof v === "string")
+              ? value.join(", ")
+              : ""
+          }
+          onChange={(e) => {
+            const items = parseStringList(e.target.value);
+            onChange(items.length === 0 ? undefined : items);
+          }}
+        />
+      );
     case "enum":
       return (
         <select
           id={id}
           disabled={disabled}
+          required={param.required}
           className={cn(
             "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm",
           )}
@@ -159,7 +179,7 @@ function ParamInput({ id, param, value, onChange, disabled }: ParamInputProps) {
             onChange(e.target.value === "" ? undefined : e.target.value);
           }}
         >
-          <option value="">— use default —</option>
+          <option value="">{emptyOptionLabel(param)}</option>
           {(param.choices ?? []).map((choice) => (
             <option key={choice} value={choice}>
               {choice}
@@ -169,30 +189,59 @@ function ParamInput({ id, param, value, onChange, disabled }: ParamInputProps) {
       );
     case "complex":
       return (
-        <textarea
+        <JsonInput
           id={id}
-          disabled={disabled}
-          rows={3}
-          className="font-mono w-full rounded-md border border-input bg-background px-3 py-2 text-xs"
+          value={value}
+          onChange={onChange}
           placeholder={placeholder}
-          value={value === undefined ? "" : JSON.stringify(value)}
-          onChange={(e) => {
-            const text = e.target.value.trim();
-            if (text === "") {
-              onChange(undefined);
-              return;
-            }
-            try {
-              onChange(JSON.parse(text));
-            } catch {
-              // Keep the previous value; the next valid JSON parse will
-              // commit. Server-side validate gives the user a clear error
-              // if they submit broken JSON before fixing it.
-            }
-          }}
+          disabled={disabled}
         />
       );
   }
+}
+
+interface JsonInputProps {
+  id: string;
+  value: unknown;
+  onChange: (value: unknown) => void;
+  placeholder: string;
+  disabled?: boolean | undefined;
+}
+
+// Holds the user's literal keystrokes in local state so partial JSON
+// ("[", '["foo') survives re-renders; commits to the parent only on a
+// successful JSON.parse, leaving the last-good value otherwise.
+function JsonInput({ id, value, onChange, placeholder, disabled }: JsonInputProps) {
+  const [text, setText] = useState(() => (value === undefined ? "" : JSON.stringify(value)));
+  const [parseError, setParseError] = useState<string | null>(null);
+  return (
+    <div className="space-y-1">
+      <textarea
+        id={id}
+        disabled={disabled}
+        rows={3}
+        className="font-mono w-full rounded-md border border-input bg-background px-3 py-2 text-xs"
+        placeholder={placeholder}
+        value={text}
+        onChange={(e) => {
+          const next = e.target.value;
+          setText(next);
+          if (next.trim() === "") {
+            setParseError(null);
+            onChange(undefined);
+            return;
+          }
+          try {
+            onChange(JSON.parse(next));
+            setParseError(null);
+          } catch (err) {
+            setParseError(err instanceof Error ? err.message : "invalid JSON");
+          }
+        }}
+      />
+      {parseError && <p className="text-xs text-amber-600">JSON: {parseError}</p>}
+    </div>
+  );
 }
 
 function asScalarInputValue(value: unknown): number | string {
@@ -209,9 +258,23 @@ function describeDefault(param: StrategyParam): string {
   return `default: ${formatPrimitive(def)}`;
 }
 
+function emptyOptionLabel(param: StrategyParam): string {
+  if (param.required) return "— select —";
+  if (param.nullable) return "— none —";
+  return "— use default —";
+}
+
+function strListPlaceholder(paramName: string): string {
+  if (paramName === "tickers" || paramName.endsWith("_tickers")) {
+    return "comma- or space-separated tickers, e.g. QQQ, TLT, GLD";
+  }
+  if (paramName.endsWith("_columns")) {
+    return "comma- or space-separated, e.g. rsi_14, macd_signal, ma_ratio";
+  }
+  return "comma- or space-separated";
+}
+
 function formatPrimitive(value: unknown): string {
-  // Backend already serialises complex defaults via repr() — they arrive
-  // as plain strings here. This helper just guards against object slips.
   if (typeof value === "string") return value;
   if (typeof value === "number" || typeof value === "boolean") return String(value);
   return JSON.stringify(value);

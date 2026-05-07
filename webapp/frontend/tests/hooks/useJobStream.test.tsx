@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { useJobStream } from "@/hooks/useJobStream";
 import { queryKeys } from "@/api/queryKeys";
 import type { JobRow } from "@/api/jobs";
@@ -62,6 +62,16 @@ afterAll(() => {
   });
 });
 
+afterEach(() => {
+  vi.restoreAllMocks();
+});
+
+function mockLogResponse(body: string): void {
+  vi.spyOn(globalThis, "fetch").mockResolvedValue(
+    new Response(body, { status: 200, headers: { "Content-Type": "text/plain" } }),
+  );
+}
+
 function wrapper({ children }: { children: ReactNode }) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
@@ -102,11 +112,15 @@ describe("useJobStream", () => {
     expect(result.current.connection).toBe("open");
   });
 
-  it("is closed immediately when the job is already terminal", () => {
+  it("backfills logs from the persisted file when the job is already terminal", async () => {
     MockWebSocket.instances = [];
+    mockLogResponse("first line\nsecond line\n");
     const { result } = renderHook(() => useJobStream("job-x", "completed"), { wrapper });
     expect(result.current.connection).toBe("closed");
     expect(MockWebSocket.instances.length).toBe(0);
+    await waitFor(() => {
+      expect(result.current.logs).toEqual(["first line", "second line"]);
+    });
   });
 
   it("closes the socket when a terminal status frame arrives", async () => {

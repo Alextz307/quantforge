@@ -20,6 +20,7 @@ from webapp.backend.app.schemas.configs import (
     ValidateResponse,
     ValidationErrorItem,
 )
+from webapp.backend.app.services.strategy_service import describe_strategy
 
 # Strategy/HPO/regime YAMLs are loose dict bodies consumed by component
 # ctors at runtime; there's no Pydantic class to validate them against
@@ -92,6 +93,13 @@ def validate(kind: ConfigKind, payload: dict[str, object]) -> ValidateResponse:
     For loose-bodied kinds (strategy/hpo/regime) the response is always
     ``valid=True`` — there is no Pydantic counterpart and the deeper
     coercion happens when the CLI actually instantiates the component.
+
+    For ``ConfigKind.EXPERIMENT``, after Pydantic accepts the payload we
+    also walk the strategy ctor's required params (via the same
+    ``describe_strategy`` introspection that drives the form schema) and
+    surface any missing ones — Pydantic treats ``strategy.params`` as a
+    generic mapping, so a missing ctor kwarg would otherwise only blow
+    up at strategy-build time as a TypeError after the subprocess spawn.
     """
     model_cls = _KIND_TO_MODEL[kind]
     if model_cls is None:
@@ -110,4 +118,47 @@ def validate(kind: ConfigKind, payload: dict[str, object]) -> ValidateResponse:
                 for err in exc.errors()
             ],
         )
+    if kind is ConfigKind.EXPERIMENT:
+        sig_errors = _strategy_param_completeness_errors(payload)
+        if sig_errors:
+            return ValidateResponse(valid=False, errors=sig_errors)
     return ValidateResponse(valid=True, errors=[])
+
+
+def _strategy_param_completeness_errors(
+    payload: dict[str, object],
+) -> list[ValidationErrorItem]:
+    """Missing-required-param errors for the strategy referenced by ``payload``.
+
+    Returns ``[]`` for unknown strategy names (already caught by
+    Pydantic) and for strategies whose ctor requires nothing the user
+    hasn't supplied.
+    """
+    strategy = payload.get("strategy")
+    if not isinstance(strategy, dict):
+        return []
+    name = strategy.get("name")
+    if not isinstance(name, str):
+        return []
+    try:
+        schema = describe_strategy(name)
+    except KeyError:
+        return []
+    params = strategy.get("params") or {}
+    if not isinstance(params, dict):
+        return []
+    errors: list[ValidationErrorItem] = []
+    for param in schema.params:
+        if not param.required:
+            continue
+        present = param.name in params
+        value_is_null = present and params[param.name] is None
+        if not present or (value_is_null and not param.nullable):
+            errors.append(
+                ValidationErrorItem(
+                    loc=["strategy", "params", param.name],
+                    msg="field required",
+                    type="missing",
+                )
+            )
+    return errors

@@ -54,6 +54,91 @@ describe("ConfigurePage", () => {
     expect(await screen.findByText("job detail page")).toBeInTheDocument();
   });
 
+  it("blocks submit and shows inline error when a required strategy param is missing", async () => {
+    // Override the strategy-schema handler to return a strategy with a required
+    // param so we can drive the pre-submit guard without setting up Pydantic.
+    const validateCalls = { count: 0 };
+    server.use(
+      http.get(API_PATHS.strategies, () =>
+        HttpResponse.json([
+          {
+            name: "AdaptiveBollinger",
+            qualname: "src.strategies.adaptive.AdaptiveBollinger",
+          },
+        ]),
+      ),
+      http.get("*/api/strategies/AdaptiveBollinger/schema", () =>
+        HttpResponse.json({
+          name: "AdaptiveBollinger",
+          qualname: "src.strategies.adaptive.AdaptiveBollinger",
+          params: [
+            {
+              name: "feature_columns",
+              kind: "complex",
+              default: null,
+              required: true,
+              nullable: false,
+              choices: null,
+            },
+          ],
+        }),
+      ),
+      http.post(API_PATHS.configValidate, () => {
+        validateCalls.count += 1;
+        return HttpResponse.json({ valid: true, errors: [] });
+      }),
+    );
+    const user = userEvent.setup();
+    renderWithProviders(<ConfigurePage />);
+
+    await screen.findByLabelText(/Run name/i);
+    await waitFor(() => {
+      expect(screen.getByLabelText(/Strategy$/i)).not.toBeDisabled();
+    });
+
+    await fillBaseFields(user);
+    await user.click(screen.getByRole("button", { name: /Launch run/i }));
+
+    expect(await screen.findByText(/strategy\.params\.feature_columns/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/field required/i).length).toBeGreaterThan(0);
+    // Pre-submit short-circuit must NOT have hit the validate endpoint.
+    expect(validateCalls.count).toBe(0);
+  });
+
+  it("pre-fills strategy params from canonical_params when the strategy is picked", async () => {
+    server.use(
+      http.get(API_PATHS.strategies, () =>
+        HttpResponse.json([
+          { name: "AdaptiveBollinger", qualname: "src.strategies.adaptive.AdaptiveBollinger" },
+        ]),
+      ),
+      http.get("*/api/strategies/AdaptiveBollinger/schema", () =>
+        HttpResponse.json({
+          name: "AdaptiveBollinger",
+          qualname: "src.strategies.adaptive.AdaptiveBollinger",
+          params: [
+            { name: "window", kind: "int", default: 20, required: false, nullable: false, choices: null },
+            { name: "k", kind: "float", default: 2.0, required: false, nullable: false, choices: null },
+          ],
+          canonical_params: { window: 25, k: 1.75 },
+        }),
+      ),
+    );
+    const user = userEvent.setup();
+    renderWithProviders(<ConfigurePage />);
+
+    await screen.findByLabelText(/Run name/i);
+    await waitFor(() => {
+      expect(screen.getByLabelText(/Strategy$/i)).not.toBeDisabled();
+    });
+    await user.selectOptions(screen.getByLabelText(/Strategy$/i), "AdaptiveBollinger");
+
+    // Form fields hydrate from canonical_params (25 / 1.75) once the schema arrives.
+    await waitFor(() => {
+      expect(screen.getByLabelText(/window/i)).toHaveValue(25);
+    });
+  });
+
   it("renders backend validation errors inline when /configs/validate fails", async () => {
     server.use(
       http.post(API_PATHS.configValidate, () =>

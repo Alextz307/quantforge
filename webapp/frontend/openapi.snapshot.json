@@ -868,6 +868,7 @@
           "str",
           "bool",
           "enum",
+          "str_list",
           "complex"
         ],
         "title": "ParamKind",
@@ -1554,6 +1555,11 @@
             "title": "Name",
             "type": "string"
           },
+          "nullable": {
+            "default": false,
+            "title": "Nullable",
+            "type": "boolean"
+          },
           "required": {
             "title": "Required",
             "type": "boolean"
@@ -1569,6 +1575,18 @@
       },
       "StrategySchema": {
         "properties": {
+          "canonical_params": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Canonical Params"
+          },
           "name": {
             "title": "Name",
             "type": "string"

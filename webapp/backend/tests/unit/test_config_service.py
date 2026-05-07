@@ -107,6 +107,45 @@ def test_validate_invalid_enum() -> None:
     assert any("interval" in err.loc for err in response.errors)
 
 
+def test_validate_experiment_missing_required_strategy_param() -> None:
+    """Pydantic accepts ``strategy.params`` as a generic dict; the post-pass
+    pre-flight (via ``describe_strategy``) catches missing required ctor
+    kwargs so a doomed config never spawns a subprocess."""
+    payload = make_valid_experiment_payload()
+    # ``ReturnForecast`` ctor declares ``feature_columns: list[str]`` (required).
+    payload["strategy"] = {"name": "ReturnForecast", "params": {}}
+
+    response = validate(ConfigKind.EXPERIMENT, payload)
+
+    assert response.valid is False
+    locs = [tuple(err.loc) for err in response.errors]
+    assert ("strategy", "params", "feature_columns") in locs
+    assert all(err.type == "missing" for err in response.errors)
+
+
+def test_validate_experiment_required_strategy_param_filled_passes() -> None:
+    payload = make_valid_experiment_payload()
+    payload["strategy"] = {
+        "name": "ReturnForecast",
+        "params": {"feature_columns": ["rsi_14", "macd_12_26_9"]},
+    }
+
+    response = validate(ConfigKind.EXPERIMENT, payload)
+
+    assert response.valid is True
+
+
+def test_validate_experiment_extra_field_rejected_before_strategy_check() -> None:
+    """A Pydantic-level error short-circuits the strategy-completeness pre-flight."""
+    payload = make_valid_experiment_payload()
+    payload["typo_field"] = "oops"
+
+    response = validate(ConfigKind.EXPERIMENT, payload)
+
+    assert response.valid is False
+    assert any("typo_field" in err.loc for err in response.errors)
+
+
 def test_validate_extra_field_rejected() -> None:
     payload = make_valid_experiment_payload()
     payload["typo_field"] = "oops"

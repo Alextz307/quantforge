@@ -38,7 +38,7 @@ const TEST_SIZE_MAX = 5000;
 const GAP_MIN = 0;
 const GAP_MAX = 500;
 
-const tickersFromInput = (input: string): string[] =>
+export const parseStringList = (input: string): string[] =>
   input
     .split(/[\s,]+/)
     .map((t) => t.trim())
@@ -54,7 +54,7 @@ export const configureFormSchema = z
     tickers: z
       .string()
       .min(1, "At least one ticker is required")
-      .refine((v) => tickersFromInput(v).length > 0, "At least one ticker is required"),
+      .refine((v) => parseStringList(v).length > 0, "At least one ticker is required"),
     start: z.string().regex(ISO_DATE_REGEX, "Start must be YYYY-MM-DD"),
     end: z.string().regex(ISO_DATE_REGEX, "End must be YYYY-MM-DD"),
     interval: z.enum(INTERVAL_VALUES).default("daily"),
@@ -104,7 +104,7 @@ export function toExperimentPayload(
     seed: values.seed,
     data: {
       source: "yfinance",
-      tickers: tickersFromInput(values.tickers),
+      tickers: parseStringList(values.tickers),
       start: values.start,
       end: values.end,
       interval: values.interval,

@@ -14,7 +14,7 @@ router = APIRouter(prefix="/models", tags=["models"], dependencies=[Depends(get_
 @router.get("", response_model=list[ModelRegistryEntry])
 def get_models() -> list[ModelRegistryEntry]:
     entries: list[ModelRegistryEntry] = []
-    for name in model_registry.list_all():
+    for name in model_registry.list_public():
         cls = model_registry.get(name)
         entries.append(
             ModelRegistryEntry(
@@ -23,7 +23,7 @@ def get_models() -> list[ModelRegistryEntry]:
                 kind=ModelKind.PREDICTOR,
             )
         )
-    for name in classifier_registry.list_all():
+    for name in classifier_registry.list_public():
         clf = classifier_registry.get(name)
         entries.append(
             ModelRegistryEntry(

@@ -96,6 +96,94 @@ def test_submit_writes_yaml_and_persists_running(
     cast(AsyncMock, manager.spawn).assert_awaited_once()
 
 
+def test_submit_auto_injects_features_for_strategies_that_need_them(
+    db_conn: sqlite3.Connection, tmp_path: Path
+) -> None:
+    """``VolatilityTargeting`` / ``ReturnForecast`` consume pre-engineered
+    feature columns. The webapp form has no features-block UI, so the
+    submitted payload is missing it; ``submit_job`` injects the canonical
+    standard pipeline so the run doesn't crash with KeyError."""
+    user = _user(db_conn, "alice")
+    manager = _stub_manager()
+    payload = make_valid_experiment_payload()
+    payload["strategy"] = {
+        "name": "ReturnForecast",
+        "params": {"feature_columns": ["rsi_14", "macd_signal"]},
+    }
+    submission = JobSubmission(kind=JobKind.RUN, config_payload=payload)
+    job_temp_dir = tmp_path / "jobs"
+
+    row = asyncio.run(
+        submit_job(
+            conn=db_conn,
+            manager=manager,
+            user=user,
+            submission=submission,
+            store_root=tmp_path / "store",
+            job_temp_dir=job_temp_dir,
+        )
+    )
+
+    parsed = yaml.safe_load((job_temp_dir / f"{row.id}.yaml").read_text(encoding="utf-8"))
+    assert parsed["features"] == {"name": "standard", "params": {"keep_ohlc": True}}
+
+
+def test_submit_does_not_inject_features_for_self_contained_strategies(
+    db_conn: sqlite3.Connection, tmp_path: Path
+) -> None:
+    """``AdaptiveBollinger`` / ``MomentumGatekeeper`` engineer features
+    internally — no top-level ``features:`` block needed, none injected."""
+    user = _user(db_conn, "alice")
+    manager = _stub_manager()
+    payload = make_valid_experiment_payload()  # AdaptiveBollinger by default
+    submission = JobSubmission(kind=JobKind.RUN, config_payload=payload)
+    job_temp_dir = tmp_path / "jobs"
+
+    row = asyncio.run(
+        submit_job(
+            conn=db_conn,
+            manager=manager,
+            user=user,
+            submission=submission,
+            store_root=tmp_path / "store",
+            job_temp_dir=job_temp_dir,
+        )
+    )
+
+    parsed = yaml.safe_load((job_temp_dir / f"{row.id}.yaml").read_text(encoding="utf-8"))
+    assert "features" not in parsed
+
+
+def test_submit_respects_user_supplied_features_block(
+    db_conn: sqlite3.Connection, tmp_path: Path
+) -> None:
+    user = _user(db_conn, "alice")
+    manager = _stub_manager()
+    payload = make_valid_experiment_payload()
+    payload["strategy"] = {
+        "name": "ReturnForecast",
+        "params": {"feature_columns": ["rsi_14"]},
+    }
+    user_features = {"name": "standard", "params": {"keep_ohlc": False}}
+    payload["features"] = user_features
+    submission = JobSubmission(kind=JobKind.RUN, config_payload=payload)
+    job_temp_dir = tmp_path / "jobs"
+
+    row = asyncio.run(
+        submit_job(
+            conn=db_conn,
+            manager=manager,
+            user=user,
+            submission=submission,
+            store_root=tmp_path / "store",
+            job_temp_dir=job_temp_dir,
+        )
+    )
+
+    parsed = yaml.safe_load((job_temp_dir / f"{row.id}.yaml").read_text(encoding="utf-8"))
+    assert parsed["features"] == user_features
+
+
 def test_submit_rejects_invalid_payload_before_persisting(
     db_conn: sqlite3.Connection, tmp_path: Path
 ) -> None:

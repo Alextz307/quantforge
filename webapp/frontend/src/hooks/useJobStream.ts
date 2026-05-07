@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import type { JobRow, JobStatus } from "@/api/jobs";
-import { isTerminalStatus, jobStreamUrl } from "@/api/jobs";
+import { isTerminalStatus, jobLogDownloadUrl, jobStreamUrl } from "@/api/jobs";
 import { queryKeys } from "@/api/queryKeys";
 
 export type ConnectionState = "connecting" | "open" | "closed" | "error";
@@ -47,12 +47,9 @@ export function useJobStream(jobId: string, initialStatus: JobStatus): JobStream
   const [connection, setConnection] = useState<ConnectionState>(
     isTerminalStatus(initialStatus) ? "closed" : "connecting",
   );
-  // Track the latest known status across reconnects so a re-open doesn't
-  // re-arm streaming for a job that's already terminal.
+  // Latest known status survives reconnects so a re-open after terminal stays closed.
   const latestStatus = useRef<JobStatus>(initialStatus);
-  // Counts retries used since the last successful open; resets to 0 on open.
   const retryAttempt = useRef<number>(0);
-  // Pending reconnect timer id so unmount cleanup can clear it.
   const reconnectTimer = useRef<number | null>(null);
   const ws = useRef<WebSocket | null>(null);
 
@@ -89,8 +86,27 @@ export function useJobStream(jobId: string, initialStatus: JobStatus): JobStream
 
   useEffect(() => {
     if (isTerminalStatus(initialStatus)) {
+      // Terminal at mount: backfill from the persisted log file.
       setConnection("closed");
-      return;
+      const controller = new AbortController();
+      void (async () => {
+        try {
+          const resp = await fetch(jobLogDownloadUrl(jobId), {
+            credentials: "include",
+            signal: controller.signal,
+          });
+          if (!resp.ok) return;
+          const text = await resp.text();
+          const lines = text.split("\n");
+          if (lines.length > 0 && lines[lines.length - 1] === "") lines.pop();
+          setLogs(lines);
+        } catch {
+          // abort or network failure
+        }
+      })();
+      return () => {
+        controller.abort();
+      };
     }
 
     let disposed = false;
@@ -132,7 +148,6 @@ export function useJobStream(jobId: string, initialStatus: JobStatus): JobStream
         }
         const delay = RECONNECT_DELAYS_MS[retryAttempt.current];
         if (delay === undefined) {
-          // Exhausted retry budget; surface the error and stop.
           setConnection("error");
           return;
         }

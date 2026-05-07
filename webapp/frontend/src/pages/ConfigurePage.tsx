@@ -57,11 +57,13 @@ export function ConfigurePage() {
   const strategyName = watch("strategyName");
   const schema = useStrategySchema(strategyName || null);
   const [strategyParams, setStrategyParams] = useState<Record<string, unknown>>({});
-  // Reset params when the strategy choice changes — values from the previous
-  // strategy aren't meaningful and would silently leak through to the payload.
+  // Gate on ``qualname`` (string) so background refetches that return the
+  // same schema don't nuke user edits in flight.
+  const schemaQualname = schema.data?.qualname;
   useEffect(() => {
-    setStrategyParams({});
-  }, [strategyName]);
+    setStrategyParams({ ...(schema.data?.canonical_params ?? {}) });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- gated on qualname intentionally
+  }, [strategyName, schemaQualname]);
 
   const validate = useValidateConfig();
   const submit = useSubmitJob();
@@ -77,6 +79,20 @@ export function ConfigurePage() {
 
   const onSubmit: SubmitHandler<ConfigureFormValues> = async (values) => {
     setServerErrors([]);
+    // Pre-submit short-circuit; backend re-checks via config_service.validate.
+    if (schema.data) {
+      const missing: ValidationErrorItem[] = schema.data.params
+        .filter((p) => p.required && strategyParams[p.name] === undefined)
+        .map((p) => ({
+          loc: ["strategy", "params", p.name],
+          msg: "field required",
+          type: "missing",
+        }));
+      if (missing.length > 0) {
+        setServerErrors(missing);
+        return;
+      }
+    }
     const payload = toExperimentPayload(values, strategyParams);
     const validation = await validate.mutateAsync({ kind: "experiment", payload });
     if (!validation.valid) {

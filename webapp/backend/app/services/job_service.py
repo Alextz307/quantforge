@@ -35,6 +35,7 @@ from webapp.backend.app.schemas.jobs import (
 )
 from webapp.backend.app.schemas.users import UserPublic
 from webapp.backend.app.services.config_service import validate as validate_config
+from webapp.backend.app.services.strategy_service import describe_strategy
 
 logger = logging.getLogger(__name__)
 
@@ -77,6 +78,42 @@ def _write_config_yaml(path: Path, payload: dict[str, object]) -> None:
     ensure_parent_dir(path).write_text(yaml.safe_dump(payload, sort_keys=False), encoding="utf-8")
 
 
+_STANDARD_FEATURES_BLOCK: dict[str, object] = {
+    "name": "standard",
+    "params": {"keep_ohlc": True},
+}
+
+
+def _maybe_inject_standard_features(payload: dict[str, object]) -> None:
+    """Auto-add a canonical ``features:`` block for strategies that need it.
+
+    VolatilityTargeting / ReturnForecast consume pre-engineered feature
+    columns (signaled by a required ``feature_columns`` ctor param). The
+    webapp form has no features-block UI, so a submission without
+    ``features:`` would crash at runtime with a ``KeyError`` on the first
+    missing engineered column. We inject the project's canonical default
+    (``standard`` pipeline with ``keep_ohlc=true``, mirroring
+    ``config/strategies/{volatility_targeting,return_forecast}.yaml``).
+
+    User-supplied ``features`` blocks pass through unchanged.
+    """
+    if payload.get("features") is not None:
+        return
+    strategy = payload.get("strategy")
+    if not isinstance(strategy, dict):
+        return
+    name = strategy.get("name")
+    if not isinstance(name, str):
+        return
+    try:
+        schema = describe_strategy(name)
+    except KeyError:
+        return
+    needs_features = any(p.required and p.name == "feature_columns" for p in schema.params)
+    if needs_features:
+        payload["features"] = dict(_STANDARD_FEATURES_BLOCK)
+
+
 async def submit_job(
     *,
     conn: sqlite3.Connection,
@@ -93,6 +130,7 @@ async def submit_job(
     validation = validate_config(config_kind, submission.config_payload)
     if not validation.valid:
         raise JobConfigInvalidError(validation.errors)
+    _maybe_inject_standard_features(submission.config_payload)
     job_temp_dir.mkdir(parents=True, exist_ok=True)
     # Two-phase: insert with placeholders, then UPDATE with paths derived from
     # the row id once we have it. Lifespan reconcile recovers a crash here.

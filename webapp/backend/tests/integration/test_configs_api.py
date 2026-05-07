@@ -113,7 +113,9 @@ def test_strategy_schema_known(authed_client: TestClient) -> None:
     assert body["name"] == "AdaptiveBollinger"
     param_names = {p["name"] for p in body["params"]}
     assert "window" in param_names
-    assert "interval" in param_names
+    # ``interval`` and ``pretrained_leaves`` are framework-managed and must
+    # never appear as form fields (see ``_HIDDEN_PARAMS``).
+    assert "interval" not in param_names
     assert "pretrained_leaves" not in param_names
 
 
