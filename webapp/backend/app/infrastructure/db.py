@@ -20,6 +20,25 @@ CREATE TABLE IF NOT EXISTS users (
 );
 """
 
+JOBS_SCHEMA = """
+CREATE TABLE IF NOT EXISTS jobs (
+    id TEXT PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id),
+    kind TEXT NOT NULL,
+    command TEXT NOT NULL,
+    config_path TEXT NOT NULL,
+    log_path TEXT NOT NULL,
+    pid INTEGER,
+    status TEXT NOT NULL,
+    started_at TEXT,
+    finished_at TEXT,
+    exit_code INTEGER,
+    experiment_id TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_jobs_user_id ON jobs(user_id);
+CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs(status);
+"""
+
 
 def get_connection(db_path: Path) -> sqlite3.Connection:
     db_path.parent.mkdir(parents=True, exist_ok=True)
@@ -35,6 +54,7 @@ def get_connection(db_path: Path) -> sqlite3.Connection:
 
 def bootstrap_schema(conn: sqlite3.Connection) -> None:
     conn.executescript(USERS_SCHEMA)
+    conn.executescript(JOBS_SCHEMA)
     conn.commit()
 
 

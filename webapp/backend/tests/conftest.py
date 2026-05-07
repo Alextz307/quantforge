@@ -34,9 +34,11 @@ from src.orchestration.study import STUDY_STATE_FILENAME
 from src.orchestration.study_state import LEG_STEPS_ORDER, LegState, StudyState
 from webapp.backend.app.core.rate_limit import login_limiter
 from webapp.backend.app.core.settings import get_settings
+from webapp.backend.app.core.types import Role
 from webapp.backend.app.infrastructure.db import bootstrap_schema, open_db
 from webapp.backend.app.main import create_app
 from webapp.backend.app.services.plots import PLOTS_DIRNAME
+from webapp.backend.app.services.user_service import create_user
 
 TEST_SECRET_KEY = secrets.token_urlsafe(48)
 
@@ -75,20 +77,82 @@ def db_conn() -> Iterator[sqlite3.Connection]:
 
 TEST_USERNAME = "alex"
 TEST_PASSWORD = "password123"
+ADMIN_USERNAME = "admin"
+ADMIN_PASSWORD = "adminpass!"
+SECONDARY_USERNAME = "bob"
+SECONDARY_PASSWORD = "secondary!"
 
 
 @pytest.fixture
 def authed_client(client: TestClient, db_conn: sqlite3.Connection) -> TestClient:
     """A TestClient with an authenticated session cookie for a regular user."""
-    from webapp.backend.app.core.types import Role
-    from webapp.backend.app.services.user_service import create_user
-
     create_user(db_conn, username=TEST_USERNAME, password=TEST_PASSWORD, role=Role.USER)
     response = client.post(
         "/api/auth/login", json={"username": TEST_USERNAME, "password": TEST_PASSWORD}
     )
     assert response.status_code == HTTPStatus.OK
     return client
+
+
+@pytest.fixture
+def _jobs_enabled(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
+    """Flip ``WEBAPP_JOBS_ENABLED`` on + point job artifacts at ``tmp_path``.
+
+    Must run before any TestClient is constructed (lifespan reads settings on
+    create_app). Tests requesting ``jobs_client`` get this fixture transitively.
+    """
+    monkeypatch.setenv("WEBAPP_JOBS_ENABLED", "true")
+    monkeypatch.setenv("WEBAPP_JOB_TEMP_DIR", str(tmp_path / "jobs"))
+    monkeypatch.setenv("WEBAPP_STORE_ROOT", str(tmp_path / "experiment_results"))
+    get_settings.cache_clear()
+    yield
+    get_settings.cache_clear()
+
+
+@pytest.fixture
+def jobs_client(_jobs_enabled: None) -> Iterator[TestClient]:
+    """A jobs-enabled TestClient — sets the feature flag before app creation."""
+    with TestClient(create_app()) as test_client:
+        yield test_client
+
+
+def _create_user_and_login(
+    client: TestClient,
+    db_conn: sqlite3.Connection,
+    *,
+    username: str,
+    password: str,
+    role: Role,
+) -> None:
+    create_user(db_conn, username=username, password=password, role=role)
+    response = client.post("/api/auth/login", json={"username": username, "password": password})
+    assert response.status_code == HTTPStatus.OK
+
+
+@pytest.fixture
+def authed_jobs_client(jobs_client: TestClient, db_conn: sqlite3.Connection) -> TestClient:
+    """``jobs_client`` authenticated as a regular user."""
+    _create_user_and_login(
+        jobs_client,
+        db_conn,
+        username=TEST_USERNAME,
+        password=TEST_PASSWORD,
+        role=Role.USER,
+    )
+    return jobs_client
+
+
+@pytest.fixture
+def admin_jobs_client(jobs_client: TestClient, db_conn: sqlite3.Connection) -> TestClient:
+    """``jobs_client`` authenticated as an admin."""
+    _create_user_and_login(
+        jobs_client,
+        db_conn,
+        username=ADMIN_USERNAME,
+        password=ADMIN_PASSWORD,
+        role=Role.ADMIN,
+    )
+    return jobs_client
 
 
 def make_synthetic_run(

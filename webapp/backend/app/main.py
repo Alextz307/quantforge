@@ -11,6 +11,7 @@ from webapp.backend.app.api import (
     health,
     holdout,
     hpo,
+    jobs,
     models,
     regime,
     runs,
@@ -64,4 +65,5 @@ def create_app() -> FastAPI:
     app.include_router(hpo.router, prefix="/api")
     app.include_router(strategies.router, prefix="/api")
     app.include_router(models.router, prefix="/api")
+    app.include_router(jobs.router, prefix="/api")
     return app
