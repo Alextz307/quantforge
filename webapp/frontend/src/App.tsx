@@ -8,6 +8,7 @@ import { AdminPage } from "@/pages/AdminPage";
 import { ComparisonsPage } from "@/pages/ComparisonsPage";
 import { HoldoutPage } from "@/pages/HoldoutPage";
 import { HpoPage } from "@/pages/HpoPage";
+import { JobsPage } from "@/pages/JobsPage";
 import { LoginPage } from "@/pages/LoginPage";
 import { NotFoundPage } from "@/pages/NotFoundPage";
 import { RegimePage } from "@/pages/RegimePage";
@@ -33,6 +34,12 @@ const StudyDetailPage = lazy(() =>
 const HpoDetailPage = lazy(() =>
   import("@/pages/HpoDetailPage").then((m) => ({ default: m.HpoDetailPage })),
 );
+const ConfigurePage = lazy(() =>
+  import("@/pages/ConfigurePage").then((m) => ({ default: m.ConfigurePage })),
+);
+const JobDetailPage = lazy(() =>
+  import("@/pages/JobDetailPage").then((m) => ({ default: m.JobDetailPage })),
+);
 
 function ChartFallback() {
   return <p className="text-sm text-muted-foreground">Loading…</p>;
@@ -56,6 +63,23 @@ export function App() {
         }
       >
         <Route index element={<Navigate to={ROUTES.runs} replace />} />
+        <Route
+          path={ROUTES.configure}
+          element={
+            <Suspense fallback={<ChartFallback />}>
+              <ConfigurePage />
+            </Suspense>
+          }
+        />
+        <Route path={ROUTES.jobs} element={<JobsPage />} />
+        <Route
+          path={ROUTES.jobDetail}
+          element={
+            <Suspense fallback={<ChartFallback />}>
+              <JobDetailPage />
+            </Suspense>
+          }
+        />
         <Route path={ROUTES.runs} element={<RunsPage />} />
         <Route
           path={ROUTES.runDetail}

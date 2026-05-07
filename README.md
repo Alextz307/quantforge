@@ -423,6 +423,7 @@ code.
 - [`src/benchmarking/`](src/benchmarking/README.md) — benchmark runner / store / analyzer / reporter.
 - [`scripts/`](scripts/README.md) — `experiment` + `benchmark` CLIs and drift guards.
 - [`config/`](config/README.md) — strategy / HPO / regime / model / universe YAMLs.
+- [`webapp/`](webapp/README.md) — FastAPI backend + React/Vite SPA: read-only artifact viewer plus a launch/monitor flow with WebSocket log streaming.
 
 ## Tech Stack
 

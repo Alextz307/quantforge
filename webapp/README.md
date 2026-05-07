@@ -21,6 +21,7 @@ to the same command issued from `bash`.
 
 Public:
 - `GET /api/health` — `{status, version}` liveness probe.
+- `GET /api/settings/public` — `{jobs_enabled}` feature flags the SPA reads before login.
 - `GET /openapi.json`, `GET /docs` — OpenAPI 3.1 schema + Swagger UI.
 
 Auth:
@@ -32,13 +33,24 @@ Admin (role=admin):
 - `GET /api/users`, `POST /api/users`, `DELETE /api/users/{id}` — user CRUD (soft delete).
 
 Read-only artifact API (auth-gated, all `GET`):
-- `/api/strategies`, `/api/models` — registry introspection.
+- `/api/strategies`, `/api/strategies/{name}/schema`, `/api/models` — registry introspection + per-strategy ctor schema for the Configure form.
 - `/api/runs`, `/api/runs/{id}`, `/api/runs/{id}/folds`, `/api/runs/{id}/plots/{plot_name}` — persisted runs.
 - `/api/comparisons`, `/api/comparisons/{name}`, `/api/comparisons/{name}/plots/{plot_name}` — cross-strategy comparisons.
 - `/api/regime-reports`, `/api/regime-reports/{name}`, `/api/regime-reports/{name}/plots/{plot_name}` — regime analyses.
 - `/api/holdout-evals`, `/api/holdout-evals/{name}`, `/api/holdout-evals/{name}/plots/{plot_name}` — holdout evaluations.
 - `/api/studies`, `/api/studies/{name}` — multi-leg study state + completion progress.
 - `/api/hpo`, `/api/hpo/{name}`, `/api/hpo/{name}/trials?after_trial=N` — HPO study summaries + Optuna trial feeds.
+
+Configs (auth-gated):
+- `GET /api/configs/{kind}` — list `*.yaml` under `config/<kind>/` (kinds: experiment / universe / strategy / hpo / study / regime / model).
+- `GET /api/configs/{kind}/{name}` — raw + parsed body for a single config.
+- `POST /api/configs/validate` — validate a payload against the matching Pydantic model; returns `{valid, errors[]}` with structured `loc/msg/type` items.
+
+Jobs (auth-gated, gated by `WEBAPP_JOBS_ENABLED=true`; per-user scope, admins may pass `?all=1`):
+- `POST /api/jobs` — submit a `JobSubmission` (`kind=run`, `config_payload`); validates upfront and returns 422 with the same `loc/msg/type` shape on bad payloads.
+- `GET /api/jobs`, `GET /api/jobs/{id}`, `DELETE /api/jobs/{id}` — list / fetch / cancel.
+- `GET /api/jobs/{id}/log` — full log file (text response).
+- `WS /api/jobs/{id}/stream` — multiplexed log + status frames (`{type:"log",line}` / `{type:"status",status,exit_code,experiment_id}`); auto-closes on terminal status.
 
 ## First-run setup
 
@@ -84,7 +96,16 @@ make webapp-frontend-lint        # eslint + prettier
 
 For local dev, run the backend with `WEBAPP_ENV=development make webapp-dev`
 in one terminal and `make webapp-frontend-dev` in another. CORS is open to
-`http://localhost:5173` only when `WEBAPP_ENV=development`.
+`http://localhost:5173` only when `WEBAPP_ENV=development`. The Vite proxy
+forwards both `/api/*` HTTP and the `/api/jobs/{id}/stream` WebSocket
+upgrade so the session cookie travels through dev mode unchanged.
+
+To launch real runs from the UI, set `WEBAPP_JOBS_ENABLED=true` (default
+is off so a read-only deploy never accepts launch traffic). The backend
+then accepts `POST /api/jobs`, spawns the existing `experiment run` CLI
+as a subprocess under `webapp/data/jobs/<job_id>.{yaml,log}`, and the
+SPA's Configure + Jobs pages light up. Without the flag, those pages
+render a friendly "job execution is disabled" banner.
 
 ## Cross-links
 

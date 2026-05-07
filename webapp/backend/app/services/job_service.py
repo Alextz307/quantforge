@@ -26,6 +26,7 @@ from webapp.backend.app.infrastructure.process_manager import (
     ProcessManager,
     build_run_command,
 )
+from webapp.backend.app.schemas.configs import ConfigKind, ValidationErrorItem
 from webapp.backend.app.schemas.jobs import (
     JobKind,
     JobRow,
@@ -33,8 +34,15 @@ from webapp.backend.app.schemas.jobs import (
     JobSubmission,
 )
 from webapp.backend.app.schemas.users import UserPublic
+from webapp.backend.app.services.config_service import validate as validate_config
 
 logger = logging.getLogger(__name__)
+
+# Each job kind ships a payload of a specific config shape. Adding a new
+# JobKind requires extending this map (and the strategy/CLI plumbing).
+_JOB_KIND_TO_CONFIG_KIND: dict[JobKind, ConfigKind] = {
+    JobKind.RUN: ConfigKind.EXPERIMENT,
+}
 
 
 class JobNotOwnedError(PermissionError):
@@ -43,6 +51,18 @@ class JobNotOwnedError(PermissionError):
 
 class JobNotRunningError(ValueError):
     pass
+
+
+class JobConfigInvalidError(ValueError):
+    """Raised when ``submit_job`` rejects a config_payload before persisting state.
+
+    Carries the structured Pydantic errors so the router can surface them
+    inline on the form rather than failing the spawned subprocess.
+    """
+
+    def __init__(self, errors: list[ValidationErrorItem]) -> None:
+        super().__init__(f"invalid config payload ({len(errors)} error(s))")
+        self.errors = errors
 
 
 def _config_path(job_temp_dir: Path, job_id: str) -> Path:
@@ -69,6 +89,10 @@ async def submit_job(
     """Persist a queued row, write the config YAML, spawn the CLI, mark running."""
     if submission.kind is not JobKind.RUN:
         raise ValueError(f"unsupported job kind: {submission.kind.value}")
+    config_kind = _JOB_KIND_TO_CONFIG_KIND[submission.kind]
+    validation = validate_config(config_kind, submission.config_payload)
+    if not validation.valid:
+        raise JobConfigInvalidError(validation.errors)
     job_temp_dir.mkdir(parents=True, exist_ok=True)
     # Two-phase: insert with placeholders, then UPDATE with paths derived from
     # the row id once we have it. Lifespan reconcile recovers a crash here.
@@ -172,6 +196,7 @@ def _pid_alive(pid: int) -> bool:
 
 
 __all__ = [
+    "JobConfigInvalidError",
     "JobNotFoundError",
     "JobNotOwnedError",
     "JobNotRunningError",

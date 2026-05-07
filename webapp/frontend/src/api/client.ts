@@ -1,6 +1,8 @@
 import createClient, { type Middleware } from "openapi-fetch";
 import {
   useQuery,
+  type DefaultError,
+  type Query,
   type QueryClient,
   type QueryKey,
   type UseQueryResult,
@@ -51,18 +53,24 @@ async function runFetch<T>(fetcher: Fetcher<T>, errorMsg: string): Promise<T> {
   return data;
 }
 
+type RefetchIntervalFn<T> = (query: Query<T, DefaultError, T>) => number | false | undefined;
+
 export interface ApiQueryOptions<T> {
   queryKey: QueryKey;
   fetcher: Fetcher<T>;
   errorMsg: string;
   staleTime?: number;
+  refetchInterval?: number | false | RefetchIntervalFn<T>;
+  enabled?: boolean;
 }
 
 export function useApiQuery<T>(opts: ApiQueryOptions<T>): UseQueryResult<T> {
-  return useQuery<T>({
+  return useQuery({
     queryKey: opts.queryKey,
     queryFn: () => runFetch(opts.fetcher, opts.errorMsg),
     ...(opts.staleTime !== undefined ? { staleTime: opts.staleTime } : {}),
+    ...(opts.refetchInterval !== undefined ? { refetchInterval: opts.refetchInterval } : {}),
+    ...(opts.enabled !== undefined ? { enabled: opts.enabled } : {}),
   });
 }
 

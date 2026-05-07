@@ -5,9 +5,12 @@ import {
   LayoutDashboard,
   Layers,
   ListChecks,
+  PlayCircle,
   Shield,
   Target,
+  Workflow,
 } from "lucide-react";
+import { usePublicSettings } from "@/api/settings";
 import { ROLE_ADMIN, type UserPublic } from "@/api/users";
 import { cn } from "@/lib/cn";
 import { ROUTES } from "@/lib/routes";
@@ -21,9 +24,12 @@ interface NavItem {
   label: string;
   icon: typeof LayoutDashboard;
   adminOnly?: boolean;
+  jobsOnly?: boolean;
 }
 
 const NAV_ITEMS: NavItem[] = [
+  { to: ROUTES.configure, label: "Configure", icon: PlayCircle, jobsOnly: true },
+  { to: ROUTES.jobs, label: "Jobs", icon: Workflow, jobsOnly: true },
   { to: ROUTES.runs, label: "Runs", icon: LayoutDashboard },
   { to: ROUTES.comparisons, label: "Comparisons", icon: BarChart3 },
   { to: ROUTES.holdout, label: "Holdout", icon: Target },
@@ -34,7 +40,13 @@ const NAV_ITEMS: NavItem[] = [
 ];
 
 export function Sidebar({ user }: SidebarProps) {
-  const items = NAV_ITEMS.filter((item) => !item.adminOnly || user.role === ROLE_ADMIN);
+  const settings = usePublicSettings();
+  const jobsEnabled = settings.data?.jobs_enabled ?? false;
+  const items = NAV_ITEMS.filter((item) => {
+    if (item.adminOnly && user.role !== ROLE_ADMIN) return false;
+    if (item.jobsOnly && !jobsEnabled) return false;
+    return true;
+  });
   return (
     <aside className="flex w-64 flex-col border-r bg-card">
       <div className="flex h-16 items-center border-b px-6">

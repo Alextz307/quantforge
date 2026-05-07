@@ -1129,6 +1129,19 @@
         "title": "PretrainedLeafDTO",
         "type": "object"
       },
+      "PublicSettings": {
+        "properties": {
+          "jobs_enabled": {
+            "title": "Jobs Enabled",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "jobs_enabled"
+        ],
+        "title": "PublicSettings",
+        "type": "object"
+      },
       "RegimeKind": {
         "description": "Detector family \u2014 encodes the *type* of split, not the labels.\n\nSurfaced on :class:`RegimeReport` so a downstream reader knows which\ndetector produced the labels without having to parse the YAML config\nagain. The labels themselves are arbitrary strings supplied by the\ndetector (e.g. ``\"bull\"`` / ``\"bear\"`` for trend, ``\"Q1\"``..``\"Q5\"``\nfor volatility quintiles).",
         "enum": [
@@ -3129,6 +3142,27 @@
         "summary": "Get Run Plot",
         "tags": [
           "runs"
+        ]
+      }
+    },
+    "/api/settings/public": {
+      "get": {
+        "operationId": "get_public_settings_api_settings_public_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicSettings"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Public Settings",
+        "tags": [
+          "settings"
         ]
       }
     },

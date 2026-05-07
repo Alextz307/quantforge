@@ -14,7 +14,9 @@ export default defineConfig({
     port: 5173,
     strictPort: true,
     proxy: {
-      "/api": { target: BACKEND_URL, changeOrigin: true },
+      // ws=true forwards WebSocket upgrades for /api/jobs/{id}/stream so the
+      // session cookie set by the backend proxies cleanly through dev mode.
+      "/api": { target: BACKEND_URL, changeOrigin: true, ws: true },
       "/openapi.json": { target: BACKEND_URL, changeOrigin: true },
     },
   },

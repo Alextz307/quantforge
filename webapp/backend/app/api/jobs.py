@@ -40,6 +40,7 @@ from webapp.backend.app.schemas.jobs import (
 )
 from webapp.backend.app.schemas.users import UserPublic
 from webapp.backend.app.services.job_service import (
+    JobConfigInvalidError,
     JobNotOwnedError,
     JobNotRunningError,
     cancel_job,
@@ -64,14 +65,20 @@ async def post_job(
     manager: ProcessManager = Depends(get_job_manager),
     settings: WebappSettings = Depends(get_settings),
 ) -> JobRow:
-    return await submit_job(
-        conn=conn,
-        manager=manager,
-        user=user,
-        submission=submission,
-        store_root=settings.store_root,
-        job_temp_dir=settings.job_temp_dir,
-    )
+    try:
+        return await submit_job(
+            conn=conn,
+            manager=manager,
+            user=user,
+            submission=submission,
+            store_root=settings.store_root,
+            job_temp_dir=settings.job_temp_dir,
+        )
+    except JobConfigInvalidError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=[err.model_dump() for err in exc.errors],
+        ) from exc
 
 
 @router.get("", response_model=list[JobRow])

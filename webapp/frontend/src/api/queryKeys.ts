@@ -16,4 +16,12 @@ export const queryKeys = {
   hpoStudies: ["hpoStudies"] as const,
   hpoStudy: (name: string) => ["hpoStudies", name] as const,
   hpoTrials: (name: string) => ["hpoStudies", name, "trials"] as const,
+  jobsAll: ["jobs"] as const,
+  jobs: (params: { allUsers: boolean }) => ["jobs", { allUsers: params.allUsers }] as const,
+  job: (id: string) => ["jobs", id] as const,
+  configs: (kind: string) => ["configs", kind] as const,
+  configDetail: (kind: string, name: string) => ["configs", kind, name] as const,
+  strategies: ["strategies"] as const,
+  strategySchema: (name: string) => ["strategies", name, "schema"] as const,
+  publicSettings: ["publicSettings"] as const,
 } as const;

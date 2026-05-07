@@ -20,6 +20,16 @@ export const API_PATHS = {
   hpoStudies: "/api/hpo",
   hpoStudy: "/api/hpo/{name}",
   hpoTrials: "/api/hpo/{name}/trials",
+  jobs: "/api/jobs",
+  job: "/api/jobs/{job_id}",
+  jobLog: "/api/jobs/{job_id}/log",
+  jobStream: "/api/jobs/{job_id}/stream",
+  configs: "/api/configs/{kind}",
+  configDetail: "/api/configs/{kind}/{name}",
+  configValidate: "/api/configs/validate",
+  strategies: "/api/strategies",
+  strategySchema: "/api/strategies/{name}/schema",
+  publicSettings: "/api/settings/public",
 } as const;
 
 // MSW v2 expects `:name` path params; openapi-fetch (matching FastAPI's path

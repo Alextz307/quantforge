@@ -1,10 +1,14 @@
 import { http, HttpResponse } from "msw";
 import type { ComparisonDetail, ComparisonSummary } from "@/api/comparisons";
+import type { ConfigDetail, ConfigEntry, ValidateRequest, ValidateResponse } from "@/api/configs";
 import type { HoldoutEvalDetail, HoldoutEvalSummary } from "@/api/holdout";
 import type { HpoDetail, HpoSummary, TrialRow } from "@/api/hpo";
+import type { JobRow, JobSubmission } from "@/api/jobs";
 import { API_PATHS, toMswPath } from "@/api/paths";
 import type { RegimeReportDetail, RegimeReportSummary } from "@/api/regime";
 import type { FoldRow, RunDetail, RunSummary } from "@/api/runs";
+import type { PublicSettings } from "@/api/settings";
+import type { RegistryEntry, StrategySchema } from "@/api/strategies";
 import type { StudyConsolidatedDTO, StudyDetail, StudySummary } from "@/api/studies";
 import { ROLE_ADMIN, ROLE_USER, type UserCreate, type UserPublic } from "@/api/users";
 
@@ -427,6 +431,93 @@ export const HPO_DEMO_TRIALS: TrialRow[] = [
 
 export const SEED_HPO_STUDIES: HpoSummary[] = [HPO_DEMO_SUMMARY];
 
+export const PUBLIC_SETTINGS_ENABLED: PublicSettings = { jobs_enabled: true };
+export const PUBLIC_SETTINGS_DISABLED: PublicSettings = { jobs_enabled: false };
+
+export const SEED_STRATEGIES: RegistryEntry[] = [
+  { name: "AdaptiveBollinger", qualname: "src.strategies.adaptive.AdaptiveBollinger" },
+  { name: "PairsTrading", qualname: "src.strategies.pairs.PairsTrading" },
+];
+
+export const STRATEGY_SCHEMA_AB: StrategySchema = {
+  name: "AdaptiveBollinger",
+  qualname: "src.strategies.adaptive.AdaptiveBollinger",
+  params: [
+    { name: "window", kind: "int", default: 20, required: false, choices: null },
+    { name: "k", kind: "float", default: 2.0, required: false, choices: null },
+    {
+      name: "interval",
+      kind: "enum",
+      default: "daily",
+      required: false,
+      choices: ["daily", "hour"],
+    },
+  ],
+};
+
+export const SEED_UNIVERSE_CONFIGS: ConfigEntry[] = [
+  { name: "spy_daily_5y" },
+  { name: "spy_daily_10y" },
+];
+
+export const UNIVERSE_DETAIL_SPY_5Y: ConfigDetail = {
+  name: "spy_daily_5y",
+  raw:
+    "data:\n  source: yfinance\n  tickers: [SPY]\n  start: '2020-01-01'\n  end: '2024-12-31'\n" +
+    "  interval: daily\n",
+  parsed: {
+    data: {
+      source: "yfinance",
+      tickers: ["SPY"],
+      start: "2020-01-01T00:00:00",
+      end: "2024-12-31T00:00:00",
+      interval: "daily",
+    },
+  },
+  parse_error: null,
+};
+
+export const JOB_RUNNING: JobRow = {
+  id: "job-uuid-running",
+  user_id: ADMIN_USER.id,
+  kind: "run",
+  status: "running",
+  started_at: "2026-05-07T10:00:00Z",
+  finished_at: null,
+  exit_code: null,
+  experiment_id: null,
+  log_path: "/tmp/jobs/job-uuid-running.log",
+  pid: 12345,
+};
+
+export const JOB_COMPLETED: JobRow = {
+  id: "job-uuid-completed",
+  user_id: ADMIN_USER.id,
+  kind: "run",
+  status: "completed",
+  started_at: "2026-05-07T09:00:00Z",
+  finished_at: "2026-05-07T09:30:00Z",
+  exit_code: 0,
+  experiment_id: RUN_SPY.experiment_id,
+  log_path: "/tmp/jobs/job-uuid-completed.log",
+  pid: 12000,
+};
+
+export const JOB_FAILED: JobRow = {
+  id: "job-uuid-failed",
+  user_id: ADMIN_USER.id,
+  kind: "run",
+  status: "failed",
+  started_at: "2026-05-07T08:00:00Z",
+  finished_at: "2026-05-07T08:01:00Z",
+  exit_code: 1,
+  experiment_id: null,
+  log_path: "/tmp/jobs/job-uuid-failed.log",
+  pid: 11000,
+};
+
+export const SEED_JOBS: JobRow[] = [JOB_RUNNING, JOB_COMPLETED, JOB_FAILED];
+
 export const handlers = [
   http.get("/api/auth/me", () => HttpResponse.json(ADMIN_USER)),
   http.post("/api/auth/login", () => HttpResponse.json(ADMIN_USER)),
@@ -481,5 +572,62 @@ export const handlers = [
   http.get(toMswPath(API_PATHS.hpoTrials), ({ params }) => {
     if (params.name === HPO_DEMO_SUMMARY.name) return HttpResponse.json(HPO_DEMO_TRIALS);
     return new HttpResponse(null, { status: 404 });
+  }),
+  http.get(API_PATHS.publicSettings, () => HttpResponse.json(PUBLIC_SETTINGS_ENABLED)),
+  http.get(API_PATHS.strategies, () => HttpResponse.json(SEED_STRATEGIES)),
+  http.get(toMswPath(API_PATHS.strategySchema), ({ params }) => {
+    if (params.name === STRATEGY_SCHEMA_AB.name) return HttpResponse.json(STRATEGY_SCHEMA_AB);
+    return new HttpResponse(null, { status: 404 });
+  }),
+  http.get(toMswPath(API_PATHS.configs), ({ params }) => {
+    if (params.kind === "universe") return HttpResponse.json(SEED_UNIVERSE_CONFIGS);
+    return HttpResponse.json([]);
+  }),
+  http.get(toMswPath(API_PATHS.configDetail), ({ params }) => {
+    if (params.kind === "universe" && params.name === UNIVERSE_DETAIL_SPY_5Y.name) {
+      return HttpResponse.json(UNIVERSE_DETAIL_SPY_5Y);
+    }
+    return new HttpResponse(null, { status: 404 });
+  }),
+  http.post(API_PATHS.configValidate, async ({ request }) => {
+    const body = (await request.json()) as ValidateRequest;
+    const valid = (body.payload as Record<string, unknown>).name !== "";
+    const response: ValidateResponse = valid
+      ? { valid: true, errors: [] }
+      : { valid: false, errors: [{ loc: ["name"], msg: "Name is required", type: "missing" }] };
+    return HttpResponse.json(response);
+  }),
+  http.get(API_PATHS.jobs, ({ request }) => {
+    const url = new URL(request.url);
+    const all = url.searchParams.get("all");
+    if (all) return HttpResponse.json(SEED_JOBS);
+    return HttpResponse.json(SEED_JOBS.filter((j) => j.user_id === ADMIN_USER.id));
+  }),
+  http.get(toMswPath(API_PATHS.job), ({ params }) => {
+    const job = SEED_JOBS.find((j) => j.id === params.job_id);
+    if (job) return HttpResponse.json(job);
+    return new HttpResponse(null, { status: 404 });
+  }),
+  http.post(API_PATHS.jobs, async ({ request }) => {
+    const body = (await request.json()) as JobSubmission;
+    if ((body.config_payload as Record<string, unknown>).name === "") {
+      return HttpResponse.json(
+        { detail: [{ loc: ["name"], msg: "Name is required", type: "missing" }] },
+        { status: 422 },
+      );
+    }
+    const created: JobRow = {
+      ...JOB_RUNNING,
+      id: "job-uuid-newly-submitted",
+      status: "queued",
+      started_at: null,
+      pid: null,
+    };
+    return HttpResponse.json(created, { status: 201 });
+  }),
+  http.delete(toMswPath(API_PATHS.job), ({ params }) => {
+    const job = SEED_JOBS.find((j) => j.id === params.job_id);
+    if (!job) return new HttpResponse(null, { status: 404 });
+    return HttpResponse.json({ ...job, status: "cancelled" } satisfies JobRow);
   }),
 ];

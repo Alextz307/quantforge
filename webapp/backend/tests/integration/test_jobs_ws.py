@@ -17,10 +17,10 @@ from webapp.backend.app.infrastructure.db import open_db
 from webapp.backend.app.schemas.jobs import JobStatus
 from webapp.backend.app.services.user_service import create_user
 
-from ..conftest import SECONDARY_PASSWORD, SECONDARY_USERNAME
+from ..conftest import SECONDARY_PASSWORD, SECONDARY_USERNAME, make_valid_job_submission
 
 JOBS_PATH = "/api/jobs"
-SUBMISSION: dict[str, object] = {"kind": "run", "config_payload": {"name": "demo"}}
+
 PAYLOAD_LINES = ["ws-payload-1", "ws-payload-2"]
 TERMINAL_TIMEOUT_S = 15.0
 POLL_INTERVAL_S = 0.05
@@ -69,7 +69,7 @@ def test_stream_emits_logs_and_terminal_status(
         _quick_command_factory(PAYLOAD_LINES),
     )
 
-    submit = authed_jobs_client.post(JOBS_PATH, json=SUBMISSION)
+    submit = authed_jobs_client.post(JOBS_PATH, json=make_valid_job_submission())
     job_id = submit.json()["id"]
 
     with authed_jobs_client.websocket_connect(f"{JOBS_PATH}/{job_id}/stream") as ws:
@@ -89,7 +89,7 @@ def test_stream_for_terminal_job_replays_snapshot(
         "webapp.backend.app.services.job_service.build_run_command",
         _quick_command_factory(["already-done"]),
     )
-    submit = authed_jobs_client.post(JOBS_PATH, json=SUBMISSION).json()
+    submit = authed_jobs_client.post(JOBS_PATH, json=make_valid_job_submission()).json()
     job_id = submit["id"]
     _wait_until_terminal(authed_jobs_client, job_id)
 
@@ -112,7 +112,7 @@ def test_stream_other_users_job_closes(
         "webapp.backend.app.services.job_service.build_run_command",
         _quick_command_factory(["x"]),
     )
-    submit = authed_jobs_client.post(JOBS_PATH, json=SUBMISSION).json()
+    submit = authed_jobs_client.post(JOBS_PATH, json=make_valid_job_submission()).json()
     job_id = submit["id"]
     authed_jobs_client.post("/api/auth/logout")
 

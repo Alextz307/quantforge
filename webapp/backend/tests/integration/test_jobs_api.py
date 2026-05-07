@@ -27,13 +27,12 @@ from ..conftest import (
     SECONDARY_USERNAME,
     TEST_PASSWORD,
     TEST_USERNAME,
+    make_valid_experiment_payload,
+    make_valid_job_submission,
 )
 
 JOBS_PATH = "/api/jobs"
-SUBMISSION: dict[str, object] = {
-    "kind": "run",
-    "config_payload": {"name": "demo"},
-}
+
 PAYLOAD_LINES = ["payload-line-1", "payload-line-2"]
 COMPLETION_TIMEOUT_S = 15.0
 POLL_INTERVAL_S = 0.05
@@ -82,7 +81,7 @@ def test_post_job_returns_201_and_running(
         _quick_command_factory(PAYLOAD_LINES),
     )
 
-    resp = authed_jobs_client.post(JOBS_PATH, json=SUBMISSION)
+    resp = authed_jobs_client.post(JOBS_PATH, json=make_valid_job_submission())
     assert resp.status_code == HTTPStatus.CREATED
     body = resp.json()
     assert body["status"] in (JobStatus.RUNNING.value, JobStatus.COMPLETED.value)
@@ -97,7 +96,7 @@ def test_full_lifecycle_completes_and_logs_surface(
         _quick_command_factory(PAYLOAD_LINES),
     )
 
-    resp = authed_jobs_client.post(JOBS_PATH, json=SUBMISSION)
+    resp = authed_jobs_client.post(JOBS_PATH, json=make_valid_job_submission())
     job_id = resp.json()["id"]
 
     final = _await_terminal(authed_jobs_client, job_id)
@@ -122,7 +121,7 @@ def test_list_jobs_scopes_to_caller(
     )
     create_user(db_conn, username=SECONDARY_USERNAME, password=SECONDARY_PASSWORD, role=Role.USER)
 
-    resp = authed_jobs_client.post(JOBS_PATH, json=SUBMISSION)
+    resp = authed_jobs_client.post(JOBS_PATH, json=make_valid_job_submission())
     mine_id = resp.json()["id"]
 
     listing = authed_jobs_client.get(JOBS_PATH).json()
@@ -140,7 +139,7 @@ def test_admin_can_list_all_with_query_flag(
     )
     create_user(db_conn, username=TEST_USERNAME, password=TEST_PASSWORD, role=Role.USER)
 
-    admin_resp = admin_jobs_client.post(JOBS_PATH, json=SUBMISSION)
+    admin_resp = admin_jobs_client.post(JOBS_PATH, json=make_valid_job_submission())
     assert admin_resp.status_code == HTTPStatus.CREATED
 
     full = admin_jobs_client.get(f"{JOBS_PATH}?all=1").json()
@@ -164,7 +163,7 @@ def test_get_other_users_job_403(
         "webapp.backend.app.services.job_service.build_run_command",
         _quick_command_factory(["x"]),
     )
-    submit_resp = authed_jobs_client.post(JOBS_PATH, json=SUBMISSION)
+    submit_resp = authed_jobs_client.post(JOBS_PATH, json=make_valid_job_submission())
     job_id = submit_resp.json()["id"]
     _await_terminal(authed_jobs_client, job_id)
     authed_jobs_client.post("/api/auth/logout")
@@ -192,7 +191,7 @@ def test_cancel_running_job_transitions_to_cancelled(
         "webapp.backend.app.services.job_service.build_run_command",
         _slow_command_factory(),
     )
-    submit = authed_jobs_client.post(JOBS_PATH, json=SUBMISSION).json()
+    submit = authed_jobs_client.post(JOBS_PATH, json=make_valid_job_submission()).json()
     job_id = submit["id"]
     # The slow command sleeps 60s; cancel should fire SIGTERM and reach
     # CANCELLED before the sleep finishes.
@@ -209,7 +208,7 @@ def test_cancel_completed_job_returns_409(
         "webapp.backend.app.services.job_service.build_run_command",
         _quick_command_factory(["done"]),
     )
-    submit = authed_jobs_client.post(JOBS_PATH, json=SUBMISSION).json()
+    submit = authed_jobs_client.post(JOBS_PATH, json=make_valid_job_submission()).json()
     job_id = submit["id"]
     _await_terminal(authed_jobs_client, job_id)
     resp = authed_jobs_client.delete(f"{JOBS_PATH}/{job_id}")
@@ -219,7 +218,7 @@ def test_cancel_completed_job_returns_409(
 def test_jobs_disabled_returns_503(authed_client: TestClient) -> None:
     """When ``WEBAPP_JOBS_ENABLED`` isn't set (default fixture), every job
     endpoint short-circuits to 503."""
-    resp = authed_client.post(JOBS_PATH, json=SUBMISSION)
+    resp = authed_client.post(JOBS_PATH, json=make_valid_job_submission())
     assert resp.status_code == HTTPStatus.SERVICE_UNAVAILABLE
     assert authed_client.get(JOBS_PATH).status_code == HTTPStatus.SERVICE_UNAVAILABLE
 
@@ -227,8 +226,23 @@ def test_jobs_disabled_returns_503(authed_client: TestClient) -> None:
 def test_unauthenticated_post_redirects_to_401(
     jobs_client: TestClient,
 ) -> None:
-    resp = jobs_client.post(JOBS_PATH, json=SUBMISSION)
+    resp = jobs_client.post(JOBS_PATH, json=make_valid_job_submission())
     assert resp.status_code == HTTPStatus.UNAUTHORIZED
+
+
+def test_post_invalid_config_payload_returns_422(authed_jobs_client: TestClient) -> None:
+    """D3: validate-on-submit short-circuits before persisting any state."""
+    bad_payload = make_valid_experiment_payload()
+    del bad_payload["data"]
+    resp = authed_jobs_client.post(JOBS_PATH, json={"kind": "run", "config_payload": bad_payload})
+
+    assert resp.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+    body = resp.json()
+    assert isinstance(body["detail"], list)
+    assert any(item["loc"] == ["data"] for item in body["detail"])
+    # Failed submissions don't show up in subsequent listings.
+    listing = authed_jobs_client.get(JOBS_PATH).json()
+    assert listing == []
 
 
 def test_get_log_for_unstarted_log_returns_empty(

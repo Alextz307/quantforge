@@ -63,6 +63,11 @@ def make_valid_experiment_payload() -> dict[str, object]:
     }
 
 
+def make_valid_job_submission() -> dict[str, object]:
+    """Canonical ``JobSubmission`` payload (run kind) for jobs API tests."""
+    return {"kind": "run", "config_payload": make_valid_experiment_payload()}
+
+
 PLOT_FILENAME = "equity.png"
 PLOT_BYTES = b"\x89PNG\r\n\x1a\n"
 DEFAULT_TICKER = "SPY"

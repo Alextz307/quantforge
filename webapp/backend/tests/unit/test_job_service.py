@@ -28,6 +28,7 @@ from webapp.backend.app.infrastructure.process_manager import (
 from webapp.backend.app.schemas.jobs import JobKind, JobStatus, JobSubmission
 from webapp.backend.app.schemas.users import UserPublic
 from webapp.backend.app.services.job_service import (
+    JobConfigInvalidError,
     JobNotOwnedError,
     JobNotRunningError,
     cancel_job,
@@ -38,8 +39,9 @@ from webapp.backend.app.services.job_service import (
 )
 from webapp.backend.app.services.user_service import create_user
 
+from ..conftest import make_valid_experiment_payload
+
 USER_PASSWORD = "password123"
-SUBMISSION_PAYLOAD: dict[str, object] = {"name": "test-run", "seed": 42}
 FAKE_PID = 12345
 
 
@@ -70,7 +72,8 @@ def test_submit_writes_yaml_and_persists_running(
 ) -> None:
     user = _user(db_conn, "alice")
     manager = _stub_manager()
-    submission = JobSubmission(kind=JobKind.RUN, config_payload=SUBMISSION_PAYLOAD)
+    payload = make_valid_experiment_payload()
+    submission = JobSubmission(kind=JobKind.RUN, config_payload=payload)
     store_root = tmp_path / "store"
     job_temp_dir = tmp_path / "jobs"
 
@@ -89,8 +92,35 @@ def test_submit_writes_yaml_and_persists_running(
     assert row.pid == FAKE_PID
     config_yaml = job_temp_dir / f"{row.id}.yaml"
     parsed = yaml.safe_load(config_yaml.read_text(encoding="utf-8"))
-    assert parsed == SUBMISSION_PAYLOAD
+    assert parsed == payload
     cast(AsyncMock, manager.spawn).assert_awaited_once()
+
+
+def test_submit_rejects_invalid_payload_before_persisting(
+    db_conn: sqlite3.Connection, tmp_path: Path
+) -> None:
+    user = _user(db_conn, "alice")
+    manager = _stub_manager()
+    bad = make_valid_experiment_payload()
+    del bad["data"]
+    submission = JobSubmission(kind=JobKind.RUN, config_payload=bad)
+
+    with pytest.raises(JobConfigInvalidError) as excinfo:
+        asyncio.run(
+            submit_job(
+                conn=db_conn,
+                manager=manager,
+                user=user,
+                submission=submission,
+                store_root=tmp_path / "store",
+                job_temp_dir=tmp_path / "jobs",
+            )
+        )
+
+    assert any(err.loc == ["data"] for err in excinfo.value.errors)
+    # Nothing persisted, nothing spawned.
+    assert list_jobs(db_conn) == []
+    cast(AsyncMock, manager.spawn).assert_not_awaited()
 
 
 def test_list_jobs_for_filters_by_user(db_conn: sqlite3.Connection) -> None:

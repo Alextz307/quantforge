@@ -1,5 +1,8 @@
 export const ROUTES = {
   login: "/login",
+  configure: "/configure",
+  jobs: "/jobs",
+  jobDetail: "/jobs/:jobId",
   runs: "/runs",
   runDetail: "/runs/:experimentId",
   comparisons: "/comparisons",
@@ -37,6 +40,10 @@ export function studyDetailPath(name: string): string {
 
 export function hpoDetailPath(name: string): string {
   return `/hpo/${encodeURIComponent(name)}`;
+}
+
+export function jobDetailPath(jobId: string): string {
+  return `/jobs/${encodeURIComponent(jobId)}`;
 }
 
 export const FROM_QUERY_PARAM = "from";
