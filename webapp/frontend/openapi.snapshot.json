@@ -78,6 +78,73 @@
         "title": "ComparisonSummary",
         "type": "object"
       },
+      "ConfigDetail": {
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "parse_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parse Error"
+          },
+          "parsed": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parsed"
+          },
+          "raw": {
+            "title": "Raw",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "raw"
+        ],
+        "title": "ConfigDetail",
+        "type": "object"
+      },
+      "ConfigEntry": {
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "ConfigEntry",
+        "type": "object"
+      },
+      "ConfigKind": {
+        "enum": [
+          "experiment",
+          "universe",
+          "study",
+          "model",
+          "strategy",
+          "hpo",
+          "regime"
+        ],
+        "title": "ConfigKind",
+        "type": "string"
+      },
       "FoldRow": {
         "properties": {
           "annualized_return": {
@@ -794,6 +861,18 @@
         "title": "ModelRegistryEntry",
         "type": "object"
       },
+      "ParamKind": {
+        "enum": [
+          "int",
+          "float",
+          "str",
+          "bool",
+          "enum",
+          "complex"
+        ],
+        "title": "ParamKind",
+        "type": "string"
+      },
       "PerRegimeStatsRow": {
         "properties": {
           "calmar_ci95_high": {
@@ -1430,6 +1509,77 @@
         "title": "SlippageScenario",
         "type": "string"
       },
+      "StrategyParam": {
+        "properties": {
+          "choices": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Choices"
+          },
+          "default": {
+            "anyOf": [
+              {},
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/ParamKind"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "required": {
+            "title": "Required",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "name",
+          "kind",
+          "required"
+        ],
+        "title": "StrategyParam",
+        "type": "object"
+      },
+      "StrategySchema": {
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "params": {
+            "items": {
+              "$ref": "#/components/schemas/StrategyParam"
+            },
+            "title": "Params",
+            "type": "array"
+          },
+          "qualname": {
+            "title": "Qualname",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "qualname",
+          "params"
+        ],
+        "title": "StrategySchema",
+        "type": "object"
+      },
       "StudyConsolidatedDTO": {
         "description": "Read view of a study's consolidated report (tables + plots tree).",
         "properties": {
@@ -1745,6 +1895,45 @@
         "title": "UserPublic",
         "type": "object"
       },
+      "ValidateRequest": {
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/ConfigKind"
+          },
+          "payload": {
+            "additionalProperties": true,
+            "title": "Payload",
+            "type": "object"
+          }
+        },
+        "required": [
+          "kind",
+          "payload"
+        ],
+        "title": "ValidateRequest",
+        "type": "object"
+      },
+      "ValidateResponse": {
+        "properties": {
+          "errors": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ValidationErrorItem"
+            },
+            "title": "Errors",
+            "type": "array"
+          },
+          "valid": {
+            "title": "Valid",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "valid"
+        ],
+        "title": "ValidateResponse",
+        "type": "object"
+      },
       "ValidationError": {
         "properties": {
           "ctx": {
@@ -1783,6 +1972,32 @@
           "type"
         ],
         "title": "ValidationError",
+        "type": "object"
+      },
+      "ValidationErrorItem": {
+        "properties": {
+          "loc": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Loc",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Msg",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationErrorItem",
         "type": "object"
       }
     }
@@ -2001,6 +2216,142 @@
         "summary": "Get Comparison Plot",
         "tags": [
           "comparisons"
+        ]
+      }
+    },
+    "/api/configs/validate": {
+      "post": {
+        "operationId": "post_validate_api_configs_validate_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ValidateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidateResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Post Validate",
+        "tags": [
+          "configs"
+        ]
+      }
+    },
+    "/api/configs/{kind}": {
+      "get": {
+        "operationId": "get_configs_api_configs__kind__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "kind",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/ConfigKind"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ConfigEntry"
+                  },
+                  "title": "Response Get Configs Api Configs  Kind  Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Configs",
+        "tags": [
+          "configs"
+        ]
+      }
+    },
+    "/api/configs/{kind}/{name}": {
+      "get": {
+        "operationId": "get_config_detail_api_configs__kind___name__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "kind",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/ConfigKind"
+            }
+          },
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConfigDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Config Detail",
+        "tags": [
+          "configs"
         ]
       }
     },
@@ -2801,6 +3152,48 @@
           }
         },
         "summary": "Get Strategies",
+        "tags": [
+          "strategies"
+        ]
+      }
+    },
+    "/api/strategies/{name}/schema": {
+      "get": {
+        "operationId": "get_strategy_schema_api_strategies__name__schema_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StrategySchema"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Strategy Schema",
         "tags": [
           "strategies"
         ]

@@ -28,6 +28,7 @@ class WebappSettings(BaseSettings):
 
     env: WebappEnv = WebappEnv.LOCAL
     store_root: Path = Path("experiment_results")
+    config_root: Path = Path("config")
     db_path: Path = Path("webapp/data/webapp.sqlite")
     secret_key: str = ""
     session_ttl_minutes: int = DEFAULT_SESSION_TTL_MINUTES

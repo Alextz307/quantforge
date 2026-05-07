@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from webapp.backend.app.api import (
     auth,
     comparisons,
+    configs,
     health,
     holdout,
     hpo,
@@ -65,5 +66,6 @@ def create_app() -> FastAPI:
     app.include_router(hpo.router, prefix="/api")
     app.include_router(strategies.router, prefix="/api")
     app.include_router(models.router, prefix="/api")
+    app.include_router(configs.router, prefix="/api")
     app.include_router(jobs.router, prefix="/api")
     return app

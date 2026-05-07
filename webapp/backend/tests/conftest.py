@@ -42,6 +42,27 @@ from webapp.backend.app.services.user_service import create_user
 
 TEST_SECRET_KEY = secrets.token_urlsafe(48)
 
+
+def make_valid_experiment_payload() -> dict[str, object]:
+    """Canonical fully-populated ExperimentConfig payload for B2 validate tests."""
+    return {
+        "name": "test_run",
+        "seed": 42,
+        "data": {
+            "source": "yfinance",
+            "tickers": ["SPY"],
+            "start": "2020-01-01",
+            "end": "2024-12-31",
+            "interval": "daily",
+        },
+        "strategy": {
+            "name": "AdaptiveBollinger",
+            "params": {"window": 20, "k": 2.0, "trend_window": 100},
+        },
+        "validation": {"n_splits": 3, "test_size": 252, "gap": 5, "expanding": True},
+    }
+
+
 PLOT_FILENAME = "equity.png"
 PLOT_BYTES = b"\x89PNG\r\n\x1a\n"
 DEFAULT_TICKER = "SPY"
