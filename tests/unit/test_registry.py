@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from enum import StrEnum
 from pkgutil import iter_modules
 from types import ModuleType
 
@@ -22,6 +23,38 @@ DIRECT_INIT_VALUE = 10
 class DummyBase:
     def __init__(self, value: int = 0) -> None:
         self.value = value
+
+
+class _Mode(StrEnum):
+    FAST = "fast"
+    SLOW = "slow"
+
+
+class _WithMode:
+    def __init__(self, mode: _Mode = _Mode.FAST) -> None:
+        self.mode = mode
+
+
+class _WithOptionalMode:
+    def __init__(self, mode: _Mode | None = None) -> None:
+        self.mode = mode
+
+
+class _WithText:
+    def __init__(self, label: str = "x") -> None:
+        self.label = label
+
+
+class _StrictWithMode:
+    """Mirrors a leaf ctor that itself rejects non-Enum types — used to verify
+    that bad-string values fall through to the ctor's own error path rather
+    than being silently swallowed by the coercion helper.
+    """
+
+    def __init__(self, mode: _Mode = _Mode.FAST) -> None:
+        if not isinstance(mode, _Mode):
+            raise ValueError(f"mode must be a _Mode, got {type(mode).__name__}")
+        self.mode = mode
 
 
 class TestComponentRegistry:
@@ -108,6 +141,25 @@ class TestComponentRegistry:
 
         assert len(registry) == 2
 
+    def test_list_public_excludes_underscore_prefixed_test_stubs(self) -> None:
+        """``_``-prefix is the project-wide convention for "test-only / not
+        user-visible". Production-facing introspection (webapp APIs, form
+        dropdowns) must use ``list_public()`` so registered stubs from
+        ``tests/_strategy_stubs.py`` never leak into the surface.
+        """
+        registry: ComponentRegistry[DummyBase] = ComponentRegistry()
+
+        @registry.register("alpha")
+        class Alpha(DummyBase):
+            pass
+
+        @registry.register("_TestStub")
+        class _Stub(DummyBase):
+            pass
+
+        assert set(registry.list_all()) == {"alpha", "_TestStub"}
+        assert registry.list_public() == ["alpha"]
+
     def test_decorator_returns_original_class(self) -> None:
         registry: ComponentRegistry[DummyBase] = ComponentRegistry()
 
@@ -119,6 +171,53 @@ class TestComponentRegistry:
         assert Original.__name__ == "Original"
         direct = Original(value=DIRECT_INIT_VALUE)
         assert direct.value == DIRECT_INIT_VALUE
+
+
+class TestEnumCoercion:
+    """``create()`` coerces raw-string kwargs to Enum members when the ctor
+    annotation is an Enum (or ``Enum | None`` / ``Union[Enum, ...]``).
+
+    This is the boundary fix that lets dict-typed ``ComponentConfig.params``
+    feed ``Strategy(interval="daily", ...)``-style ctors without forcing leaf
+    classes to accept ``Enum | str`` unions.
+    """
+
+    def test_string_value_is_coerced_to_enum_member(self) -> None:
+        registry: ComponentRegistry[_WithMode] = ComponentRegistry()
+        registry.register("modal")(_WithMode)
+        instance = registry.create("modal", mode="slow")
+        assert isinstance(instance.mode, _Mode)
+        assert instance.mode is _Mode.SLOW
+
+    def test_optional_enum_string_is_coerced(self) -> None:
+        registry: ComponentRegistry[_WithOptionalMode] = ComponentRegistry()
+        registry.register("opt")(_WithOptionalMode)
+        instance = registry.create("opt", mode="fast")
+        assert instance.mode is _Mode.FAST
+
+    def test_optional_enum_none_passes_through(self) -> None:
+        registry: ComponentRegistry[_WithOptionalMode] = ComponentRegistry()
+        registry.register("opt")(_WithOptionalMode)
+        instance = registry.create("opt", mode=None)
+        assert instance.mode is None
+
+    def test_already_enum_instance_passes_through(self) -> None:
+        registry: ComponentRegistry[_WithMode] = ComponentRegistry()
+        registry.register("modal")(_WithMode)
+        instance = registry.create("modal", mode=_Mode.SLOW)
+        assert instance.mode is _Mode.SLOW
+
+    def test_non_enum_annotation_string_passes_through(self) -> None:
+        registry: ComponentRegistry[_WithText] = ComponentRegistry()
+        registry.register("text")(_WithText)
+        instance = registry.create("text", label="anything")
+        assert instance.label == "anything"
+
+    def test_invalid_enum_value_falls_through_to_ctor(self) -> None:
+        registry: ComponentRegistry[_StrictWithMode] = ComponentRegistry()
+        registry.register("modal")(_StrictWithMode)
+        with pytest.raises(ValueError, match="must be a _Mode"):
+            registry.create("modal", mode="bogus")
 
 
 def _count_non_interface_modules(pkg: ModuleType) -> int:
@@ -147,16 +246,11 @@ class TestPackageAutoDiscovery:
     def test_strategies_registry_matches_package_contents_exactly(self) -> None:
         import src.strategies
 
-        # Filter out underscore-prefixed entries: those are test-only stubs
-        # registered by ``tests/unit/test_*.py`` modules at import time. The
-        # convention is symmetric — production strategies use neither
+        # ``list_public()`` filters underscore-prefixed test stubs registered
+        # by ``tests/_strategy_stubs.py``. Production strategies use neither
         # underscore-prefixed filenames (which the autoloader would skip) nor
-        # underscore-prefixed registry names. Filtering keeps the autoload
-        # invariant strict for production while tolerating test scaffolding.
-        production_names = [
-            name for name in strategy_registry.list_all() if not name.startswith("_")
-        ]
-        assert len(production_names) == _count_non_interface_modules(src.strategies)
+        # underscore-prefixed registry names — the convention is symmetric.
+        assert len(strategy_registry.list_public()) == _count_non_interface_modules(src.strategies)
 
     def test_data_sources_populated_after_package_import(self) -> None:
         import src.data  # noqa: F401

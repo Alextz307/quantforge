@@ -101,6 +101,32 @@ class TestHybridReturnModel:
         assert result.name == "hybrid_return"
         assert result.index.equals(hybrid_train_df.index)
 
+    def test_fit_drops_nan_warmup_feature_rows(
+        self,
+        hybrid_train_df: pd.DataFrame,
+        log_return_target: pd.Series,
+        synthetic_feature_columns: list[str],
+    ) -> None:
+        """Leading NaN feature rows (real-world: rsi_14 / return_21d warmup
+        on a short-warmup target like log returns) must be dropped before the
+        scaler + LSTM see them. Otherwise sklearn's StandardScaler propagates
+        NaN through ``transform`` and the LSTM's first forward pass produces
+        NaN gradients that corrupt every subsequent epoch."""
+        df = hybrid_train_df.copy()
+        first_feature = synthetic_feature_columns[0]
+        nan_warmup_rows = 15
+        df.loc[df.index[:nan_warmup_rows], first_feature] = np.nan
+
+        model = _fit_model(df, log_return_target, synthetic_feature_columns)
+
+        # Scaler stats finite — proves NaN didn't reach .fit_transform().
+        assert model._scaler is not None
+        assert np.isfinite(model._scaler.mean_).all()
+        assert np.isfinite(model._scaler.scale_).all()
+        # Predict still produces a series whose index matches the input.
+        result = model.predict(hybrid_train_df)
+        assert result.index.equals(hybrid_train_df.index)
+
     def test_scaler_refit_raises_leakage(
         self,
         hybrid_train_df: pd.DataFrame,

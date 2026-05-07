@@ -100,6 +100,7 @@ class MomentumGatekeeperStrategy(IStrategy):
     scaler is internal to the leaf.
     """
 
+    uses_xgboost: ClassVar[bool] = True
     _leaf_keys: ClassVar[frozenset[str]] = frozenset({LEAF_KEY_DIRECTIONAL_CLASSIFIER})
 
     def __init__(

@@ -110,6 +110,30 @@ class TestHybridVolatilityModel:
         assert result.name == "hybrid_vol"
         assert result.index.equals(hybrid_train_df.index)
 
+    def test_fit_drops_nan_warmup_feature_rows(
+        self,
+        hybrid_train_df: pd.DataFrame,
+        realized_vol_target: pd.Series,
+        synthetic_feature_columns: list[str],
+    ) -> None:
+        """Symmetric with the HybridReturn test: defensive guard against
+        NaN warmup feature rows reaching the scaler + LSTM. The vol target's
+        20-bar warmup usually absorbs feature warmup in practice, but a future
+        config with longer-warmup features (or shorter-warmup target) would
+        otherwise expose the same NaN-loss path."""
+        df = hybrid_train_df.copy()
+        first_feature = synthetic_feature_columns[0]
+        nan_warmup_rows = 15
+        df.loc[df.index[:nan_warmup_rows], first_feature] = np.nan
+
+        model = _fit_model(df, realized_vol_target, synthetic_feature_columns)
+
+        assert model._scaler is not None
+        assert np.isfinite(model._scaler.mean_).all()
+        assert np.isfinite(model._scaler.scale_).all()
+        result = model.predict(hybrid_train_df)
+        assert result.index.equals(hybrid_train_df.index)
+
     def test_predict_output_clipped_to_min_vol(
         self,
         hybrid_train_df: pd.DataFrame,

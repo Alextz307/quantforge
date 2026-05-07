@@ -57,6 +57,9 @@ class IStrategy(ABC):
     def required_warmup_bars(self) -> int:
         """Number of initial bars needed before signals are valid."""
 
+    uses_xgboost: ClassVar[bool] = False
+    """True for strategies whose ML leaf is XGBoost-backed (no MPS GPU path)."""
+
     is_pairs_strategy: ClassVar[bool] = False
     """True for two-leg (cointegration / pairs) strategies.
 

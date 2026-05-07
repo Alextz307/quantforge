@@ -117,6 +117,7 @@ class CrossAssetMomentumStrategy(IStrategy):
     """
 
     is_multi_feature_strategy: ClassVar[bool] = True
+    uses_xgboost: ClassVar[bool] = True
     _leaf_keys: ClassVar[frozenset[str]] = frozenset({LEAF_KEY_DIRECTIONAL_CLASSIFIER})
 
     def __init__(

@@ -27,6 +27,7 @@ from src.core.registry import model_registry
 from src.core.temporal import TrackedMetadata, TrainingMetadata, collect_metadata
 from src.core.types import Device, InformationCriterion, Interval, LossFunction
 from src.core.utils import compute_log_returns
+from src.models._hybrid_warmup import drop_feature_warmup
 from src.models.arma import ARMAPredictor
 from src.models.interface import IPredictor
 from src.models.lstm import LSTMPredictor
@@ -183,6 +184,9 @@ class HybridReturnModel(IPredictor):
 
         self._scaler = StandardScaler()
         feature_frame = train_data.loc[residuals.index, self._feature_columns]
+        feature_frame, residuals = drop_feature_warmup(
+            feature_frame, residuals, label="HybridReturn"
+        )
         scaled_values = self._scaler.fit_transform(feature_frame)
         scaled_features = pd.DataFrame(
             scaled_values,

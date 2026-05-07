@@ -7,9 +7,12 @@ The type parameter T provides compile-time safety via mypy.
 from __future__ import annotations
 
 from collections.abc import Callable
+from enum import Enum
+from functools import cache
 from importlib import import_module
 from pkgutil import iter_modules
-from typing import TYPE_CHECKING
+from types import UnionType
+from typing import TYPE_CHECKING, Union, get_args, get_origin, get_type_hints
 
 __all__ = [
     "ComponentRegistry",
@@ -27,6 +30,51 @@ if TYPE_CHECKING:
     from src.features.interface import IFeaturePipeline
     from src.models.interface import IClassifier, IPredictor
     from src.strategies.interface import IStrategy
+
+
+def _enum_type_in_annotation(annotation: object) -> type[Enum] | None:
+    """Return the first Enum subclass in ``annotation`` (walks unions).
+
+    Handles direct ``E``, ``Optional[E]``, ``E | None``, and ``Union[E, ...]``.
+    """
+    origin = get_origin(annotation)
+    if origin is Union or origin is UnionType:
+        for arg in get_args(annotation):
+            found = _enum_type_in_annotation(arg)
+            if found is not None:
+                return found
+        return None
+    if isinstance(annotation, type) and issubclass(annotation, Enum):
+        return annotation
+    return None
+
+
+@cache
+def _ctor_hints(cls: type) -> dict[str, object]:
+    try:
+        return dict(get_type_hints(cls.__init__))  # type: ignore[misc]
+    except (NameError, TypeError):
+        return {}
+
+
+def _coerce_enum_kwargs(cls: type, kwargs: dict[str, object]) -> dict[str, object]:
+    """Coerce string kwargs to Enum members when the ctor annotation expects them.
+
+    The registry is the YAML/dict→ctor boundary: ``ComponentConfig.params``
+    is dict-typed, so Enum coercion lives here rather than in leaf ctors.
+    """
+    hints = _ctor_hints(cls)
+    out: dict[str, object] = {}
+    for name, value in kwargs.items():
+        enum_cls = _enum_type_in_annotation(hints.get(name))
+        if enum_cls is not None and isinstance(value, str) and not isinstance(value, enum_cls):
+            try:
+                out[name] = enum_cls(value)
+            except ValueError:
+                out[name] = value
+        else:
+            out[name] = value
+    return out
 
 
 class ComponentRegistry[T]:
@@ -64,13 +112,33 @@ class ComponentRegistry[T]:
         return self._registry[name]
 
     def list_all(self) -> list[str]:
-        """List all registered component names."""
+        """List all registered component names — including test stubs.
+
+        Use ``list_public()`` for the production-facing surface.
+        """
         return list(self._registry.keys())
 
+    def list_public(self) -> list[str]:
+        """List registered components excluding ``_``-prefixed test stubs.
+
+        Test fixtures register stubs (``_MultiFeatureTestStub``,
+        ``_BothFlagsStub``) into the same global registries that production
+        loads. The ``_`` prefix is the project-wide convention for
+        "internal / not user-visible" — webapp APIs and any other
+        production-facing introspector should use this method so a stub
+        never leaks into a list, dropdown, or external response.
+        """
+        return [name for name in self._registry if not name.startswith("_")]
+
     def create(self, name: str, **kwargs: object) -> T:
-        """Create an instance of a registered component."""
+        """Create an instance of a registered component.
+
+        String kwargs whose ctor annotation is an Enum (or Enum union) are
+        coerced to Enum members before the call so YAML/dict params don't
+        force leaf ctors to accept ``Enum | str`` unions.
+        """
         cls = self.get(name)
-        return cls(**kwargs)
+        return cls(**_coerce_enum_kwargs(cls, kwargs))
 
     def create_from_config(self, config: ComponentConfig) -> T:
         """Create an instance from a :class:`ComponentConfig`.

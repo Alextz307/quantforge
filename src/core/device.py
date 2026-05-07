@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from functools import cache
+
 import torch
 
 from src.core.logging import get_logger
@@ -31,6 +33,22 @@ def _require_cuda() -> None:
             "device='auto' (or omitting it) on a CUDA-less host, or by installing "
             "CUDA-enabled builds of the relevant frameworks."
         )
+
+
+@cache
+def available_devices() -> tuple[Device, ...]:
+    """Devices the host can actually drive (always includes ``AUTO`` and ``CPU``).
+
+    Host capabilities don't change at runtime, so the result is cached.
+    Tests that monkeypatch ``_cuda_available`` / ``_mps_available`` must
+    call ``available_devices.cache_clear()`` before asserting.
+    """
+    devices: list[Device] = [Device.AUTO, Device.CPU]
+    if _cuda_available():
+        devices.append(Device.CUDA)
+    if _mps_available():
+        devices.append(Device.MPS)
+    return tuple(devices)
 
 
 def select_device(preference: Device | None = None) -> torch.device:

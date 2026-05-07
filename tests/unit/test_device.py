@@ -7,7 +7,7 @@ from unittest.mock import patch
 import pytest
 import torch
 
-from src.core.device import select_device, select_xgboost_device
+from src.core.device import available_devices, select_device, select_xgboost_device
 from src.core.types import Device
 
 
@@ -81,3 +81,35 @@ class TestSelectXGBoostDevice:
     def test_mps_preference_rejected(self) -> None:
         with pytest.raises(ValueError, match="no MPS backend"):
             select_xgboost_device(Device.MPS)
+
+
+class TestAvailableDevices:
+    """``available_devices`` is the predicate the webapp uses to prune the
+    device dropdown. AUTO + CPU are always present; CUDA/MPS gated by host."""
+
+    @pytest.fixture(autouse=True)
+    def _reset_cache(self) -> None:
+        available_devices.cache_clear()
+
+    def test_includes_auto_and_cpu_on_bare_host(self) -> None:
+        with (
+            patch("torch.cuda.is_available", return_value=False),
+            patch("src.core.device._mps_available", return_value=False),
+        ):
+            assert available_devices() == (Device.AUTO, Device.CPU)
+
+    def test_includes_cuda_when_available(self) -> None:
+        with (
+            patch("torch.cuda.is_available", return_value=True),
+            patch("src.core.device._mps_available", return_value=False),
+        ):
+            assert Device.CUDA in available_devices()
+            assert Device.MPS not in available_devices()
+
+    def test_includes_mps_when_available(self) -> None:
+        with (
+            patch("torch.cuda.is_available", return_value=False),
+            patch("src.core.device._mps_available", return_value=True),
+        ):
+            assert Device.MPS in available_devices()
+            assert Device.CUDA not in available_devices()
