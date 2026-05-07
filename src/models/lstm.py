@@ -316,9 +316,9 @@ class LSTMPredictor(IPredictor):
             )
 
         self._model.eval()
-        features = torch.from_numpy(data[self._feature_columns].to_numpy(dtype=np.float32)).to(
-            self._device
-        )
+        features = torch.from_numpy(
+            data[self._feature_columns].to_numpy(dtype=np.float32).copy()
+        ).to(self._device)
 
         predictions = np.full(len(data), np.nan)
         n_windows = len(data) - self._lookback
@@ -353,7 +353,10 @@ class LSTMPredictor(IPredictor):
 
         self._model.eval()
         features = torch.from_numpy(
-            recent_window[self._feature_columns].iloc[-self._lookback :].to_numpy(dtype=np.float32)
+            recent_window[self._feature_columns]
+            .iloc[-self._lookback :]
+            .to_numpy(dtype=np.float32)
+            .copy()
         ).to(self._device)
 
         with torch.no_grad():

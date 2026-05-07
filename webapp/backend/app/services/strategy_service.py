@@ -121,9 +121,7 @@ def _strategy_yaml_stem(name: str) -> str:
     return re.sub(r"(?<!^)(?=[A-Z])", "_", name).lower()
 
 
-def get_canonical_strategy_params(
-    config_root: Path, name: str
-) -> dict[str, object] | None:
+def get_canonical_strategy_params(config_root: Path, name: str) -> dict[str, object] | None:
     """Best-effort load of ``<config_root>/strategies/<snake_case>.yaml`` →
     ``strategy.params``. Returns ``None`` for missing/malformed YAML and
     strips ``_HIDDEN_PARAMS`` so the form never receives framework-managed
