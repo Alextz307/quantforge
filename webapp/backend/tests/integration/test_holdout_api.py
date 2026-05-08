@@ -10,7 +10,7 @@ from fastapi.testclient import TestClient
 LIST_PATH = "/api/holdout-evals"
 EXPECTED_NAME = "study_holdout"
 EXPECTED_SOURCE_KIND = "run"
-EXPECTED_STORE = "studies/main"
+EXPECTED_STORE = "studies/main/holdout_evals"
 EXPECTED_SHARPE = 0.6
 EXPECTED_SLIPPAGE = "normal"
 EXPECTED_EQUITY_CURVE = [10000.0, 10100.0, 10500.0]

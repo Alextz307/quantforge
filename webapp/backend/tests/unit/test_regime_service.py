@@ -54,7 +54,7 @@ def test_list_regime_reports_surfaces_kind_and_labels(tmp_path: Path) -> None:
     assert summary.kind == RegimeKind.VOLATILITY
     assert summary.detector_name == "vol_quintiles"
     assert summary.regime_labels == ["Q1", "Q3", "Q5"]
-    assert summary.store == "studies/main"
+    assert summary.store == "studies/main/regime_reports"
 
 
 def test_get_regime_report_returns_full_detail(tmp_path: Path) -> None:

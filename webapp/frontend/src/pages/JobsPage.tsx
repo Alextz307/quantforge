@@ -9,7 +9,8 @@ import { FilterSelect } from "@/components/FilterSelect";
 import { QueryRenderer } from "@/components/QueryRenderer";
 import { ALL_OPTION } from "@/lib/filters";
 import { formatDateTime } from "@/lib/format";
-import { jobDetailPath, runDetailPath, ROUTES } from "@/lib/routes";
+import { jobDetailPath, ROUTES } from "@/lib/routes";
+import { JobArtifactLink } from "@/components/jobs/JobArtifactLink";
 
 interface JobFilters {
   status: string;
@@ -128,15 +129,8 @@ function JobsBody({ rows, status, onStatus, isAdmin, allUsers, onAllUsers }: Job
             render: (j) => (j.finished_at ? formatDateTime(j.finished_at) : "—"),
           },
           {
-            header: "Run",
-            render: (j) =>
-              j.status === "completed" && j.experiment_id ? (
-                <Link to={runDetailPath(j.experiment_id)} className="text-primary hover:underline">
-                  view →
-                </Link>
-              ) : (
-                "—"
-              ),
+            header: "Artifact",
+            render: (j) => <JobArtifactLink job={j} compact fallback="—" />,
           },
         ]}
       />

@@ -9,7 +9,7 @@ from fastapi.testclient import TestClient
 
 LIST_PATH = "/api/hpo"
 EXPECTED_NAME = "AdaptiveBollinger__spy_daily_5y"
-EXPECTED_STORE = "studies/main"
+EXPECTED_STORE = "studies/main/hpo"
 EXPECTED_HPO_COUNT = 1
 EXPECTED_N_TRIALS = 3
 EXPECTED_DIRECTION = "maximize"

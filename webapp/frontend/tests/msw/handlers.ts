@@ -23,7 +23,7 @@ export const RUN_SPY: RunSummary = {
   strategy: "AdaptiveBollinger",
   tickers: ["SPY"],
   interval: "DAY",
-  store: "thesis_demo",
+  store: "thesis_demo/runs",
   created_at: "2026-04-01T12:00:00Z",
   sharpe_mean: 1.234,
   calmar_mean: 0.456,
@@ -35,7 +35,7 @@ export const RUN_IVV_VOO: RunSummary = {
   strategy: "PairsTrading",
   tickers: ["IVV", "VOO"],
   interval: "DAY",
-  store: "thesis_demo",
+  store: "thesis_demo/runs",
   created_at: "2026-04-15T12:00:00Z",
   sharpe_mean: 2.0,
   calmar_mean: 1.1,
@@ -120,7 +120,7 @@ export const RUN_PAIRS_FOLDS: FoldRow[] = [
 
 export const COMPARISON_DEMO_SUMMARY: ComparisonSummary = {
   name: "demo_comparison_2026Q1",
-  store: "thesis_demo",
+  store: "thesis_demo/comparisons",
   created_at: "2026-04-20T12:00:00Z",
   strategies: [RUN_SPY.strategy, RUN_IVV_VOO.strategy],
 };
@@ -185,7 +185,7 @@ export const SEED_COMPARISONS: ComparisonSummary[] = [COMPARISON_DEMO_SUMMARY];
 
 export const HOLDOUT_DEMO_SUMMARY: HoldoutEvalSummary = {
   name: "demo_holdout_spy",
-  store: "thesis_demo",
+  store: "thesis_demo/holdout_evals",
   created_at: "2026-04-25T12:00:00Z",
   source_kind: "run",
   source_id: RUN_SPY.experiment_id,
@@ -222,7 +222,7 @@ export const SEED_HOLDOUT_EVALS: HoldoutEvalSummary[] = [HOLDOUT_DEMO_SUMMARY];
 
 export const REGIME_DEMO_SUMMARY: RegimeReportSummary = {
   name: "demo_regime_volatility",
-  store: "thesis_demo",
+  store: "thesis_demo/regime_reports",
   created_at: "2026-04-22T12:00:00Z",
   experiment_id: RUN_SPY.experiment_id,
   kind: "volatility",
@@ -381,7 +381,7 @@ export const SEED_STUDIES: StudySummary[] = [STUDY_DEMO_SUMMARY];
 
 export const HPO_DEMO_SUMMARY: HpoSummary = {
   name: "AdaptiveBollinger__spy_daily_5y",
-  store: "studies/main",
+  store: "studies/main/hpo",
   created_at: "2026-04-03T00:00:00Z",
   n_trials: 3,
   n_complete: 2,

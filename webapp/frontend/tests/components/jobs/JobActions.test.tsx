@@ -15,15 +15,26 @@ describe("JobActions", () => {
     expect(screen.getByRole("button", { name: /Cancel/i })).toBeDisabled();
   });
 
-  it("renders the view-run link only for completed jobs with an experiment_id", () => {
+  it("renders the view-run link for completed run jobs", () => {
     renderWithProviders(<JobActions job={JOB_COMPLETED} />);
-    expect(screen.getByTestId("job-view-run-link")).toHaveAttribute(
-      "href",
-      `/runs/${JOB_COMPLETED.experiment_id ?? ""}`,
-    );
+    const link = screen.getByTestId("job-view-run-link");
+    expect(link).toHaveAttribute("href", `/runs/${JOB_COMPLETED.experiment_id ?? ""}`);
+    expect(link).toHaveTextContent(/View run/);
   });
 
-  it("does not render the view-run link for failed jobs", () => {
+  it("renders the view-study link for completed tune jobs", () => {
+    const tuneJob: JobRow = {
+      ...JOB_COMPLETED,
+      kind: "tune",
+      experiment_id: "demo_study",
+    };
+    renderWithProviders(<JobActions job={tuneJob} />);
+    const link = screen.getByTestId("job-view-run-link");
+    expect(link).toHaveAttribute("href", "/hpo/demo_study");
+    expect(link).toHaveTextContent(/View study/);
+  });
+
+  it("does not render the artifact link for failed jobs", () => {
     renderWithProviders(<JobActions job={JOB_FAILED} />);
     expect(screen.queryByTestId("job-view-run-link")).not.toBeInTheDocument();
   });

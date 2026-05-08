@@ -64,7 +64,7 @@ def test_list_hpo_studies_surfaces_best_and_store(tmp_path: Path) -> None:
     assert summary.n_complete == EXPECTED_N_COMPLETE
     assert summary.best_value == pytest.approx(EXPECTED_BEST_VALUE)
     assert summary.best_trial_number == EXPECTED_BEST_TRIAL_NUMBER
-    assert summary.store == "studies/main"
+    assert summary.store == "studies/main/hpo"
 
 
 def test_get_hpo_study_returns_best_config(tmp_path: Path) -> None:

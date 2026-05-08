@@ -93,12 +93,16 @@ def find_artifact_dir(
 
 
 def store_label(artifact_dir: Path, root: Path) -> str:
-    """Human-readable provenance label for an artifact (path of its store relative to root).
+    """Human-readable provenance label for an artifact (path of its parent dir relative to root).
 
-    For ``<root>/thesis_demo/<subdir>/<name>`` returns ``"thesis_demo"``;
-    for ``<root>/studies/main/<subdir>/<name>`` returns ``"studies/main"``.
+    For ``<root>/hpo/<name>`` returns ``"hpo"``;
+    for ``<root>/thesis_demo/runs/<name>`` returns ``"thesis_demo/runs"``;
+    for ``<root>/studies/main/hpo/<name>`` returns ``"studies/main/hpo"``.
+
+    Includes the kind subdir so flat-rooted artefacts (default-store tunes
+    submitted from the webapp) render as ``"hpo"`` rather than ``"."``.
     """
-    return artifact_dir.parent.parent.relative_to(root).as_posix()
+    return artifact_dir.parent.relative_to(root).as_posix()
 
 
 def iter_run_dirs(root: Path) -> Iterator[Path]:

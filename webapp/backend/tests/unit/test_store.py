@@ -16,8 +16,9 @@ from webapp.backend.tests.conftest import make_synthetic_run
 
 FLAT_ID = "20260101_120000_AdaptiveBollinger_abc1234_deadbeef"
 STUDY_ID = "20260201_090000_PairsTrading_def5678_cafebabe"
-EXPECTED_FLAT_LABEL = "thesis_demo"
-EXPECTED_STUDY_LABEL = "studies/main"
+EXPECTED_FLAT_LABEL = "thesis_demo/runs"
+EXPECTED_STUDY_LABEL = "studies/main/runs"
+EXPECTED_DEFAULT_HPO_LABEL = "hpo"
 
 
 def test_iter_run_dirs_finds_both_layouts(tmp_path: Path) -> None:
@@ -72,3 +73,10 @@ def test_store_label_for_study_nested_layout(tmp_path: Path) -> None:
     run_dir = make_synthetic_run(root / "studies" / "main" / "runs", experiment_id=STUDY_ID)
 
     assert store_label(run_dir, root) == EXPECTED_STUDY_LABEL
+
+
+def test_store_label_for_default_root_layout(tmp_path: Path) -> None:
+    root = tmp_path / "experiment_results"
+    run_dir = make_synthetic_run(root / "runs", experiment_id=FLAT_ID)
+
+    assert store_label(run_dir, root) == "runs"

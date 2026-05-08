@@ -52,7 +52,7 @@ def test_list_comparisons_surfaces_strategies_and_store(tmp_path: Path) -> None:
 
     assert summary.strategies == ["A", "B"]
     assert len(summary.strategies) == EXPECTED_STRATEGY_COUNT
-    assert summary.store == "studies/main"
+    assert summary.store == "studies/main/comparisons"
 
 
 def test_get_comparison_returns_full_detail(tmp_path: Path) -> None:

@@ -52,7 +52,7 @@ def test_list_runs_populates_strategy_and_universe_from_config(tmp_path: Path) -
 
     assert summary.strategy == "PairsTrading"
     assert summary.tickers == ["IVV", "VOO"]
-    assert summary.store == "studies/main"
+    assert summary.store == "studies/main/runs"
 
 
 def test_list_runs_skips_runs_missing_config(tmp_path: Path) -> None:

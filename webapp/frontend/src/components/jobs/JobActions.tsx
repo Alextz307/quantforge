@@ -1,8 +1,7 @@
-import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import type { JobRow } from "@/api/jobs";
 import { useCancelJob, jobLogDownloadUrl } from "@/api/jobs";
-import { runDetailPath } from "@/lib/routes";
+import { JobArtifactLink } from "@/components/jobs/JobArtifactLink";
 
 interface JobActionsProps {
   job: JobRow;
@@ -11,7 +10,6 @@ interface JobActionsProps {
 export function JobActions({ job }: JobActionsProps) {
   const cancel = useCancelJob(job.id);
   const isRunning = job.status === "running";
-  const completedRunId = job.status === "completed" ? job.experiment_id : null;
 
   return (
     <div className="flex flex-wrap items-center gap-2">
@@ -34,15 +32,7 @@ export function JobActions({ job }: JobActionsProps) {
       >
         Download log
       </a>
-      {completedRunId && (
-        <Link
-          to={runDetailPath(completedRunId)}
-          className="text-sm text-blue-600 hover:underline"
-          data-testid="job-view-run-link"
-        >
-          View run →
-        </Link>
-      )}
+      <JobArtifactLink job={job} className="text-sm" />
       {cancel.isError && <span className="text-sm text-rose-600">{cancel.error.message}</span>}
     </div>
   );
