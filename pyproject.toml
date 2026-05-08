@@ -57,6 +57,11 @@ wheel.packages = ["src/quant_engine"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-v --tb=short"
+filterwarnings = [
+    # FastAPI internals still reference starlette.HTTP_422_UNPROCESSABLE_ENTITY
+    # when handling Pydantic validation errors; not actionable from our code.
+    "ignore:'HTTP_422_UNPROCESSABLE_ENTITY' is deprecated.*:DeprecationWarning:fastapi.routing",
+]
 
 [tool.ruff]
 line-length = 100
