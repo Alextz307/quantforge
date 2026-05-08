@@ -20,6 +20,7 @@ export const API_PATHS = {
   hpoStudies: "/api/hpo",
   hpoStudy: "/api/hpo/{name}",
   hpoTrials: "/api/hpo/{name}/trials",
+  hpoParamImportance: "/api/hpo/{name}/param-importance",
   hpoStream: "/api/hpo/{name}/stream",
   jobs: "/api/jobs",
   job: "/api/jobs/{job_id}",

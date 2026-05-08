@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { cn } from "@/lib/cn";
+import { ConnectionIndicator } from "@/components/ConnectionIndicator";
 import type { ConnectionState } from "@/hooks/useEventStream";
 
 interface LogPaneProps {
@@ -8,13 +9,6 @@ interface LogPaneProps {
   emptyMessage?: string | undefined;
   className?: string | undefined;
 }
-
-const CONNECTION_LABEL: Record<ConnectionState, string> = {
-  connecting: "Connecting…",
-  open: "Streaming",
-  closed: "Disconnected",
-  error: "Connection lost",
-};
 
 export function LogPane({
   lines,
@@ -37,22 +31,7 @@ export function LogPane({
 
   return (
     <div className={cn("flex flex-col gap-2", className)}>
-      {connection !== undefined && (
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <span
-            data-testid="log-connection"
-            data-state={connection}
-            className={cn(
-              "inline-block h-2 w-2 rounded-full",
-              connection === "open" && "bg-emerald-500",
-              connection === "connecting" && "bg-amber-500 animate-pulse",
-              connection === "closed" && "bg-slate-400",
-              connection === "error" && "bg-rose-500",
-            )}
-          />
-          {CONNECTION_LABEL[connection]}
-        </div>
-      )}
+      {connection !== undefined && <ConnectionIndicator state={connection} />}
       <div
         ref={scrollRef}
         data-testid="log-pane"

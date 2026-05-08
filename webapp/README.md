@@ -40,6 +40,7 @@ Read-only artifact API (auth-gated, all `GET`):
 - `/api/holdout-evals`, `/api/holdout-evals/{name}`, `/api/holdout-evals/{name}/plots/{plot_name}` — holdout evaluations.
 - `/api/studies`, `/api/studies/{name}` — multi-leg study state + completion progress.
 - `/api/hpo`, `/api/hpo/{name}`, `/api/hpo/{name}/trials?after_trial=N` — HPO study summaries + Optuna trial feeds.
+- `/api/hpo/{name}/param-importance` — fANOVA-style relative importance per hyperparameter, computed on demand from the study's Optuna SQLite. Returns `{importance, message}` with `importance={}` plus a human-readable `message` while the study has too few completed trials, no DB yet, or a degenerate search space — the endpoint stays 200 across the live lifecycle.
 
 Configs (auth-gated):
 - `GET /api/configs/{kind}` — list `*.yaml` under `config/<kind>/` (kinds: experiment / universe / strategy / hpo / study / regime / model).
@@ -47,10 +48,13 @@ Configs (auth-gated):
 - `POST /api/configs/validate` — validate a payload against the matching Pydantic model; returns `{valid, errors[]}` with structured `loc/msg/type` items.
 
 Jobs (auth-gated, gated by `WEBAPP_JOBS_ENABLED=true`; per-user scope, admins may pass `?all=1`):
-- `POST /api/jobs` — submit a `JobSubmission` (`kind=run`, `config_payload`); validates upfront and returns 422 with the same `loc/msg/type` shape on bad payloads.
+- `POST /api/jobs` — submit a `JobSubmission` (`kind=run` with `config_payload`, or `kind=tune` with `config_payload` + `hpo_payload`); validates upfront and returns 422 with the same `loc/msg/type` shape on bad payloads.
 - `GET /api/jobs`, `GET /api/jobs/{id}`, `DELETE /api/jobs/{id}` — list / fetch / cancel.
 - `GET /api/jobs/{id}/log` — full log file (text response).
+
+WebSockets (auth-gated):
 - `WS /api/jobs/{id}/stream` — multiplexed log + status frames (`{type:"log",line}` / `{type:"status",status,exit_code,experiment_id}`); auto-closes on terminal status.
+- `WS /api/hpo/{name}/stream?after_trial=N` — `{type:"trial",trial}` frames as Optuna writes them. The handshake replays existing trials in order before forwarding live broker events; the SPA pairs this with the polled `/api/hpo/{name}/param-importance` endpoint for the live HPO monitor on `/hpo/:name`.
 
 ## First-run setup
 

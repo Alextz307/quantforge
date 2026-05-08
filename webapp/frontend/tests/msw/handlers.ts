@@ -2,7 +2,7 @@ import { http, HttpResponse } from "msw";
 import type { ComparisonDetail, ComparisonSummary } from "@/api/comparisons";
 import type { ConfigDetail, ConfigEntry, ValidateRequest, ValidateResponse } from "@/api/configs";
 import type { HoldoutEvalDetail, HoldoutEvalSummary } from "@/api/holdout";
-import type { HpoDetail, HpoSummary, TrialRow } from "@/api/hpo";
+import type { HpoDetail, HpoSummary, ParamImportanceResponse, TrialRow } from "@/api/hpo";
 import type { JobRow, JobSubmission } from "@/api/jobs";
 import { API_PATHS, toMswPath } from "@/api/paths";
 import type { RegimeReportDetail, RegimeReportSummary } from "@/api/regime";
@@ -432,6 +432,16 @@ export const HPO_DEMO_TRIALS: TrialRow[] = [
 
 export const SEED_HPO_STUDIES: HpoSummary[] = [HPO_DEMO_SUMMARY];
 
+export const HPO_DEMO_IMPORTANCE: ParamImportanceResponse = {
+  importance: { window: 0.7, k: 0.3 },
+  message: null,
+};
+
+export const HPO_DEMO_IMPORTANCE_EMPTY: ParamImportanceResponse = {
+  importance: {},
+  message: "Importance available after at least 2 completed trials.",
+};
+
 export const PUBLIC_SETTINGS_ENABLED: PublicSettings = { jobs_enabled: true };
 export const PUBLIC_SETTINGS_DISABLED: PublicSettings = { jobs_enabled: false };
 
@@ -573,6 +583,10 @@ export const handlers = [
   }),
   http.get(toMswPath(API_PATHS.hpoTrials), ({ params }) => {
     if (params.name === HPO_DEMO_SUMMARY.name) return HttpResponse.json(HPO_DEMO_TRIALS);
+    return new HttpResponse(null, { status: 404 });
+  }),
+  http.get(toMswPath(API_PATHS.hpoParamImportance), ({ params }) => {
+    if (params.name === HPO_DEMO_SUMMARY.name) return HttpResponse.json(HPO_DEMO_IMPORTANCE);
     return new HttpResponse(null, { status: 404 });
   }),
   http.get(API_PATHS.publicSettings, () => HttpResponse.json(PUBLIC_SETTINGS_ENABLED)),

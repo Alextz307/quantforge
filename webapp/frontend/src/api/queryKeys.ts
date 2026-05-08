@@ -16,6 +16,7 @@ export const queryKeys = {
   hpoStudies: ["hpoStudies"] as const,
   hpoStudy: (name: string) => ["hpoStudies", name] as const,
   hpoTrials: (name: string) => ["hpoStudies", name, "trials"] as const,
+  hpoParamImportance: (name: string) => ["hpoStudies", name, "param-importance"] as const,
   jobsAll: ["jobs"] as const,
   jobs: (params: { allUsers: boolean }) => ["jobs", { allUsers: params.allUsers }] as const,
   job: (id: string) => ["jobs", id] as const,

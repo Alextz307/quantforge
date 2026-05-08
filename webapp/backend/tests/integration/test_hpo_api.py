@@ -71,3 +71,29 @@ def test_trials_404_for_unknown_name(authed_client: TestClient, webapp_store: Pa
     response = authed_client.get(f"{LIST_PATH}/missing/trials")
 
     assert response.status_code == HTTPStatus.NOT_FOUND
+
+
+def test_param_importance_returns_200_with_message_when_db_missing(
+    authed_client: TestClient, webapp_store: Path
+) -> None:
+    """Synthetic fixture has no optuna_study.db — endpoint must NOT 500."""
+    response = authed_client.get(f"{LIST_PATH}/{EXPECTED_NAME}/param-importance")
+
+    assert response.status_code == HTTPStatus.OK
+    payload = response.json()
+    assert payload["importance"] == {}
+    assert payload["message"] is not None
+
+
+def test_param_importance_404_for_unknown_name(
+    authed_client: TestClient, webapp_store: Path
+) -> None:
+    response = authed_client.get(f"{LIST_PATH}/missing/param-importance")
+
+    assert response.status_code == HTTPStatus.NOT_FOUND
+
+
+def test_param_importance_requires_auth(client: TestClient, webapp_store: Path) -> None:
+    response = client.get(f"{LIST_PATH}/{EXPECTED_NAME}/param-importance")
+
+    assert response.status_code == HTTPStatus.UNAUTHORIZED

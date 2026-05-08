@@ -10,25 +10,38 @@ import yaml
 
 from src.core import json_io
 from src.optimization.checkpointing import BEST_CONFIG_YAML_NAME, TRIALS_JSONL_NAME
+from src.optimization.tuner import STUDY_DB_FILENAME, storage_url_for
 from webapp.backend.app.infrastructure.store import (
     HpoStudyNotFoundError,
     find_hpo_study_dir,
     iter_hpo_study_dirs,
     store_label,
 )
-from webapp.backend.app.schemas.hpo import HpoDetail, HpoSummary, StudyDirection, TrialRow
+from webapp.backend.app.schemas.hpo import (
+    HpoDetail,
+    HpoSummary,
+    ParamImportanceResponse,
+    StudyDirection,
+    TrialRow,
+)
 from webapp.backend.app.schemas.jobs import TERMINAL_STATUSES, JobKind
 
 __all__ = [
     "HpoStudyNotFoundError",
     "find_live_job_for",
     "get_hpo_study",
+    "get_param_importance",
     "list_hpo_studies",
     "list_trials",
     "trial_row_from_record",
 ]
 
 _COMPLETE_STATE = "COMPLETE"
+_MIN_TRIALS_FOR_IMPORTANCE = 2
+_NEEDS_MORE_TRIALS_MESSAGE = (
+    f"Importance available after at least {_MIN_TRIALS_FOR_IMPORTANCE} completed trials."
+)
+_DB_MISSING_MESSAGE = "Importance unavailable: optuna study DB not yet written."
 
 
 def list_hpo_studies(root: Path) -> list[HpoSummary]:
@@ -74,6 +87,39 @@ def list_trials(root: Path, name: str, after_trial: int | None = None) -> list[T
         rows = [r for r in rows if r.number > after_trial]
     rows.sort(key=lambda r: r.number)
     return rows
+
+
+def get_param_importance(root: Path, name: str) -> ParamImportanceResponse:
+    """Compute fANOVA-style hyperparameter importance for an HPO study.
+
+    Returns ``importance={}`` plus a human-readable ``message`` (rather than
+    raising) for the three "no useful answer yet" cases the frontend has to
+    render: too few completed trials, the optuna SQLite DB hasn't been
+    written yet, and degenerate search spaces that make Optuna's evaluator
+    raise. This keeps the endpoint a 200 across the lifecycle of a live
+    study so the live-monitor page can render an empty card and refetch.
+
+    Optuna is imported lazily to avoid pulling its sklearn dependency into
+    the webapp's startup path.
+    """
+    study_dir = find_hpo_study_dir(root, name)
+    trials = json_io.read_jsonl(study_dir / TRIALS_JSONL_NAME)
+    n_complete = sum(1 for t in trials if json_io.get_str(t, "state") == _COMPLETE_STATE)
+    if n_complete < _MIN_TRIALS_FOR_IMPORTANCE:
+        return ParamImportanceResponse(importance={}, message=_NEEDS_MORE_TRIALS_MESSAGE)
+    # Pre-flight check before optuna.load_study(): SQLite opens-or-creates,
+    # so passing a missing path would silently materialise an empty DB on disk.
+    if not (study_dir / STUDY_DB_FILENAME).resolve().exists():
+        return ParamImportanceResponse(importance={}, message=_DB_MISSING_MESSAGE)
+
+    import optuna
+
+    try:
+        study = optuna.load_study(study_name=name, storage=storage_url_for(study_dir))
+        importances = optuna.importance.get_param_importances(study)
+    except Exception as exc:  # noqa: BLE001 — Optuna raises Value/Runtime/KeyError variously
+        return ParamImportanceResponse(importance={}, message=f"Importance unavailable: {exc}")
+    return ParamImportanceResponse(importance={k: float(v) for k, v in importances.items()})
 
 
 def find_live_job_for(conn: sqlite3.Connection, study_name: str) -> str | None:

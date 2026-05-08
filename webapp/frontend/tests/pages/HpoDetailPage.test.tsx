@@ -1,9 +1,18 @@
-import { screen } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
+import { http, HttpResponse } from "msw";
 import { describe, expect, it } from "vitest";
 import { Route, Routes } from "react-router-dom";
 import { HpoDetailPage } from "@/pages/HpoDetailPage";
+import { API_PATHS, toMswPath } from "@/api/paths";
 import { ROUTES } from "@/lib/routes";
-import { HPO_DEMO_DETAIL, HPO_DEMO_SUMMARY, HPO_DEMO_TRIALS } from "../msw/handlers";
+import {
+  HPO_DEMO_DETAIL,
+  HPO_DEMO_IMPORTANCE,
+  HPO_DEMO_IMPORTANCE_EMPTY,
+  HPO_DEMO_SUMMARY,
+  HPO_DEMO_TRIALS,
+} from "../msw/handlers";
+import { server } from "../msw/server";
 import { renderWithProviders } from "../util/render";
 
 function Tree() {
@@ -15,13 +24,14 @@ function Tree() {
 }
 
 describe("HpoDetailPage", () => {
-  it("renders the trial table, convergence chart and best-config card", async () => {
+  it("renders the trial table, convergence chart, importance chart and best-config card", async () => {
     renderWithProviders(<Tree />, {
       initialEntries: [`/hpo/${HPO_DEMO_SUMMARY.name}`],
     });
 
     expect(await screen.findByTestId("trial-table")).toBeInTheDocument();
     expect(await screen.findByTestId("hpo-convergence")).toBeInTheDocument();
+    expect(await screen.findByTestId("hpo-importance")).toBeInTheDocument();
     expect(await screen.findByTestId("best-config-json")).toBeInTheDocument();
   });
 
@@ -37,5 +47,54 @@ describe("HpoDetailPage", () => {
       `trial-row-${String(HPO_DEMO_DETAIL.best_trial_number)}`,
     );
     expect(bestRow.className).toMatch(/bg-primary/);
+  });
+
+  it("renders the importance value count from the API response", async () => {
+    renderWithProviders(<Tree />, {
+      initialEntries: [`/hpo/${HPO_DEMO_SUMMARY.name}`],
+    });
+
+    const importance = await screen.findByTestId("hpo-importance");
+    expect(importance.getAttribute("data-param-count")).toBe(
+      String(Object.keys(HPO_DEMO_IMPORTANCE.importance).length),
+    );
+  });
+
+  it("renders the empty-state message when importance has no completed trials yet", async () => {
+    server.use(
+      http.get(toMswPath(API_PATHS.hpoParamImportance), () =>
+        HttpResponse.json(HPO_DEMO_IMPORTANCE_EMPTY),
+      ),
+    );
+    renderWithProviders(<Tree />, {
+      initialEntries: [`/hpo/${HPO_DEMO_SUMMARY.name}`],
+    });
+
+    const empty = await screen.findByTestId("hpo-importance-empty");
+    expect(empty).toHaveTextContent(HPO_DEMO_IMPORTANCE_EMPTY.message ?? "");
+  });
+
+  it("hides the connection indicator when the study is not live", async () => {
+    renderWithProviders(<Tree />, {
+      initialEntries: [`/hpo/${HPO_DEMO_SUMMARY.name}`],
+    });
+
+    await screen.findByTestId("hpo-convergence");
+    expect(screen.queryByTestId("connection-indicator")).toBeNull();
+  });
+
+  it("shows the connection indicator when the study has a live job id", async () => {
+    server.use(
+      http.get(toMswPath(API_PATHS.hpoStudy), () =>
+        HttpResponse.json({ ...HPO_DEMO_DETAIL, live_job_id: "job-uuid-tune" }),
+      ),
+    );
+    renderWithProviders(<Tree />, {
+      initialEntries: [`/hpo/${HPO_DEMO_SUMMARY.name}`],
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId("connection-indicator")).toBeInTheDocument();
+    });
   });
 });

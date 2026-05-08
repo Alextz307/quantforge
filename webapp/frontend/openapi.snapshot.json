@@ -887,6 +887,34 @@
         "title": "ModelRegistryEntry",
         "type": "object"
       },
+      "ParamImportanceResponse": {
+        "description": "Per-hyperparameter relative importance for the live HPO monitor.\n\n``importance`` is empty and ``message`` is set when the study has too few\ncompleted trials, the optuna DB is missing, or the importance evaluator\nraises on a degenerate search space \u2014 the endpoint stays 200 so the\nfrontend renders an empty-state card instead of erroring.",
+        "properties": {
+          "importance": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Importance",
+            "type": "object"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          }
+        },
+        "required": [
+          "importance"
+        ],
+        "title": "ParamImportanceResponse",
+        "type": "object"
+      },
       "ParamKind": {
         "enum": [
           "int",
@@ -2611,6 +2639,48 @@
           }
         },
         "summary": "Get Hpo Study Detail",
+        "tags": [
+          "hpo"
+        ]
+      }
+    },
+    "/api/hpo/{name}/param-importance": {
+      "get": {
+        "operationId": "get_hpo_param_importance_api_hpo__name__param_importance_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ParamImportanceResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Hpo Param Importance",
         "tags": [
           "hpo"
         ]

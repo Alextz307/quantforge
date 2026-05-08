@@ -1,12 +1,15 @@
 import { useParams } from "react-router-dom";
-import { useHpoStudy, useHpoTrials, type HpoDetail } from "@/api/hpo";
+import { useHpoParamImportance, useHpoStudy, useHpoTrials, type HpoDetail } from "@/api/hpo";
 import { BackLink } from "@/components/BackLink";
+import { ConnectionIndicator } from "@/components/ConnectionIndicator";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { HpoConvergenceChart } from "@/components/charts/HpoConvergenceChart";
+import { HpoParamImportanceChart } from "@/components/charts/HpoParamImportanceChart";
 import { BestConfigCard } from "@/components/hpo/BestConfigCard";
 import { TrialTable } from "@/components/hpo/TrialTable";
 import { MetadataField } from "@/components/MetadataField";
 import { QueryRenderer } from "@/components/QueryRenderer";
+import { useHpoTrialStream } from "@/hooks/useHpoTrialStream";
 import { formatDateTime, formatMetric } from "@/lib/format";
 import { ROUTES } from "@/lib/routes";
 
@@ -31,8 +34,11 @@ function IdentityCard({ study }: { study: HpoDetail }) {
 
 export function HpoDetailPage() {
   const { name = "" } = useParams<{ name: string }>();
-  const studyQuery = useHpoStudy(name);
+  const studyQuery = useHpoStudy(name, { livePoll: true });
+  const isLive = studyQuery.data?.live_job_id != null;
   const trialsQuery = useHpoTrials(name);
+  const importanceQuery = useHpoParamImportance(name, { isLive });
+  const stream = useHpoTrialStream(name, isLive);
 
   return (
     <QueryRenderer
@@ -43,6 +49,7 @@ export function HpoDetailPage() {
       {(study) => (
         <div className="flex flex-col gap-4">
           <BackLink to={ROUTES.hpo}>All HPO studies</BackLink>
+          {isLive && <ConnectionIndicator state={stream.connection} className="self-start" />}
           <IdentityCard study={study} />
 
           <Card>
@@ -56,6 +63,21 @@ export function HpoDetailPage() {
                 loadingMessage="Loading trials…"
               >
                 {(trials) => <HpoConvergenceChart trials={trials} direction={study.direction} />}
+              </QueryRenderer>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Hyperparameter importance</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <QueryRenderer
+                query={importanceQuery}
+                errorTitle="Failed to load importance"
+                loadingMessage="Loading importance…"
+              >
+                {(response) => <HpoParamImportanceChart response={response} />}
               </QueryRenderer>
             </CardContent>
           </Card>

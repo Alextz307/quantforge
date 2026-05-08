@@ -73,7 +73,7 @@ if TYPE_CHECKING:
 _logger = get_logger(__name__)
 
 _DEFAULT_STORE_ROOT = Path("experiment_results")
-_STUDY_DB_FILENAME = "optuna_study.db"
+STUDY_DB_FILENAME = "optuna_study.db"
 EXPERIMENT_CONFIG_YAML = "experiment_config.yaml"
 HPO_CONFIG_YAML = "hpo_config.yaml"
 # Re-export for downstream consumers that want to read the checkpoint files.
@@ -119,8 +119,7 @@ class StrategyTuner:
         the tuner is invoked from — matters for resume from a different
         shell or CI worker.
         """
-        db_path = (self.study_dir / _STUDY_DB_FILENAME).resolve()
-        return f"sqlite:///{db_path}"
+        return storage_url_for(self.study_dir)
 
     def run(self, *, progress: bool = False) -> optuna.Study:
         """Run the study end-to-end, returning the completed study.
@@ -249,6 +248,16 @@ class StrategyTuner:
             return
         write_frozen_yaml(exp_path, self.experiment_cfg)
         write_frozen_yaml(hpo_path, self.hpo_cfg)
+
+
+def storage_url_for(study_dir: Path) -> str:
+    """SQLite URL Optuna stores the study DB under ``study_dir``.
+
+    Uses ``Path.as_posix()`` so the URL is well-formed on Windows too —
+    SQLAlchemy expects forward slashes regardless of platform.
+    """
+    db_path = (study_dir / STUDY_DB_FILENAME).resolve()
+    return f"sqlite:///{db_path.as_posix()}"
 
 
 def _materialize_trial_config(

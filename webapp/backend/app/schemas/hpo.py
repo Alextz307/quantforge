@@ -60,3 +60,16 @@ class TrialFrame(BaseModel):
 
     type: Literal["trial"] = "trial"
     trial: TrialRow
+
+
+class ParamImportanceResponse(BaseModel):
+    """Per-hyperparameter relative importance for the live HPO monitor.
+
+    ``importance`` is empty and ``message`` is set when the study has too few
+    completed trials, the optuna DB is missing, or the importance evaluator
+    raises on a degenerate search space — the endpoint stays 200 so the
+    frontend renders an empty-state card instead of erroring.
+    """
+
+    importance: dict[str, float]
+    message: str | None = None

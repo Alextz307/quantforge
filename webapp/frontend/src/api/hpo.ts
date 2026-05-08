@@ -14,8 +14,11 @@ export type HpoSummary = components["schemas"]["HpoSummary"];
 export type HpoDetail = components["schemas"]["HpoDetail"];
 export type TrialRow = components["schemas"]["TrialRow"];
 export type StudyDirection = components["schemas"]["StudyDirection"];
+export type ParamImportanceResponse = components["schemas"]["ParamImportanceResponse"];
 
 const LIST_STALE_TIME = 30_000;
+const STUDY_LIVE_REFETCH_MS = 3_000;
+const IMPORTANCE_LIVE_REFETCH_MS = 30_000;
 
 function hpoStudiesConfig(): ApiQueryOptions<HpoSummary[]> {
   return {
@@ -26,12 +29,15 @@ function hpoStudiesConfig(): ApiQueryOptions<HpoSummary[]> {
   };
 }
 
-function hpoStudyConfig(name: string): ApiQueryOptions<HpoDetail> {
+function hpoStudyConfig(name: string, livePoll: boolean): ApiQueryOptions<HpoDetail> {
   return {
     queryKey: queryKeys.hpoStudy(name),
     fetcher: () => apiClient.GET(API_PATHS.hpoStudy, { params: { path: { name } } }),
     errorMsg: "Failed to load HPO study",
     staleTime: Infinity,
+    refetchInterval: livePoll
+      ? (q) => (q.state.data?.live_job_id != null ? STUDY_LIVE_REFETCH_MS : false)
+      : false,
   };
 }
 
@@ -44,23 +50,46 @@ function hpoTrialsConfig(name: string): ApiQueryOptions<TrialRow[]> {
   };
 }
 
+function hpoParamImportanceConfig(
+  name: string,
+  isLive: boolean,
+): ApiQueryOptions<ParamImportanceResponse> {
+  return {
+    queryKey: queryKeys.hpoParamImportance(name),
+    fetcher: () => apiClient.GET(API_PATHS.hpoParamImportance, { params: { path: { name } } }),
+    errorMsg: "Failed to load param importance",
+    staleTime: Infinity,
+    refetchInterval: isLive ? IMPORTANCE_LIVE_REFETCH_MS : false,
+  };
+}
+
 export function useHpoStudies(): UseQueryResult<HpoSummary[]> {
   return useApiQuery(hpoStudiesConfig());
 }
 
-export function useHpoStudy(name: string): UseQueryResult<HpoDetail> {
-  return useApiQuery(hpoStudyConfig(name));
+export function useHpoStudy(
+  name: string,
+  opts: { livePoll?: boolean } = {},
+): UseQueryResult<HpoDetail> {
+  return useApiQuery(hpoStudyConfig(name, opts.livePoll ?? false));
 }
 
 export function useHpoTrials(name: string): UseQueryResult<TrialRow[]> {
   return useApiQuery(hpoTrialsConfig(name));
 }
 
+export function useHpoParamImportance(
+  name: string,
+  opts: { isLive?: boolean } = {},
+): UseQueryResult<ParamImportanceResponse> {
+  return useApiQuery(hpoParamImportanceConfig(name, opts.isLive ?? false));
+}
+
 export function usePrefetchHpoStudy(): (name: string) => void {
   const qc = useQueryClient();
   return useCallback(
     (name: string) => {
-      void prefetchApiQuery(qc, hpoStudyConfig(name));
+      void prefetchApiQuery(qc, hpoStudyConfig(name, false));
     },
     [qc],
   );

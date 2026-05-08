@@ -16,12 +16,19 @@ from webapp.backend.app.core.deps import get_current_user, get_db
 from webapp.backend.app.core.settings import get_settings
 from webapp.backend.app.infrastructure.process_manager import HpoEventBroker
 from webapp.backend.app.infrastructure.store import find_hpo_study_dir
-from webapp.backend.app.schemas.hpo import HpoDetail, HpoSummary, TrialFrame, TrialRow
+from webapp.backend.app.schemas.hpo import (
+    HpoDetail,
+    HpoSummary,
+    ParamImportanceResponse,
+    TrialFrame,
+    TrialRow,
+)
 from webapp.backend.app.schemas.users import UserPublic
 from webapp.backend.app.services.hpo_service import (
     HpoStudyNotFoundError,
     find_live_job_for,
     get_hpo_study,
+    get_param_importance,
     list_hpo_studies,
     list_trials,
 )
@@ -57,6 +64,17 @@ def get_hpo_trials(
 ) -> list[TrialRow]:
     try:
         return list_trials(get_settings().store_root, name, after_trial=after_trial)
+    except HpoStudyNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+
+
+@router.get("/{name}/param-importance", response_model=ParamImportanceResponse)
+def get_hpo_param_importance(
+    name: str,
+    _user: UserPublic = Depends(get_current_user),
+) -> ParamImportanceResponse:
+    try:
+        return get_param_importance(get_settings().store_root, name)
     except HpoStudyNotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
 

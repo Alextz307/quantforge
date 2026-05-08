@@ -10,7 +10,7 @@ describe("LogPane", () => {
 
   it("renders the connection indicator with the matching data-state", () => {
     render(<LogPane lines={[]} connection="open" />);
-    const indicator = screen.getByTestId("log-connection");
+    const indicator = screen.getByTestId("connection-indicator");
     expect(indicator.dataset.state).toBe("open");
     expect(screen.getByText(/Streaming/i)).toBeInTheDocument();
   });
