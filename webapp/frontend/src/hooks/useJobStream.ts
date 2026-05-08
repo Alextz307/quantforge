@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from "react";
+import { useCallback, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import type { JobRow, JobStatus } from "@/api/jobs";
 import { isTerminalStatus, jobLogDownloadUrl, jobStreamUrl } from "@/api/jobs";
@@ -36,6 +36,7 @@ type StreamFrame = LogFrame | StatusFrame;
 export function useJobStream(jobId: string, initialStatus: JobStatus): JobStreamSnapshot {
   const qc = useQueryClient();
   const enabled = !isTerminalStatus(initialStatus);
+  const [logs, setLogs] = useState<string[]>([]);
 
   const handleStatus = useCallback(
     (frame: StatusFrame) => {
@@ -67,22 +68,19 @@ export function useJobStream(jobId: string, initialStatus: JobStatus): JobStream
     [jobId, qc],
   );
 
-  const { frames, connection } = useEventStream<StreamFrame>({
+  const { connection } = useEventStream<StreamFrame>({
     url: jobStreamUrl(jobId),
     parseFrame,
     enabled,
     onFrame: (frame) => {
-      if (frame.type === "status") handleStatus(frame);
+      if (frame.type === "log") setLogs((prev) => [...prev, frame.line]);
+      else handleStatus(frame);
     },
     shouldClose: (frame) => frame.type === "status" && isTerminalStatus(frame.status),
     backfillUrl: jobLogDownloadUrl(jobId),
     backfillParse: parseLogBackfill,
   });
 
-  const logs = useMemo(
-    () => frames.filter((f): f is LogFrame => f.type === "log").map((f) => f.line),
-    [frames],
-  );
   return { logs, connection };
 }
 

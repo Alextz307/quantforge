@@ -17,8 +17,7 @@ export interface UseEventStreamOptions<TFrame> {
   backfillParse?: (text: string) => readonly TFrame[];
 }
 
-export interface EventStreamSnapshot<TFrame> {
-  frames: readonly TFrame[];
+export interface EventStreamSnapshot {
   connection: ConnectionState;
 }
 
@@ -29,13 +28,12 @@ const RECONNECT_DELAYS_MS = [250, 500, 1000] as const;
  * terminal-state freeze, and an optional one-shot HTTP backfill for sockets
  * that were already closed at mount time.
  *
- * Frames are accumulated in insertion order; consumers filter / map as needed.
- * ``onFrame`` fires for every frame (live and backfilled), so cache patches
- * on the consumer side don't need a separate effect.
+ * Frames are NOT retained inside the hook — consumers are responsible for
+ * accumulating any derived state in their own ``onFrame`` handler. This
+ * keeps storage append-only at the consumer site (no per-frame filter+map
+ * over a shadow array) and avoids holding two copies of the data.
  */
-export function useEventStream<TFrame>(
-  opts: UseEventStreamOptions<TFrame>,
-): EventStreamSnapshot<TFrame> {
+export function useEventStream<TFrame>(opts: UseEventStreamOptions<TFrame>): EventStreamSnapshot {
   const {
     url,
     parseFrame,
@@ -46,7 +44,6 @@ export function useEventStream<TFrame>(
     backfillParse,
   } = opts;
 
-  const [frames, setFrames] = useState<readonly TFrame[]>([]);
   const [connection, setConnection] = useState<ConnectionState>(enabled ? "connecting" : "closed");
   // Once shouldClose() fires (or the hook mounted disabled), the reconnect
   // ladder must NOT bring the socket back up.
@@ -81,9 +78,7 @@ export function useEventStream<TFrame>(
           if (!resp.ok) return;
           const text = await resp.text();
           const parsed = backfillParseRef.current?.(text) ?? [];
-          if (parsed.length === 0) return;
           for (const frame of parsed) onFrameRef.current?.(frame);
-          setFrames((prev) => [...prev, ...parsed]);
         } catch {
           // abort or network failure — no recovery; backfill is best-effort.
         }
@@ -111,7 +106,6 @@ export function useEventStream<TFrame>(
         const frame = parseFrameRef.current(event.data);
         if (!frame) return;
         onFrameRef.current?.(frame);
-        setFrames((prev) => [...prev, frame]);
         if (shouldCloseRef.current?.(frame)) {
           frozen.current = true;
           socket.close();
@@ -158,5 +152,5 @@ export function useEventStream<TFrame>(
     };
   }, [url, enabled, backfillUrl]);
 
-  return { frames, connection };
+  return { connection };
 }

@@ -28,9 +28,10 @@ function parsePing(raw: string): PingFrame | null {
 }
 
 describe("useEventStream", () => {
-  it("appends parsed frames in order and reports the open connection", async () => {
+  it("invokes onFrame for each parsed frame in order and reports the open connection", async () => {
+    const onFrame = vi.fn();
     const { result } = renderHook(() =>
-      useEventStream<PingFrame>({ url: TEST_URL, parseFrame: parsePing }),
+      useEventStream<PingFrame>({ url: TEST_URL, parseFrame: parsePing, onFrame }),
     );
     await waitFor(() => {
       expect(MockWebSocket.instances.length).toBeGreaterThan(0);
@@ -44,14 +45,13 @@ describe("useEventStream", () => {
       ws.triggerMessage({ type: "ping", seq: 2 });
     });
 
-    expect(result.current.frames).toEqual([
-      { type: "ping", seq: 1 },
-      { type: "ping", seq: 2 },
-    ]);
+    expect(onFrame).toHaveBeenCalledTimes(2);
+    expect(onFrame).toHaveBeenNthCalledWith(1, { type: "ping", seq: 1 });
+    expect(onFrame).toHaveBeenNthCalledWith(2, { type: "ping", seq: 2 });
     expect(result.current.connection).toBe("open");
   });
 
-  it("invokes onFrame for each frame including duplicates", async () => {
+  it("calls onFrame for duplicate frames (consumer-side dedup is not the hook's concern)", async () => {
     const onFrame = vi.fn();
     renderHook(() => useEventStream<PingFrame>({ url: TEST_URL, parseFrame: parsePing, onFrame }));
     await waitFor(() => {
@@ -62,10 +62,9 @@ describe("useEventStream", () => {
     act(() => {
       ws.triggerOpen();
       ws.triggerMessage({ type: "ping", seq: 1 });
-      ws.triggerMessage({ type: "ping", seq: 2 });
+      ws.triggerMessage({ type: "ping", seq: 1 });
     });
     expect(onFrame).toHaveBeenCalledTimes(2);
-    expect(onFrame).toHaveBeenNthCalledWith(1, { type: "ping", seq: 1 });
   });
 
   it("closes the socket when shouldClose returns true and freezes the connection state", async () => {
@@ -93,6 +92,7 @@ describe("useEventStream", () => {
   });
 
   it("runs backfill once when enabled is false and never opens a socket", async () => {
+    const onFrame = vi.fn();
     const fetchSpy = vi
       .spyOn(globalThis, "fetch")
       .mockResolvedValue(new Response(JSON.stringify({ type: "ping", seq: 7 }), { status: 200 }));
@@ -101,6 +101,7 @@ describe("useEventStream", () => {
         url: TEST_URL,
         parseFrame: parsePing,
         enabled: false,
+        onFrame,
         backfillUrl: BACKFILL_URL,
         backfillParse: (text) => {
           const f = parsePing(text);
@@ -110,7 +111,7 @@ describe("useEventStream", () => {
     );
 
     await waitFor(() => {
-      expect(result.current.frames).toEqual([{ type: "ping", seq: 7 }]);
+      expect(onFrame).toHaveBeenCalledWith({ type: "ping", seq: 7 });
     });
     expect(MockWebSocket.instances.length).toBe(0);
     expect(result.current.connection).toBe("closed");

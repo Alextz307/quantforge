@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import type { TrialRow } from "@/api/hpo";
 import { hpoStreamUrl } from "@/api/hpo";
@@ -19,10 +19,11 @@ export interface HpoTrialStreamSnapshot {
  * WebSocket subscription to /api/hpo/{name}/stream.
  *
  * The backend replays all existing trials on connect (filtered by
- * ``afterTrial`` when set) and then forwards live broker frames. We
- * append-merge into the static ``useHpoTrials`` cache so a brief unmount
- * (e.g. tab switch) doesn't drop already-arrived rows; the in-memory
- * ``trials`` array is the authoritative ordered view for the page.
+ * ``afterTrial`` when set) and then forwards live broker frames. We hold
+ * the ordered ``trials`` array in local state and mirror it into the
+ * static ``useHpoTrials`` cache so a brief unmount (e.g. tab switch)
+ * doesn't drop already-arrived rows; the in-memory ``trials`` array is
+ * the authoritative ordered view for the page.
  *
  * ``isLive`` defers to the caller to know when the page is in
  * live-monitor mode (study.live_job_id != null) — keeps this hook a
@@ -34,20 +35,34 @@ export function useHpoTrialStream(
   afterTrial?: number,
 ): HpoTrialStreamSnapshot {
   const qc = useQueryClient();
-  const { frames, connection } = useEventStream<TrialFrame>({
+  const [trials, setTrials] = useState<TrialRow[]>([]);
+
+  const { connection } = useEventStream<TrialFrame>({
     url: hpoStreamUrl(name, afterTrial),
     parseFrame,
     enabled: isLive,
     onFrame: (frame) => {
-      qc.setQueryData<TrialRow[]>(queryKeys.hpoTrials(name), (prev) => {
-        if (!prev) return [frame.trial];
-        if (prev.some((t) => t.number === frame.trial.number)) return prev;
-        return [...prev, frame.trial].sort((a, b) => a.number - b.number);
+      setTrials((prev) => {
+        const next = mergeTrial(prev, frame.trial);
+        qc.setQueryData<TrialRow[]>(queryKeys.hpoTrials(name), next);
+        return next;
       });
     },
   });
-  const trials = useMemo(() => frames.map((f) => f.trial), [frames]);
   return { trials, connection };
+}
+
+/**
+ * Append-fast-path merge: Optuna trials arrive in monotone ``number`` order
+ * during a normal live run, so the common case is a pure push (O(1)). The
+ * dup-scan and sort branches handle replay / retry frames that arrive out
+ * of order.
+ */
+function mergeTrial(prev: TrialRow[], next: TrialRow): TrialRow[] {
+  const last = prev[prev.length - 1];
+  if (last === undefined || next.number > last.number) return [...prev, next];
+  if (prev.some((t) => t.number === next.number)) return prev;
+  return [...prev, next].sort((a, b) => a.number - b.number);
 }
 
 function parseFrame(raw: string): TrialFrame | null {

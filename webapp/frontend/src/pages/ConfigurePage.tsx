@@ -1,16 +1,18 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, type SubmitHandler } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ExperimentFieldsSection } from "@/components/forms/ExperimentFieldsSection";
+import { JobsGate } from "@/components/forms/JobsGate";
+import { ServerErrorList } from "@/components/forms/ServerErrorList";
+import { SubmitFailureAlert } from "@/components/forms/SubmitFailureAlert";
 import { SubmitJobError, useSubmitJob, type ValidationErrorItem } from "@/api/jobs";
 import { buildErrorIndex } from "@/api/errors";
 import { useValidateConfig } from "@/api/configs";
-import { usePublicSettings } from "@/api/settings";
 import { useStrategySchema } from "@/api/strategies";
+import { useStrategyParamsState } from "@/hooks/useStrategyParamsState";
 import { jobDetailPath } from "@/lib/routes";
 import {
   configureFormSchema,
@@ -22,7 +24,6 @@ import {
 
 export function ConfigurePage() {
   const navigate = useNavigate();
-  const settings = usePublicSettings();
 
   const form = useForm<ConfigureFormValues>({
     resolver: zodResolver(configureFormSchema),
@@ -38,14 +39,7 @@ export function ConfigurePage() {
 
   const strategyName = watch("strategyName");
   const schema = useStrategySchema(strategyName || null);
-  const [strategyParams, setStrategyParams] = useState<Record<string, unknown>>({});
-  // Gate on ``qualname`` (string) so background refetches that return the
-  // same schema don't nuke user edits in flight.
-  const schemaQualname = schema.data?.qualname;
-  useEffect(() => {
-    setStrategyParams({ ...(schema.data?.canonical_params ?? {}) });
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- gated on qualname intentionally
-  }, [strategyName, schemaQualname]);
+  const [strategyParams, setStrategyParams] = useStrategyParamsState(strategyName, schema.data);
 
   const validate = useValidateConfig();
   const submit = useSubmitJob();
@@ -83,71 +77,40 @@ export function ConfigurePage() {
     }
   };
 
-  if (settings.isLoading) {
-    return <p className="text-sm text-muted-foreground">Loading…</p>;
-  }
-  if (settings.data && !settings.data.jobs_enabled) {
-    return (
-      <Alert variant="destructive" className="max-w-2xl">
-        <AlertTitle>Job execution is disabled</AlertTitle>
-        <AlertDescription>
-          Set <code className="font-mono">WEBAPP_JOBS_ENABLED=true</code> and restart the backend to
-          enable launching new runs from the UI.
-        </AlertDescription>
-      </Alert>
-    );
-  }
-
   return (
-    <Card className="max-w-4xl">
-      <CardHeader>
-        <CardTitle>Configure run</CardTitle>
-        <CardDescription>
-          Build an experiment config and launch it as a background job. Server-side validation
-          mirrors the YAML rules used by the CLI.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-6">
-          <ExperimentFieldsSection
-            register={register}
-            setValue={setValue}
-            errors={errors}
-            strategyParams={strategyParams}
-            onStrategyParamsChange={setStrategyParams}
-            schemaData={schema.data}
-            errorsByLoc={errorsByLoc}
-            isSubmitting={isSubmitting}
-          />
+    <JobsGate>
+      <Card className="max-w-4xl">
+        <CardHeader>
+          <CardTitle>Configure run</CardTitle>
+          <CardDescription>
+            Build an experiment config and launch it as a background job. Server-side validation
+            mirrors the YAML rules used by the CLI.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-6">
+            <ExperimentFieldsSection
+              register={register}
+              setValue={setValue}
+              errors={errors}
+              strategyParams={strategyParams}
+              onStrategyParamsChange={setStrategyParams}
+              schemaData={schema.data}
+              errorsByLoc={errorsByLoc}
+              isSubmitting={isSubmitting}
+            />
 
-          {serverErrors.length > 0 && (
-            <Alert variant="destructive">
-              <AlertTitle>Backend rejected the config</AlertTitle>
-              <AlertDescription>
-                <ul className="list-disc space-y-1 pl-4">
-                  {serverErrors.map((err, idx) => (
-                    <li key={idx} className="font-mono text-xs">
-                      <strong>{err.loc.join(".")}</strong>: {err.msg}
-                    </li>
-                  ))}
-                </ul>
-              </AlertDescription>
-            </Alert>
-          )}
+            <ServerErrorList errors={serverErrors} />
+            <SubmitFailureAlert mutation={submit} />
 
-          {submit.isError && !(submit.error instanceof SubmitJobError) && (
-            <Alert variant="destructive">
-              <AlertDescription>{submit.error.message}</AlertDescription>
-            </Alert>
-          )}
-
-          <div className="flex justify-end gap-2">
-            <Button type="submit" disabled={isSubmitting || submit.isPending}>
-              {submit.isPending ? "Launching…" : "Launch run"}
-            </Button>
-          </div>
-        </form>
-      </CardContent>
-    </Card>
+            <div className="flex justify-end gap-2">
+              <Button type="submit" disabled={isSubmitting || submit.isPending}>
+                {submit.isPending ? "Launching…" : "Launch run"}
+              </Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
+    </JobsGate>
   );
 }
