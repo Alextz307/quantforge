@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient, type UseQueryResult } from "@tanstack/react-query";
 import { apiClient, useApiQuery, type ApiQueryOptions, type components } from "./client";
 import { extractApiError, extractValidationItems } from "./errors";
-import { API_PATHS, fillPath } from "./paths";
+import { API_PATHS, fillPath, wsUrlFor } from "./paths";
 import { queryKeys } from "./queryKeys";
 
 export type JobRow = components["schemas"]["JobRow"];
@@ -123,7 +123,5 @@ export function jobLogDownloadUrl(jobId: string): string {
 }
 
 export function jobStreamUrl(jobId: string): string {
-  if (typeof window === "undefined") return "";
-  const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-  return `${protocol}//${window.location.host}${fillPath(API_PATHS.jobStream, { job_id: jobId })}`;
+  return wsUrlFor(API_PATHS.jobStream, { job_id: jobId });
 }

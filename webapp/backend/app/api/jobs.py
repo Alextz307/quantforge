@@ -18,13 +18,19 @@ from fastapi import (
 from fastapi.responses import FileResponse
 from starlette.websockets import WebSocketState
 
+from webapp.backend.app.api._ws_auth import (
+    WS_CLOSE_FEATURE_DISABLED,
+    WS_CLOSE_FORBIDDEN,
+    WS_CLOSE_NOT_FOUND,
+    WS_CLOSE_UNAUTHORIZED,
+    resolve_ws_user,
+)
 from webapp.backend.app.core.deps import (
     get_current_user,
     get_db,
     get_job_manager,
     require_jobs_enabled,
 )
-from webapp.backend.app.core.security import SESSION_COOKIE_NAME, SessionCookies
 from webapp.backend.app.core.settings import WebappSettings, get_settings
 from webapp.backend.app.infrastructure.db import open_db
 from webapp.backend.app.infrastructure.job_store import JobNotFoundError
@@ -48,7 +54,6 @@ from webapp.backend.app.services.job_service import (
     list_jobs_for,
     submit_job,
 )
-from webapp.backend.app.services.user_service import get_user
 
 router = APIRouter(
     prefix="/jobs",
@@ -151,20 +156,20 @@ async def stream_job(
     # that take Request fail. Resolve settings/user/broker inline.
     settings = get_settings()
     if not settings.jobs_enabled:
-        await websocket.close(code=4503)
+        await websocket.close(code=WS_CLOSE_FEATURE_DISABLED)
         return
-    user = _resolve_ws_user(websocket)
+    user = resolve_ws_user(websocket)
     if user is None:
-        await websocket.close(code=4401)
+        await websocket.close(code=WS_CLOSE_UNAUTHORIZED)
         return
     with open_db() as conn:
         try:
             job = get_job_for(conn, user=user, job_id=job_id)
         except JobNotFoundError:
-            await websocket.close(code=4404)
+            await websocket.close(code=WS_CLOSE_NOT_FOUND)
             return
         except JobNotOwnedError:
-            await websocket.close(code=4403)
+            await websocket.close(code=WS_CLOSE_FORBIDDEN)
             return
 
     broker: JobEventBroker = websocket.app.state.job_broker
@@ -191,16 +196,3 @@ async def stream_job(
         return
     finally:
         await broker.unsubscribe(job_id, queue)
-
-
-def _resolve_ws_user(websocket: WebSocket) -> UserPublic | None:
-    """WebSocket-side equivalent of ``get_optional_user`` (no Response for cookie refresh)."""
-    sessions: SessionCookies = websocket.app.state.sessions
-    token = websocket.cookies.get(SESSION_COOKIE_NAME)
-    if not token:
-        return None
-    user_id = sessions.decode(token)
-    if user_id is None:
-        return None
-    with open_db() as conn:
-        return get_user(conn, user_id)

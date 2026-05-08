@@ -37,6 +37,12 @@ const HpoDetailPage = lazy(() =>
 const ConfigurePage = lazy(() =>
   import("@/pages/ConfigurePage").then((m) => ({ default: m.ConfigurePage })),
 );
+const ConfigureLandingPage = lazy(() =>
+  import("@/pages/ConfigureLandingPage").then((m) => ({ default: m.ConfigureLandingPage })),
+);
+const ConfigureTunePage = lazy(() =>
+  import("@/pages/ConfigureTunePage").then((m) => ({ default: m.ConfigureTunePage })),
+);
 const JobDetailPage = lazy(() =>
   import("@/pages/JobDetailPage").then((m) => ({ default: m.JobDetailPage })),
 );
@@ -67,7 +73,23 @@ export function App() {
           path={ROUTES.configure}
           element={
             <Suspense fallback={<ChartFallback />}>
+              <ConfigureLandingPage />
+            </Suspense>
+          }
+        />
+        <Route
+          path={ROUTES.configureRun}
+          element={
+            <Suspense fallback={<ChartFallback />}>
               <ConfigurePage />
+            </Suspense>
+          }
+        />
+        <Route
+          path={ROUTES.configureTune}
+          element={
+            <Suspense fallback={<ChartFallback />}>
+              <ConfigureTunePage />
             </Suspense>
           }
         />

@@ -44,37 +44,84 @@ export const parseStringList = (input: string): string[] =>
     .map((t) => t.trim())
     .filter((t) => t.length > 0);
 
-export const configureFormSchema = z
-  .object({
-    name: z
-      .string()
-      .min(1, "Name is required")
-      .max(NAME_MAX, `Name must be at most ${String(NAME_MAX)} characters`),
-    seed: z.coerce.number().int().min(SEED_MIN).default(DEFAULT_SEED),
-    tickers: z
-      .string()
-      .min(1, "At least one ticker is required")
-      .refine((v) => parseStringList(v).length > 0, "At least one ticker is required"),
-    start: z.string().regex(ISO_DATE_REGEX, "Start must be YYYY-MM-DD"),
-    end: z.string().regex(ISO_DATE_REGEX, "End must be YYYY-MM-DD"),
-    interval: z.enum(INTERVAL_VALUES).default("daily"),
-    strategyName: z.string().min(1, "Strategy is required"),
-    nSplits: z.coerce.number().int().min(N_SPLITS_MIN).max(N_SPLITS_MAX).default(DEFAULT_N_SPLITS),
-    testSize: z.coerce
-      .number()
-      .int()
-      .min(TEST_SIZE_MIN)
-      .max(TEST_SIZE_MAX)
-      .default(DEFAULT_TEST_SIZE),
-    gap: z.coerce.number().int().min(GAP_MIN).max(GAP_MAX).default(DEFAULT_GAP),
-    expanding: z.boolean().default(true),
-  })
-  .refine((v) => new Date(v.start) < new Date(v.end), {
-    message: "Start must be strictly before end",
-    path: ["end"],
-  });
+// Pure object shape — no cross-field refinement, so consumers can ``.extend()``
+// it before applying their own ``.refine()`` (Zod's ``ZodEffects`` doesn't
+// support ``.extend``). The Tune form reuses this exact base.
+export const experimentBaseSchema = z.object({
+  name: z
+    .string()
+    .min(1, "Name is required")
+    .max(NAME_MAX, `Name must be at most ${String(NAME_MAX)} characters`),
+  seed: z.coerce.number().int().min(SEED_MIN).default(DEFAULT_SEED),
+  tickers: z
+    .string()
+    .min(1, "At least one ticker is required")
+    .refine((v) => parseStringList(v).length > 0, "At least one ticker is required"),
+  start: z.string().regex(ISO_DATE_REGEX, "Start must be YYYY-MM-DD"),
+  end: z.string().regex(ISO_DATE_REGEX, "End must be YYYY-MM-DD"),
+  interval: z.enum(INTERVAL_VALUES).default("daily"),
+  strategyName: z.string().min(1, "Strategy is required"),
+  nSplits: z.coerce.number().int().min(N_SPLITS_MIN).max(N_SPLITS_MAX).default(DEFAULT_N_SPLITS),
+  testSize: z.coerce
+    .number()
+    .int()
+    .min(TEST_SIZE_MIN)
+    .max(TEST_SIZE_MAX)
+    .default(DEFAULT_TEST_SIZE),
+  gap: z.coerce.number().int().min(GAP_MIN).max(GAP_MAX).default(DEFAULT_GAP),
+  expanding: z.boolean().default(true),
+});
+
+export const startBeforeEndRefinement = {
+  predicate: (v: { start: string; end: string }) => new Date(v.start) < new Date(v.end),
+  message: "Start must be strictly before end",
+  path: ["end"] as const,
+};
+
+export const configureFormSchema = experimentBaseSchema.refine(startBeforeEndRefinement.predicate, {
+  message: startBeforeEndRefinement.message,
+  path: [...startBeforeEndRefinement.path],
+});
 
 export type ConfigureFormValues = z.infer<typeof configureFormSchema>;
+
+export const EXPERIMENT_FORM_DEFAULTS: ConfigureFormValues = {
+  name: "",
+  seed: DEFAULT_SEED,
+  tickers: "",
+  start: "",
+  end: "",
+  interval: "daily",
+  strategyName: "",
+  nSplits: DEFAULT_N_SPLITS,
+  testSize: DEFAULT_TEST_SIZE,
+  gap: DEFAULT_GAP,
+  expanding: true,
+};
+
+export interface StrategySchemaParam {
+  name: string;
+  required: boolean;
+}
+
+export interface MissingParamItem {
+  loc: string[];
+  msg: string;
+  type: string;
+}
+
+export function findMissingStrategyParams(
+  params: readonly StrategySchemaParam[],
+  values: Readonly<Record<string, unknown>>,
+): MissingParamItem[] {
+  return params
+    .filter((p) => p.required && values[p.name] === undefined)
+    .map((p) => ({
+      loc: ["strategy", "params", p.name],
+      msg: "field required",
+      type: "missing",
+    }));
+}
 
 export type ExperimentPayload = Record<string, unknown> & {
   name: string;

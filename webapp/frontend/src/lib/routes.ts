@@ -1,6 +1,8 @@
 export const ROUTES = {
   login: "/login",
   configure: "/configure",
+  configureRun: "/configure/run",
+  configureTune: "/configure/tune",
   jobs: "/jobs",
   jobDetail: "/jobs/:jobId",
   runs: "/runs",

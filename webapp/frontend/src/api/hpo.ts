@@ -7,7 +7,7 @@ import {
   type ApiQueryOptions,
   type components,
 } from "./client";
-import { API_PATHS } from "./paths";
+import { API_PATHS, wsUrlFor } from "./paths";
 import { queryKeys } from "./queryKeys";
 
 export type HpoSummary = components["schemas"]["HpoSummary"];
@@ -63,5 +63,13 @@ export function usePrefetchHpoStudy(): (name: string) => void {
       void prefetchApiQuery(qc, hpoStudyConfig(name));
     },
     [qc],
+  );
+}
+
+export function hpoStreamUrl(name: string, afterTrial?: number): string {
+  return wsUrlFor(
+    API_PATHS.hpoStream,
+    { name },
+    afterTrial !== undefined ? { after_trial: afterTrial } : undefined,
   );
 }

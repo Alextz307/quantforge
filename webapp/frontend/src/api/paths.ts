@@ -20,6 +20,7 @@ export const API_PATHS = {
   hpoStudies: "/api/hpo",
   hpoStudy: "/api/hpo/{name}",
   hpoTrials: "/api/hpo/{name}/trials",
+  hpoStream: "/api/hpo/{name}/stream",
   jobs: "/api/jobs",
   job: "/api/jobs/{job_id}",
   jobLog: "/api/jobs/{job_id}/log",
@@ -45,4 +46,21 @@ export function fillPath(template: string, params: Readonly<Record<string, strin
     if (value === undefined) throw new Error(`Missing path param '${key}' for '${template}'`);
     return encodeURIComponent(value);
   });
+}
+
+export function wsUrlFor(
+  template: string,
+  params: Readonly<Record<string, string>>,
+  query?: Readonly<Record<string, string | number>>,
+): string {
+  if (typeof window === "undefined") return "";
+  const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+  const path = fillPath(template, params);
+  const qs = query
+    ? "?" +
+      Object.entries(query)
+        .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`)
+        .join("&")
+    : "";
+  return `${protocol}//${window.location.host}${path}${qs}`;
 }

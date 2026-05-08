@@ -34,3 +34,14 @@ export function extractApiError(error: unknown, fallback: string): string {
   }
   return fallback;
 }
+
+export interface LocatedError {
+  loc: readonly (string | number)[];
+  msg: string;
+}
+
+export function buildErrorIndex(errors: readonly LocatedError[]): ReadonlyMap<string, string> {
+  const out = new Map<string, string>();
+  for (const err of errors) out.set(err.loc.join("."), err.msg);
+  return out;
+}

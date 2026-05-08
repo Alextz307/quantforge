@@ -1,10 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useMemo } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import type { JobRow, JobStatus } from "@/api/jobs";
 import { isTerminalStatus, jobLogDownloadUrl, jobStreamUrl } from "@/api/jobs";
 import { queryKeys } from "@/api/queryKeys";
-
-export type ConnectionState = "connecting" | "open" | "closed" | "error";
+import { useEventStream, type ConnectionState } from "@/hooks/useEventStream";
 
 export interface JobStreamSnapshot {
   logs: readonly string[];
@@ -25,37 +24,21 @@ interface StatusFrame {
 
 type StreamFrame = LogFrame | StatusFrame;
 
-const RECONNECT_DELAYS_MS = [250, 500, 1000] as const;
-
 /**
- * Native WebSocket subscription to /api/jobs/{id}/stream with bounded
- * exponential-backoff reconnect.
- *
- * Side-effects on status frames:
- *   - Patches the per-job cache via setQueryData (cheaper than refetching
- *     the row we already received from the broker). The updater short-
- *     circuits on identical status to avoid waking observers on no-op
- *     heartbeats.
- *   - Invalidates the jobs list only on terminal status — the running
- *     ``useJobs`` poll already keeps the list fresh while jobs are open.
- *   - On a terminal-completed status with an experiment_id, invalidates
- *     the runs list so the freshly-finished run appears in /runs.
+ * Subscribes to /api/jobs/{id}/stream and patches the per-job + jobs-list
+ * caches:
+ *   - patches the per-job cache via setQueryData on every status frame;
+ *   - invalidates the jobs list only on terminal status (the running ``useJobs``
+ *     poll keeps the list fresh while jobs are open);
+ *   - on a terminal-completed status with an experiment_id, invalidates the
+ *     runs list so the freshly-finished run appears in /runs.
  */
 export function useJobStream(jobId: string, initialStatus: JobStatus): JobStreamSnapshot {
   const qc = useQueryClient();
-  const [logs, setLogs] = useState<string[]>([]);
-  const [connection, setConnection] = useState<ConnectionState>(
-    isTerminalStatus(initialStatus) ? "closed" : "connecting",
-  );
-  // Latest known status survives reconnects so a re-open after terminal stays closed.
-  const latestStatus = useRef<JobStatus>(initialStatus);
-  const retryAttempt = useRef<number>(0);
-  const reconnectTimer = useRef<number | null>(null);
-  const ws = useRef<WebSocket | null>(null);
+  const enabled = !isTerminalStatus(initialStatus);
 
   const handleStatus = useCallback(
     (frame: StatusFrame) => {
-      latestStatus.current = frame.status;
       qc.setQueryData<JobRow>(queryKeys.job(jobId), (prev) => {
         if (!prev) return prev;
         const nextExitCode = frame.exit_code ?? prev.exit_code;
@@ -84,97 +67,22 @@ export function useJobStream(jobId: string, initialStatus: JobStatus): JobStream
     [jobId, qc],
   );
 
-  useEffect(() => {
-    if (isTerminalStatus(initialStatus)) {
-      // Terminal at mount: backfill from the persisted log file.
-      setConnection("closed");
-      const controller = new AbortController();
-      void (async () => {
-        try {
-          const resp = await fetch(jobLogDownloadUrl(jobId), {
-            credentials: "include",
-            signal: controller.signal,
-          });
-          if (!resp.ok) return;
-          const text = await resp.text();
-          const lines = text.split("\n");
-          if (lines.length > 0 && lines[lines.length - 1] === "") lines.pop();
-          setLogs(lines);
-        } catch {
-          // abort or network failure
-        }
-      })();
-      return () => {
-        controller.abort();
-      };
-    }
+  const { frames, connection } = useEventStream<StreamFrame>({
+    url: jobStreamUrl(jobId),
+    parseFrame,
+    enabled,
+    onFrame: (frame) => {
+      if (frame.type === "status") handleStatus(frame);
+    },
+    shouldClose: (frame) => frame.type === "status" && isTerminalStatus(frame.status),
+    backfillUrl: jobLogDownloadUrl(jobId),
+    backfillParse: parseLogBackfill,
+  });
 
-    let disposed = false;
-
-    const connect = () => {
-      if (disposed) return;
-      const socket = new WebSocket(jobStreamUrl(jobId));
-      ws.current = socket;
-      setConnection("connecting");
-
-      socket.onopen = () => {
-        retryAttempt.current = 0;
-        setConnection("open");
-      };
-
-      socket.onmessage = (event: MessageEvent<string>) => {
-        const frame = parseFrame(event.data);
-        if (!frame) return;
-        if (frame.type === "log") {
-          setLogs((prev) => [...prev, frame.line]);
-        } else {
-          handleStatus(frame);
-          if (isTerminalStatus(frame.status)) {
-            socket.close();
-          }
-        }
-      };
-
-      socket.onerror = () => {
-        setConnection("error");
-      };
-
-      socket.onclose = () => {
-        ws.current = null;
-        if (disposed) return;
-        if (isTerminalStatus(latestStatus.current)) {
-          setConnection("closed");
-          return;
-        }
-        const delay = RECONNECT_DELAYS_MS[retryAttempt.current];
-        if (delay === undefined) {
-          setConnection("error");
-          return;
-        }
-        retryAttempt.current += 1;
-        reconnectTimer.current = window.setTimeout(connect, delay);
-      };
-    };
-
-    connect();
-
-    return () => {
-      disposed = true;
-      if (reconnectTimer.current !== null) {
-        window.clearTimeout(reconnectTimer.current);
-        reconnectTimer.current = null;
-      }
-      if (ws.current) {
-        ws.current.onclose = null;
-        ws.current.onmessage = null;
-        ws.current.onerror = null;
-        ws.current.onopen = null;
-        ws.current.close();
-        ws.current = null;
-      }
-    };
-  }, [jobId, initialStatus, handleStatus]);
-
+  const logs = useMemo(
+    () => frames.filter((f): f is LogFrame => f.type === "log").map((f) => f.line),
+    [frames],
+  );
   return { logs, connection };
 }
 
@@ -199,4 +107,10 @@ function parseFrame(raw: string): StreamFrame | null {
     };
   }
   return null;
+}
+
+function parseLogBackfill(text: string): readonly LogFrame[] {
+  const lines = text.split("\n");
+  if (lines.length > 0 && lines[lines.length - 1] === "") lines.pop();
+  return lines.map((line) => ({ type: "log", line }));
 }

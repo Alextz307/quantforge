@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { cn } from "@/lib/cn";
-import type { ConnectionState } from "@/hooks/useJobStream";
+import type { ConnectionState } from "@/hooks/useEventStream";
 
 interface LogPaneProps {
   lines: readonly string[];

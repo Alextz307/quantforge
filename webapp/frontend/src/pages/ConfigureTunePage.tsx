@@ -6,6 +6,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ExperimentFieldsSection } from "@/components/forms/ExperimentFieldsSection";
+import { HpoFieldsSection } from "@/components/forms/HpoFieldsSection";
 import { SubmitJobError, useSubmitJob, type ValidationErrorItem } from "@/api/jobs";
 import { buildErrorIndex } from "@/api/errors";
 import { useValidateConfig } from "@/api/configs";
@@ -13,20 +14,29 @@ import { usePublicSettings } from "@/api/settings";
 import { useStrategySchema } from "@/api/strategies";
 import { jobDetailPath } from "@/lib/routes";
 import {
-  configureFormSchema,
   EXPERIMENT_FORM_DEFAULTS,
   findMissingStrategyParams,
   toExperimentPayload,
-  type ConfigureFormValues,
 } from "@/lib/schemas/configureForm";
+import {
+  configureTuneFormSchema,
+  HPO_FORM_DEFAULTS,
+  toHpoPayload,
+  type ConfigureTuneFormValues,
+} from "@/lib/schemas/configureTuneForm";
 
-export function ConfigurePage() {
+const DEFAULT_FORM_VALUES: ConfigureTuneFormValues = {
+  ...EXPERIMENT_FORM_DEFAULTS,
+  ...HPO_FORM_DEFAULTS,
+};
+
+export function ConfigureTunePage() {
   const navigate = useNavigate();
   const settings = usePublicSettings();
 
-  const form = useForm<ConfigureFormValues>({
-    resolver: zodResolver(configureFormSchema),
-    defaultValues: EXPERIMENT_FORM_DEFAULTS,
+  const form = useForm<ConfigureTuneFormValues>({
+    resolver: zodResolver(configureTuneFormSchema),
+    defaultValues: DEFAULT_FORM_VALUES,
   });
   const {
     register,
@@ -39,8 +49,6 @@ export function ConfigurePage() {
   const strategyName = watch("strategyName");
   const schema = useStrategySchema(strategyName || null);
   const [strategyParams, setStrategyParams] = useState<Record<string, unknown>>({});
-  // Gate on ``qualname`` (string) so background refetches that return the
-  // same schema don't nuke user edits in flight.
   const schemaQualname = schema.data?.qualname;
   useEffect(() => {
     setStrategyParams({ ...(schema.data?.canonical_params ?? {}) });
@@ -52,7 +60,7 @@ export function ConfigurePage() {
   const [serverErrors, setServerErrors] = useState<readonly ValidationErrorItem[]>([]);
   const errorsByLoc = useMemo(() => buildErrorIndex(serverErrors), [serverErrors]);
 
-  const onSubmit: SubmitHandler<ConfigureFormValues> = async (values) => {
+  const onSubmit: SubmitHandler<ConfigureTuneFormValues> = async (values) => {
     setServerErrors([]);
     if (schema.data) {
       const missing = findMissingStrategyParams(schema.data.params, strategyParams);
@@ -61,16 +69,29 @@ export function ConfigurePage() {
         return;
       }
     }
-    const payload = toExperimentPayload(values, strategyParams);
-    const validation = await validate.mutateAsync({ kind: "experiment", payload });
-    if (!validation.valid) {
-      setServerErrors(validation.errors);
+    const experimentPayload = toExperimentPayload(values, strategyParams);
+    const hpoPayload = toHpoPayload(values);
+
+    // Validate experiment + hpo in parallel; surface experiment errors first
+    // (users edit the experiment block more often than the tune knobs).
+    const [expValidation, hpoValidation] = await Promise.all([
+      validate.mutateAsync({ kind: "experiment", payload: experimentPayload }),
+      validate.mutateAsync({ kind: "hpo", payload: hpoPayload }),
+    ]);
+    if (!expValidation.valid) {
+      setServerErrors(expValidation.errors);
       return;
     }
+    if (!hpoValidation.valid) {
+      setServerErrors(hpoValidation.errors.map((e) => ({ ...e, loc: ["hpo_payload", ...e.loc] })));
+      return;
+    }
+
     try {
       const job = await submit.mutateAsync({
-        kind: "run",
-        config_payload: payload,
+        kind: "tune",
+        config_payload: experimentPayload,
+        hpo_payload: hpoPayload,
         overrides: [],
       });
       navigate(jobDetailPath(job.id));
@@ -92,7 +113,7 @@ export function ConfigurePage() {
         <AlertTitle>Job execution is disabled</AlertTitle>
         <AlertDescription>
           Set <code className="font-mono">WEBAPP_JOBS_ENABLED=true</code> and restart the backend to
-          enable launching new runs from the UI.
+          enable launching new tune studies from the UI.
         </AlertDescription>
       </Alert>
     );
@@ -101,10 +122,10 @@ export function ConfigurePage() {
   return (
     <Card className="max-w-4xl">
       <CardHeader>
-        <CardTitle>Configure run</CardTitle>
+        <CardTitle>Configure tune</CardTitle>
         <CardDescription>
-          Build an experiment config and launch it as a background job. Server-side validation
-          mirrors the YAML rules used by the CLI.
+          Optuna study over the strategy's <code className="font-mono">suggest_params</code> space.
+          The same experiment fields below are reused inside every trial.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -119,6 +140,8 @@ export function ConfigurePage() {
             errorsByLoc={errorsByLoc}
             isSubmitting={isSubmitting}
           />
+
+          <HpoFieldsSection register={register} errors={errors} isSubmitting={isSubmitting} />
 
           {serverErrors.length > 0 && (
             <Alert variant="destructive">
@@ -143,7 +166,7 @@ export function ConfigurePage() {
 
           <div className="flex justify-end gap-2">
             <Button type="submit" disabled={isSubmitting || submit.isPending}>
-              {submit.isPending ? "Launching…" : "Launch run"}
+              {submit.isPending ? "Launching…" : "Launch tune"}
             </Button>
           </div>
         </form>
