@@ -481,6 +481,17 @@
           "direction": {
             "$ref": "#/components/schemas/StudyDirection"
           },
+          "live_job_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Live Job Id"
+          },
           "n_complete": {
             "title": "N Complete",
             "type": "integer"
@@ -507,7 +518,8 @@
           "best_value",
           "best_trial_number",
           "direction",
-          "best_config"
+          "best_config",
+          "live_job_id"
         ],
         "title": "HpoDetail",
         "type": "object"
@@ -576,7 +588,8 @@
       },
       "JobKind": {
         "enum": [
-          "run"
+          "run",
+          "tune"
         ],
         "title": "JobKind",
         "type": "string"
@@ -692,6 +705,19 @@
             "minProperties": 1,
             "title": "Config Payload",
             "type": "object"
+          },
+          "hpo_payload": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "minProperties": 1,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hpo Payload"
           },
           "kind": {
             "$ref": "#/components/schemas/JobKind"

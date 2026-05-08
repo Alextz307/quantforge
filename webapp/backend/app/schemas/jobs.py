@@ -4,13 +4,14 @@ from __future__ import annotations
 
 from datetime import datetime
 from enum import StrEnum
-from typing import Annotated, Literal
+from typing import Annotated, Literal, Self
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class JobKind(StrEnum):
     RUN = "run"
+    TUNE = "tune"
 
 
 class JobStatus(StrEnum):
@@ -29,7 +30,16 @@ TERMINAL_STATUSES: frozenset[JobStatus] = frozenset(
 class JobSubmission(BaseModel):
     kind: JobKind
     config_payload: dict[str, object] = Field(min_length=1)
+    hpo_payload: dict[str, object] | None = Field(default=None, min_length=1)
     overrides: list[str] = Field(default_factory=list, max_length=64)
+
+    @model_validator(mode="after")
+    def _validate_hpo_payload(self) -> Self:
+        if self.kind is JobKind.TUNE and self.hpo_payload is None:
+            raise ValueError("hpo_payload is required when kind='tune'")
+        if self.kind is JobKind.RUN and self.hpo_payload is not None:
+            raise ValueError("hpo_payload must be omitted when kind='run'")
+        return self
 
 
 class JobRow(BaseModel):

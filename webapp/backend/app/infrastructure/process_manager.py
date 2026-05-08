@@ -1,8 +1,9 @@
-"""Spawn + supervise CLI subprocesses; fan-out log + status frames to WS clients."""
+"""Spawn + supervise CLI subprocesses; fan-out log + status + trial frames to WS clients."""
 
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import signal
 import subprocess
@@ -13,10 +14,13 @@ from pathlib import Path
 
 from src.core import json_io
 from src.core.fs import ensure_parent_dir
-from src.core.persistence import EXPERIMENT_MANIFEST_JSON
+from src.core.persistence import EXPERIMENT_MANIFEST_JSON, HPO_SUBDIR
+from webapp.backend.app.infrastructure.event_broker import EventBroker
 from webapp.backend.app.infrastructure.log_tailer import tail_log
 from webapp.backend.app.infrastructure.store import iter_run_dirs
+from webapp.backend.app.schemas.hpo import TrialFrame
 from webapp.backend.app.schemas.jobs import (
+    JobKind,
     JobLogFrame,
     JobStatus,
     JobStatusFrame,
@@ -28,48 +32,26 @@ CANCEL_GRACE_SECONDS = 10.0
 logger = logging.getLogger(__name__)
 
 
+JobEventBroker = EventBroker[JobStreamFrame]
+HpoEventBroker = EventBroker[TrialFrame]
+
+
 OnCompleteCallback = Callable[[str, JobStatus, int | None, str | None], Awaitable[None]]
 
 
-class JobEventBroker:
-    """Per-job pub/sub; queues unbounded so a slow client can't backpressure the producer."""
+@dataclass(frozen=True)
+class TrialTailSpec:
+    """Inputs the trials.jsonl tailer needs to publish ``TrialFrame``s."""
 
-    def __init__(self) -> None:
-        self._subscribers: dict[str, list[asyncio.Queue[JobStreamFrame | None]]] = {}
-        self._lock = asyncio.Lock()
-
-    async def subscribe(self, job_id: str) -> asyncio.Queue[JobStreamFrame | None]:
-        async with self._lock:
-            queue: asyncio.Queue[JobStreamFrame | None] = asyncio.Queue()
-            self._subscribers.setdefault(job_id, []).append(queue)
-            return queue
-
-    async def unsubscribe(self, job_id: str, queue: asyncio.Queue[JobStreamFrame | None]) -> None:
-        async with self._lock:
-            queues = self._subscribers.get(job_id)
-            if queues is not None and queue in queues:
-                queues.remove(queue)
-                if not queues:
-                    del self._subscribers[job_id]
-
-    async def publish(self, job_id: str, frame: JobStreamFrame) -> None:
-        async with self._lock:
-            queues = list(self._subscribers.get(job_id, []))
-        for queue in queues:
-            queue.put_nowait(frame)
-
-    async def close(self, job_id: str) -> None:
-        async with self._lock:
-            queues = self._subscribers.pop(job_id, [])
-        for queue in queues:
-            queue.put_nowait(None)
+    study_name: str
+    trial_jsonl_path: Path
 
 
 @dataclass
 class _RunningProcess:
     process: subprocess.Popen[bytes]
     watch_task: asyncio.Task[None]
-    tail_task: asyncio.Task[None]
+    tail_tasks: tuple[asyncio.Task[None], ...]
     stop_event: asyncio.Event
 
 
@@ -89,8 +71,29 @@ def build_run_command(*, config_path: Path, job_id: str, store_root: Path) -> tu
     )
 
 
-def _resolve_experiment_id(store_root: Path, job_id: str) -> str | None:
-    """Resolve a finished job's run dir basename by scanning manifests for ``name == job_id``."""
+def build_tune_command(
+    *,
+    experiment_config_path: Path,
+    hpo_config_path: Path,
+    store_root: Path,
+) -> tuple[str, ...]:
+    return (
+        sys.executable,
+        "-m",
+        "scripts.experiment",
+        "tune",
+        "--config",
+        str(experiment_config_path),
+        "--hpo-config",
+        str(hpo_config_path),
+        "--store-root",
+        str(store_root),
+        "--no-progress",
+    )
+
+
+def _resolve_run_experiment_id(store_root: Path, job_id: str) -> str | None:
+    """Scan run manifests for ``manifest.name == job_id``."""
     for run_dir in iter_run_dirs(store_root):
         try:
             manifest = json_io.read_dict(run_dir / EXPERIMENT_MANIFEST_JSON)
@@ -101,20 +104,52 @@ def _resolve_experiment_id(store_root: Path, job_id: str) -> str | None:
     return None
 
 
+def _resolve_tune_experiment_id(store_root: Path, study_name: str) -> str | None:
+    """For TUNE jobs the experiment_id IS the study_name once the dir exists."""
+    if (store_root / HPO_SUBDIR / study_name).is_dir():
+        return study_name
+    return None
+
+
+def _resolve_experiment_id(
+    kind: JobKind,
+    store_root: Path,
+    job_id: str,
+    study_name: str | None,
+) -> str | None:
+    """Single dispatch for "which artifact directory belongs to this finished job?"."""
+    if kind is JobKind.RUN:
+        return _resolve_run_experiment_id(store_root, job_id)
+    if kind is JobKind.TUNE:
+        if study_name is None:
+            return None
+        return _resolve_tune_experiment_id(store_root, study_name)
+    return None
+
+
 class ProcessManager:
-    def __init__(self, broker: JobEventBroker, on_complete: OnCompleteCallback) -> None:
+    def __init__(
+        self,
+        broker: JobEventBroker,
+        on_complete: OnCompleteCallback,
+        *,
+        hpo_broker: HpoEventBroker | None = None,
+    ) -> None:
         self._broker = broker
         self._on_complete = on_complete
+        self._hpo_broker = hpo_broker
         self._running: dict[str, _RunningProcess] = {}
 
     async def spawn(
         self,
         *,
         job_id: str,
+        kind: JobKind,
         command: tuple[str, ...],
         log_path: Path,
         store_root: Path,
         cwd: Path | None = None,
+        trial_tail: TrialTailSpec | None = None,
     ) -> int:
         # buffering=0 + dup'd FD: child writes raw, parent closes immediately so
         # the tailer sees lines as soon as the child flushes.
@@ -130,12 +165,24 @@ class ProcessManager:
         finally:
             log_handle.close()
         stop_event = asyncio.Event()
-        watch_task = asyncio.create_task(self._watch(job_id, process, stop_event, store_root))
-        tail_task = asyncio.create_task(self._tail(job_id, log_path, stop_event))
+        study_name = trial_tail.study_name if trial_tail is not None else None
+        watch_task = asyncio.create_task(
+            self._watch(job_id, kind, process, stop_event, store_root, study_name)
+        )
+        log_tail_task = asyncio.create_task(self._tail(job_id, log_path, stop_event))
+        tail_tasks: list[asyncio.Task[None]] = [log_tail_task]
+        if trial_tail is not None and self._hpo_broker is not None:
+            tail_tasks.append(
+                asyncio.create_task(
+                    self._tail_trials(
+                        trial_tail.study_name, trial_tail.trial_jsonl_path, stop_event
+                    )
+                )
+            )
         self._running[job_id] = _RunningProcess(
             process=process,
             watch_task=watch_task,
-            tail_task=tail_task,
+            tail_tasks=tuple(tail_tasks),
             stop_event=stop_event,
         )
         return process.pid
@@ -171,9 +218,9 @@ class ProcessManager:
                 except ProcessLookupError:
                     pass
             proc.stop_event.set()
-            for task in (proc.watch_task, proc.tail_task):
+            for task in (proc.watch_task, *proc.tail_tasks):
                 task.cancel()
-            for task in (proc.watch_task, proc.tail_task):
+            for task in (proc.watch_task, *proc.tail_tasks):
                 try:
                     await task
                 except (asyncio.CancelledError, Exception):  # noqa: BLE001
@@ -184,9 +231,11 @@ class ProcessManager:
     async def _watch(
         self,
         job_id: str,
+        kind: JobKind,
         process: subprocess.Popen[bytes],
         stop_event: asyncio.Event,
         store_root: Path,
+        study_name: str | None,
     ) -> None:
         try:
             exit_code = await asyncio.to_thread(process.wait)
@@ -197,11 +246,16 @@ class ProcessManager:
         # the last poll and process exit.
         await asyncio.sleep(0)
         stop_event.set()
-        try:
-            await self._running[job_id].tail_task
-        except (KeyError, asyncio.CancelledError):
-            pass
-        experiment_id = await asyncio.to_thread(_resolve_experiment_id, store_root, job_id)
+        running = self._running.get(job_id)
+        if running is not None:
+            for task in running.tail_tasks:
+                try:
+                    await task
+                except asyncio.CancelledError:
+                    pass
+        experiment_id = await asyncio.to_thread(
+            _resolve_experiment_id, kind, store_root, job_id, study_name
+        )
         status = self._classify_exit(exit_code)
         try:
             await self._on_complete(job_id, status, exit_code, experiment_id)
@@ -212,6 +266,8 @@ class ProcessManager:
             JobStatusFrame(status=status, exit_code=exit_code, experiment_id=experiment_id),
         )
         await self._broker.close(job_id)
+        if study_name is not None and self._hpo_broker is not None:
+            await self._hpo_broker.close(study_name)
         self._running.pop(job_id, None)
 
     async def _tail(self, job_id: str, log_path: Path, stop_event: asyncio.Event) -> None:
@@ -222,6 +278,40 @@ class ProcessManager:
             raise
         except Exception:
             logger.exception("log tailer crashed for job %s", job_id)
+
+    async def _tail_trials(
+        self,
+        study_name: str,
+        trial_jsonl_path: Path,
+        stop_event: asyncio.Event,
+    ) -> None:
+        # Defer the import: hpo_service pulls in optuna + reporters via its
+        # transitive imports, and most processes don't tune.
+        from webapp.backend.app.services.hpo_service import trial_row_from_record
+
+        broker = self._hpo_broker
+        if broker is None:
+            return
+        try:
+            async for line in tail_log(trial_jsonl_path, stop=stop_event):
+                if not line.strip():
+                    continue
+                try:
+                    parsed = json.loads(line)
+                except json.JSONDecodeError:
+                    logger.warning("malformed trials.jsonl line for study %s: %r", study_name, line)
+                    continue
+                if not isinstance(parsed, dict):
+                    logger.warning(
+                        "non-object trials.jsonl line for study %s: %r", study_name, line
+                    )
+                    continue
+                row = trial_row_from_record(parsed)
+                await broker.publish(study_name, TrialFrame(trial=row))
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.exception("trial tailer crashed for study %s", study_name)
 
     @staticmethod
     def _classify_exit(exit_code: int) -> JobStatus:

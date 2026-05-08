@@ -397,6 +397,7 @@ export const HPO_DEMO_DETAIL: HpoDetail = {
     seed: 42,
     strategy: { name: "AdaptiveBollinger", params: { window: 30, k: 2.0 } },
   },
+  live_job_id: null,
 };
 
 export const HPO_DEMO_TRIALS: TrialRow[] = [

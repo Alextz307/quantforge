@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from enum import StrEnum
+from typing import Literal
 
 from pydantic import BaseModel
 
@@ -51,3 +52,11 @@ class HpoDetail(BaseModel):
     best_trial_number: int | None
     direction: StudyDirection
     best_config: dict[str, object]
+    live_job_id: str | None
+
+
+class TrialFrame(BaseModel):
+    """WebSocket frame published whenever a new trial lands in ``trials.jsonl``."""
+
+    type: Literal["trial"] = "trial"
+    trial: TrialRow

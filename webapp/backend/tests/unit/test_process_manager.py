@@ -16,6 +16,7 @@ from webapp.backend.app.infrastructure.process_manager import (
     _resolve_experiment_id,
 )
 from webapp.backend.app.schemas.jobs import (
+    JobKind,
     JobLogFrame,
     JobStatus,
     JobStatusFrame,
@@ -61,7 +62,9 @@ def test_spawn_streams_logs_and_completes(tmp_path: Path) -> None:
         manager = ProcessManager(broker, on_complete=on_complete)
         queue = await broker.subscribe(JOB_ID)
         cmd = (sys.executable, "-c", "print('hello'); print('world')")
-        await manager.spawn(job_id=JOB_ID, command=cmd, log_path=log_path, store_root=tmp_path)
+        await manager.spawn(
+            job_id=JOB_ID, kind=JobKind.RUN, command=cmd, log_path=log_path, store_root=tmp_path
+        )
         frames = await _drain_queue(queue)
         return _split(frames)
 
@@ -91,7 +94,9 @@ def test_cancel_sigterms_running_process(tmp_path: Path) -> None:
         manager = ProcessManager(broker, on_complete=on_complete)
         queue = await broker.subscribe(JOB_ID)
         cmd = (sys.executable, "-c", f"import time; time.sleep({CANCEL_SLEEP_SECONDS})")
-        await manager.spawn(job_id=JOB_ID, command=cmd, log_path=log_path, store_root=tmp_path)
+        await manager.spawn(
+            job_id=JOB_ID, kind=JobKind.RUN, command=cmd, log_path=log_path, store_root=tmp_path
+        )
         await asyncio.sleep(0.2)
         cancelled = await manager.cancel(JOB_ID)
         assert cancelled is True
@@ -120,7 +125,9 @@ def test_failed_exit_code_classified_as_failed(tmp_path: Path) -> None:
         manager = ProcessManager(broker, on_complete=on_complete)
         queue = await broker.subscribe(JOB_ID)
         cmd = (sys.executable, "-c", "import sys; sys.exit(2)")
-        await manager.spawn(job_id=JOB_ID, command=cmd, log_path=log_path, store_root=tmp_path)
+        await manager.spawn(
+            job_id=JOB_ID, kind=JobKind.RUN, command=cmd, log_path=log_path, store_root=tmp_path
+        )
         frames = await _drain_queue(queue)
         _, statuses = _split(frames)
         return statuses[-1]
@@ -140,12 +147,24 @@ def test_resolve_experiment_id_finds_run_by_name(tmp_path: Path) -> None:
         {"name": JOB_ID, "experiment_id": expected_id},
     )
 
-    assert _resolve_experiment_id(tmp_path, JOB_ID) == expected_id
-    assert _resolve_experiment_id(tmp_path, "other-job") is None
+    assert _resolve_experiment_id(JobKind.RUN, tmp_path, JOB_ID, None) == expected_id
+    assert _resolve_experiment_id(JobKind.RUN, tmp_path, "other-job", None) is None
 
 
 def test_resolve_experiment_id_returns_none_when_runs_dir_absent(tmp_path: Path) -> None:
-    assert _resolve_experiment_id(tmp_path, JOB_ID) is None
+    assert _resolve_experiment_id(JobKind.RUN, tmp_path, JOB_ID, None) is None
+
+
+def test_resolve_experiment_id_tune_returns_study_name_when_dir_exists(tmp_path: Path) -> None:
+    study_name = "spy_demo_study"
+    (tmp_path / "hpo" / study_name).mkdir(parents=True)
+
+    assert _resolve_experiment_id(JobKind.TUNE, tmp_path, JOB_ID, study_name) == study_name
+
+
+def test_resolve_experiment_id_tune_returns_none_when_dir_missing(tmp_path: Path) -> None:
+    assert _resolve_experiment_id(JobKind.TUNE, tmp_path, JOB_ID, "missing_study") is None
+    assert _resolve_experiment_id(JobKind.TUNE, tmp_path, JOB_ID, None) is None
 
 
 @pytest.mark.parametrize("job_id", [JOB_ID, "other"])

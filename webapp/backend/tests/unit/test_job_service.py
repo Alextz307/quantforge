@@ -328,3 +328,87 @@ def test_reconcile_leaves_alive_pid_running(db_conn: sqlite3.Connection) -> None
 def _dead_pid() -> int:
     """A PID well above any plausible PID_MAX (Linux ~32k, macOS ~99k)."""
     return 99_999_999
+
+
+def test_submit_tune_writes_both_yamls_and_persists_study_name(
+    db_conn: sqlite3.Connection, tmp_path: Path
+) -> None:
+    """TUNE jobs split the payload across ``<id>.exp.yaml`` + ``<id>.hpo.yaml``
+    and stamp ``experiment_id = study_name`` immediately so ``find_live_job_for``
+    can resolve in-flight studies before the subprocess exits."""
+    user = _user(db_conn, "alice")
+    manager = _stub_manager()
+    exp_payload = make_valid_experiment_payload()
+    hpo_payload: dict[str, object] = {"study_name": "demo_study", "n_trials": 2, "n_jobs": 1}
+    submission = JobSubmission(
+        kind=JobKind.TUNE, config_payload=exp_payload, hpo_payload=hpo_payload
+    )
+    job_temp_dir = tmp_path / "jobs"
+
+    row = asyncio.run(
+        submit_job(
+            conn=db_conn,
+            manager=manager,
+            user=user,
+            submission=submission,
+            store_root=tmp_path / "store",
+            job_temp_dir=job_temp_dir,
+        )
+    )
+
+    assert row.status is JobStatus.RUNNING
+    assert row.kind is JobKind.TUNE
+    assert row.experiment_id == "demo_study"
+    exp_path = job_temp_dir / f"{row.id}.exp.yaml"
+    hpo_path = job_temp_dir / f"{row.id}.hpo.yaml"
+    assert yaml.safe_load(exp_path.read_text(encoding="utf-8")) == exp_payload
+    parsed_hpo = yaml.safe_load(hpo_path.read_text(encoding="utf-8"))
+    assert parsed_hpo["study_name"] == "demo_study"
+    assert parsed_hpo["n_trials"] == 2
+
+
+def test_submit_tune_rejects_invalid_hpo_payload(
+    db_conn: sqlite3.Connection, tmp_path: Path
+) -> None:
+    """An HPOConfig with a path-separator in ``study_name`` is rejected
+    before any DB row or YAML lands on disk."""
+    user = _user(db_conn, "alice")
+    manager = _stub_manager()
+    submission = JobSubmission(
+        kind=JobKind.TUNE,
+        config_payload=make_valid_experiment_payload(),
+        hpo_payload={"study_name": "bad/name", "n_trials": 2},
+    )
+    job_temp_dir = tmp_path / "jobs"
+
+    with pytest.raises(JobConfigInvalidError) as excinfo:
+        asyncio.run(
+            submit_job(
+                conn=db_conn,
+                manager=manager,
+                user=user,
+                submission=submission,
+                store_root=tmp_path / "store",
+                job_temp_dir=job_temp_dir,
+            )
+        )
+
+    assert any("hpo_payload" in err.loc for err in excinfo.value.errors)
+    assert list_jobs(db_conn, user_id=user.id) == []
+
+
+def test_job_submission_validator_rejects_run_with_hpo_payload() -> None:
+    with pytest.raises(ValueError, match="hpo_payload must be omitted"):
+        JobSubmission(
+            kind=JobKind.RUN,
+            config_payload=make_valid_experiment_payload(),
+            hpo_payload={"study_name": "x"},
+        )
+
+
+def test_job_submission_validator_requires_hpo_payload_for_tune() -> None:
+    with pytest.raises(ValueError, match="hpo_payload is required"):
+        JobSubmission(
+            kind=JobKind.TUNE,
+            config_payload=make_valid_experiment_payload(),
+        )

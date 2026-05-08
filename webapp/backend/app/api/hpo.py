@@ -2,13 +2,16 @@
 
 from __future__ import annotations
 
+import sqlite3
+
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from webapp.backend.app.core.deps import get_current_user
+from webapp.backend.app.core.deps import get_current_user, get_db
 from webapp.backend.app.core.settings import get_settings
 from webapp.backend.app.schemas.hpo import HpoDetail, HpoSummary, TrialRow
 from webapp.backend.app.services.hpo_service import (
     HpoStudyNotFoundError,
+    find_live_job_for,
     get_hpo_study,
     list_hpo_studies,
     list_trials,
@@ -23,9 +26,13 @@ def get_hpo_studies() -> list[HpoSummary]:
 
 
 @router.get("/{name}", response_model=HpoDetail)
-def get_hpo_study_detail(name: str) -> HpoDetail:
+def get_hpo_study_detail(
+    name: str,
+    conn: sqlite3.Connection = Depends(get_db),
+) -> HpoDetail:
     try:
-        return get_hpo_study(get_settings().store_root, name)
+        live_job_id = find_live_job_for(conn, name)
+        return get_hpo_study(get_settings().store_root, name, live_job_id=live_job_id)
     except HpoStudyNotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
 

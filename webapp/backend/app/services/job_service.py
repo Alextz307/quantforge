@@ -10,6 +10,8 @@ from pathlib import Path
 import yaml
 
 from src.core.fs import ensure_parent_dir
+from src.core.persistence import HPO_SUBDIR
+from src.optimization.checkpointing import TRIALS_JSONL_NAME
 from webapp.backend.app.core.types import Role
 from webapp.backend.app.infrastructure.job_store import (
     IllegalStatusTransitionError,
@@ -24,7 +26,9 @@ from webapp.backend.app.infrastructure.job_store import (
 )
 from webapp.backend.app.infrastructure.process_manager import (
     ProcessManager,
+    TrialTailSpec,
     build_run_command,
+    build_tune_command,
 )
 from webapp.backend.app.schemas.configs import ConfigKind, ValidationErrorItem
 from webapp.backend.app.schemas.jobs import (
@@ -39,10 +43,9 @@ from webapp.backend.app.services.strategy_service import describe_strategy
 
 logger = logging.getLogger(__name__)
 
-# Each job kind ships a payload of a specific config shape. Adding a new
-# JobKind requires extending this map (and the strategy/CLI plumbing).
 _JOB_KIND_TO_CONFIG_KIND: dict[JobKind, ConfigKind] = {
     JobKind.RUN: ConfigKind.EXPERIMENT,
+    JobKind.TUNE: ConfigKind.EXPERIMENT,
 }
 
 
@@ -70,8 +73,20 @@ def _config_path(job_temp_dir: Path, job_id: str) -> Path:
     return job_temp_dir / f"{job_id}.yaml"
 
 
+def _experiment_config_path(job_temp_dir: Path, job_id: str) -> Path:
+    return job_temp_dir / f"{job_id}.exp.yaml"
+
+
+def _hpo_config_path(job_temp_dir: Path, job_id: str) -> Path:
+    return job_temp_dir / f"{job_id}.hpo.yaml"
+
+
 def _log_path(job_temp_dir: Path, job_id: str) -> Path:
     return job_temp_dir / f"{job_id}.log"
+
+
+def _trial_jsonl_path(store_root: Path, study_name: str) -> Path:
+    return store_root / HPO_SUBDIR / study_name / TRIALS_JSONL_NAME
 
 
 def _write_config_yaml(path: Path, payload: dict[str, object]) -> None:
@@ -123,13 +138,27 @@ async def submit_job(
     store_root: Path,
     job_temp_dir: Path,
 ) -> JobRow:
-    """Persist a queued row, write the config YAML, spawn the CLI, mark running."""
-    if submission.kind is not JobKind.RUN:
-        raise ValueError(f"unsupported job kind: {submission.kind.value}")
+    """Persist a queued row, write the config YAML(s), spawn the CLI, mark running.
+
+    For RUN jobs: one ExperimentConfig YAML at ``<job_id>.yaml``.
+    For TUNE jobs: an experiment YAML at ``<job_id>.exp.yaml`` plus an
+    HPOConfig YAML at ``<job_id>.hpo.yaml`` — both validated through the
+    shared ``config_service.validate`` machinery.
+    """
     config_kind = _JOB_KIND_TO_CONFIG_KIND[submission.kind]
     validation = validate_config(config_kind, submission.config_payload)
     if not validation.valid:
         raise JobConfigInvalidError(validation.errors)
+    if submission.kind is JobKind.TUNE:
+        assert submission.hpo_payload is not None  # validator-enforced
+        hpo_validation = validate_config(ConfigKind.HPO, submission.hpo_payload)
+        if not hpo_validation.valid:
+            raise JobConfigInvalidError(
+                [
+                    ValidationErrorItem(loc=["hpo_payload", *err.loc], msg=err.msg, type=err.type)
+                    for err in hpo_validation.errors
+                ]
+            )
     _maybe_inject_standard_features(submission.config_payload)
     job_temp_dir.mkdir(parents=True, exist_ok=True)
     # Two-phase: insert with placeholders, then UPDATE with paths derived from
@@ -147,22 +176,105 @@ async def submit_job(
             log_path=placeholder_log,
         ),
     )
-    config_path = _config_path(job_temp_dir, row.id)
     log_path = _log_path(job_temp_dir, row.id)
-    command = build_run_command(config_path=config_path, job_id=row.id, store_root=store_root)
+    if submission.kind is JobKind.RUN:
+        config_path = _config_path(job_temp_dir, row.id)
+        command = build_run_command(config_path=config_path, job_id=row.id, store_root=store_root)
+        return await _persist_and_spawn(
+            conn=conn,
+            manager=manager,
+            row=row,
+            kind=JobKind.RUN,
+            command=command,
+            primary_config_path=config_path,
+            log_path=log_path,
+            store_root=store_root,
+            configs_to_write={config_path: submission.config_payload},
+        )
+
+    assert submission.kind is JobKind.TUNE
+    assert submission.hpo_payload is not None
+    experiment_config_path = _experiment_config_path(job_temp_dir, row.id)
+    hpo_config_path = _hpo_config_path(job_temp_dir, row.id)
+    study_name = _extract_study_name(submission.hpo_payload)
+    command = build_tune_command(
+        experiment_config_path=experiment_config_path,
+        hpo_config_path=hpo_config_path,
+        store_root=store_root,
+    )
+    return await _persist_and_spawn(
+        conn=conn,
+        manager=manager,
+        row=row,
+        kind=JobKind.TUNE,
+        command=command,
+        primary_config_path=experiment_config_path,
+        log_path=log_path,
+        store_root=store_root,
+        configs_to_write={
+            experiment_config_path: submission.config_payload,
+            hpo_config_path: submission.hpo_payload,
+        },
+        experiment_id=study_name,
+        trial_tail=TrialTailSpec(
+            study_name=study_name,
+            trial_jsonl_path=_trial_jsonl_path(store_root, study_name),
+        ),
+    )
+
+
+async def _persist_and_spawn(
+    *,
+    conn: sqlite3.Connection,
+    manager: ProcessManager,
+    row: JobRow,
+    kind: JobKind,
+    command: tuple[str, ...],
+    primary_config_path: Path,
+    log_path: Path,
+    store_root: Path,
+    configs_to_write: dict[Path, dict[str, object]],
+    experiment_id: str | None = None,
+    trial_tail: TrialTailSpec | None = None,
+) -> JobRow:
     conn.execute(
-        "UPDATE jobs SET command = ?, config_path = ?, log_path = ? WHERE id = ?",
-        (" ".join(command), str(config_path), str(log_path), row.id),
+        "UPDATE jobs SET command = ?, config_path = ?, log_path = ?, experiment_id = ? "
+        "WHERE id = ?",
+        (" ".join(command), str(primary_config_path), str(log_path), experiment_id, row.id),
     )
     conn.commit()
-    _write_config_yaml(config_path, submission.config_payload)
+    for path, payload in configs_to_write.items():
+        _write_config_yaml(path, payload)
     pid = await manager.spawn(
         job_id=row.id,
+        kind=kind,
         command=command,
         log_path=log_path,
         store_root=store_root,
+        trial_tail=trial_tail,
     )
     return mark_running(conn, row.id, pid)
+
+
+def _extract_study_name(hpo_payload: dict[str, object]) -> str:
+    """Extract validated ``study_name`` from an HPO payload.
+
+    HPOConfig validation already ran (in submit_job), so ``study_name``
+    is a non-empty path-safe string. Defensive re-check rather than
+    threading the parsed model through.
+    """
+    raw = hpo_payload.get("study_name")
+    if not isinstance(raw, str) or not raw:
+        raise JobConfigInvalidError(
+            [
+                ValidationErrorItem(
+                    loc=["hpo_payload", "study_name"],
+                    msg="field required",
+                    type="missing",
+                )
+            ]
+        )
+    return raw
 
 
 def list_jobs_for(

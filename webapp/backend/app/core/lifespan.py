@@ -15,6 +15,7 @@ from webapp.backend.app.infrastructure.job_store import (
     mark_terminal,
 )
 from webapp.backend.app.infrastructure.process_manager import (
+    HpoEventBroker,
     JobEventBroker,
     ProcessManager,
 )
@@ -61,8 +62,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             reconcile_orphans(conn)
 
     broker = JobEventBroker()
-    manager = ProcessManager(broker, on_complete=_persist_terminal_status)
+    hpo_broker = HpoEventBroker()
+    manager = ProcessManager(broker, on_complete=_persist_terminal_status, hpo_broker=hpo_broker)
     app.state.job_broker = broker
+    app.state.hpo_broker = hpo_broker
     app.state.job_manager = manager
 
     # Warm component registries once at startup so the torch/statsmodels/arch/xgboost

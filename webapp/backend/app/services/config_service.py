@@ -13,6 +13,7 @@ from src.core.config import (
     StudySpec,
     UniverseProfile,
 )
+from src.core.hpo_config import HPOConfig
 from webapp.backend.app.schemas.configs import (
     ConfigDetail,
     ConfigEntry,
@@ -22,7 +23,7 @@ from webapp.backend.app.schemas.configs import (
 )
 from webapp.backend.app.services.strategy_service import describe_strategy
 
-# Strategy/HPO/regime YAMLs are loose dict bodies consumed by component
+# Strategy/regime YAMLs are loose dict bodies consumed by component
 # ctors at runtime; there's no Pydantic class to validate them against
 # without re-implementing the registry's coercion. ``None`` here means
 # "validation degrades to YAML-parse only".
@@ -31,8 +32,8 @@ _KIND_TO_MODEL: dict[ConfigKind, type[BaseModel] | None] = {
     ConfigKind.UNIVERSE: UniverseProfile,
     ConfigKind.STUDY: StudySpec,
     ConfigKind.MODEL: StandaloneModelConfig,
+    ConfigKind.HPO: HPOConfig,
     ConfigKind.STRATEGY: None,
-    ConfigKind.HPO: None,
     ConfigKind.REGIME: None,
 }
 

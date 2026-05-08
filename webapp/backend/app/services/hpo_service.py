@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sqlite3
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -16,12 +17,15 @@ from webapp.backend.app.infrastructure.store import (
     store_label,
 )
 from webapp.backend.app.schemas.hpo import HpoDetail, HpoSummary, StudyDirection, TrialRow
+from webapp.backend.app.schemas.jobs import TERMINAL_STATUSES, JobKind
 
 __all__ = [
     "HpoStudyNotFoundError",
+    "find_live_job_for",
     "get_hpo_study",
     "list_hpo_studies",
     "list_trials",
+    "trial_row_from_record",
 ]
 
 _COMPLETE_STATE = "COMPLETE"
@@ -37,8 +41,13 @@ def list_hpo_studies(root: Path) -> list[HpoSummary]:
     return summaries
 
 
-def get_hpo_study(root: Path, name: str) -> HpoDetail:
-    """Read the full detail payload for one HPO study."""
+def get_hpo_study(root: Path, name: str, *, live_job_id: str | None = None) -> HpoDetail:
+    """Read the full detail payload for one HPO study.
+
+    ``live_job_id`` is resolved by the router via :func:`find_live_job_for`
+    against the jobs DB; passed through here to avoid coupling this layer
+    to a sqlite connection.
+    """
     study_dir = find_hpo_study_dir(root, name)
     trials = json_io.read_jsonl(study_dir / TRIALS_JSONL_NAME)
     summary = _summary_from_trials(study_dir, trials, root)
@@ -52,6 +61,7 @@ def get_hpo_study(root: Path, name: str) -> HpoDetail:
         best_trial_number=summary.best_trial_number,
         direction=summary.direction,
         best_config=_read_best_config(study_dir),
+        live_job_id=live_job_id,
     )
 
 
@@ -59,11 +69,53 @@ def list_trials(root: Path, name: str, after_trial: int | None = None) -> list[T
     """Read the trial feed, optionally filtered to ``trial.number > after_trial``."""
     study_dir = find_hpo_study_dir(root, name)
     trials = json_io.read_jsonl(study_dir / TRIALS_JSONL_NAME)
-    rows = [_trial_row(t) for t in trials]
+    rows = [trial_row_from_record(t) for t in trials]
     if after_trial is not None:
         rows = [r for r in rows if r.number > after_trial]
     rows.sort(key=lambda r: r.number)
     return rows
+
+
+def find_live_job_for(conn: sqlite3.Connection, study_name: str) -> str | None:
+    """Return the id of a non-terminal TUNE job that's populating ``study_name``.
+
+    TUNE jobs persist ``experiment_id = study_name`` at submission time
+    (the directory name is known up front, unlike RUN jobs whose run
+    dir basename is resolved post-completion). At most one non-terminal
+    TUNE job per study is expected; we return the most recent.
+    """
+    terminal = tuple(s.value for s in TERMINAL_STATUSES)
+    placeholders = ",".join("?" * len(terminal))
+    row = conn.execute(
+        f"SELECT id FROM jobs "
+        f"WHERE kind = ? AND experiment_id = ? AND status NOT IN ({placeholders}) "
+        f"ORDER BY id DESC LIMIT 1",
+        (JobKind.TUNE.value, study_name, *terminal),
+    ).fetchone()
+    if row is None:
+        return None
+    return str(row["id"])
+
+
+def trial_row_from_record(trial: dict[str, object]) -> TrialRow:
+    """Materialise a ``TrialRow`` from one parsed ``trials.jsonl`` record.
+
+    The Optuna callback stamps ``user_attrs.experiment_id`` after the
+    per-trial ``Experiment.run()`` resolves a name, so the row can
+    deep-link to the trial's run page.
+    """
+    user_attrs_raw = trial.get("user_attrs")
+    user_attrs: dict[str, object] = user_attrs_raw if isinstance(user_attrs_raw, dict) else {}
+    experiment_id = user_attrs.get("experiment_id")
+    return TrialRow(
+        number=json_io.get_int(trial, "number"),
+        state=json_io.get_str(trial, "state"),
+        value=json_io.get_optional_float(trial, "value"),
+        params=json_io.get_dict(trial, "params"),
+        datetime_start=json_io.get_optional_iso_datetime(trial, "datetime_start"),
+        datetime_complete=json_io.get_optional_iso_datetime(trial, "datetime_complete"),
+        experiment_id=experiment_id if isinstance(experiment_id, str) else None,
+    )
 
 
 def _summary_from_trials(
@@ -91,21 +143,6 @@ def _summary_from_trials(
         best_value=best_value,
         best_trial_number=best_number,
         direction=StudyDirection.MAXIMIZE,
-    )
-
-
-def _trial_row(trial: dict[str, object]) -> TrialRow:
-    user_attrs_raw = trial.get("user_attrs")
-    user_attrs: dict[str, object] = user_attrs_raw if isinstance(user_attrs_raw, dict) else {}
-    experiment_id = user_attrs.get("experiment_id")
-    return TrialRow(
-        number=json_io.get_int(trial, "number"),
-        state=json_io.get_str(trial, "state"),
-        value=json_io.get_optional_float(trial, "value"),
-        params=json_io.get_dict(trial, "params"),
-        datetime_start=json_io.get_optional_iso_datetime(trial, "datetime_start"),
-        datetime_complete=json_io.get_optional_iso_datetime(trial, "datetime_complete"),
-        experiment_id=experiment_id if isinstance(experiment_id, str) else None,
     )
 
 

@@ -67,11 +67,36 @@ def test_validate_universe_happy_path() -> None:
 
 
 def test_validate_loose_kinds_always_pass() -> None:
-    # strategy / hpo / regime have no Pydantic counterpart.
-    for kind in (ConfigKind.STRATEGY, ConfigKind.HPO, ConfigKind.REGIME):
+    # strategy / regime have no Pydantic counterpart — HPO is validated
+    # against HPOConfig and has its own dedicated tests below.
+    for kind in (ConfigKind.STRATEGY, ConfigKind.REGIME):
         response = validate(kind, {"arbitrary": "shape"})
         assert response.valid is True
         assert response.errors == []
+
+
+def test_validate_hpo_happy_path() -> None:
+    payload = {"study_name": "demo", "n_trials": 5}
+    response = validate(ConfigKind.HPO, payload)
+
+    assert response.valid is True
+    assert response.errors == []
+
+
+def test_validate_hpo_rejects_missing_study_name() -> None:
+    response = validate(ConfigKind.HPO, {"n_trials": 5})
+
+    assert response.valid is False
+    locs = [tuple(err.loc) for err in response.errors]
+    assert ("study_name",) in locs
+
+
+def test_validate_hpo_rejects_extra_fields() -> None:
+    response = validate(ConfigKind.HPO, {"study_name": "demo", "garbage": 1})
+
+    assert response.valid is False
+    locs = [tuple(err.loc) for err in response.errors]
+    assert ("garbage",) in locs
 
 
 def test_validate_missing_required_field() -> None:

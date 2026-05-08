@@ -14,6 +14,7 @@ import time
 from collections.abc import Callable
 from http import HTTPStatus
 from pathlib import Path
+from typing import cast
 
 import pytest
 from fastapi.testclient import TestClient
@@ -29,6 +30,7 @@ from ..conftest import (
     TEST_USERNAME,
     make_valid_experiment_payload,
     make_valid_job_submission,
+    make_valid_tune_submission,
 )
 
 JOBS_PATH = "/api/jobs"
@@ -267,3 +269,54 @@ def test_get_log_for_unstarted_log_returns_empty(
     resp = authed_jobs_client.get(f"{JOBS_PATH}/{job.id}/log")
     assert resp.status_code == HTTPStatus.OK
     assert resp.text == ""
+
+
+def test_post_tune_job_writes_dual_yamls_and_stamps_study_name(
+    authed_jobs_client: TestClient, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """End-to-end: POST kind=tune triggers build_tune_command (monkeypatched),
+    persists experiment_id=study_name, and the spawned subprocess flows through
+    the same ProcessManager log/status pipeline."""
+    monkeypatch.setattr(
+        "webapp.backend.app.services.job_service.build_tune_command",
+        _quick_command_factory(["tune-line"]),
+    )
+
+    submission = make_valid_tune_submission(study_name="webapp_demo_study")
+    resp = authed_jobs_client.post(JOBS_PATH, json=submission)
+    assert resp.status_code == HTTPStatus.CREATED, resp.json()
+    body = resp.json()
+    assert body["kind"] == "tune"
+    assert body["experiment_id"] == "webapp_demo_study"
+
+    final = _await_terminal(authed_jobs_client, body["id"])
+    assert final["status"] == JobStatus.COMPLETED.value
+
+
+def test_post_tune_rejects_missing_hpo_payload(authed_jobs_client: TestClient) -> None:
+    """The JobSubmission validator rejects kind=tune without an hpo_payload at
+    the 422 wire layer (matches pydantic's missing-field semantics)."""
+    resp = authed_jobs_client.post(
+        JOBS_PATH,
+        json={"kind": "tune", "config_payload": make_valid_experiment_payload()},
+    )
+    assert resp.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+
+
+def test_post_tune_rejects_invalid_hpo_payload(
+    authed_jobs_client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """An ``hpo_payload`` that fails HPOConfig validation surfaces as a
+    422 with ``loc`` paths prefixed by ``hpo_payload``."""
+    monkeypatch.setattr(
+        "webapp.backend.app.services.job_service.build_tune_command",
+        _quick_command_factory(["should-not-spawn"]),
+    )
+    bad = make_valid_tune_submission()
+    bad_hpo = cast(dict[str, object], bad["hpo_payload"])
+    bad_hpo["study_name"] = "bad/name"
+
+    resp = authed_jobs_client.post(JOBS_PATH, json=bad)
+    assert resp.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+    detail = resp.json()["detail"]
+    assert any("hpo_payload" in err["loc"] for err in detail)

@@ -2,18 +2,25 @@
 
 from __future__ import annotations
 
+import sqlite3
 from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
 
 from src.core.persistence import HPO_SUBDIR
+from webapp.backend.app.core.types import Role
+from webapp.backend.app.infrastructure.db import bootstrap_schema, get_connection
+from webapp.backend.app.infrastructure.job_store import NewJob, insert_job, mark_running
 from webapp.backend.app.infrastructure.store import HpoStudyNotFoundError
+from webapp.backend.app.schemas.jobs import JobKind
 from webapp.backend.app.services.hpo_service import (
+    find_live_job_for,
     get_hpo_study,
     list_hpo_studies,
     list_trials,
 )
+from webapp.backend.app.services.user_service import create_user
 from webapp.backend.tests.conftest import make_synthetic_hpo_study
 
 NEWER_NAME = "Hpo__newer"
@@ -132,3 +139,45 @@ def test_list_trials_raises_for_unknown_name(tmp_path: Path) -> None:
 
     with pytest.raises(HpoStudyNotFoundError):
         list_trials(root, "missing_hpo")
+
+
+_FAKE_PID = 12345
+_TEST_PASSWORD = "password123"
+
+
+def test_find_live_job_for_returns_none_when_no_jobs(tmp_path: Path) -> None:
+    conn: sqlite3.Connection = get_connection(tmp_path / "webapp.sqlite")
+    try:
+        bootstrap_schema(conn)
+        assert find_live_job_for(conn, "any_study") is None
+    finally:
+        conn.close()
+
+
+def test_find_live_job_for_returns_running_tune_job_id(tmp_path: Path) -> None:
+    conn: sqlite3.Connection = get_connection(tmp_path / "webapp.sqlite")
+    try:
+        bootstrap_schema(conn)
+        user = create_user(conn, username="alice", password=_TEST_PASSWORD, role=Role.USER)
+        job = insert_job(
+            conn,
+            NewJob(
+                user_id=user.id,
+                kind=JobKind.TUNE,
+                command=("placeholder",),
+                config_path=Path("/tmp/cfg.yaml"),
+                log_path=Path("/tmp/job.log"),
+            ),
+        )
+        # Stamp study_name on experiment_id (matches submit_job's behaviour).
+        conn.execute(
+            "UPDATE jobs SET experiment_id = ? WHERE id = ?",
+            ("demo_study", job.id),
+        )
+        conn.commit()
+        mark_running(conn, job.id, _FAKE_PID)
+
+        assert find_live_job_for(conn, "demo_study") == job.id
+        assert find_live_job_for(conn, "other_study") is None
+    finally:
+        conn.close()

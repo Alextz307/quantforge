@@ -68,6 +68,28 @@ def make_valid_job_submission() -> dict[str, object]:
     return {"kind": "run", "config_payload": make_valid_experiment_payload()}
 
 
+def make_valid_hpo_payload(study_name: str = "test_hpo_study") -> dict[str, object]:
+    """Canonical ``HPOConfig`` payload for tune-submission tests."""
+    return {
+        "study_name": study_name,
+        "n_trials": 2,
+        "n_jobs": 1,
+        "sampler": "tpe",
+        "pruner": "median",
+        "objective": "sharpe",
+        "seed": 7,
+    }
+
+
+def make_valid_tune_submission(study_name: str = "test_hpo_study") -> dict[str, object]:
+    """Canonical ``JobSubmission`` payload (tune kind) for jobs API tests."""
+    return {
+        "kind": "tune",
+        "config_payload": make_valid_experiment_payload(),
+        "hpo_payload": make_valid_hpo_payload(study_name),
+    }
+
+
 PLOT_FILENAME = "equity.png"
 PLOT_BYTES = b"\x89PNG\r\n\x1a\n"
 DEFAULT_TICKER = "SPY"
