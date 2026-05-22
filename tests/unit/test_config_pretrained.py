@@ -29,7 +29,7 @@ _SPY_DATA = {
     "end": "2024-01-01",
     "interval": "daily",
 }
-_FEATURE_COLUMNS = ["sma_20", "rsi_14", "volume_z"]
+_FEATURE_COLUMNS = ["return_5d", "rsi_14", "vol_20"]
 
 
 def _base_payload(tmp_path: Path, strategy_name: str = "ReturnForecast") -> dict[str, object]:

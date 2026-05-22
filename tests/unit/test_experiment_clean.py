@@ -55,15 +55,17 @@ def test_plan_clean_extends_preserve_set_with_keep(tmp_path: Path) -> None:
     assert _KEEP_OVERRIDE_NAME in plan.preserved
 
 
-def test_apply_clean_removes_safe_candidates(tmp_path: Path) -> None:
-    """Happy path: no tracked files → every candidate dir is gone after apply."""
+def test_apply_clean_wipes_safe_candidates_keeping_empty_dirs(tmp_path: Path) -> None:
+    """Happy path: candidate dirs survive as empty placeholders; only their contents go."""
     store = tmp_path / "experiment_results"
     _populate_store(store, ("thesis_demo", "_profile_a", "_profile_b"))
     plan = plan_clean(store)
-    deleted = apply_clean(plan)
-    assert sorted(p.name for p in deleted) == ["_profile_a", "_profile_b"]
-    assert not (store / "_profile_a").exists()
-    assert not (store / "_profile_b").exists()
+    wiped = apply_clean(plan)
+    assert sorted(p.name for p in wiped) == ["_profile_a", "_profile_b"]
+    assert (store / "_profile_a").is_dir()
+    assert (store / "_profile_b").is_dir()
+    assert list((store / "_profile_a").iterdir()) == []
+    assert list((store / "_profile_b").iterdir()) == []
     assert (store / "thesis_demo").is_dir()
 
 
@@ -103,20 +105,20 @@ def test_apply_clean_refuses_when_tracked_files_present(tmp_path: Path) -> None:
 
 
 def test_format_plan_empty_store(tmp_path: Path) -> None:
-    """Missing or empty store → human-readable 'nothing to remove' line."""
+    """Missing or empty store → human-readable 'nothing to wipe' line."""
     store = tmp_path / "nonexistent"
     plan = plan_clean(store)
     output = format_plan(plan)
-    assert "nothing to remove" in output
+    assert "nothing to wipe" in output
 
 
 def test_format_plan_lists_size_and_action(tmp_path: Path) -> None:
-    """Dry-run text shows DELETE / REFUSE markers + a tally line."""
+    """Dry-run text shows WIPE / REFUSE markers + a tally line."""
     store = tmp_path / "experiment_results"
     _populate_store(store, ("thesis_demo", "_profile_a"))
     plan = plan_clean(store)
     output = format_plan(plan)
-    assert "DELETE" in output
+    assert "WIPE" in output
     assert "_profile_a" in output
     assert "would free" in output
 

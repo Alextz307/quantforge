@@ -55,8 +55,8 @@ def list_runs(root: Path) -> list[RunSummary]:
     for run_dir in iter_run_dirs(root):
         try:
             summary = _summarize(run_dir, root)
-        except FileNotFoundError as exc:
-            logger.warning("skipping incomplete run at %s: %s", run_dir, exc)
+        except Exception as exc:  # noqa: BLE001 — one bad run must not 500 the whole listing
+            logger.warning("skipping unreadable run at %s: %s", run_dir, exc)
             continue
         summaries.append(summary)
     summaries.sort(key=lambda s: s.created_at, reverse=True)

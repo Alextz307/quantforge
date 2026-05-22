@@ -17,6 +17,14 @@ data:
   end: 2024-12-31
   interval: daily
 
+# DirectionalClassifier reads close from the post-pipeline frame to compute
+# its next-bar-direction target, so keep_ohlc:true preserves the raw bars
+# alongside the engineered features.
+features:
+  name: standard
+  params:
+    keep_ohlc: true
+
 model:
   name: xgboost_directional
   params:

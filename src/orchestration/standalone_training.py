@@ -142,14 +142,18 @@ def train_model_standalone(cfg: StandaloneModelConfig) -> StandaloneTrainingResu
     1. Seed everything — reproducibility precondition.
     2. Fetch raw OHLCV — IO, may hit network.
     3. Slice to ``[train_start, train_end]`` — cheap filter.
-    4. Fingerprint the sliced raw bars — the hash represents "what bar
-       stream the model trained on", BEFORE features, so two trainers
-       that apply different feature pipelines to the same bars still
-       produce the same hash (and a consumer can distinguish via the
-       feature config).
-    5. Apply features (if configured) — produces the DataFrame the
+    4. Apply features (if configured) — produces the DataFrame the
        model's ``fit()`` actually consumes.
-    6. Compute target + align bars — per-model dispatch.
+    5. Compute target + align bars — per-model dispatch.
+    6. Fingerprint the raw bars at the aligned window — the hash
+       represents "what bar stream the model effectively trained on"
+       (post-target-alignment), so the dry-run consistency check in
+       ``_verify_pretrained_leaf_data_consistency`` (which slices
+       ``bars_full`` to the leaf's recorded ``train_start..train_end``)
+       compares hash-for-hash against the same slice. Hashing on raw
+       bars (``sliced.loc[aligned.index]``) keeps the digest
+       feature-pipeline-agnostic — two trainers applying different
+       feature configs to the same bars still produce the same hash.
     7. Fit model — populates ``training_metadata`` atomically inside
        the model's own ``fit()``.
     8. Build manifest + return. ``save_model_artifact`` writes it.
@@ -179,17 +183,14 @@ def train_model_standalone(cfg: StandaloneModelConfig) -> StandaloneTrainingResu
         train_end=pd.Timestamp(cfg.train_end) if cfg.train_end is not None else None,
     )
 
-    # 4: hash the raw sliced bars (pre-features)
-    data_hash = fingerprint_bars(sliced)
-
-    # 5: features
+    # 4: features
     if cfg.features is not None:
         pipeline = feature_registry.create_from_config(cfg.features)
         feature_frame = pipeline.fit_transform(sliced)
     else:
         feature_frame = sliced
 
-    # 6: target
+    # 5: target
     target_fn = _TARGET_DISPATCH.get(cfg.model.name)
     if target_fn is None:
         raise NotImplementedError(
@@ -198,6 +199,13 @@ def train_model_standalone(cfg: StandaloneModelConfig) -> StandaloneTrainingResu
             f"Add a target computer to _TARGET_DISPATCH to extend."
         )
     aligned, target = target_fn(feature_frame, cfg)
+
+    # 6: hash the raw bars at the aligned window so the manifest hash
+    # matches what _verify_pretrained_leaf_data_consistency computes at
+    # inference time (it slices bars_full to the leaf's training-metadata
+    # window). Hashing raw OHLCV from ``sliced`` rather than the post-
+    # pipeline frame keeps the digest feature-pipeline-agnostic.
+    data_hash = fingerprint_bars(sliced.loc[aligned.index])
 
     # 7: fit — inject cfg.data.interval (source of truth) into model params
     # so the model's training_metadata matches downstream expectations

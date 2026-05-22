@@ -47,9 +47,9 @@ MAIN_STUDY_PATH = REPO_ROOT / "config" / "study" / "main_study.yaml"
 # place). main_study composition: AdaptiveBollinger(11) + PairsTrading(1) +
 # MomentumGatekeeper(9) + VolatilityTargeting(9) + ReturnForecast(9) = 39.
 EXPECTED_MAIN_STUDY_LEG_COUNT = 39
-# 9 universes * 3 ML-bearing strategies (Momentum, ReturnForecast,
-# VolatilityTargeting) = 27 (universe, leaf_key) pairs.
-EXPECTED_MAIN_STUDY_PRETRAINED_PAIR_COUNT = 27
+# Synthetic pretrained spec (see ``_write_pretrained_spec``): 2 vol_model +
+# 1 return_model + 1 directional_classifier = 4 (universe, leaf_key) pairs.
+_PRETRAINED_SPEC_PAIR_COUNT = 4
 
 
 @pytest.fixture(scope="module")
@@ -78,6 +78,43 @@ def _write_minimal_spec(tmp_path: Path, output_dir: str = "studies/test") -> Pat
         ],
     }
     path = tmp_path / "spec.yaml"
+    path.write_text(yaml.safe_dump(payload, default_flow_style=False))
+    return path
+
+
+def _write_pretrained_spec(tmp_path: Path) -> Path:
+    """Produce a tiny spec exercising the pretrained-leaf path-rewrite logic.
+
+    Covers all three pretrained leaf keys (vol_model / return_model /
+    directional_classifier) so collection and path-rewrite tests don't need
+    the production ``main_study.yaml`` (which no longer ships pretrained
+    legs).
+    """
+    payload: dict[str, Any] = {
+        "name": "test_pretrained_spec",
+        "output_dir": "studies/test_pretrained",
+        "legs": [
+            {
+                "strategy": "VolatilityTargeting",
+                "strategy_config": "config/strategies/volatility_targeting_pretrained.yaml",
+                "hpo_config": "config/hpo/volatility_targeting.yaml",
+                "universes": ["spy_daily_5y", "qqq_daily_5y"],
+            },
+            {
+                "strategy": "ReturnForecast",
+                "strategy_config": "config/strategies/return_forecast_pretrained.yaml",
+                "hpo_config": "config/hpo/return_forecast.yaml",
+                "universes": ["spy_daily_5y"],
+            },
+            {
+                "strategy": "MomentumGatekeeper",
+                "strategy_config": "config/strategies/momentum_gatekeeper_pretrained.yaml",
+                "hpo_config": "config/hpo/momentum_gatekeeper.yaml",
+                "universes": ["spy_daily_5y"],
+            },
+        ],
+    }
+    path = tmp_path / "pretrained_spec.yaml"
     path.write_text(yaml.safe_dump(payload, default_flow_style=False))
     return path
 
@@ -134,8 +171,9 @@ class TestComposeLegConfig:
         assert cfg.data.tickers == ["QQQ"]
         assert cfg.validation.holdout_pct > 0.0
 
-    def test_pretrained_leg_rewrites_paths(self, tmp_path: Path, main_spec: StudySpec) -> None:
-        legs = expand_spec_into_legs(main_spec, repo_root=REPO_ROOT)
+    def test_pretrained_leg_rewrites_paths(self, tmp_path: Path) -> None:
+        spec = load_study_spec(_write_pretrained_spec(tmp_path))
+        legs = expand_spec_into_legs(spec, repo_root=REPO_ROOT)
         vt_leg = next(
             leg
             for leg in legs
@@ -174,11 +212,12 @@ class TestComposeHpoConfig:
 
 
 class TestCollectPretrainedLeafPairs:
-    def test_only_ml_bearing_strategies_contribute(self, main_spec: StudySpec) -> None:
-        legs = expand_spec_into_legs(main_spec, repo_root=REPO_ROOT)
+    def test_only_ml_bearing_strategies_contribute(self, tmp_path: Path) -> None:
+        spec = load_study_spec(_write_pretrained_spec(tmp_path))
+        legs = expand_spec_into_legs(spec, repo_root=REPO_ROOT)
         pairs = _collect_pretrained_leaf_pairs(legs)
-        assert len(pairs) == EXPECTED_MAIN_STUDY_PRETRAINED_PAIR_COUNT
-        # Non-ML strategies (AB, Pairs) contribute none.
+        assert len(pairs) == _PRETRAINED_SPEC_PAIR_COUNT
+        # All three leaf keys are exercised by the synthetic spec.
         leaf_keys = {leaf_key for _, leaf_key in pairs}
         assert leaf_keys == set(LEAF_KEY_TO_TEMPLATE_YAML.keys())
 

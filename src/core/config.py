@@ -66,7 +66,9 @@ def _ensure_registries_populated() -> None:
 # silent-misfit debugging nightmare). ``feature_columns``, ``interval``,
 # and ``lstm_lookback`` are deliberately excluded — the strategy still
 # needs those even when the leaf is frozen, and ``validate_pretrained_leaf``
-# catches mismatches vs. the artifact at injection time.
+# catches mismatches vs. the artifact at injection time. See
+# :data:`_LEAF_KEY_HPO_OVERRIDE_FROZEN_PARAMS` below for the related — but
+# strictly broader — HPO-filter set.
 _DIRECTIONAL_CLASSIFIER_OWNED_PARAMS: tuple[str, ...] = (
     "n_estimators",
     "learning_rate",
@@ -118,6 +120,27 @@ _LEAF_KEY_OWNED_PARAMS: dict[str, dict[str, tuple[str, ...]]] = {
     "CrossAssetMomentum": {
         LEAF_KEY_DIRECTIONAL_CLASSIFIER: _DIRECTIONAL_CLASSIFIER_OWNED_PARAMS,
     },
+}
+
+
+# Superset of :data:`_LEAF_KEY_OWNED_PARAMS` used by the HPO sampler to drop
+# trial-suggested kwargs that a frozen leaf already pins, regardless of
+# whether the strategy.params block ALSO sets them. ``lstm_lookback`` is
+# the canonical case: the strategy ctor needs the user-supplied value in
+# strategy.params (to size inference windows for the leaf), so the
+# collision validator allows it there — but HPO must not overwrite it,
+# because a sampled-then-overridden lookback fails the leaf's
+# ``validate_pretrained_leaf`` window check at trial-runtime and burns
+# the whole leg. Keep this map narrower than the obvious "freeze
+# everything"; only add keys whose user-in-params semantics is real.
+_USER_HANDSHAKE_HPO_FROZEN: frozenset[str] = frozenset({"lstm_lookback"})
+
+_LEAF_KEY_HPO_OVERRIDE_FROZEN_PARAMS: dict[str, dict[str, tuple[str, ...]]] = {
+    strategy: {
+        leaf_key: owned + tuple(k for k in _USER_HANDSHAKE_HPO_FROZEN if k not in owned)
+        for leaf_key, owned in inner.items()
+    }
+    for strategy, inner in _LEAF_KEY_OWNED_PARAMS.items()
 }
 
 

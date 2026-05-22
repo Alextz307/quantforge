@@ -26,7 +26,16 @@ strategy:
     # Leaf-required kwargs that the strategy reads for its own metadata /
     # warmup calculation — must match the frozen leaf's trained values.
     # Mismatch is rejected at injection time by validate_pretrained_leaf.
-    feature_columns: [sma_20, rsi_14, volume_z]
+    feature_columns:
+      - return_1d
+      - return_5d
+      - return_21d
+      - vol_20
+      - ma_ratio
+      - rsi_14
+      - macd
+      - macd_signal
+      - macd_hist
     lstm_lookback: 30
     # Leaf-owned kwargs (arma_*, lstm_hidden_dim, etc.) MUST NOT appear
     # here — the artifact pins them. Setting them would be rejected by

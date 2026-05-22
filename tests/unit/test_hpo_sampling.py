@@ -1,11 +1,13 @@
 """Trial-parameter composition + pretrained-leaf filter.
 
 Each strategy already owns its ``suggest_params`` — the sampler's only
-value-add is dropping ctor kwargs that a pinned pretrained leaf owns.
-Tests pair every injection-capable strategy with its corresponding
-leaf-key entry in :data:`_LEAF_KEY_OWNED_PARAMS` and assert the intersection
-of ``suggest_params`` keys with that owned set is removed (and nothing
-outside that intersection is touched).
+value-add is dropping ctor kwargs that a pinned pretrained leaf freezes
+at the HPO boundary. Tests pair every injection-capable strategy with
+its corresponding leaf-key entry in
+:data:`_LEAF_KEY_HPO_OVERRIDE_FROZEN_PARAMS` (a superset of the
+collision-only :data:`_LEAF_KEY_OWNED_PARAMS`) and assert the
+intersection of ``suggest_params`` keys with that frozen set is removed
+(and nothing outside that intersection is touched).
 """
 
 from __future__ import annotations
@@ -15,7 +17,11 @@ from pathlib import Path
 import optuna
 import pytest
 
-from src.core.config import _LEAF_KEY_OWNED_PARAMS, ExperimentConfig
+from src.core.config import (
+    _LEAF_KEY_HPO_OVERRIDE_FROZEN_PARAMS,
+    _LEAF_KEY_OWNED_PARAMS,
+    ExperimentConfig,
+)
 from src.core.registry import strategy_registry
 from src.optimization.sampling import sample_trial_params
 
@@ -26,7 +32,7 @@ _SPY_DATA = {
     "end": "2024-01-01",
     "interval": "daily",
 }
-_FEATURE_COLUMNS = ["sma_20", "rsi_14", "volume_z"]
+_FEATURE_COLUMNS = ["return_5d", "rsi_14", "vol_20"]
 
 
 def _fresh_trial() -> optuna.Trial:
@@ -111,55 +117,64 @@ class TestSampleTrialParamsPinnedLeafFilter:
 
     def test_return_forecast_return_model_pinned(self, tmp_path: Path) -> None:
         cfg = self._pinned_cfg("ReturnForecast", "return_model", tmp_path)
-        owned = set(_LEAF_KEY_OWNED_PARAMS["ReturnForecast"]["return_model"])
+        frozen = set(_LEAF_KEY_HPO_OVERRIDE_FROZEN_PARAMS["ReturnForecast"]["return_model"])
 
         # Raw suggest for comparison — fresh trial, so Optuna state doesn't leak.
         raw = strategy_registry.get("ReturnForecast").suggest_params(_fresh_trial())
         filtered = sample_trial_params(cfg, _fresh_trial())
 
-        # Every owned key present in raw is dropped from filtered.
-        expected_dropped = owned & set(raw)
-        assert expected_dropped, "fixture must exercise the filter — owned ∩ raw nonempty"
+        # Every frozen key present in raw is dropped from filtered.
+        expected_dropped = frozen & set(raw)
+        assert expected_dropped, "fixture must exercise the filter — frozen ∩ raw nonempty"
         assert not (expected_dropped & set(filtered))
 
-        # No non-owned key was touched.
-        assert set(filtered) == set(raw) - owned
+        # No non-frozen key was touched.
+        assert set(filtered) == set(raw) - frozen
 
-        # Sanity: strategy-level knobs that are NOT leaf-owned survive.
+        # Sanity: strategy-level knobs that are NOT leaf-frozen survive.
         assert "position_scale" in filtered
         assert "max_leverage" in filtered
-        # ``lstm_lookback`` is deliberately excluded from owned params
-        # (strategy still needs it to build batches for the frozen leaf).
-        assert "lstm_lookback" in filtered
+        # ``lstm_lookback`` is in the broader HPO-frozen set even though
+        # it isn't a collision (the strategy.params block still carries
+        # it as the leaf-matching value).
+        assert "lstm_lookback" in frozen
+        assert "lstm_lookback" not in _LEAF_KEY_OWNED_PARAMS["ReturnForecast"]["return_model"]
+        assert "lstm_lookback" not in filtered
 
     def test_volatility_targeting_vol_model_pinned(self, tmp_path: Path) -> None:
         cfg = self._pinned_cfg("VolatilityTargeting", "vol_model", tmp_path)
-        owned = set(_LEAF_KEY_OWNED_PARAMS["VolatilityTargeting"]["vol_model"])
+        frozen = set(_LEAF_KEY_HPO_OVERRIDE_FROZEN_PARAMS["VolatilityTargeting"]["vol_model"])
 
         raw = strategy_registry.get("VolatilityTargeting").suggest_params(_fresh_trial())
         filtered = sample_trial_params(cfg, _fresh_trial())
 
-        expected_dropped = owned & set(raw)
+        expected_dropped = frozen & set(raw)
         assert expected_dropped
         assert not (expected_dropped & set(filtered))
-        assert set(filtered) == set(raw) - owned
+        assert set(filtered) == set(raw) - frozen
 
         assert "target_vol" in filtered
         assert "realized_vol_window" in filtered
         assert "trend_window" in filtered
-        assert "lstm_lookback" in filtered
+        # ``lstm_lookback`` is HPO-frozen for the same reason as
+        # ReturnForecast above.
+        assert "lstm_lookback" in frozen
+        assert "lstm_lookback" not in _LEAF_KEY_OWNED_PARAMS["VolatilityTargeting"]["vol_model"]
+        assert "lstm_lookback" not in filtered
 
     def test_momentum_gatekeeper_classifier_pinned(self, tmp_path: Path) -> None:
         cfg = self._pinned_cfg("MomentumGatekeeper", "directional_classifier", tmp_path)
-        owned = set(_LEAF_KEY_OWNED_PARAMS["MomentumGatekeeper"]["directional_classifier"])
+        frozen = set(
+            _LEAF_KEY_HPO_OVERRIDE_FROZEN_PARAMS["MomentumGatekeeper"]["directional_classifier"]
+        )
 
         raw = strategy_registry.get("MomentumGatekeeper").suggest_params(_fresh_trial())
         filtered = sample_trial_params(cfg, _fresh_trial())
 
-        expected_dropped = owned & set(raw)
+        expected_dropped = frozen & set(raw)
         assert expected_dropped
         assert not (expected_dropped & set(filtered))
-        assert set(filtered) == set(raw) - owned
+        assert set(filtered) == set(raw) - frozen
 
         # MACD / MA / RSI gates are strategy-level — must survive.
         assert "macd_fast" in filtered

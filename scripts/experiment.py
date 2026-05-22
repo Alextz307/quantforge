@@ -1005,7 +1005,7 @@ cli.add_command(study)
     "apply",
     is_flag=True,
     default=False,
-    help="Actually delete (default: dry-run that prints what would be removed).",
+    help="Actually wipe (default: dry-run that prints what would be wiped).",
 )
 @click.option(
     "--keep",
@@ -1017,11 +1017,14 @@ cli.add_command(study)
     ),
 )
 def clean_cmd(store_root: Path, apply: bool, keep: tuple[str, ...]) -> None:
-    """Remove ephemeral subdirs under ``--store-root`` (default: experiment_results/).
+    """Wipe the contents of ephemeral subdirs under ``--store-root`` (default: experiment_results/).
 
-    Always preserves ``thesis_demo/`` (the only committed artifact bundle).
-    Refuses to delete any directory containing git-tracked files; pass
-    ``--keep <name>`` for each to exclude them and rerun.
+    Each candidate directory survives as an empty placeholder so the
+    canonical store layout (``runs/``, ``hpo/``, ``models/``, ...) is
+    intact after a wipe. Always preserves ``thesis_demo/`` (the only
+    committed artifact bundle). Refuses to wipe any directory containing
+    git-tracked files; pass ``--keep <name>`` for each to exclude them
+    and rerun.
     """
     from src.orchestration.clean import apply_clean, format_plan, plan_clean
 
@@ -1035,8 +1038,8 @@ def clean_cmd(store_root: Path, apply: bool, keep: tuple[str, ...]) -> None:
             f"refusing to apply: tracked files under {names}. "
             f"`git rm` first or pass --keep for each."
         )
-    deleted = apply_clean(plan)
-    click.echo(f"deleted {len(deleted)} directory(ies).")
+    wiped = apply_clean(plan)
+    click.echo(f"wiped {len(wiped)} directory(ies).")
 
 
 if __name__ == "__main__":

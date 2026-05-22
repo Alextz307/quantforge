@@ -1,25 +1,28 @@
 """Tidy up the experiment-results store before a fresh study run.
 
 The CLI command ``experiment clean`` wraps :func:`plan_clean` (dry-run)
-and :func:`apply_clean` (delete) so the destructive step is explicit
-and the same logic is exercised in tests without going through click.
+and :func:`apply_clean` (wipe) so the destructive step is explicit and
+the same logic is exercised in tests without going through click.
 
-What gets cleaned:
+What gets wiped:
 
-* Every immediate child *directory* under ``<store_root>/`` that is NOT
-  in the always-preserved set (``thesis_demo`` — the only committed
-  artifact bundle in this repo) and NOT explicitly listed in
-  ``--keep``.
+* The *contents* of every immediate child *directory* under
+  ``<store_root>/`` that is NOT in the always-preserved set
+  (``thesis_demo`` — the only committed artifact bundle in this repo)
+  and NOT explicitly listed in ``--keep``. The directory itself is
+  left in place (empty) so consumers that assume the canonical store
+  layout exists (``<root>/hpo/``, ``<root>/runs/``, ...) keep finding
+  it after a wipe.
 * Any directory containing a git-tracked file is refused with a clear
   error pointing the user at ``git rm`` or ``--keep``. The check goes
   through ``git ls-files`` so .gitignored ephemera can be removed
   freely while a directory the user committed by accident gets a
-  loud failure rather than a silent delete.
+  loud failure rather than a silent wipe.
 
 What is NOT touched:
 
 * Files at the top level of ``<store_root>/`` (e.g., a stray README).
-  Only directories are candidates.
+  Only directory contents are candidates.
 * The ``thesis_demo/`` tree (preserved unconditionally — its
   ``sample/`` subdir is the one tracked artifact bundle in this repo).
 * Anything outside ``<store_root>/``: parent path traversal is
@@ -121,7 +124,11 @@ def plan_clean(
 
 
 def apply_clean(plan: CleanPlan) -> tuple[Path, ...]:
-    """Delete every safe candidate in ``plan`` and return the deleted paths.
+    """Wipe the contents of every safe candidate in ``plan`` and return the wiped paths.
+
+    The candidate directories themselves are kept as empty placeholders
+    so the canonical store layout (``runs/``, ``hpo/``, ``models/``,
+    ``studies/``, ...) survives a wipe.
 
     Refuses to apply if any candidate has tracked files: the caller is
     expected to surface :attr:`CleanPlan.refused` to the user and let
@@ -136,28 +143,37 @@ def apply_clean(plan: CleanPlan) -> tuple[Path, ...]:
             f"{names}. Either `git rm` the tracked files first, or pass "
             f"`--keep <name>` for each to exclude them from the plan."
         )
-    deleted: list[Path] = []
+    wiped: list[Path] = []
     for candidate in plan.deletable:
-        _logger.info("deleting %s (%.1f MB)", candidate.path, candidate.size_bytes / (1024 * 1024))
-        shutil.rmtree(candidate.path)
-        deleted.append(candidate.path)
-    return tuple(deleted)
+        _logger.info("wiping %s (%.1f MB)", candidate.path, candidate.size_bytes / (1024 * 1024))
+        _empty_directory(candidate.path)
+        wiped.append(candidate.path)
+    return tuple(wiped)
+
+
+def _empty_directory(directory: Path) -> None:
+    """Remove every entry inside ``directory`` while keeping ``directory`` itself."""
+    for entry in directory.iterdir():
+        if entry.is_dir() and not entry.is_symlink():
+            shutil.rmtree(entry)
+        else:
+            entry.unlink()
 
 
 def format_plan(plan: CleanPlan) -> str:
     """Human-readable rendering of a :class:`CleanPlan` for the dry-run output."""
     if not plan.candidates:
         return (
-            f"experiment clean: nothing to remove under {plan.store_root} "
+            f"experiment clean: nothing to wipe under {plan.store_root} "
             f"(preserved: {', '.join(plan.preserved) or '<none>'})"
         )
     lines = [f"experiment clean: candidates under {plan.store_root}"]
-    deletable_total_bytes = 0
+    wipeable_total_bytes = 0
     for c in plan.candidates:
         size_mb = c.size_bytes / (1024 * 1024)
         if c.is_safe_to_delete:
-            lines.append(f"  DELETE  {c.path.name:40s}  {size_mb:8.1f} MB")
-            deletable_total_bytes += c.size_bytes
+            lines.append(f"  WIPE    {c.path.name:40s}  {size_mb:8.1f} MB")
+            wipeable_total_bytes += c.size_bytes
         else:
             tracked_count = len(c.tracked_files)
             lines.append(
@@ -166,8 +182,8 @@ def format_plan(plan: CleanPlan) -> str:
             )
     lines.append(f"preserved: {', '.join(plan.preserved) or '<none>'}")
     lines.append(
-        f"would free {deletable_total_bytes / (1024 * 1024):.1f} MB across "
-        f"{len(plan.deletable)} directory(ies); pass --apply to delete."
+        f"would free {wipeable_total_bytes / (1024 * 1024):.1f} MB across "
+        f"{len(plan.deletable)} directory(ies); pass --apply to wipe."
     )
     return "\n".join(lines)
 

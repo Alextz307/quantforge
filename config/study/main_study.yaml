@@ -4,8 +4,8 @@ description: >
   (index ETFs, single large-caps, commodity, GFC stress window). Each leg
   is composed by deep-merging a universe profile (config/universes/<name>.yaml)
   onto the strategy YAML, then running HPO + cross-strategy comparison + regime
-  split + holdout-eval. Pretrained-leaf workflows are used for ML-bearing
-  strategies to keep HPO compute tractable.
+  split + holdout-eval. ML-bearing strategies use the non-pretrained variant
+  (leaf refits per fold) so walk-forward folds remain self-contained.
 seed: 42
 output_dir: studies/main
 
@@ -33,7 +33,7 @@ legs:
       - ivv_voo_daily_5y
 
   - strategy: MomentumGatekeeper
-    strategy_config: config/strategies/momentum_gatekeeper_pretrained.yaml
+    strategy_config: config/strategies/momentum_gatekeeper.yaml
     hpo_config: config/hpo/momentum_gatekeeper.yaml
     universes:
       - spy_daily_5y
@@ -47,7 +47,7 @@ legs:
       - gld_daily_5y
 
   - strategy: VolatilityTargeting
-    strategy_config: config/strategies/volatility_targeting_pretrained.yaml
+    strategy_config: config/strategies/volatility_targeting.yaml
     hpo_config: config/hpo/volatility_targeting.yaml
     universes:
       - spy_daily_5y
@@ -61,7 +61,7 @@ legs:
       - gld_daily_5y
 
   - strategy: ReturnForecast
-    strategy_config: config/strategies/return_forecast_pretrained.yaml
+    strategy_config: config/strategies/return_forecast.yaml
     hpo_config: config/hpo/return_forecast.yaml
     universes:
       - spy_daily_5y

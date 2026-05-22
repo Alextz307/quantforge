@@ -43,7 +43,7 @@ from tests.conftest import (
 if TYPE_CHECKING:
     pass
 
-_FEATURES: tuple[str, ...] = ("sma_20", "rsi_14", "volume_z")
+_FEATURES: tuple[str, ...] = ("return_5d", "rsi_14", "vol_20")
 # MomentumGatekeeper owns a real FeatureEngineeringPipeline whose output
 # columns are fixed by the pipeline's formulas (not configurable). The
 # pretrained classifier's ``training_metadata.feature_columns`` must be
