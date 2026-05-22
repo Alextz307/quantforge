@@ -31,11 +31,11 @@ validation:
   test_size: 252
   gap: 5
   expanding: true
-  # Reserve the final 15% of bars as the post-thesis holdout. The runner
+  # Reserve the final 20% of bars as the post-thesis holdout. The runner
   # writes the resolved boundary timestamp into the manifest; the future
   # `experiment holdout-eval` subcommand reads it back from there, NOT
   # from this config, so vendor drift cannot move the line.
-  holdout_pct: 0.15
+  holdout_pct: 0.20
 
 slippage:
   scenario: normal

@@ -38,6 +38,8 @@ legs:
     universes:
       - spy_daily_5y
       - spy_daily_10y
+      - spy_daily_covid
+      - spy_daily_2008
       - qqq_daily_5y
       - iwm_daily_5y
       - dia_daily_5y
@@ -52,6 +54,8 @@ legs:
     universes:
       - spy_daily_5y
       - spy_daily_10y
+      - spy_daily_covid
+      - spy_daily_2008
       - qqq_daily_5y
       - iwm_daily_5y
       - dia_daily_5y
@@ -66,6 +70,8 @@ legs:
     universes:
       - spy_daily_5y
       - spy_daily_10y
+      - spy_daily_covid
+      - spy_daily_2008
       - qqq_daily_5y
       - iwm_daily_5y
       - dia_daily_5y

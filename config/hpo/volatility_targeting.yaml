@@ -6,7 +6,7 @@
 #       --hpo-config config/hpo/volatility_targeting.yaml
 
 study_name: spy_volatility_targeting_sharpe
-n_trials: 30
+n_trials: 50
 n_jobs: 2
 sampler: tpe
 pruner: median

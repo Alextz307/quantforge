@@ -6,3 +6,7 @@ data:
   interval: daily
 validation:
   holdout_pct: 0.20
+  # 6-month test windows: the 4-year stress window cannot support
+  # n_splits=3 at test_size=252 (fold 1 train would be ~35 bars).
+  # 126 leaves fold 1 with ~417 train bars — ML-viable, GFC-comparable.
+  test_size: 126

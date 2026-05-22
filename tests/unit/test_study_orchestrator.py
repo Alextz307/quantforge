@@ -45,8 +45,8 @@ MAIN_STUDY_PATH = REPO_ROOT / "config" / "study" / "main_study.yaml"
 
 # Spec-derived counts (kept beside the spec path so a spec edit updates one
 # place). main_study composition: AdaptiveBollinger(11) + PairsTrading(1) +
-# MomentumGatekeeper(9) + VolatilityTargeting(9) + ReturnForecast(9) = 39.
-EXPECTED_MAIN_STUDY_LEG_COUNT = 39
+# MomentumGatekeeper(11) + VolatilityTargeting(11) + ReturnForecast(11) = 45.
+EXPECTED_MAIN_STUDY_LEG_COUNT = 45
 # Synthetic pretrained spec (see ``_write_pretrained_spec``): 2 vol_model +
 # 1 return_model + 1 directional_classifier = 4 (universe, leaf_key) pairs.
 _PRETRAINED_SPEC_PAIR_COUNT = 4

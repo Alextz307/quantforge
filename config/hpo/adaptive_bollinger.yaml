@@ -9,7 +9,7 @@
 # resumes from the SQLite study and adds another `n_trials` on top.
 
 study_name: spy_adaptive_bollinger_sharpe
-n_trials: 30
+n_trials: 50
 n_jobs: 2
 sampler: tpe
 pruner: median

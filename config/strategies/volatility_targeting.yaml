@@ -62,7 +62,7 @@ validation:
   test_size: 252
   gap: 5
   expanding: true
-  holdout_pct: 0.15
+  holdout_pct: 0.20
 
 slippage:
   scenario: normal
