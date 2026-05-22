@@ -139,8 +139,6 @@ class MomentumGatekeeperStrategy(IStrategy):
             subsample=subsample,
             colsample_bytree=colsample_bytree,
             val_split_ratio=val_split_ratio,
-            # Unresolved preference — DirectionalClassifier calls select_xgboost_device(...)
-            # when train() instantiates it, so resolution/validation is deferred.
             device=device,
             interval=interval,
         )

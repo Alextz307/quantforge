@@ -10,6 +10,7 @@ import pandas as pd
 import pytest
 
 from src.core.registry import strategy_registry
+from src.core.temporal import TrainingMetadata
 from src.core.types import Interval
 from src.strategies.cross_asset_momentum import (
     _LOG_RETURN_WARMUP,
@@ -79,9 +80,6 @@ class _FakeClassifier:
         self._proba = proba
         self.training_metadata = None
 
-    def fit(self, df: pd.DataFrame, target: pd.Series, **_: object) -> None:
-        del df, target
-
     def predict_proba(self, df: pd.DataFrame) -> pd.Series:
         return pd.Series(self._proba, index=df.index, name="up_prob")
 
@@ -89,10 +87,17 @@ class _FakeClassifier:
 def _strategy_with_fake_classifier(
     proba: float, wide_df: pd.DataFrame
 ) -> CrossAssetMomentumStrategy:
-    """Build a fitted strategy whose classifier is a constant-proba fake."""
+    """Build a fitted strategy whose classifier is a constant-proba fake.
+
+    Skips the real XGBoost fit by setting the classifier and fitted-state
+    directly — the threshold tests only exercise ``generate_signals`` and
+    don't care about booster weights.
+    """
     s = _make_strategy()
-    s.train(wide_df)
     s._classifier = _FakeClassifier(proba)  # type: ignore[assignment]
+    s._set_fitted_with_metadata(
+        TrainingMetadata.from_fit(wide_df, Interval.DAILY, tuple(s._feature_columns))
+    )
     return s
 
 

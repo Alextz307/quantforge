@@ -141,11 +141,7 @@ def expand_spec_into_legs(spec: StudySpec, *, repo_root: Path) -> list[StudyLegR
     return out
 
 
-def compose_leg_config(
-    leg: StudyLegRun,
-    *,
-    store_root: Path,
-) -> ExperimentConfig:
+def compose_leg_config(leg: StudyLegRun) -> ExperimentConfig:
     """Deep-merge universe profile onto strategy YAML.
 
     The strategy YAML provides ``strategy``, ``features``, ``slippage``,
@@ -155,7 +151,6 @@ def compose_leg_config(
     the strategy YAML's ``n_splits``/``test_size``/``gap`` intact unless
     the universe overrides them).
     """
-    del store_root
     base = _read_yaml(leg.strategy_config_path)
     profile = load_universe_profile(leg.universe_profile_path)
     base["name"] = leg.leg_id
@@ -215,7 +210,7 @@ def run_leg(
     )
 
     try:
-        cfg = compose_leg_config(leg, store_root=store_root)
+        cfg = compose_leg_config(leg)
         hpo_cfg = compose_hpo_config(leg)
 
         if LEG_STEP_TUNE not in state.steps_completed:

@@ -111,13 +111,13 @@ class TestComposeLegConfig:
         spec = load_study_spec(_write_minimal_spec(tmp_path))
         legs = expand_spec_into_legs(spec, repo_root=REPO_ROOT)
         ab_qqq = next(leg for leg in legs if leg.universe == "qqq_daily_5y")
-        cfg = compose_leg_config(ab_qqq, store_root=tmp_path)
+        cfg = compose_leg_config(ab_qqq)
         assert cfg.name == "AdaptiveBollinger__qqq_daily_5y"
         assert cfg.data.tickers == ["QQQ"]
         assert cfg.validation.holdout_pct > 0.0
 
     def test_universe_holdout_pct_overrides_strategy_default(
-        self, main_spec: StudySpec, tmp_path: Path
+        self, main_spec: StudySpec
     ) -> None:
         legs = expand_spec_into_legs(main_spec, repo_root=REPO_ROOT)
         ab_2008 = next(
@@ -125,7 +125,7 @@ class TestComposeLegConfig:
             for leg in legs
             if leg.strategy == "AdaptiveBollinger" and leg.universe == "spy_daily_2008"
         )
-        cfg = compose_leg_config(ab_2008, store_root=tmp_path)
+        cfg = compose_leg_config(ab_2008)
         # spy_daily_2008 pins holdout_pct: 0.0 to make the GFC the eval set.
         assert cfg.validation.holdout_pct == 0.0
 

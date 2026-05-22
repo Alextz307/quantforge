@@ -266,7 +266,7 @@ def evaluate_walk_forward(
         validate_deep_metadata(strategy, test_data=test_frame)
 
         signals = strategy.generate_signals(test_frame)
-        diagnostics = dict(strategy.get_fold_diagnostics())
+        diagnostics = MappingProxyType(dict(strategy.get_fold_diagnostics()))
         raw = dispatch_engine_run(engine, strategy, fold.test, signals, slippage)
         metrics = MetricsCalculator.compute(
             raw.equity_curve,

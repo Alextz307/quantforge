@@ -127,8 +127,8 @@ def apply_clean(plan: CleanPlan) -> tuple[Path, ...]:
     """Wipe the contents of every safe candidate in ``plan`` and return the wiped paths.
 
     The candidate directories themselves are kept as empty placeholders
-    so the canonical store layout (``runs/``, ``hpo/``, ``models/``,
-    ``studies/``, ...) survives a wipe.
+    so the canonical store layout (``runs/``, ``hpo/``, ``studies/``, ...)
+    survives a wipe.
 
     Refuses to apply if any candidate has tracked files: the caller is
     expected to surface :attr:`CleanPlan.refused` to the user and let

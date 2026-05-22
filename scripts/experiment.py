@@ -848,7 +848,7 @@ def clean_cmd(store_root: Path, apply: bool, keep: tuple[str, ...]) -> None:
     """Wipe the contents of ephemeral subdirs under ``--store-root`` (default: experiment_results/).
 
     Each candidate directory survives as an empty placeholder so the
-    canonical store layout (``runs/``, ``hpo/``, ``models/``, ...) is
+    canonical store layout (``runs/``, ``hpo/``, ``studies/``, ...) is
     intact after a wipe. Always preserves ``thesis_demo/`` (the only
     committed artifact bundle). Refuses to wipe any directory containing
     git-tracked files; pass ``--keep <name>`` for each to exclude them
