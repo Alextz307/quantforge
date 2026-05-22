@@ -6,13 +6,12 @@ from collections.abc import Mapping
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from types import MappingProxyType
-from typing import TYPE_CHECKING, ClassVar, Self, cast
+from typing import TYPE_CHECKING, Self
 
 import pandas as pd
 
 from src.core import json_io
 from src.core.constants import DEFAULT_REALIZED_VOL_WINDOW
-from src.core.leaf_keys import LEAF_KEY_VOL_MODEL
 from src.core.logging import get_logger
 from src.core.persistence import (
     CONFIG_JSON,
@@ -24,14 +23,11 @@ from src.core.registry import strategy_registry
 from src.core.temporal import (
     TrackedMetadata,
     TrainingMetadata,
+    collect_metadata,
 )
 from src.core.types import Device, Interval, LossFunction
 from src.core.utils import annualized_garman_klass
 from src.models.hybrid_volatility import HybridVolatilityModel
-from src.orchestration.pretrained_leaves import (
-    normalize_pretrained_leaves,
-    validate_pretrained_leaf,
-)
 from src.strategies.interface import IStrategy
 
 if TYPE_CHECKING:
@@ -81,16 +77,7 @@ class VolatilityTargetingStrategy(IStrategy):
     The realized-volatility training target is the annualized Garman-Klass
     OHLC estimator over ``realized_vol_window`` bars. Input DataFrames must
     carry ``open``/``high``/``low``/``close`` columns.
-
-    Supports pretrained-leaf injection: passing
-    ``pretrained_leaves={"vol_model": loaded_hybrid}`` freezes the
-    HybridVolatilityModel across every ``train()``. Strategy-level
-    thresholds (``target_vol``, ``max_leverage``, ``bearish_exposure``,
-    ``trend_window``) are ctor-only, so a frozen leaf means ``train()``
-    updates only ``_training_metadata``.
     """
-
-    _leaf_keys: ClassVar[frozenset[str]] = frozenset({LEAF_KEY_VOL_MODEL})
 
     def __init__(
         self,
@@ -117,7 +104,6 @@ class VolatilityTargetingStrategy(IStrategy):
         lstm_amp: bool = False,
         min_vol: float = 1e-3,
         interval: Interval = Interval.DAILY,
-        pretrained_leaves: Mapping[str, object] | None = None,
     ) -> None:
         if target_vol <= 0:
             raise ValueError(
@@ -148,10 +134,6 @@ class VolatilityTargetingStrategy(IStrategy):
                 f"(typical: 20)."
             )
 
-        self._pretrained_leaves = normalize_pretrained_leaves(
-            pretrained_leaves, self._leaf_keys, type(self).__name__
-        )
-
         self._target_vol = target_vol
         self._trend_window = trend_window
         self._max_leverage = max_leverage
@@ -180,23 +162,7 @@ class VolatilityTargetingStrategy(IStrategy):
             interval=interval,
         )
 
-        if LEAF_KEY_VOL_MODEL in self._pretrained_leaves:
-            injected = self._pretrained_leaves[LEAF_KEY_VOL_MODEL]
-            validate_pretrained_leaf(
-                injected,
-                interval=interval,
-                feature_columns=self._hybrid_params.feature_columns,
-                lstm_lookback=lstm_lookback,
-            )
-            self._hybrid_vol = cast(HybridVolatilityModel, injected)
-            # Sync passthrough params from the frozen leaf so ``save()``
-            # round-trips to the real artifact. ``getattr`` fallback accepts
-            # test fakes that duck-type the leaf surface.
-            leaf_config = getattr(self._hybrid_vol, "params", None)
-            if leaf_config is not None:
-                self._hybrid_params = _HybridVolParams(**asdict(leaf_config))
-        else:
-            self._hybrid_vol = self._build_hybrid_vol()
+        self._hybrid_vol = self._build_hybrid_vol()
 
     def _build_hybrid_vol(self) -> HybridVolatilityModel:
         kwargs = asdict(self._hybrid_params)
@@ -216,28 +182,16 @@ class VolatilityTargetingStrategy(IStrategy):
         checkpoint_path: Path | None = None,
         **kwargs: object,
     ) -> None:
-        """Fit HybridVolatilityModel on an internally-computed realized-vol target.
-
-        When ``pretrained_leaves["vol_model"]`` was injected at ctor time,
-        the leaf stays frozen: neither rebuild nor ``fit()`` runs. Only
-        ``_training_metadata`` advances so the walk-forward deep metadata
-        check records the strategy's own fold window.
-        """
+        """Fit HybridVolatilityModel on an internally-computed realized-vol target."""
         logger.info("%s train: %d bars", type(self).__name__, len(train_data))
-        if LEAF_KEY_VOL_MODEL not in self._pretrained_leaves:
-            self._hybrid_vol = self._build_hybrid_vol()
-            # Pass the full training window (not the realized-vol-trimmed
-            # slice) so the GARCH AIC cache key is fold-invariant across
-            # trials; the hybrid drops NaN-target rows internally.
-            realized_vol = self._compute_realized_vol(train_data)
-            self._hybrid_vol.fit(
-                train_data, realized_vol, checkpoint_path=checkpoint_path, **kwargs
-            )
-        else:
-            logger.info(
-                "VolatilityTargeting: pretrained %s in use, skipping leaf fit",
-                LEAF_KEY_VOL_MODEL,
-            )
+        self._hybrid_vol = self._build_hybrid_vol()
+        # Pass the full training window (not the realized-vol-trimmed
+        # slice) so the GARCH AIC cache key is fold-invariant across
+        # trials; the hybrid drops NaN-target rows internally.
+        realized_vol = self._compute_realized_vol(train_data)
+        self._hybrid_vol.fit(
+            train_data, realized_vol, checkpoint_path=checkpoint_path, **kwargs
+        )
 
         self._set_fitted_with_metadata(
             TrainingMetadata.from_fit(
@@ -355,17 +309,10 @@ class VolatilityTargetingStrategy(IStrategy):
         return max(self._trend_window, self._lstm_lookback, self._realized_vol_window)
 
     def get_all_training_metadata(self) -> tuple[TrackedMetadata, ...]:
-        """Expose strategy + recursively-owned hybrid-vol leaves (garch + lstm).
-
-        When ``vol_model`` was pretrained-injected, every entry from the
-        hybrid's own walk gets ``is_pretrained=True`` so the walk-forward
-        orchestrator enforces the strict-no-overlap invariant against the
-        fold's train window (not just its test window).
-        """
-        return self._build_strategy_plus_leaf_metadata(
-            LEAF_KEY_VOL_MODEL,
-            self._hybrid_vol.get_all_training_metadata(),
-        )
+        """Expose strategy + recursively-owned hybrid-vol leaves (garch + lstm)."""
+        return collect_metadata(
+            ("strategy", self.training_metadata),
+        ) + self._hybrid_vol.get_all_training_metadata()
 
     def get_fold_diagnostics(self) -> Mapping[str, float]:
         """Surface HybridVolatility's σ_min floor-saturation rate for this fold.

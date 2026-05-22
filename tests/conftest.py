@@ -503,9 +503,7 @@ def assert_params_match_constructor(
 
     Used to detect drift between an internal params dataclass and the
     constructor it shadows — mypy can't enforce this when the dataclass
-    is spread via ``**asdict(...)``. ``ignore`` lists ctor params
-    deliberately omitted from the dataclass (e.g. ``pretrained_leaves``,
-    which is an injection seam, not a config knob).
+    is spread via ``**asdict(...)``.
     """
     import dataclasses
     import inspect
@@ -516,53 +514,6 @@ def assert_params_match_constructor(
         f"{dataclass_type.__name__} drifted from {constructor_owner.__name__}: "
         f"symmetric diff = {dc_fields ^ ctor_params}"
     )
-
-
-# Shared training-metadata fixture values for fake-leaf injection tests.
-# Both ``test_pretrained_injection.py`` (DirectionalClassifier-injected
-# MomentumGatekeeper) and ``test_cross_asset_momentum.py`` (the same fake
-# wired into CrossAssetMomentumStrategy) exercise the pretrained-leaf
-# happy path and need a TrainingMetadata that's consistent across files.
-LEAF_N_TRAIN_SAMPLES = 250
-LEAF_TRAIN_START = pd.Timestamp("2019-01-02")
-LEAF_TRAIN_END = pd.Timestamp("2019-12-31")
-LEAF_FIT_TIMESTAMP = pd.Timestamp("2020-01-05")
-
-
-def make_leaf_training_metadata(
-    feature_columns: tuple[str, ...],
-    *,
-    interval: Interval = Interval.DAILY,
-) -> TrainingMetadata:
-    """Build a ``TrainingMetadata`` matching the shared LEAF_* constants."""
-    return TrainingMetadata(
-        train_start=LEAF_TRAIN_START,
-        train_end=LEAF_TRAIN_END,
-        n_train_samples=LEAF_N_TRAIN_SAMPLES,
-        fit_timestamp=LEAF_FIT_TIMESTAMP,
-        interval=interval,
-        feature_columns=feature_columns,
-    )
-
-
-@dataclass
-class FakeDirectionalClassifier:
-    """Duck-types ``DirectionalClassifier`` for pretrained-leaf injection tests.
-
-    Counts ``fit_calls`` so tests can assert the strategy doesn't refit a
-    pretrained leaf. ``proba`` is the constant returned by ``predict_proba``
-    — tests pin it to drive 3-way / threshold gates into specific branches.
-    """
-
-    training_metadata: TrainingMetadata | None
-    proba: float = 0.5
-    fit_calls: int = 0
-
-    def fit(self, df: pd.DataFrame, target: pd.Series, **_: object) -> None:
-        self.fit_calls += 1
-
-    def predict_proba(self, df: pd.DataFrame) -> pd.Series:
-        return pd.Series(self.proba, index=df.index, name="up_prob")
 
 
 def make_declining_close_df(

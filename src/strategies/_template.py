@@ -11,8 +11,6 @@ What this skeleton demonstrates:
 
 * The atomic fitted-state commit (``_set_fitted_with_metadata`` at the end of
   ``train``; ``_assert_fitted_with_metadata`` at the top of ``generate_signals``).
-* The ``pretrained_leaves`` API uniformity contract — every strategy ctor
-  takes the kwarg even when ``_leaf_keys`` is empty.
 * The 5-method ``IStrategy`` surface (``train``, ``generate_signals``, ``name``,
   ``required_warmup_bars``, ``suggest_params``).
 * Where to register on the ``strategy_registry`` (commented out below).
@@ -22,23 +20,21 @@ What this skeleton does NOT demonstrate (look at the listed exemplars):
 * Pairs strategies (``is_pairs_strategy = True``) → ``pairs_trading.py``.
 * Multi-feature single-asset (``is_multi_feature_strategy = True`` +
   ``primary_ticker``) → ``cross_asset_momentum.py``.
-* Composite strategies that own ML leaves and accept pretrained-leaf
-  injection → ``momentum_gatekeeper.py`` (pipeline + classifier),
-  ``return_forecast.py`` / ``volatility_targeting.py`` (passthrough bundle).
+* Composite strategies that own ML leaves → ``momentum_gatekeeper.py``
+  (pipeline + classifier), ``return_forecast.py`` /
+  ``volatility_targeting.py`` (passthrough bundle).
 
 See ``src/strategies/README.md`` for the full extension checklist.
 """
 
 from __future__ import annotations
 
-from collections.abc import Mapping
 from pathlib import Path
-from typing import TYPE_CHECKING, ClassVar
+from typing import TYPE_CHECKING
 
 import pandas as pd
 
 from src.core.types import Interval
-from src.orchestration.pretrained_leaves import normalize_pretrained_leaves
 from src.strategies.interface import IStrategy
 
 if TYPE_CHECKING:
@@ -59,12 +55,6 @@ class _TemplateStrategy(IStrategy):
     semantics (binary 0/1, signed -1/0/+1, continuous).
     """
 
-    # Empty frozenset = no pretrained leaves. Composite strategies populate
-    # this with the leaf keys they accept (e.g.
-    # ``frozenset({LEAF_KEY_DIRECTIONAL_CLASSIFIER})``); see
-    # ``momentum_gatekeeper.py`` for the wiring.
-    _leaf_keys: ClassVar[frozenset[str]] = frozenset()
-
     def __init__(
         self,
         # Replace these with your strategy's actual hyperparameters. Use
@@ -74,8 +64,6 @@ class _TemplateStrategy(IStrategy):
         window: int = 20,
         threshold: float = 1.0,
         interval: Interval = Interval.DAILY,
-        *,
-        pretrained_leaves: Mapping[str, object] | None = None,
     ) -> None:
         # Validate every numeric/string param at the boundary — catches
         # mis-typed YAML and bad HPO trials before they corrupt fold state.
@@ -88,13 +76,6 @@ class _TemplateStrategy(IStrategy):
                 f"threshold must be > 0, got {threshold}; fix by passing a "
                 f"strictly positive threshold."
             )
-
-        # API uniformity: every strategy normalizes pretrained_leaves even if
-        # _leaf_keys is empty. With an empty frozenset, any non-empty map
-        # raises with a remediation pointing the user at the supported keys.
-        self._pretrained_leaves = normalize_pretrained_leaves(
-            pretrained_leaves, self._leaf_keys, type(self).__name__
-        )
 
         self._window = window  # read by required_warmup_bars below
         self._threshold = threshold  # read by your generate_signals fill-in

@@ -75,27 +75,18 @@ EXPERIMENT_STRATEGY_SUBDIR = "strategy_state"
 EXPERIMENT_CHECKPOINTS_SUBDIR = "checkpoints"
 FOLD_DIR_PREFIX = "fold_"
 
-# Standalone model-artifact layout — `experiment_results/models/<name>/`.
-# Distinct symbols from EXPERIMENT_* so a future rename on one side doesn't
-# silently drag the other along; the string values coincide today because
-# both directories use the same manifest / config filenames.
-MODEL_ARTIFACT_MANIFEST_JSON = "manifest.json"
-MODEL_ARTIFACT_CONFIG_YAML = "config.yaml"
-MODEL_ARTIFACT_WEIGHTS_SUBDIR = "weights"
-
 # Top-level subdirectories of ``experiment_results/``. Single source of truth
 # used by the CLI + the runner; renaming one without the other would orphan
 # artifacts under a stale path.
 RUNS_SUBDIR = "runs"
-MODELS_SUBDIR = "models"
 HPO_SUBDIR = "hpo"
 COMPARISONS_SUBDIR = "comparisons"
 REGIME_REPORTS_SUBDIR = "regime_reports"
 HOLDOUT_EVALS_SUBDIR = "holdout_evals"
 #: Per-invocation log files written by every persistent CLI subcommand
-#: (run, tune, compare, regime, holdout-eval, study run, study train-leaves,
-#: study report). Lets the user inspect a multi-day sweep after a dropped
-#: terminal or audit "what command produced these artifacts" months later.
+#: (run, tune, compare, regime, holdout-eval, study run, study report).
+#: Lets the user inspect a multi-day sweep after a dropped terminal or
+#: audit "what command produced these artifacts" months later.
 CLI_LOGS_SUBDIR = "cli_logs"
 
 # Holdout-eval bundle filenames under ``<store>/holdout_evals/<out_name>/``.

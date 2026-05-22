@@ -54,7 +54,6 @@ class TestManifestRoundTrip:
             "data_hash",
             "slippage_scenario",
             "holdout_start",
-            "pretrained_leaves",
         }
         assert set(d.keys()) == expected_keys
 

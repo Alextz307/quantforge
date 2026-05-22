@@ -137,7 +137,6 @@
           "experiment",
           "universe",
           "study",
-          "model",
           "strategy",
           "hpo",
           "regime"
@@ -1149,41 +1148,6 @@
         "title": "PerStrategyStatsRow",
         "type": "object"
       },
-      "PretrainedLeafDTO": {
-        "properties": {
-          "data_hash": {
-            "title": "Data Hash",
-            "type": "string"
-          },
-          "key": {
-            "title": "Key",
-            "type": "string"
-          },
-          "path": {
-            "title": "Path",
-            "type": "string"
-          },
-          "train_end": {
-            "format": "date-time",
-            "title": "Train End",
-            "type": "string"
-          },
-          "train_start": {
-            "format": "date-time",
-            "title": "Train Start",
-            "type": "string"
-          }
-        },
-        "required": [
-          "key",
-          "path",
-          "data_hash",
-          "train_start",
-          "train_end"
-        ],
-        "title": "PretrainedLeafDTO",
-        "type": "object"
-      },
       "PublicSettings": {
         "properties": {
           "jobs_enabled": {
@@ -1444,13 +1408,6 @@
             "title": "Plots",
             "type": "array"
           },
-          "pretrained_leaves": {
-            "items": {
-              "$ref": "#/components/schemas/PretrainedLeafDTO"
-            },
-            "title": "Pretrained Leaves",
-            "type": "array"
-          },
           "seed": {
             "title": "Seed",
             "type": "integer"
@@ -1487,7 +1444,6 @@
           "data_hash",
           "slippage_scenario",
           "holdout_start",
-          "pretrained_leaves",
           "metrics",
           "plots"
         ],

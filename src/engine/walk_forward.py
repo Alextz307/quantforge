@@ -130,26 +130,15 @@ def dispatch_engine_run(
 def validate_deep_metadata(
     strategy: IStrategy,
     *,
-    train_data: pd.DataFrame,
     test_data: pd.DataFrame,
 ) -> None:
     """Run the leakage invariant across every tracked metadata exposed by
     the strategy (composite leaves included).
 
-    Two invariants, one per-entry:
-
-    * ``train_end < test_data.index[0]`` — always enforced. Catches the
-      canonical lookahead-leakage path: a leaf (or the strategy itself)
-      that trained through the fold's test window would have seen the
-      future it's now being evaluated on.
-    * ``train_end < train_data.index[0]`` — enforced ONLY when
-      ``tracked.is_pretrained``. A pretrained leaf frozen-injected by the
-      user should NOT have seen the strategy's fold train window: if it
-      did, strategy-level state fits on bars where the leaf is in-sample
-      and produces inflated backtest numbers at eval. Fresh (non-
-      pretrained) leaves legitimately train on the fold train window
-      every fold — skipping this check for them preserves the normal
-      walk-forward semantics.
+    Enforces ``train_end < test_data.index[0]`` on every entry — catches
+    the canonical lookahead-leakage path: a leaf (or the strategy itself)
+    that trained through the fold's test window would have seen the
+    future it's now being evaluated on.
 
     A ``LeakageError`` is re-raised with the strategy class name + origin
     prefixed so the failing component is obvious. A ``None`` metadata
@@ -161,7 +150,6 @@ def validate_deep_metadata(
     # Hoist fold boundaries once; every tracked entry compares scalars
     # rather than re-scanning the fold DataFrame inside ``validate_no_overlap``.
     test_start: pd.Timestamp = test_data.index[0]
-    train_start: pd.Timestamp = train_data.index[0]
     saw_any = False
     for tracked in strategy.get_all_training_metadata():
         meta = tracked.metadata
@@ -180,13 +168,6 @@ def validate_deep_metadata(
                 f"this would constitute data leakage. Fix by widening the "
                 f"embargo gap or by ensuring the leaf was trained on a window "
                 f"strictly preceding the test fold."
-            )
-        if tracked.is_pretrained and train_start <= meta.train_end:
-            raise LeakageError(
-                f"{strategy_cls}.{tracked.origin}: pretrained leaf overlaps "
-                f"fold train window (leaf.train_end={meta.train_end} >= "
-                f"fold.train_start={train_start}); fix by using a leaf whose "
-                f"train_end precedes this fold's train_start."
             )
     if not saw_any:
         raise RuntimeError(
@@ -282,10 +263,10 @@ def evaluate_walk_forward(
         else:
             fold_ckpt = None
         strategy.train(train_frame, checkpoint_path=fold_ckpt)
-        validate_deep_metadata(strategy, train_data=train_frame, test_data=test_frame)
+        validate_deep_metadata(strategy, test_data=test_frame)
 
         signals = strategy.generate_signals(test_frame)
-        diagnostics = MappingProxyType(dict(strategy.get_fold_diagnostics()))
+        diagnostics = dict(strategy.get_fold_diagnostics())
         raw = dispatch_engine_run(engine, strategy, fold.test, signals, slippage)
         metrics = MetricsCalculator.compute(
             raw.equity_curve,

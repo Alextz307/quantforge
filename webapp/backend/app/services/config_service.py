@@ -9,7 +9,6 @@ from pydantic import BaseModel, ValidationError
 
 from src.core.config import (
     ExperimentConfig,
-    StandaloneModelConfig,
     StudySpec,
     UniverseProfile,
 )
@@ -31,7 +30,6 @@ _KIND_TO_MODEL: dict[ConfigKind, type[BaseModel] | None] = {
     ConfigKind.EXPERIMENT: ExperimentConfig,
     ConfigKind.UNIVERSE: UniverseProfile,
     ConfigKind.STUDY: StudySpec,
-    ConfigKind.MODEL: StandaloneModelConfig,
     ConfigKind.HPO: HPOConfig,
     ConfigKind.STRATEGY: None,
     ConfigKind.REGIME: None,
@@ -48,7 +46,6 @@ _KIND_TO_DIRNAME: dict[ConfigKind, str] = {
     ConfigKind.HPO: "hpo",
     ConfigKind.STUDY: "study",
     ConfigKind.REGIME: "regimes",
-    ConfigKind.MODEL: "models",
 }
 
 

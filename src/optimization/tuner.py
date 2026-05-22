@@ -265,10 +265,9 @@ def _materialize_trial_config(
 ) -> ExperimentConfig:
     """Merge sampled ctor kwargs into ``base.strategy.params`` and re-validate.
 
-    Revalidation is required — pretrained-leaf collision checks, registry
-    lookups, and strategy-name validation all live on the ``ExperimentConfig``
-    validators and we want a trial's config to pass the same gates as any
-    user-authored YAML.
+    Revalidation is required — registry lookups and strategy-name
+    validation live on the ``ExperimentConfig`` validators and we want a
+    trial's config to pass the same gates as any user-authored YAML.
     """
     payload = base.model_dump(mode="json")
     strategy_payload = dict(payload["strategy"])

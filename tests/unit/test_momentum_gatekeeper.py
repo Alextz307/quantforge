@@ -184,5 +184,4 @@ class TestParamsDataclassDriftGuard:
         assert_params_match_constructor(
             _MomentumConfig,
             MomentumGatekeeperStrategy,
-            ignore={"pretrained_leaves"},
         )

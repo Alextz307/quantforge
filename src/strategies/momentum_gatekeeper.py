@@ -2,16 +2,14 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, ClassVar, Self, cast
+from typing import TYPE_CHECKING, ClassVar, Self
 
 import numpy as np
 import pandas as pd
 
 from src.core import json_io
-from src.core.leaf_keys import LEAF_KEY_DIRECTIONAL_CLASSIFIER
 from src.core.logging import get_logger
 from src.core.persistence import (
     CLASSIFIER_SUBDIR,
@@ -33,10 +31,6 @@ from src.core.types import Device, Interval
 from src.core.utils import align_features_for_directional_target, validate_open_unit_interval
 from src.features.pipeline import FeatureEngineeringPipeline
 from src.models.xgboost_classifier import DirectionalClassifier
-from src.orchestration.pretrained_leaves import (
-    normalize_pretrained_leaves,
-    validate_pretrained_leaf,
-)
 from src.strategies.interface import IStrategy
 
 if TYPE_CHECKING:
@@ -86,22 +80,9 @@ class MomentumGatekeeperStrategy(IStrategy):
       2. ``DirectionalClassifier`` (XGBoost) predicts P(next close > this close).
       3. Signal = 1 iff ``close > SMA(close, ma_window)`` AND
          ``P(up) > prob_threshold``; else 0.
-
-    Supports pretrained-leaf injection: passing
-    ``pretrained_leaves={"directional_classifier": loaded_classifier}``
-    freezes the classifier across every ``train()`` call. The feature
-    pipeline's ``StandardScaler`` re-fits per fold (the pipeline is not
-    part of the leaf artifact) — the classifier's decision boundaries
-    are pinned, but the numerical scaling of inputs shifts by the small
-    amount the fold's training distribution differs from the leaf's.
-    For the thesis-scale folds this drift is negligible relative to the
-    gain of a stable leaf comparison; strategies that need a fully-frozen
-    feature distribution should use the hybrid composites where the
-    scaler is internal to the leaf.
     """
 
     uses_xgboost: ClassVar[bool] = True
-    _leaf_keys: ClassVar[frozenset[str]] = frozenset({LEAF_KEY_DIRECTIONAL_CLASSIFIER})
 
     def __init__(
         self,
@@ -124,7 +105,6 @@ class MomentumGatekeeperStrategy(IStrategy):
         val_split_ratio: float = 0.2,
         device: Device | None = None,
         interval: Interval = Interval.DAILY,
-        pretrained_leaves: Mapping[str, object] | None = None,
     ) -> None:
         if ma_window < 2:
             raise ValueError(
@@ -139,35 +119,12 @@ class MomentumGatekeeperStrategy(IStrategy):
                 f"or raising macd_slow (typical: 26)."
             )
 
-        self._pretrained_leaves = normalize_pretrained_leaves(
-            pretrained_leaves, self._leaf_keys, type(self).__name__
-        )
-
-        resolved_feature_columns = feature_columns
         self._classifier: DirectionalClassifier | None = None
-        if LEAF_KEY_DIRECTIONAL_CLASSIFIER in self._pretrained_leaves:
-            injected = self._pretrained_leaves[LEAF_KEY_DIRECTIONAL_CLASSIFIER]
-            # Auto-adopt feature_columns from the leaf's training_metadata
-            # when the user left the strategy default ``None`` — spares
-            # them from spelling the same list in both the standalone-model
-            # YAML and the strategy YAML. ``validate_pretrained_leaf`` below
-            # raises on missing metadata or column mismatch.
-            if resolved_feature_columns is None:
-                meta = getattr(injected, "training_metadata", None)
-                resolved_feature_columns = list(meta.feature_columns) if meta is not None else []
-            validate_pretrained_leaf(
-                injected,
-                interval=interval,
-                feature_columns=resolved_feature_columns,
-            )
-            self._classifier = cast(DirectionalClassifier, injected)
 
         self._params = _MomentumConfig(
             ma_window=ma_window,
             prob_threshold=prob_threshold,
-            feature_columns=(
-                tuple(resolved_feature_columns) if resolved_feature_columns is not None else None
-            ),
+            feature_columns=tuple(feature_columns) if feature_columns is not None else None,
             rsi_period=rsi_period,
             macd_fast=macd_fast,
             macd_slow=macd_slow,
@@ -190,7 +147,7 @@ class MomentumGatekeeperStrategy(IStrategy):
 
         self._pipeline = self._build_pipeline()
         self._resolved_feature_columns: list[str] = (
-            list(resolved_feature_columns) if resolved_feature_columns is not None else []
+            list(feature_columns) if feature_columns is not None else []
         )
 
     def _build_pipeline(self) -> FeatureEngineeringPipeline:
@@ -219,12 +176,7 @@ class MomentumGatekeeperStrategy(IStrategy):
         checkpoint_path: Path | None = None,
         **kwargs: object,
     ) -> None:
-        """Fit feature pipeline + directional classifier on training data.
-
-        When ``pretrained_leaves["directional_classifier"]`` was injected, the
-        classifier stays frozen (no rebuild, no ``fit()``); only the pipeline
-        scaler and ``_training_metadata`` advance.
-        """
+        """Fit feature pipeline + directional classifier on training data."""
         logger.info("%s train: %d bars", type(self).__name__, len(train_data))
         self._pipeline = self._build_pipeline()
         self._pipeline.fit(train_data)
@@ -244,26 +196,20 @@ class MomentumGatekeeperStrategy(IStrategy):
                 )
         self._resolved_feature_columns = resolved
 
-        if LEAF_KEY_DIRECTIONAL_CLASSIFIER not in self._pretrained_leaves:
-            features_ready, target_ready = self._build_classifier_batch(train_data, resolved)
+        features_ready, target_ready = self._build_classifier_batch(train_data, resolved)
 
-            self._classifier = DirectionalClassifier(
-                feature_columns=resolved,
-                n_estimators=self._params.n_estimators,
-                learning_rate=self._params.learning_rate,
-                max_depth=self._params.max_depth,
-                subsample=self._params.subsample,
-                colsample_bytree=self._params.colsample_bytree,
-                val_split_ratio=self._params.val_split_ratio,
-                device=self._params.device,
-                interval=self._params.interval,
-            )
-            self._classifier.fit(features_ready, target_ready, checkpoint_path=checkpoint_path)
-        else:
-            logger.info(
-                "MomentumGatekeeper: pretrained %s in use, skipping classifier fit",
-                LEAF_KEY_DIRECTIONAL_CLASSIFIER,
-            )
+        self._classifier = DirectionalClassifier(
+            feature_columns=resolved,
+            n_estimators=self._params.n_estimators,
+            learning_rate=self._params.learning_rate,
+            max_depth=self._params.max_depth,
+            subsample=self._params.subsample,
+            colsample_bytree=self._params.colsample_bytree,
+            val_split_ratio=self._params.val_split_ratio,
+            device=self._params.device,
+            interval=self._params.interval,
+        )
+        self._classifier.fit(features_ready, target_ready, checkpoint_path=checkpoint_path)
 
         self._set_fitted_with_metadata(
             TrainingMetadata.from_fit(train_data, self._params.interval, tuple(resolved))
@@ -275,8 +221,7 @@ class MomentumGatekeeperStrategy(IStrategy):
         if self._classifier is None:
             raise RuntimeError(
                 "MomentumGatekeeperStrategy.generate_signals() invoked with no "
-                "classifier wired; fix by checking the pretrained-leaf injection "
-                "or by re-running train(train_data)."
+                "classifier wired; fix by re-running train(train_data)."
             )
 
         features = self._pipeline.transform(data)[self._resolved_feature_columns]
@@ -396,19 +341,13 @@ class MomentumGatekeeperStrategy(IStrategy):
         return max(self._params.ma_window, self._pipeline.hard_nan_warmup_bars)
 
     def get_all_training_metadata(self) -> tuple[TrackedMetadata, ...]:
-        """Expose strategy + owned classifier metadata for the deep leakage check.
-
-        When ``directional_classifier`` was pretrained-injected, the
-        classifier entry gets ``is_pretrained=True`` so the walk-forward
-        orchestrator enforces the strict-no-overlap invariant against the
-        fold's train window (not just its test window).
-        """
+        """Expose strategy + owned classifier metadata for the deep leakage check."""
         classifier_meta = (
             self._classifier.training_metadata if self._classifier is not None else None
         )
-        return self._build_strategy_plus_leaf_metadata(
-            LEAF_KEY_DIRECTIONAL_CLASSIFIER,
-            collect_metadata(("classifier", classifier_meta)),
+        return collect_metadata(
+            ("strategy", self.training_metadata),
+            ("classifier", classifier_meta),
         )
 
     @staticmethod

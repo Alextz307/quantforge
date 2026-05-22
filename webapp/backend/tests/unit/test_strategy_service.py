@@ -37,12 +37,9 @@ def test_adaptive_bollinger_classification() -> None:
     assert by_name["k"].kind is ParamKind.FLOAT
     assert by_name["k"].default == 2.0
 
-    # ``interval`` and ``pretrained_leaves`` are framework-managed: the
-    # first duplicates ``data.interval`` (showing it lets the user desync
-    # the two), the second is composite-injected by the experiment builder.
-    # Neither should ever surface as a form field.
+    # ``interval`` is framework-managed (duplicates ``data.interval``);
+    # showing it would let the user desync the two. Never surfaces as a form field.
     assert "interval" not in by_name
-    assert "pretrained_leaves" not in by_name
 
 
 def test_str_list_annotations_classify_as_str_list() -> None:
@@ -127,7 +124,7 @@ def test_xgboost_strategies_drop_mps_from_device_choices(
 def test_canonical_params_loads_from_yaml(tmp_path: Path) -> None:
     """``get_canonical_strategy_params`` reads ``strategy.params`` from the
     canonical YAML so the form can pre-fill working defaults. Hidden params
-    (``interval``, ``pretrained_leaves``) are filtered out."""
+    (``interval``) are filtered out."""
     strategies_dir = tmp_path / "strategies"
     strategies_dir.mkdir()
     (strategies_dir / "adaptive_bollinger.yaml").write_text(
@@ -171,4 +168,4 @@ def test_every_registered_strategy_describes_cleanly() -> None:
         schema = describe_strategy(name)
         assert schema.name == name
         assert schema.qualname.startswith("src.strategies.")
-        assert all(p.name not in {"self", "pretrained_leaves", "interval"} for p in schema.params)
+        assert all(p.name not in {"self", "interval"} for p in schema.params)

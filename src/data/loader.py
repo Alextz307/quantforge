@@ -39,13 +39,12 @@ class YFinanceSource(IDataSource):
     """Data source backed by the yfinance library.
 
     A persistent on-disk cache is non-optional in practice: yfinance's
-    adjusted-close column shifts retroactively as new
-    dividend/split events land in the vendor's database, so two
-    cache-less fetches of the same historical range seconds apart can
-    return subtly different bars (and break the pretrained-leaf
-    ``data_hash`` check between leaf training and inference). When the
-    caller doesn't supply one explicitly, fall back to the standard
-    ``~/.quant_cache`` so every call site (including the
+    adjusted-close column shifts retroactively as new dividend/split
+    events land in the vendor's database, so two cache-less fetches of
+    the same historical range seconds apart can return subtly different
+    bars (and break the ``data_hash`` check holdout-eval relies on).
+    When the caller doesn't supply one explicitly, fall back to the
+    standard ``~/.quant_cache`` so every call site (including the
     ``data_source_registry.create_from_config`` path that passes no
     kwargs) gets deterministic reads after the first warm fetch.
     """

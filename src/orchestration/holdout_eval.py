@@ -15,8 +15,8 @@ Why fresh fit on full dev (not reuse the source run's trained state)
 The source run's ``strategy_state/`` reflects only the *last fold*'s
 training window — strictly less data than full dev. Reusing it would
 trade away a few minutes of compute against measurable model quality.
-Full-dev refit + frozen pretrained leaves gives the strongest
-honest-OOS signal the framework can produce.
+Full-dev refit gives the strongest honest-OOS signal the framework can
+produce.
 
 Anti-leakage tripwires fired here, in this exact order
 ------------------------------------------------------
@@ -30,9 +30,7 @@ Anti-leakage tripwires fired here, in this exact order
 4. ``TemporalSplit(train=dev, test=holdout, split_date=boundary)``
    re-asserts ``dev.index[-1] < holdout.index[0]`` after the slice.
 5. Deep metadata check (same loop walk-forward uses) — every tracked
-   training metadata, including pretrained leaves, validates that no
-   leaf saw the holdout window AND (for pretrained leaves) that no
-   leaf overlaps the dev window the strategy is now fitting on.
+   training metadata validates that no component saw the holdout window.
 """
 
 from __future__ import annotations
@@ -319,7 +317,7 @@ def run_holdout_eval(
         test_frame = holdout
 
     experiment.strategy.train(train_frame)
-    validate_deep_metadata(experiment.strategy, train_data=train_frame, test_data=test_frame)
+    validate_deep_metadata(experiment.strategy, test_data=test_frame)
 
     signals = experiment.strategy.generate_signals(test_frame)
     raw = dispatch_engine_run(

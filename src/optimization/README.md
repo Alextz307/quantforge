@@ -9,7 +9,7 @@ experiment under the study directory, and returns a scalar objective.
 | Symbol | Role |
 | --- | --- |
 | `StrategyTuner` | Frozen dataclass: `experiment_cfg`, `hpo_cfg`, `store_root`. `run(progress=...)` returns the completed `optuna.Study`. |
-| `sample_trial_params(cfg, trial)` | Wraps the strategy's static `suggest_params(trial)` and filters out keys owned by pinned pretrained leaves. |
+| `sample_trial_params(cfg, trial)` | Delegates to the strategy's static `suggest_params(trial)` and returns a fresh dict. |
 | `build_objective(kind)` | `ObjectiveKind` → `IObjective` (`SharpeObjective`, `CalmarObjective`, `SortinoMinusDrawdownPenaltyObjective`). All objectives MAXIMIZE. |
 | `build_sampler(kind, seed)` | `SamplerKind` → `BaseSampler` (TPE, Random, CMA-ES, QMC). Always seeded. |
 | `build_pruner(kind)` | `PrunerKind` → `BasePruner` (Median, Hyperband, Percentile@25, NopPruner). |
@@ -21,7 +21,7 @@ experiment under the study directory, and returns a scalar objective.
 | File | Role |
 | --- | --- |
 | `tuner.py` | `StrategyTuner`, `_materialize_trial_config`, study-dir lifecycle, resume + content-hash check. |
-| `sampling.py` | `sample_trial_params` + the pinned-leaf filter (uses `_LEAF_KEY_OWNED_PARAMS` from `src/core/config.py`). |
+| `sampling.py` | `sample_trial_params` — thin wrapper over the strategy's `suggest_params`. |
 | `objectives.py` | `IObjective` Protocol + the three concrete adapters. |
 | `samplers.py` | `build_sampler` factory. |
 | `pruners.py` | `build_pruner` factory. |
@@ -49,14 +49,6 @@ SQLite study and runs `n_trials` ADDITIONAL trials. If the on-disk
 `experiment_config.yaml` content-hash doesn't match the in-memory
 config, the tuner refuses (silently studying under a different
 objective would invalidate the trial history).
-
-## Pinned-leaf filter
-
-When `cfg.pretrained_leaves` is non-empty, `sample_trial_params` drops
-any kwargs the pinned leaves own (per `_LEAF_KEY_OWNED_PARAMS` —
-e.g. an injected `HybridReturnModel` claims `arma_p_max`,
-`lstm_hidden_dim`, etc., so trials don't override frozen artifact
-hyperparameters).
 
 ## Snippet
 

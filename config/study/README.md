@@ -50,14 +50,7 @@ for leg in spec.legs:
 
 ## Driving the spec — `experiment study`
 
-Two subcommands consume a study spec end-to-end:
-
 ```bash
-# Train every (universe, leaf_key) artifact needed by ML-bearing legs.
-# Skip-on-existing makes the command resumable across transient failures.
-python -m scripts.experiment study train-leaves \
-    --spec config/study/main_study.yaml
-
 # Drive the sweep: tune -> run -> regime -> holdout-eval per leg, then
 # per-universe cross-strategy compare. Resumable via study_state.json.
 python -m scripts.experiment study run \
@@ -81,23 +74,6 @@ Per-leg outputs land under `<store_root>/<spec.output_dir>/`:
 `run_experiment_id` is recorded on each `LegState` so cross-strategy
 compare can resolve the run dir without re-walking `runs/`.
 
-## Pretrained-leaf artifact convention
-
-ML-bearing legs (those whose strategy YAML declares
-`pretrained_leaves:`) consume artifacts at the conventional path
-
-```
-<store_root>/models/{universe}_{leaf_key}/
-```
-
-`train-leaves` builds these artifacts by composing each leaf-type
-template (`config/models/spy_directional_classifier.yaml`,
-`spy_hybrid_return.yaml`, `spy_hybrid_volatility.yaml`) with the
-universe's `data:` block and the artifact name. Artifacts live under
-`<store_root>/models/` (NOT `<study_dir>/`) so a HybridReturn trained
-on SPY 2020-2024 is reusable across many studies that share the same
-universe definition.
-
 ## Cross-links
 
 - Schemas: `StudySpec`, `StudyLeg`, `UniverseProfile` (`src/core/config.py`).
@@ -108,5 +84,4 @@ universe definition.
 - Universe profiles consumed by every leg: `config/universes/`.
 - Per-strategy and per-HPO YAMLs referenced by each leg:
   `config/strategies/`, `config/hpo/`.
-- Leaf-type templates for `train-leaves`: `config/models/`.
 - Default regime config for the sweep: `config/regimes/vol_quintile.yaml`.

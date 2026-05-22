@@ -39,7 +39,6 @@ class MultiFeatureTestStub(IStrategy):
     """
 
     is_multi_feature_strategy: ClassVar[bool] = True
-    _leaf_keys: ClassVar[frozenset[str]] = frozenset()
 
     def __init__(
         self,
@@ -95,7 +94,6 @@ class BothFlagsStub(IStrategy):
 
     is_pairs_strategy: ClassVar[bool] = True
     is_multi_feature_strategy: ClassVar[bool] = True
-    _leaf_keys: ClassVar[frozenset[str]] = frozenset()
 
     def train(self, train_data: pd.DataFrame, **kwargs: object) -> None:  # pragma: no cover
         raise NotImplementedError

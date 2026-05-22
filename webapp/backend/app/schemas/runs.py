@@ -27,14 +27,6 @@ class RunSummary(BaseModel):
     calmar_mean: float | None
 
 
-class PretrainedLeafDTO(BaseModel):
-    key: str
-    path: str
-    data_hash: str
-    train_start: datetime
-    train_end: datetime
-
-
 class RunDetail(BaseModel):
     """Detail-view payload for `/api/runs/{experiment_id}`."""
 
@@ -50,7 +42,6 @@ class RunDetail(BaseModel):
     data_hash: str
     slippage_scenario: SlippageScenario
     holdout_start: datetime | None
-    pretrained_leaves: list[PretrainedLeafDTO]
     metrics: dict[str, float]
     plots: list[str]
 

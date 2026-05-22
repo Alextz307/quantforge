@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, ClassVar, Self
 
 import pandas as pd
 
-from src.core.temporal import TrackedMetadata, TrainingMetadata, collect_metadata, mark_pretrained
+from src.core.temporal import TrackedMetadata, TrainingMetadata, collect_metadata
 
 if TYPE_CHECKING:
     import optuna
@@ -131,9 +131,7 @@ class IStrategy(ABC):
         wrapped models (e.g. ``arma_p_max`` on ReturnForecast) are
         flattened here, not resolved via a separate leaf ``suggest_params``
         call. The ``StrategyTuner`` merges the returned dict into
-        ``ExperimentConfig.strategy.params`` per trial, with any keys
-        owned by pinned pretrained leaves filtered out by
-        :func:`src.optimization.sampling.sample_trial_params`.
+        ``ExperimentConfig.strategy.params`` per trial.
         """
 
     @property
@@ -146,11 +144,7 @@ class IStrategy(ABC):
 
         Canonical read-side guard for fitted state — every method that
         requires a completed ``train()`` (``generate_signals``, ``save``,
-        ``hedge_ratio``) calls this. Composite strategies that also need a
-        leaf-presence check (e.g. ``self._classifier is None`` for a
-        pretrained-leaf-injected gatekeeper) layer that as a separate
-        statement on top; this helper deliberately speaks only to the
-        metadata invariant.
+        ``hedge_ratio``) calls this.
 
         ``caller`` defaults to the calling frame's function name (via
         ``sys._getframe`` — CPython + PyPy supported, ~1µs lookup paid
@@ -209,24 +203,6 @@ class IStrategy(ABC):
         override to return them.
         """
         return MappingProxyType({})
-
-    def _build_strategy_plus_leaf_metadata(
-        self,
-        leaf_key: str,
-        leaf_tracked: tuple[TrackedMetadata, ...],
-    ) -> tuple[TrackedMetadata, ...]:
-        """Combine ``strategy + leaf`` metadata; mark the leaf pretrained if injected.
-
-        Shared shape across every composite strategy that supports
-        pretrained-leaf injection (MomentumGatekeeper, CrossAssetMomentum,
-        ReturnForecast, VolatilityTargeting). The leaf-presence check on
-        ``self._pretrained_leaves`` reads the same dict each subclass
-        populates from :func:`normalize_pretrained_leaves` in its ctor.
-        """
-        pretrained = getattr(self, "_pretrained_leaves", {})
-        if leaf_key in pretrained:
-            leaf_tracked = mark_pretrained(leaf_tracked)
-        return collect_metadata(("strategy", self.training_metadata)) + leaf_tracked
 
     def save(self, path: str | Path) -> None:
         """Persist the trained strategy to a directory at ``path``.

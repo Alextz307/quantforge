@@ -1,10 +1,9 @@
 """Unit tests for the empirical-study orchestrator.
 
-Covers leg expansion, universe-profile composition, pretrained-leaf
-path rewriting, HPO study_name override, study-state round-trip + atomic
-write, resume logic (spec_hash mismatch), and train-leaves leaf-pair
-discovery. The actual tune/run/compare pipeline is exercised end-to-end
-in ``tests/integration/test_study_smoke.py`` (gated, ~60s).
+Covers leg expansion, universe-profile composition, HPO study_name
+override, study-state round-trip + atomic write, and resume logic
+(spec_hash mismatch). The actual tune/run/compare pipeline is exercised
+end-to-end in ``tests/integration/test_study_smoke.py`` (gated, ~60s).
 """
 
 from __future__ import annotations
@@ -18,15 +17,11 @@ import yaml
 
 from src.core.config import StudySpec, load_study_spec
 from src.orchestration.study import (
-    LEAF_KEY_TO_TEMPLATE_YAML,
     SPEC_SNAPSHOT_FILENAME,
     STUDY_STATE_FILENAME,
-    _collect_pretrained_leaf_pairs,
-    _compose_standalone_model_config,
     compose_hpo_config,
     compose_leg_config,
     expand_spec_into_legs,
-    expected_pretrained_leaf_path,
     make_leg_id,
     resolve_study_dir,
 )
@@ -47,9 +42,6 @@ MAIN_STUDY_PATH = REPO_ROOT / "config" / "study" / "main_study.yaml"
 # place). main_study composition: AdaptiveBollinger(11) + PairsTrading(1) +
 # MomentumGatekeeper(11) + VolatilityTargeting(11) + ReturnForecast(11) = 45.
 EXPECTED_MAIN_STUDY_LEG_COUNT = 45
-# Synthetic pretrained spec (see ``_write_pretrained_spec``): 2 vol_model +
-# 1 return_model + 1 directional_classifier = 4 (universe, leaf_key) pairs.
-_PRETRAINED_SPEC_PAIR_COUNT = 4
 
 
 @pytest.fixture(scope="module")
@@ -78,43 +70,6 @@ def _write_minimal_spec(tmp_path: Path, output_dir: str = "studies/test") -> Pat
         ],
     }
     path = tmp_path / "spec.yaml"
-    path.write_text(yaml.safe_dump(payload, default_flow_style=False))
-    return path
-
-
-def _write_pretrained_spec(tmp_path: Path) -> Path:
-    """Produce a tiny spec exercising the pretrained-leaf path-rewrite logic.
-
-    Covers all three pretrained leaf keys (vol_model / return_model /
-    directional_classifier) so collection and path-rewrite tests don't need
-    the production ``main_study.yaml`` (which no longer ships pretrained
-    legs).
-    """
-    payload: dict[str, Any] = {
-        "name": "test_pretrained_spec",
-        "output_dir": "studies/test_pretrained",
-        "legs": [
-            {
-                "strategy": "VolatilityTargeting",
-                "strategy_config": "config/strategies/volatility_targeting_pretrained.yaml",
-                "hpo_config": "config/hpo/volatility_targeting.yaml",
-                "universes": ["spy_daily_5y", "qqq_daily_5y"],
-            },
-            {
-                "strategy": "ReturnForecast",
-                "strategy_config": "config/strategies/return_forecast_pretrained.yaml",
-                "hpo_config": "config/hpo/return_forecast.yaml",
-                "universes": ["spy_daily_5y"],
-            },
-            {
-                "strategy": "MomentumGatekeeper",
-                "strategy_config": "config/strategies/momentum_gatekeeper_pretrained.yaml",
-                "hpo_config": "config/hpo/momentum_gatekeeper.yaml",
-                "universes": ["spy_daily_5y"],
-            },
-        ],
-    }
-    path = tmp_path / "pretrained_spec.yaml"
     path.write_text(yaml.safe_dump(payload, default_flow_style=False))
     return path
 
@@ -151,18 +106,8 @@ class TestExpandSpec:
             )
 
 
-class TestExpectedPretrainedLeafPath:
-    def test_path_format(self) -> None:
-        path = expected_pretrained_leaf_path(
-            store_root=Path("/tmp/store"),
-            universe="spy_daily_5y",
-            leaf_key="vol_model",
-        )
-        assert path == Path("/tmp/store/models/spy_daily_5y_vol_model")
-
-
 class TestComposeLegConfig:
-    def test_non_pretrained_leg_composes(self, tmp_path: Path) -> None:
+    def test_leg_composes(self, tmp_path: Path) -> None:
         spec = load_study_spec(_write_minimal_spec(tmp_path))
         legs = expand_spec_into_legs(spec, repo_root=REPO_ROOT)
         ab_qqq = next(leg for leg in legs if leg.universe == "qqq_daily_5y")
@@ -170,23 +115,6 @@ class TestComposeLegConfig:
         assert cfg.name == "AdaptiveBollinger__qqq_daily_5y"
         assert cfg.data.tickers == ["QQQ"]
         assert cfg.validation.holdout_pct > 0.0
-
-    def test_pretrained_leg_rewrites_paths(self, tmp_path: Path) -> None:
-        spec = load_study_spec(_write_pretrained_spec(tmp_path))
-        legs = expand_spec_into_legs(spec, repo_root=REPO_ROOT)
-        vt_leg = next(
-            leg
-            for leg in legs
-            if leg.strategy == "VolatilityTargeting" and leg.universe == "spy_daily_5y"
-        )
-        store_root = tmp_path / "store"
-        # The path validator on ExperimentConfig requires the artifact dir
-        # to exist — the orchestrator's normal flow runs train-leaves first.
-        artifact = expected_pretrained_leaf_path(store_root, "spy_daily_5y", "vol_model")
-        artifact.mkdir(parents=True)
-        cfg = compose_leg_config(vt_leg, store_root=store_root)
-        assert "vol_model" in cfg.pretrained_leaves
-        assert cfg.pretrained_leaves["vol_model"] == artifact
 
     def test_universe_holdout_pct_overrides_strategy_default(
         self, main_spec: StudySpec, tmp_path: Path
@@ -209,30 +137,6 @@ class TestComposeHpoConfig:
         leg = legs[0]
         hpo = compose_hpo_config(leg)
         assert hpo.study_name == leg.leg_id
-
-
-class TestCollectPretrainedLeafPairs:
-    def test_only_ml_bearing_strategies_contribute(self, tmp_path: Path) -> None:
-        spec = load_study_spec(_write_pretrained_spec(tmp_path))
-        legs = expand_spec_into_legs(spec, repo_root=REPO_ROOT)
-        pairs = _collect_pretrained_leaf_pairs(legs)
-        assert len(pairs) == _PRETRAINED_SPEC_PAIR_COUNT
-        # All three leaf keys are exercised by the synthetic spec.
-        leaf_keys = {leaf_key for _, leaf_key in pairs}
-        assert leaf_keys == set(LEAF_KEY_TO_TEMPLATE_YAML.keys())
-
-
-class TestComposeStandaloneModelConfig:
-    def test_overrides_name_and_data(self, tmp_path: Path) -> None:
-        cfg = _compose_standalone_model_config(
-            template_path=REPO_ROOT / "config" / "models" / "spy_hybrid_volatility.yaml",
-            universe_profile_path=REPO_ROOT / "config" / "universes" / "qqq_daily_5y.yaml",
-            artifact_name="qqq_daily_5y_vol_model",
-        )
-        assert cfg.name == "qqq_daily_5y_vol_model"
-        assert cfg.data.tickers == ["QQQ"]
-        # Template defaults preserved (model name + kind).
-        assert cfg.model.name == "hybrid_volatility"
 
 
 class TestResolveStudyDir:

@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import warnings
 from collections.abc import Iterator
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -184,21 +184,10 @@ class TrackedMetadata:
     that information from the composite's ``get_all_training_metadata()`` down
     to the error message. ``metadata`` is ``None`` when a component never
     completed ``fit()`` — downstream iteration logs a warning and skips.
-
-    ``is_pretrained`` marks leaves loaded frozen from a prior standalone
-    training run (injected via ``pretrained_leaves`` ctor kwarg). The deep
-    metadata check runs a strict-no-overlap invariant for these: not only
-    must ``train_end < fold.test_start`` (always enforced), but
-    ``train_end < fold.train_start`` as well — otherwise the strategy fits
-    its own state on bars where the leaf is in-sample, producing an
-    inflated backtest. Fresh leaves (``is_pretrained=False``, the default)
-    have ``train_end == fold.train_end`` by construction, so the stricter
-    invariant is suppressed for them.
     """
 
     origin: str
     metadata: TrainingMetadata | None
-    is_pretrained: bool = False
 
 
 def collect_metadata(
@@ -212,18 +201,6 @@ def collect_metadata(
     callers from reinventing the shape.
     """
     return tuple(TrackedMetadata(origin=o, metadata=m) for o, m in pairs)
-
-
-def mark_pretrained(tracked: tuple[TrackedMetadata, ...]) -> tuple[TrackedMetadata, ...]:
-    """Return a copy of ``tracked`` with ``is_pretrained=True`` on every entry.
-
-    Composite leaves are frozen as whole units — when a strategy's
-    ``pretrained_leaves`` map pins a key, every nested metadata entry from
-    the leaf's ``get_all_training_metadata()`` inherits the frozen-from-
-    disk status. Centralised here so every strategy's override reads
-    identically and can't drift.
-    """
-    return tuple(replace(t, is_pretrained=True) for t in tracked)
 
 
 @dataclass(frozen=True)

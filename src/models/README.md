@@ -94,8 +94,6 @@ sigma_forecast = predictor.predict(bars.iloc[-holdout:])
 - All persistence helpers (`save_model_skeleton`, scaler round-trip,
   filename + subdir constants) live in `src/core/persistence.py`.
 - Anti-leakage primitives (`TrainingMetadata`, `TrackedMetadata`,
-  `mark_pretrained`) live in `src/core/temporal.py`.
-- Strategies in `src/strategies/` own composite leaves via the
-  `pretrained_leaves` injection workflow handled by
-  `src/orchestration/pretrained_leaves.py` and
-  `src/orchestration/standalone_training.py`.
+  `collect_metadata`) live in `src/core/temporal.py`.
+- Strategies in `src/strategies/` own composite leaves directly via
+  their own ctor — each strategy refits its leaves per fold.

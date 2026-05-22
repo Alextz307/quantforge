@@ -19,7 +19,6 @@ from webapp.backend.app.infrastructure.store import (
 )
 from webapp.backend.app.schemas.runs import (
     FoldRow,
-    PretrainedLeafDTO,
     RunDetail,
     RunSummary,
 )
@@ -100,9 +99,6 @@ def get_run(root: Path, experiment_id: str) -> RunDetail:
         data_hash=manifest.data_hash,
         slippage_scenario=manifest.slippage_scenario,
         holdout_start=manifest.holdout_start,
-        pretrained_leaves=[
-            PretrainedLeafDTO.model_validate(r.to_dict()) for r in manifest.pretrained_leaves
-        ],
         metrics=_read_metrics(run_dir),
         plots=list_plots(run_dir),
     )

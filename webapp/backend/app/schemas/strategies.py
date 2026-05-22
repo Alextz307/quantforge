@@ -41,5 +41,5 @@ class StrategySchema(BaseModel):
     # Best-effort hydration of the form from ``config/strategies/<name>.yaml``'s
     # ``strategy.params`` block — the same defaults the canonical CLI sweep
     # uses. ``None`` when no canonical YAML exists. Framework-managed params
-    # (``interval``, ``pretrained_leaves``) are stripped before the dict ships.
+    # (``interval``) are stripped before the dict ships.
     canonical_params: dict[str, object] | None = None

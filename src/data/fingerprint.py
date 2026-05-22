@@ -111,10 +111,8 @@ def assert_data_hash_matches(
     the consequence each time.
 
     ``fix_hint`` overrides the default "use the same data source /
-    cache" instruction. Callers whose recovery path is different (e.g.
-    a pretrained-leaf cross-universe mismatch where the right fix is
-    to re-run ``experiment train-model``, not to re-fetch the source)
-    pass a more specific hint here.
+    cache" instruction. Callers whose recovery path is different pass a
+    more specific hint here.
 
     Callers that need to know the actual hash for a downstream payload
     compute it once and pass it in; the helper does NOT recompute (the

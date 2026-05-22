@@ -62,21 +62,6 @@ class Device(StrEnum):
     CPU = "cpu"
 
 
-class ModelKind(StrEnum):
-    """Which component registry owns a given model class.
-
-    Standalone model artifacts (``experiment_results/models/<name>/``) and
-    pretrained-leaf injection both need to reconstruct a saved model at
-    load time. The manifest records the model's name AND its registry so
-    the loader dispatches without fallback lookups: ``PREDICTOR`` →
-    :obj:`src.core.registry.model_registry`, ``CLASSIFIER`` →
-    :obj:`src.core.registry.classifier_registry`.
-    """
-
-    PREDICTOR = "predictor"
-    CLASSIFIER = "classifier"
-
-
 _ANNUALIZATION_FACTORS: dict[Interval, int] = {
     Interval.SECOND: TRADING_DAYS_PER_YEAR * US_TRADING_SECONDS_PER_DAY,
     Interval.MINUTE: TRADING_DAYS_PER_YEAR * US_TRADING_MINUTES_PER_DAY,

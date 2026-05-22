@@ -11,7 +11,6 @@ class ConfigKind(StrEnum):
     EXPERIMENT = "experiment"
     UNIVERSE = "universe"
     STUDY = "study"
-    MODEL = "model"
     STRATEGY = "strategy"
     HPO = "hpo"
     REGIME = "regime"

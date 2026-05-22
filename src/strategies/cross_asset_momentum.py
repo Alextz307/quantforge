@@ -12,16 +12,15 @@ rather than the paper's fixed 1-month horizon over 30 industries.
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, ClassVar, Self, cast
+from typing import TYPE_CHECKING, ClassVar, Self
 
 import numpy as np
 import pandas as pd
 
 from src.core import json_io
-from src.core.leaf_keys import LEAF_KEY_DIRECTIONAL_CLASSIFIER
 from src.core.logging import get_logger
 from src.core.persistence import (
     CLASSIFIER_SUBDIR,
@@ -39,10 +38,6 @@ from src.core.temporal import (
 from src.core.types import Device, Interval
 from src.core.utils import align_features_for_directional_target, compute_log_returns
 from src.models.xgboost_classifier import DirectionalClassifier
-from src.orchestration.pretrained_leaves import (
-    normalize_pretrained_leaves,
-    validate_pretrained_leaf,
-)
 from src.strategies.interface import IStrategy
 
 if TYPE_CHECKING:
@@ -86,9 +81,9 @@ class _CrossAssetMomentumConfig:
 def _derive_feature_columns(feature_tickers: Sequence[str], lags: Sequence[int]) -> list[str]:
     """Compute the deterministic feature-column names for ``(tickers × lags)``.
 
-    Single source of truth so ctor validation, ``train`` feature-frame
-    construction, and pretrained-leaf metadata comparison cannot drift. Order:
-    outer loop over tickers (input order), inner loop over lags (input order).
+    Single source of truth so ctor validation and ``train`` feature-frame
+    construction cannot drift. Order: outer loop over tickers (input
+    order), inner loop over lags (input order).
     """
     return [f"lag{lag}_{ticker}" for ticker in feature_tickers for lag in lags]
 
@@ -106,19 +101,10 @@ class CrossAssetMomentumStrategy(IStrategy):
       3. Three-way signal: ``+1`` iff ``p_up > direction_threshold``,
          ``-1`` iff ``p_up < 1 - direction_threshold``, ``0`` otherwise.
          Warmup bars before the longest lag has a non-NaN value remain NaN.
-
-    Supports pretrained-leaf injection: passing
-    ``pretrained_leaves={"directional_classifier": loaded_classifier}`` freezes
-    the XGBoost booster across every ``train()`` call. Unlike
-    ``MomentumGatekeeperStrategy``, there is no separate
-    ``FeatureEngineeringPipeline`` / ``StandardScaler`` outside the leaf — the
-    raw lagged-return columns flow straight into the classifier — so a frozen
-    classifier means a fully-frozen feature-to-prediction path.
     """
 
     is_multi_feature_strategy: ClassVar[bool] = True
     uses_xgboost: ClassVar[bool] = True
-    _leaf_keys: ClassVar[frozenset[str]] = frozenset({LEAF_KEY_DIRECTIONAL_CLASSIFIER})
 
     def __init__(
         self,
@@ -134,7 +120,6 @@ class CrossAssetMomentumStrategy(IStrategy):
         val_split_ratio: float = 0.2,
         device: Device | None = None,
         interval: Interval = Interval.DAILY,
-        pretrained_leaves: Mapping[str, object] | None = None,
     ) -> None:
         if not primary_ticker:
             raise ValueError(
@@ -178,20 +163,8 @@ class CrossAssetMomentumStrategy(IStrategy):
                 f"below 1.0 (typical: 0.55 for a moderate confidence gate)."
             )
 
-        self._pretrained_leaves = normalize_pretrained_leaves(
-            pretrained_leaves, self._leaf_keys, type(self).__name__
-        )
-
         feature_columns = _derive_feature_columns(feature_tickers_tup, lags_tup)
         self._classifier: DirectionalClassifier | None = None
-        if LEAF_KEY_DIRECTIONAL_CLASSIFIER in self._pretrained_leaves:
-            injected = self._pretrained_leaves[LEAF_KEY_DIRECTIONAL_CLASSIFIER]
-            validate_pretrained_leaf(
-                injected,
-                interval=interval,
-                feature_columns=feature_columns,
-            )
-            self._classifier = cast(DirectionalClassifier, injected)
 
         self._params = _CrossAssetMomentumConfig(
             primary_ticker=primary_ticker,
@@ -230,12 +203,7 @@ class CrossAssetMomentumStrategy(IStrategy):
         checkpoint_path: Path | None = None,
         **kwargs: object,
     ) -> None:
-        """Fit the directional classifier on lagged cross-asset returns.
-
-        When ``pretrained_leaves['directional_classifier']`` was injected, the
-        classifier stays frozen (no rebuild, no ``fit()``); only
-        ``_training_metadata`` advances.
-        """
+        """Fit the directional classifier on lagged cross-asset returns."""
         logger.info("%s train: %d bars", type(self).__name__, len(train_data))
         features = self._build_feature_frame(train_data)
         primary_close = train_data[f"close_{self._params.primary_ticker}"]
@@ -243,24 +211,18 @@ class CrossAssetMomentumStrategy(IStrategy):
             features, primary_close
         )
 
-        if LEAF_KEY_DIRECTIONAL_CLASSIFIER not in self._pretrained_leaves:
-            self._classifier = DirectionalClassifier(
-                feature_columns=list(self._feature_columns),
-                n_estimators=self._params.n_estimators,
-                learning_rate=self._params.learning_rate,
-                max_depth=self._params.max_depth,
-                subsample=self._params.subsample,
-                colsample_bytree=self._params.colsample_bytree,
-                val_split_ratio=self._params.val_split_ratio,
-                device=self._params.device,
-                interval=self._params.interval,
-            )
-            self._classifier.fit(features_ready, target_ready, checkpoint_path=checkpoint_path)
-        else:
-            logger.info(
-                "CrossAssetMomentum: pretrained %s in use, skipping classifier fit",
-                LEAF_KEY_DIRECTIONAL_CLASSIFIER,
-            )
+        self._classifier = DirectionalClassifier(
+            feature_columns=list(self._feature_columns),
+            n_estimators=self._params.n_estimators,
+            learning_rate=self._params.learning_rate,
+            max_depth=self._params.max_depth,
+            subsample=self._params.subsample,
+            colsample_bytree=self._params.colsample_bytree,
+            val_split_ratio=self._params.val_split_ratio,
+            device=self._params.device,
+            interval=self._params.interval,
+        )
+        self._classifier.fit(features_ready, target_ready, checkpoint_path=checkpoint_path)
 
         self._set_fitted_with_metadata(
             TrainingMetadata.from_fit(
@@ -274,8 +236,7 @@ class CrossAssetMomentumStrategy(IStrategy):
         if self._classifier is None:
             raise RuntimeError(
                 "CrossAssetMomentumStrategy.generate_signals() invoked with no "
-                "classifier wired; fix by checking the pretrained-leaf injection "
-                "or by re-running train(train_data)."
+                "classifier wired; fix by re-running train(train_data)."
             )
 
         features = self._build_feature_frame(data)
@@ -351,19 +312,13 @@ class CrossAssetMomentumStrategy(IStrategy):
         return max(self._params.lags) + _LOG_RETURN_WARMUP
 
     def get_all_training_metadata(self) -> tuple[TrackedMetadata, ...]:
-        """Expose strategy + owned classifier metadata for the deep leakage check.
-
-        When ``directional_classifier`` was pretrained-injected, the classifier
-        entry gets ``is_pretrained=True`` so the walk-forward orchestrator
-        enforces the strict-no-overlap invariant against the fold's train
-        window (not just its test window).
-        """
+        """Expose strategy + owned classifier metadata for the deep leakage check."""
         classifier_meta = (
             self._classifier.training_metadata if self._classifier is not None else None
         )
-        return self._build_strategy_plus_leaf_metadata(
-            LEAF_KEY_DIRECTIONAL_CLASSIFIER,
-            collect_metadata(("classifier", classifier_meta)),
+        return collect_metadata(
+            ("strategy", self.training_metadata),
+            ("classifier", classifier_meta),
         )
 
     @staticmethod
@@ -372,8 +327,7 @@ class CrossAssetMomentumStrategy(IStrategy):
 
         ``feature_tickers`` and ``lags`` stay fixed at YAML level — tuning the
         lag schedule per trial would change the classifier's input dimension,
-        which is incompatible with the pretrained-leaf workflow and produces
-        cross-trial Sharpe comparisons that aren't apples-to-apples.
+        producing cross-trial Sharpe comparisons that aren't apples-to-apples.
         """
         return {
             "direction_threshold": trial.suggest_float(

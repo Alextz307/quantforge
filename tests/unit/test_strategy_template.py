@@ -81,15 +81,6 @@ def test_template_invalid_threshold_raises() -> None:
         _TemplateStrategy(threshold=0.0)
 
 
-def test_template_pretrained_leaves_rejected() -> None:
-    """Empty ``_leaf_keys`` means any non-empty pretrained-leaves map raises.
-
-    Mirrors the ``AdaptiveBollingerStrategy`` API-uniformity contract.
-    """
-    with pytest.raises(ValueError, match="does not own pretrained leaf"):
-        _TemplateStrategy(pretrained_leaves={"some_leaf": object()})
-
-
 def test_template_suggest_params_keys_match_ctor() -> None:
     """``suggest_params`` keys must be a subset of ctor kwarg names.
 
@@ -105,10 +96,7 @@ def test_template_suggest_params_keys_match_ctor() -> None:
     trial = study.ask()
     suggested = _TemplateStrategy.suggest_params(trial)
 
-    ctor_kwargs = set(inspect.signature(_TemplateStrategy.__init__).parameters) - {
-        "self",
-        "pretrained_leaves",
-    }
+    ctor_kwargs = set(inspect.signature(_TemplateStrategy.__init__).parameters) - {"self"}
     assert set(suggested).issubset(ctor_kwargs), (
         f"suggest_params keys {sorted(suggested)} are not a subset of ctor "
         f"kwargs {sorted(ctor_kwargs)} — StrategyTuner would TypeError."

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
 from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar, Self
 
@@ -22,7 +21,6 @@ from src.core.registry import strategy_registry
 from src.core.temporal import TrainingMetadata
 from src.core.types import Interval
 from src.models.cointegration import CointegrationTester
-from src.orchestration.pretrained_leaves import normalize_pretrained_leaves
 from src.strategies.interface import IStrategy
 
 if TYPE_CHECKING:
@@ -43,9 +41,6 @@ class PairsTradingStrategy(IStrategy):
     ``-hedge_ratio * leg_a_position`` via the ``hedge_ratio`` property.
     """
 
-    # Non-ML strategy — cointegration coefficients refit cheaply per fold.
-    # ``normalize_pretrained_leaves`` raises on any non-empty map.
-    _leaf_keys: ClassVar[frozenset[str]] = frozenset()
     is_pairs_strategy: ClassVar[bool] = True
 
     def __init__(
@@ -56,13 +51,7 @@ class PairsTradingStrategy(IStrategy):
         zscore_lookback: int = 60,
         p_value_threshold: float = 0.05,
         interval: Interval = Interval.DAILY,
-        *,
-        pretrained_leaves: Mapping[str, object] | None = None,
     ) -> None:
-        self._pretrained_leaves = normalize_pretrained_leaves(
-            pretrained_leaves, self._leaf_keys, type(self).__name__
-        )
-
         if entry_zscore <= 0:
             raise ValueError(
                 f"entry_zscore must be > 0, got {entry_zscore}; fix by passing a "

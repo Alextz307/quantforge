@@ -1,19 +1,10 @@
 """Empirical-study orchestrator: drive (strategy x universe) sweeps end-to-end.
 
-This module owns two top-level workflows:
-
-* :func:`run_study` — for each (strategy, universe) leg in a
-  :class:`StudySpec`, compose the experiment config (deep-merge universe
-  profile onto strategy YAML), run tune -> run -> regime ->
-  holdout-eval, then per-universe cross-strategy compare. Resumable via
-  :class:`StudyState` (one ``study_state.json`` under ``<study_dir>/``);
-  per-leg failures are isolated and don't abort the sweep.
-* :func:`train_leaves` — counterpart for ML-bearing legs: walks the
-  spec, identifies every (universe, leaf_key) pair, composes a
-  :class:`StandaloneModelConfig` from a leaf-type template + universe
-  data block, and trains each artifact at the conventional path
-  ``<store_root>/models/{universe}_{leaf_key}/``. Skips artifacts that
-  already exist; resumable on transient training failures.
+For each (strategy, universe) leg in a :class:`StudySpec`, compose the
+experiment config (deep-merge universe profile onto strategy YAML), run
+tune -> run -> regime -> holdout-eval, then per-universe cross-strategy
+compare. Resumable via :class:`StudyState` (one ``study_state.json`` under
+``<study_dir>/``); per-leg failures are isolated and don't abort the sweep.
 
 The orchestrator's per-leg outputs reuse the standard artifact
 directories under the study root:
@@ -32,11 +23,10 @@ compare can resolve the run dir without re-walking ``runs/``.
 from __future__ import annotations
 
 import logging
-import time
 import traceback
 from collections.abc import Sequence
 from dataclasses import dataclass, replace
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import cast
 
@@ -44,23 +34,16 @@ import yaml
 
 from src.core.config import (
     ExperimentConfig,
-    StandaloneModelConfig,
     StudySpec,
     load_experiment_config,
     load_study_spec,
     load_universe_profile,
 )
 from src.core.hpo_config import HPOConfig
-from src.core.leaf_keys import (
-    LEAF_KEY_DIRECTIONAL_CLASSIFIER,
-    LEAF_KEY_RETURN_MODEL,
-    LEAF_KEY_VOL_MODEL,
-)
 from src.core.logging import get_logger
 from src.core.persistence import (
     COMPARISONS_SUBDIR,
     HPO_SUBDIR,
-    MODELS_SUBDIR,
 )
 from src.core.regime_config import RegimeConfig
 from src.optimization.checkpointing import BEST_CONFIG_YAML_NAME
@@ -68,13 +51,11 @@ from src.orchestration.builder import build_experiment
 from src.orchestration.comparison import SignificanceTest, run_comparison
 from src.orchestration.experiment import RunOptions
 from src.orchestration.holdout_eval import resolve_source, run_holdout_eval
-from src.orchestration.model_artifact import save_model_artifact
 from src.orchestration.regime_run import resolve_run_dir, run_regime_report
 from src.orchestration.run_loader import (
     load_experiment_config_from_run,
     load_experiment_result,
 )
-from src.orchestration.standalone_training import train_model_standalone
 from src.orchestration.study_state import (
     LEG_STEP_HOLDOUT_EVAL,
     LEG_STEP_REGIME,
@@ -96,16 +77,6 @@ _logger = get_logger(__name__)
 
 STUDY_STATE_FILENAME = "study_state.json"
 SPEC_SNAPSHOT_FILENAME = "spec.yaml"
-
-# Maps a leaf_key (declared on a strategy YAML's pretrained_leaves block) to
-# the StandaloneModelConfig template used by ``train-leaves``. The template
-# pins the model_kind + per-leaf hyperparameters; the orchestrator overrides
-# the data block and the artifact name per universe.
-LEAF_KEY_TO_TEMPLATE_YAML: dict[str, str] = {
-    LEAF_KEY_DIRECTIONAL_CLASSIFIER: "config/models/spy_directional_classifier.yaml",
-    LEAF_KEY_RETURN_MODEL: "config/models/spy_hybrid_return.yaml",
-    LEAF_KEY_VOL_MODEL: "config/models/spy_hybrid_volatility.yaml",
-}
 
 
 @dataclass(frozen=True)
@@ -170,21 +141,12 @@ def expand_spec_into_legs(spec: StudySpec, *, repo_root: Path) -> list[StudyLegR
     return out
 
 
-def expected_pretrained_leaf_path(store_root: Path, universe: str, leaf_key: str) -> Path:
-    """Conventional artifact path: ``<store_root>/models/{universe}_{leaf_key}/``.
-
-    Used by both the run-side path rewriter and the train-leaves
-    builder so the two paths cannot drift.
-    """
-    return store_root / MODELS_SUBDIR / f"{universe}_{leaf_key}"
-
-
 def compose_leg_config(
     leg: StudyLegRun,
     *,
     store_root: Path,
 ) -> ExperimentConfig:
-    """Deep-merge universe profile onto strategy YAML; rewrite pretrained leaves.
+    """Deep-merge universe profile onto strategy YAML.
 
     The strategy YAML provides ``strategy``, ``features``, ``slippage``,
     ``risk_free_rate`` and any base ``validation`` defaults. The universe
@@ -192,14 +154,8 @@ def compose_leg_config(
     override per-key (so the universe pins ``holdout_pct`` while leaving
     the strategy YAML's ``n_splits``/``test_size``/``gap`` intact unless
     the universe overrides them).
-
-    Pretrained-leaf paths declared on the strategy YAML are rewritten
-    per universe to the conventional study path:
-    ``<store_root>/models/{universe}_{leaf_key}/``. The orchestrator
-    cannot validate the path exists at compose time (this function is
-    cheap and called pre-flight); the run step picks up a missing-file
-    error from the builder if the artifact wasn't produced yet.
     """
+    del store_root
     base = _read_yaml(leg.strategy_config_path)
     profile = load_universe_profile(leg.universe_profile_path)
     base["name"] = leg.leg_id
@@ -213,15 +169,6 @@ def compose_leg_config(
     merged_validation: dict[str, object] = dict(raw_validation)
     merged_validation.update(profile.validation.model_dump(exclude_unset=True))
     base["validation"] = merged_validation
-
-    declared_leaves = base.get("pretrained_leaves") or {}
-    if isinstance(declared_leaves, dict) and declared_leaves:
-        rewritten: dict[str, str] = {}
-        for leaf_key in declared_leaves:
-            rewritten[leaf_key] = str(
-                expected_pretrained_leaf_path(store_root, leg.universe, leaf_key)
-            )
-        base["pretrained_leaves"] = rewritten
 
     return ExperimentConfig.model_validate(base)
 
@@ -493,95 +440,6 @@ def run_study(
     )
 
 
-def train_leaves(
-    spec_path: Path,
-    *,
-    store_root: Path,
-    repo_root: Path | None = None,
-) -> dict[str, str]:
-    """Walk the spec; for every (universe, leaf_key) needed, train + save.
-
-    Skips artifacts already on disk at the conventional path so
-    ``train-leaves`` is resumable across transient failures (yfinance
-    rate limits, OOM, GPU disconnect). Returns a status map keyed by
-    ``f"{universe}_{leaf_key}"``: each value is one of ``"trained"``,
-    ``"skipped"``, or ``f"failed: {err}"``.
-    """
-    repo = repo_root if repo_root is not None else Path.cwd()
-    spec = load_study_spec(spec_path)
-    legs = expand_spec_into_legs(spec, repo_root=repo)
-
-    needed = sorted(_collect_pretrained_leaf_pairs(legs))
-    n_total = len(needed)
-    statuses: dict[str, str] = {}
-    train_durations_s: list[float] = []
-    for idx, (universe, leaf_key) in enumerate(needed, start=1):
-        artifact_dir = expected_pretrained_leaf_path(store_root, universe, leaf_key)
-        artifact_key = artifact_dir.name
-        if artifact_dir.is_dir():
-            _logger.info(
-                "leaf %d/%d %s: already trained at %s — skipping",
-                idx,
-                n_total,
-                artifact_key,
-                artifact_dir,
-            )
-            statuses[artifact_key] = "skipped"
-            continue
-        try:
-            template_path = repo / LEAF_KEY_TO_TEMPLATE_YAML[leaf_key]
-            universe_profile_path = repo / "config" / "universes" / f"{universe}.yaml"
-            cfg = _compose_standalone_model_config(
-                template_path=template_path,
-                universe_profile_path=universe_profile_path,
-                artifact_name=artifact_key,
-            )
-            _logger.info(
-                "leaf %d/%d %s: training (%s on %s, %d->%d)",
-                idx,
-                n_total,
-                artifact_key,
-                cfg.model.name,
-                cfg.data.tickers[0],
-                cfg.data.start.year,
-                cfg.data.end.year,
-            )
-            t0 = time.perf_counter()
-            trained = train_model_standalone(cfg)
-            save_model_artifact(
-                artifact_dir,
-                model=trained.model,
-                manifest=trained.manifest,
-                config=cfg,
-            )
-            elapsed_s = time.perf_counter() - t0
-            train_durations_s.append(elapsed_s)
-            statuses[artifact_key] = "trained"
-            mean_s = sum(train_durations_s) / len(train_durations_s)
-            n_remaining = n_total - idx
-            eta_s = mean_s * n_remaining
-            _logger.info(
-                "leaf %d/%d %s: trained in %s (mean=%s, ETA=%s for %d remaining)",
-                idx,
-                n_total,
-                artifact_key,
-                _format_duration(elapsed_s),
-                _format_duration(mean_s),
-                _format_duration(eta_s),
-                n_remaining,
-            )
-        except Exception as exc:  # noqa: BLE001 — continue with remaining leaves
-            tb = "".join(traceback.format_exception_only(type(exc), exc)).strip()
-            _logger.error("leaf %d/%d %s: failed (%s)", idx, n_total, artifact_key, tb)
-            statuses[artifact_key] = f"failed: {tb}"
-    return statuses
-
-
-def _format_duration(seconds: float) -> str:
-    """Render a wall-clock duration as ``HH:MM:SS`` for log lines."""
-    return str(timedelta(seconds=int(seconds)))
-
-
 def _run_per_universe_compares(
     legs: Sequence[StudyLegRun],
     *,
@@ -652,47 +510,6 @@ def _run_per_universe_compares(
             tb = "".join(traceback.format_exception_only(type(exc), exc)).strip()
             _logger.error("compare for universe %s: failed (%s)", universe, tb)
     return state, n_done
-
-
-def _collect_pretrained_leaf_pairs(
-    legs: Sequence[StudyLegRun],
-) -> set[tuple[str, str]]:
-    """Walk legs; return ``{(universe, leaf_key)}`` for every ML-bearing leg."""
-    out: set[tuple[str, str]] = set()
-    for leg in legs:
-        declared = _declared_pretrained_leaves(leg.strategy_config_path)
-        for leaf_key in declared:
-            if leaf_key not in LEAF_KEY_TO_TEMPLATE_YAML:
-                raise ValueError(
-                    f"strategy YAML {leg.strategy_config_path} declares "
-                    f"pretrained leaf '{leaf_key}' with no registered "
-                    f"template; add it to LEAF_KEY_TO_TEMPLATE_YAML."
-                )
-            out.add((leg.universe, leaf_key))
-    return out
-
-
-def _declared_pretrained_leaves(strategy_yaml: Path) -> list[str]:
-    """Parse the YAML and return the leaf keys declared in pretrained_leaves."""
-    raw = _read_yaml(strategy_yaml)
-    block = raw.get("pretrained_leaves") or {}
-    if not isinstance(block, dict):
-        return []
-    return list(block.keys())
-
-
-def _compose_standalone_model_config(
-    *,
-    template_path: Path,
-    universe_profile_path: Path,
-    artifact_name: str,
-) -> StandaloneModelConfig:
-    """Override the template's data block + name from the universe profile."""
-    profile = load_universe_profile(universe_profile_path)
-    raw = _read_yaml(template_path)
-    raw["name"] = artifact_name
-    raw["data"] = profile.data.model_dump(mode="json")
-    return StandaloneModelConfig.model_validate(raw)
 
 
 def _read_yaml(path: Path) -> dict[str, object]:

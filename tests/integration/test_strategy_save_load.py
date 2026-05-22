@@ -290,35 +290,31 @@ _DRIFT_CASES: list[tuple[type, Callable[[], object], set[str]]] = [
         lambda: HybridReturnModel(feature_columns=["x"]),
         {"lstm_device"},
     ),
-    # ``pretrained_leaves`` is intentionally not persisted: it's an
-    # inference-time injection seam whose artifacts live outside the
-    # strategy's own save tree. ``ExperimentConfig.pretrained_leaves`` is
-    # the source of truth on next load, not ``save()``'s config.json.
-    (PairsTradingStrategy, lambda: PairsTradingStrategy(), {"pretrained_leaves"}),
+    (PairsTradingStrategy, lambda: PairsTradingStrategy(), set()),
     (
         AdaptiveBollingerStrategy,
         lambda: AdaptiveBollingerStrategy(),
-        {"pretrained_leaves"},
+        set(),
     ),
     (
         MomentumGatekeeperStrategy,
         lambda: MomentumGatekeeperStrategy(),
-        {"device", "pretrained_leaves"},
+        {"device"},
     ),
     (
         CrossAssetMomentumStrategy,
         lambda: CrossAssetMomentumStrategy(primary_ticker="X", feature_tickers=("Y",)),
-        {"device", "pretrained_leaves"},
+        {"device"},
     ),
     (
         ReturnForecastStrategy,
         lambda: ReturnForecastStrategy(feature_columns=["x"]),
-        {"lstm_device", "pretrained_leaves"},
+        {"lstm_device"},
     ),
     (
         VolatilityTargetingStrategy,
         lambda: VolatilityTargetingStrategy(feature_columns=["x"]),
-        {"lstm_device", "pretrained_leaves"},
+        {"lstm_device"},
     ),
 ]
 

@@ -103,7 +103,7 @@ class FoldRecord:
             raise TypeError(
                 f"strategy_diagnostics must be a dict, got {type(diagnostics_raw).__name__}"
             )
-        diagnostics: dict[str, float] = {str(k): float(v) for k, v in diagnostics_raw.items()}
+        diagnostics: dict[str, float] = {k: float(v) for k, v in diagnostics_raw.items()}
         return cls(
             fold_index=json_io.get_int(d, "fold_index"),
             train_start=json_io.get_timestamp(d, "train_start"),

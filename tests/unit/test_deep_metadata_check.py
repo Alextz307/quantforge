@@ -38,8 +38,6 @@ _BOLLINGER_TREND = 50
 _EVAL_N = 60
 _EVAL_START = "2021-01-04"
 _EVAL_SEED = 99
-_LEAF_TRAIN_SAMPLES = 100
-_STRATEGY_TRAIN_SAMPLES = 250
 
 
 @pytest.fixture
@@ -95,7 +93,7 @@ class TestWalkForwardDeepCheck:
             garch_q_max=_COMPACT_GARCH_Q,
         )
         s.train(train_df)
-        validate_deep_metadata(s, train_data=train_df, test_data=eval_df)
+        validate_deep_metadata(s, test_data=eval_df)
 
     def test_leaf_drift_raises_with_origin_in_message(
         self,
@@ -127,7 +125,7 @@ class TestWalkForwardDeepCheck:
         s._garch._training_metadata = drifted
 
         with pytest.raises(LeakageError, match="AdaptiveBollingerStrategy.garch:"):
-            validate_deep_metadata(s, train_data=train_df, test_data=eval_df)
+            validate_deep_metadata(s, test_data=eval_df)
 
     def test_none_component_is_logged_and_skipped(
         self,
@@ -159,8 +157,9 @@ class TestWalkForwardDeepCheck:
 
         stub = _StubStrategy()
         with caplog.at_level(logging.WARNING):
-            validate_deep_metadata(stub, train_data=train_df, test_data=eval_df)  # type: ignore[arg-type]
+            validate_deep_metadata(stub, test_data=eval_df)  # type: ignore[arg-type]
         assert any("strategy" in r.message for r in caplog.records)
+
 
     def test_all_none_raises_runtime_error(
         self,
@@ -175,90 +174,6 @@ class TestWalkForwardDeepCheck:
 
         stub = _StubStrategy()
         with pytest.raises(RuntimeError, match="returned no populated metadata"):
-            validate_deep_metadata(stub, train_data=eval_df, test_data=eval_df)  # type: ignore[arg-type]
+            validate_deep_metadata(stub, test_data=eval_df)  # type: ignore[arg-type]
 
 
-class TestStrictNoOverlapForPretrainedLeaves:
-    """A pretrained leaf whose train_end falls inside the fold's train
-    window must trip ``LeakageError`` with a pretrained-specific message
-    — strategy-level state would fit on bars where the leaf is
-    in-sample, producing inflated backtest numbers at eval.
-    """
-
-    def _make_strategy(
-        self,
-        *,
-        leaf_train_end: pd.Timestamp,
-        is_pretrained: bool,
-    ) -> object:
-        leaf_meta = TrainingMetadata(
-            train_start=pd.Timestamp("2018-01-02"),
-            train_end=leaf_train_end,
-            n_train_samples=_LEAF_TRAIN_SAMPLES,
-            fit_timestamp=pd.Timestamp("2020-01-01"),
-            interval=Interval.DAILY,
-            feature_columns=("close",),
-        )
-        strategy_meta = TrainingMetadata(
-            train_start=pd.Timestamp("2019-01-02"),
-            train_end=pd.Timestamp("2019-12-31"),
-            n_train_samples=_STRATEGY_TRAIN_SAMPLES,
-            fit_timestamp=pd.Timestamp("2020-01-01"),
-            interval=Interval.DAILY,
-            feature_columns=("close",),
-        )
-
-        captured_strategy_meta = strategy_meta
-        captured_leaf_meta = leaf_meta
-        captured_is_pretrained = is_pretrained
-
-        class _StubStrategy:
-            def get_all_training_metadata(self) -> tuple[TrackedMetadata, ...]:
-                return (
-                    TrackedMetadata(origin="strategy", metadata=captured_strategy_meta),
-                    TrackedMetadata(
-                        origin="leaf",
-                        metadata=captured_leaf_meta,
-                        is_pretrained=captured_is_pretrained,
-                    ),
-                )
-
-        return _StubStrategy()
-
-    def test_pretrained_leaf_overlapping_fold_train_raises(
-        self,
-        train_df: pd.DataFrame,
-        eval_df: pd.DataFrame,
-    ) -> None:
-        # Leaf's train_end falls INSIDE the fold's train window — strict
-        # invariant violated. eval_df is strictly after train_df in the
-        # synthetic fixture, so test-side overlap isn't what's caught.
-        leaf_end_inside_train = pd.Timestamp(train_df.index[len(train_df) // 2])
-        strategy = self._make_strategy(leaf_train_end=leaf_end_inside_train, is_pretrained=True)
-        with pytest.raises(LeakageError, match="overlaps fold train window"):
-            validate_deep_metadata(strategy, train_data=train_df, test_data=eval_df)  # type: ignore[arg-type]
-
-    def test_fresh_leaf_on_same_window_is_fine(
-        self,
-        train_df: pd.DataFrame,
-        eval_df: pd.DataFrame,
-    ) -> None:
-        """Regression guard: a non-pretrained leaf with the same
-        ``train_end`` passes. The strict-overlap rule MUST be gated by
-        ``is_pretrained`` — otherwise every fresh fold refit would trip
-        it, since the leaf trains on the fold window by construction.
-        """
-        leaf_end_inside_train = pd.Timestamp(train_df.index[len(train_df) // 2])
-        strategy = self._make_strategy(leaf_train_end=leaf_end_inside_train, is_pretrained=False)
-        validate_deep_metadata(strategy, train_data=train_df, test_data=eval_df)  # type: ignore[arg-type]
-
-    def test_pretrained_leaf_strictly_before_fold_passes(
-        self,
-        train_df: pd.DataFrame,
-        eval_df: pd.DataFrame,
-    ) -> None:
-        """Happy path: pretrained leaf train_end strictly before fold
-        train_start satisfies both invariants."""
-        earlier = pd.Timestamp(train_df.index[0]) - pd.Timedelta(days=30)
-        strategy = self._make_strategy(leaf_train_end=earlier, is_pretrained=True)
-        validate_deep_metadata(strategy, train_data=train_df, test_data=eval_df)  # type: ignore[arg-type]

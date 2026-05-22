@@ -27,7 +27,7 @@ All six register themselves at import time on `strategy_registry`
 | File | Role |
 | --- | --- |
 | `interface.py` | `IStrategy` ABC + the `is_pairs_strategy` capability flag + the deep-metadata collector. |
-| `adaptive_bollinger.py` | Single-asset, owns a `GARCHPredictor`. No pretrained leaves. |
+| `adaptive_bollinger.py` | Single-asset, owns a `GARCHPredictor`. |
 | `pairs_trading.py` | Two-asset (`close_a` / `close_b`); owns `CointegrationTester` and a C++ `PairsTradingStrategy` for signal generation. |
 | `momentum_gatekeeper.py` | Owns a `FeatureEngineeringPipeline` + `DirectionalClassifier` (XGBoost). |
 | `cross_asset_momentum.py` | Owns a `DirectionalClassifier` (XGBoost) fed lagged log-returns of N feature tickers; reads the wide `<ohlcv>_<TICKER>` frame directly. |
@@ -40,12 +40,6 @@ All six register themselves at import time on `strategy_registry`
   `is_pairs_strategy: ClassVar[bool] = True` on the class — no string
   check by name anywhere. `build_experiment` and `walk_forward` read
   the flag to decide between single-leg and two-leg paths.
-- **Pretrained-leaf injection.** Composite strategies declare
-  `_leaf_keys: ClassVar[frozenset[str]]`; non-composite strategies
-  declare an empty frozenset. The ctor's `pretrained_leaves` kwarg is
-  validated by `normalize_pretrained_leaves` (extra / missing keys
-  raise). Per-leaf shape (interval, feature columns, lookback) is
-  validated by `validate_pretrained_leaf`.
 - **Composite passthrough bundle.** When a strategy owns a leaf with a
   fit-once scaler and >5 ctor kwargs, the leaf is rebuilt at the top
   of `train()` from a module-private frozen `@dataclass` (e.g.,
@@ -103,19 +97,12 @@ All six register themselves at import time on `strategy_registry`
    and override the `primary_ticker` property; the value MUST appear in
    the experiment's `data.tickers` list (validated at config-build time).
 
-5. **(Composite only) Wire pretrained-leaf injection.** If your
-   strategy owns one or more ML leaves whose weights you want to pin
-   across folds, follow the 6-piece composition checklist in *Hidden
-   contracts*. Skip this step entirely for non-ML strategies — the
-   ctor's `pretrained_leaves` kwarg is still accepted for API uniformity
-   but `normalize_pretrained_leaves` rejects any non-empty map.
-
-6. **Add `config/strategies/<name>.yaml`** with the default ctor kwargs,
+5. **Add `config/strategies/<name>.yaml`** with the default ctor kwargs,
    plus a corresponding HPO YAML if the strategy will be tuned. The
    YAML schema is enforced by Pydantic — string values for `Interval`
    and `Device` fields are auto-coerced to the matching `StrEnum`.
 
-7. **Add `tests/unit/test_<your_strategy>.py`.** Minimum coverage:
+6. **Add `tests/unit/test_<your_strategy>.py`.** Minimum coverage:
    train + signals smoke (warmup-NaN check, signal range check),
    `assert_params_match_constructor` drift guard if you used a frozen
    passthrough dataclass, `assert "<Name>" in strategy_registry`,
@@ -152,27 +139,6 @@ or surfaces only at backtest time, far from the bug.
   them by strategy (e.g. `"bollinger_window"`, `"cross_asset_n_estimators"`)
   to avoid cross-strategy collisions when multiple strategies share an
   Optuna study.
-- **Pretrained-leaf composition (6 pieces).** Composite strategies that
-  accept frozen leaves wire all six in this order:
-
-  1. Declare the supported leaf keys: `_leaf_keys: ClassVar[frozenset[str]] = frozenset({...})`.
-  2. Accept the kwarg in `__init__`: `pretrained_leaves: Mapping[str, object] | None = None`.
-  3. Normalise + defensive-copy: `self._pretrained_leaves =
-     normalize_pretrained_leaves(pretrained_leaves, self._leaf_keys, type(self).__name__)`.
-  4. If a leaf was injected, validate the contract before storing it:
-     `validate_pretrained_leaf(leaf, interval=..., feature_columns=..., lstm_lookback=...)`.
-  5. In `train()`, gate the per-fold rebuild-and-fit on `if leaf_key
-     not in self._pretrained_leaves: ...` — a pinned leaf must never be
-     re-fit, only the strategy's own state advances.
-  6. In `get_all_training_metadata()`, build the deep-leakage-check
-     output via `self._build_strategy_plus_leaf_metadata(leaf_key,
-     collect_metadata((leaf_key, leaf.training_metadata)))`. The helper
-     marks the leaf entry `is_pretrained=True` so the walk-forward
-     orchestrator enforces the strict-no-overlap invariant against the
-     fold's *train* window (not just its test window).
-
-  The seam itself lives in `src/orchestration/pretrained_leaves.py`;
-  read it once before extending a composite.
 - **Composite passthrough bundle.** When a leaf has a fit-once scaler
   AND >5 ctor kwargs (Hybrid* models, FeaturePipeline + classifier),
   freeze every passthrough in a module-private
@@ -199,7 +165,6 @@ or surfaces only at backtest time, far from the bug.
 | Single-asset composite (passthrough bundle pattern) | `return_forecast.py`, `volatility_targeting.py` |
 | Pairs (two-leg) | `pairs_trading.py` |
 | Multi-feature single-asset (wide `<ohlcv>_<TICKER>` frame) | `cross_asset_momentum.py` |
-| Pretrained-leaf injection seam (validator + helpers) | `src/orchestration/pretrained_leaves.py` |
 
 ## Snippet
 

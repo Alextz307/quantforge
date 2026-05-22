@@ -9,29 +9,24 @@ typos in user YAML fail at load time, not mid-run.
 
 | Subdirectory | Purpose | Loaded via |
 | --- | --- | --- |
-| `strategies/` | One YAML per strategy `experiment run` configuration. Two variants where pretrained-leaf injection is interesting (`*_pretrained.yaml`). | `load_experiment_config(path)` |
+| `strategies/` | One YAML per strategy `experiment run` configuration. | `load_experiment_config(path)` |
 | `hpo/` | One per-strategy HPO study spec consumed by `experiment tune`. | `load_hpo_config(path)` |
 | `regimes/` | Detector specs consumed by `experiment regime`. | `load_regime_config(path)` |
-| `models/` | Standalone leaf-training configs consumed by `experiment train-model` (output → `experiment_results/models/<name>/`). | `load_standalone_model_config(path)` |
 | `universes/` | Reusable `UniverseProfile` files (`data:` + `validation:` blocks). Deep-merged onto a strategy YAML by the study orchestrator. See `universes/README.md`. | `load_universe_profile(path)` |
 | `study/` | Top-level study specs enumerating every (strategy × universe) leg the empirical sweep evaluates. See `study/README.md`. | `load_study_spec(path)` |
 | `example.yaml` | Reference `ExperimentConfig` with every field documented inline. Copy-and-edit for new runs. | `load_experiment_config` |
 
 ## Top-level YAMLs (`strategies/`)
 
-Seven YAML files across five registered strategies (two pretrained-leaf
-variants for the strategies where injection is interesting):
+Six YAML files across five registered strategies:
 
 - `adaptive_bollinger.yaml`
 - `pairs_trading.yaml` — two-ticker (`tickers: [IVV, VOO]`); no
   `features:` block (pairs strategies operate on raw price columns).
-- `momentum_gatekeeper.yaml` — full HPO from scratch.
-- `momentum_gatekeeper_pretrained.yaml` — injects a frozen
-  `DirectionalClassifier` artifact via `pretrained_leaves`.
-- `return_forecast.yaml` — full HPO.
-- `return_forecast_pretrained.yaml` — injects a frozen
-  `HybridReturnModel` artifact.
-- `volatility_targeting.yaml` — full HPO.
+- `cross_asset_momentum.yaml`
+- `momentum_gatekeeper.yaml`
+- `return_forecast.yaml`
+- `volatility_targeting.yaml`
 
 ## Schema invariants
 
@@ -47,10 +42,6 @@ variants for the strategies where injection is interesting):
   `is_pairs_strategy=True` strategies require `len(tickers) == 2` and
   reject a `features:` block; single-leg strategies require
   `len(tickers) == 1`.
-- **Pretrained-leaf collisions rejected.** Keys the pinned leaf owns
-  (per `_LEAF_KEY_OWNED_PARAMS` in `src/core/config.py`) MUST NOT
-  appear in `strategy.params` — the artifact wins, surfacing user
-  intent collisions early.
 
 ## On-disk layout
 
@@ -59,25 +50,22 @@ config/
     example.yaml                  # reference ExperimentConfig
     strategies/
         adaptive_bollinger.yaml
-        pairs_trading.yaml
+        cross_asset_momentum.yaml
         momentum_gatekeeper.yaml
-        momentum_gatekeeper_pretrained.yaml
+        pairs_trading.yaml
         return_forecast.yaml
-        return_forecast_pretrained.yaml
         volatility_targeting.yaml
     hpo/
         adaptive_bollinger.yaml
-        pairs_trading.yaml
+        cross_asset_momentum.yaml
         momentum_gatekeeper.yaml
+        pairs_trading.yaml
         return_forecast.yaml
         volatility_targeting.yaml
     regimes/
         bull_bear_200ma.yaml
         covid_split.yaml
         vol_quintile.yaml
-    models/
-        spy_directional_classifier.yaml
-        spy_hybrid_return.yaml
     universes/
         spy_daily_5y.yaml
         spy_daily_10y.yaml
@@ -119,8 +107,8 @@ python -m scripts.experiment run \
 
 ## Composing configs with `--override`
 
-Every CLI subcommand that loads a config (`run`, `train-model`, `tune`,
-`compare`) accepts repeated `--override key.path=value` flags. The
+Every CLI subcommand that loads a config (`run`, `tune`, `compare`)
+accepts repeated `--override key.path=value` flags. The
 value is parsed with `yaml.safe_load` so the surface matches the YAML
 files (e.g. `[QQQ]` → list, `false` → bool, `2024-01-01` → date).
 Intermediate keys must already exist in the loaded YAML — typos like
@@ -133,10 +121,6 @@ without keeping demo-specific duplicates.
 
 - Schemas: `ExperimentConfig` (`src/core/config.py`),
   `HPOConfig` (`src/core/hpo_config.py`),
-  `RegimeConfig` (`src/core/regime_config.py`),
-  `StandaloneModelConfig` (`src/core/config.py`).
+  `RegimeConfig` (`src/core/regime_config.py`).
 - Wiring: `src/orchestration/builder.py::build_experiment` resolves
   every name via the global registries.
-- Pretrained-leaf workflow lives in
-  `src/orchestration/standalone_training.py` and
-  `src/orchestration/pretrained_leaves.py`.

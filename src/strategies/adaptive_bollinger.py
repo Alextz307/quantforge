@@ -3,9 +3,8 @@
 from __future__ import annotations
 
 import math
-from collections.abc import Mapping
 from pathlib import Path
-from typing import TYPE_CHECKING, ClassVar, Self
+from typing import TYPE_CHECKING, Self
 
 import numpy as np
 import pandas as pd
@@ -24,7 +23,6 @@ from src.core.temporal import TrackedMetadata, TrainingMetadata, collect_metadat
 from src.core.types import Interval
 from src.core.utils import compute_log_returns
 from src.models.garch import GARCHPredictor
-from src.orchestration.pretrained_leaves import normalize_pretrained_leaves
 from src.strategies.interface import IStrategy
 
 if TYPE_CHECKING:
@@ -45,11 +43,6 @@ class AdaptiveBollingerStrategy(IStrategy):
     bullish regimes, shorts only in bearish regimes.
     """
 
-    # GARCH refits cheaply per fold with no scaler/feature contract worth
-    # pinning — pretrained-leaf injection unused. ``normalize_pretrained_leaves``
-    # raises on any non-empty map.
-    _leaf_keys: ClassVar[frozenset[str]] = frozenset()
-
     def __init__(
         self,
         window: int = 20,
@@ -58,8 +51,6 @@ class AdaptiveBollingerStrategy(IStrategy):
         garch_p_max: int = 5,
         garch_q_max: int = 5,
         interval: Interval = Interval.DAILY,
-        *,
-        pretrained_leaves: Mapping[str, object] | None = None,
     ) -> None:
         if window < 2:
             raise ValueError(
@@ -76,10 +67,6 @@ class AdaptiveBollingerStrategy(IStrategy):
                 f"k must be > 0, got {k}; fix by passing a strictly positive "
                 f"band-width multiplier (typical: 2.0 for ~95% confidence)."
             )
-
-        self._pretrained_leaves = normalize_pretrained_leaves(
-            pretrained_leaves, self._leaf_keys, type(self).__name__
-        )
 
         self._window = window
         self._k = k

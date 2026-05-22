@@ -160,13 +160,6 @@ class HybridVolatilityModel(IPredictor):
         """
         return self._last_floor_bind_fraction
 
-    @property
-    def params(self) -> _HybridVolConfig:
-        """Frozen snapshot of every ctor kwarg — public so composites can
-        sync their own passthrough-params bundle off a pretrained leaf
-        without reaching into private state."""
-        return self._params
-
     def fit(
         self,
         train_data: pd.DataFrame,
@@ -246,15 +239,11 @@ class HybridVolatilityModel(IPredictor):
         # Clip floor: vol is non-negative by definition; a large negative LSTM
         # residual can drive `garch_vol + residual` below zero on noisy data.
         unclipped = garch_vol + lstm_residual
-        # Track floor activation over non-NaN bars (LSTM warmup leaves leading
-        # NaNs that would otherwise distort the fraction).
-        valid_mask = unclipped.notna()
-        n_valid = int(valid_mask.sum())
-        if n_valid > 0:
-            below_floor = (unclipped < self._params.min_vol) & valid_mask
-            self._last_floor_bind_fraction = float(below_floor.sum()) / n_valid
-        else:
-            self._last_floor_bind_fraction = 0.0
+        # `NaN < x` is False, so the comparison already excludes NaN bars from
+        # the numerator; divide by the non-NaN count to get the bind fraction.
+        n_valid = int(unclipped.notna().sum())
+        below_floor_count = int((unclipped < self._params.min_vol).sum())
+        self._last_floor_bind_fraction = below_floor_count / n_valid if n_valid > 0 else 0.0
         final_vol = unclipped.clip(lower=self._params.min_vol)
         final_vol.name = "hybrid_vol"
         return final_vol

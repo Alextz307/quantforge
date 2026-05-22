@@ -56,7 +56,6 @@ export const RUN_SPY_DETAIL: RunDetail = {
   data_hash: "deadbeefcafebabe1234567890abcdef",
   slippage_scenario: "normal",
   holdout_start: "2026-01-01T00:00:00Z",
-  pretrained_leaves: [],
   metrics: { sharpe_mean: 1.234, calmar_mean: 0.456, max_drawdown_mean: -0.12 },
   plots: ["equity.png", "fold_stability.svg"],
 };

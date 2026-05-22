@@ -1,15 +1,11 @@
 """Click adapter for the empirical-study orchestrator.
 
-Three subcommands under the ``experiment study`` group:
+Two subcommands under the ``experiment study`` group:
 
 * ``study run``           Drive the full sweep: tune -> run -> regime ->
                           holdout-eval per leg, then per-universe
                           cross-strategy compare. Resumable via
                           ``study_state.json`` under ``<study_dir>/``.
-* ``study train-leaves``  Train standalone leaf artifacts needed by
-                          ML-bearing legs (DirectionalClassifier /
-                          HybridReturn / HybridVolatility). Skips
-                          artifacts already on disk.
 * ``study report``        Walk a completed study directory and consolidate
                           per-leg artifacts into ``<study_dir>/{tables,
                           plots,manifest.json}``. Read-only with respect
@@ -30,7 +26,7 @@ from pydantic import ValidationError
 from src.core.exceptions import LeakageError
 from src.core.logging import attach_cli_log_file
 from src.core.regime_config import RegimeConfig, load_regime_config
-from src.orchestration.study import run_study, train_leaves
+from src.orchestration.study import run_study
 from src.orchestration.study_report import consolidate_study
 from src.visualization.study_report_reporter import StudyReportReporter
 
@@ -152,53 +148,6 @@ def run_cmd(
                 f"under {result.study_dir} for per-leg error messages, then rerun "
                 f"the same command to retry."
             )
-
-
-@study.command("train-leaves")
-@click.option(
-    "--spec",
-    "spec_path",
-    required=True,
-    type=click.Path(exists=True, dir_okay=False, path_type=Path),
-    help="Path to a StudySpec YAML.",
-)
-@click.option(
-    "--store-root",
-    default=str(DEFAULT_STORE_ROOT),
-    type=click.Path(file_okay=False, path_type=Path),
-    help="Override the experiment_results/ directory (models/ lives under here).",
-)
-def train_leaves_cmd(spec_path: Path, store_root: Path) -> None:
-    """Train every (universe, leaf_key) artifact needed by ML-bearing legs.
-
-    Skips artifacts already on disk at the conventional path
-    ``<store_root>/models/{universe}_{leaf_key}/``. On transient
-    failure (e.g. a yfinance rate limit), rerun the same command — the
-    skip-on-existing logic acts as resume.
-    """
-    with attach_cli_log_file(store_root, "train_leaves") as log_path:
-        click.echo(
-            f"training leaves from spec '{spec_path}' (store_root={store_root}) → log: {log_path}"
-        )
-        try:
-            statuses = train_leaves(spec_path, store_root=store_root)
-        except (ValidationError, FileNotFoundError, ValueError, RuntimeError) as e:
-            raise click.ClickException(f"train-leaves failed: {e}") from e
-
-    n_trained = sum(1 for v in statuses.values() if v == "trained")
-    n_skipped = sum(1 for v in statuses.values() if v == "skipped")
-    n_failed = sum(1 for v in statuses.values() if v.startswith("failed"))
-    for artifact, status in sorted(statuses.items()):
-        click.echo(f"  {artifact}: {status}")
-    click.echo(f"trained:  {n_trained}")
-    click.echo(f"skipped:  {n_skipped}")
-    click.echo(f"failed:   {n_failed}")
-    if n_failed > 0:
-        raise click.ClickException(
-            f"{n_failed} leaf training job(s) failed — see per-artifact errors above. "
-            f"Rerun the same command to retry only the failures (already-trained "
-            f"artifacts are preserved)."
-        )
 
 
 @study.command("report")

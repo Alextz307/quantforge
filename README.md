@@ -162,7 +162,7 @@ a saved run + a regime detector feed `experiment regime`.
 ```mermaid
 graph LR
     Config["config/*.yaml<br/>(ExperimentConfig)"]
-    Builder["build_experiment<br/>resolves registries<br/>+ injects pretrained leaves"]
+    Builder["build_experiment<br/>resolves registries"]
     Experiment["Experiment<br/>(data_source · strategy · validator · engine)"]
     WalkForward["evaluate_walk_forward<br/>+ deep-metadata tripwire"]
     RunCLI["scripts.experiment.run<br/>artefacts → runs/"]
@@ -181,10 +181,8 @@ graph LR
 `Experiment` is a frozen bundle — every component is resolved once via
 the global registries (`data_source_registry`, `strategy_registry`,
 `feature_registry`) so the same YAML configures both ad-hoc runs and
-HPO trials. Pretrained-leaf artefacts (`experiment train-model`) are
-loaded at build time and threaded into the strategy ctor; the deep
-metadata tripwire then enforces strict no-overlap between every leaf's
-training window and each fold's test window.
+HPO trials. The deep metadata tripwire then enforces strict no-overlap
+between every component's training window and each fold's test window.
 
 ## What's Implemented
 

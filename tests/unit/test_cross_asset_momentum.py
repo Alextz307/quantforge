@@ -10,7 +10,6 @@ import pandas as pd
 import pytest
 
 from src.core.registry import strategy_registry
-from src.core.temporal import TrainingMetadata
 from src.core.types import Interval
 from src.strategies.cross_asset_momentum import (
     _LOG_RETURN_WARMUP,
@@ -20,9 +19,7 @@ from src.strategies.cross_asset_momentum import (
 )
 from tests.conftest import (
     GLOBAL_NUMPY_SEED,
-    FakeDirectionalClassifier,
     assert_params_match_constructor,
-    make_leaf_training_metadata,
     make_synthetic_ohlcv_df,
 )
 
@@ -75,19 +72,28 @@ def _make_strategy(**overrides: object) -> CrossAssetMomentumStrategy:
     return CrossAssetMomentumStrategy(**kwargs)  # type: ignore[arg-type]
 
 
-def _strategy_with_fake_classifier(proba: float) -> CrossAssetMomentumStrategy:
-    """Make a strategy with a fake classifier injected as a pretrained leaf.
+class _FakeClassifier:
+    """Duck-typed classifier returning a constant probability — bypasses XGBoost fit."""
 
-    Bypasses real XGBoost training — the fake's ``predict_proba`` returns
-    ``proba`` for every bar, letting tests pin signals without paying the
-    fit cost. ``train()`` still runs but skips the leaf rebuild.
-    """
-    feature_cols = tuple(_derive_feature_columns(_FEATURE_TICKERS, _LAGS))
-    fake = FakeDirectionalClassifier(
-        training_metadata=make_leaf_training_metadata(feature_cols),
-        proba=proba,
-    )
-    return _make_strategy(pretrained_leaves={"directional_classifier": fake})
+    def __init__(self, proba: float) -> None:
+        self._proba = proba
+        self.training_metadata = None
+
+    def fit(self, df: pd.DataFrame, target: pd.Series, **_: object) -> None:
+        del df, target
+
+    def predict_proba(self, df: pd.DataFrame) -> pd.Series:
+        return pd.Series(self._proba, index=df.index, name="up_prob")
+
+
+def _strategy_with_fake_classifier(
+    proba: float, wide_df: pd.DataFrame
+) -> CrossAssetMomentumStrategy:
+    """Build a fitted strategy whose classifier is a constant-proba fake."""
+    s = _make_strategy()
+    s.train(wide_df)
+    s._classifier = _FakeClassifier(proba)  # type: ignore[assignment]
+    return s
 
 
 class TestCtorValidation:
@@ -160,93 +166,33 @@ class TestTrainGenerate:
         assert set(non_nan.unique()).issubset({-1.0, 0.0, 1.0})
 
     def test_high_p_up_yields_long(self, wide_df: pd.DataFrame) -> None:
-        """Fake classifier with p_up=0.9 → every non-warmup bar goes long."""
-        s = _strategy_with_fake_classifier(proba=0.9)
-        s.train(wide_df)
+        s = _strategy_with_fake_classifier(proba=0.9, wide_df=wide_df)
         signals = s.generate_signals(wide_df).dropna()
         assert (signals == 1.0).all()
 
     def test_low_p_up_yields_short(self, wide_df: pd.DataFrame) -> None:
-        s = _strategy_with_fake_classifier(proba=0.1)
-        s.train(wide_df)
+        s = _strategy_with_fake_classifier(proba=0.1, wide_df=wide_df)
         signals = s.generate_signals(wide_df).dropna()
         assert (signals == -1.0).all()
 
     def test_mid_p_up_yields_flat(self, wide_df: pd.DataFrame) -> None:
         """``1 - threshold < proba < threshold`` lands in the dead zone (signal=0)."""
-        s = _strategy_with_fake_classifier(proba=0.5)
-        s.train(wide_df)
+        s = _strategy_with_fake_classifier(proba=0.5, wide_df=wide_df)
         signals = s.generate_signals(wide_df).dropna()
         assert (signals == 0.0).all()
 
     def test_warmup_bars_are_nan(self, wide_df: pd.DataFrame) -> None:
-        s = _strategy_with_fake_classifier(proba=0.55)
-        s.train(wide_df)
+        s = _strategy_with_fake_classifier(proba=0.55, wide_df=wide_df)
         signals = s.generate_signals(wide_df)
         warmup = max(_LAGS) + _LOG_RETURN_WARMUP
         assert signals.iloc[:warmup].isna().all()
         assert signals.iloc[warmup:].notna().any()
 
     def test_deterministic_signals(self, wide_df: pd.DataFrame) -> None:
-        s = _strategy_with_fake_classifier(proba=0.55)
-        s.train(wide_df)
+        s = _strategy_with_fake_classifier(proba=0.55, wide_df=wide_df)
         s1 = s.generate_signals(wide_df)
         s2 = s.generate_signals(wide_df)
         np.testing.assert_array_equal(s1.to_numpy(), s2.to_numpy())
-
-
-class TestPretrainedLeafInjection:
-    def _matching_metadata(self) -> TrainingMetadata:
-        return make_leaf_training_metadata(tuple(_derive_feature_columns(_FEATURE_TICKERS, _LAGS)))
-
-    def test_ctor_stores_leaf_and_skips_build(self) -> None:
-        fake = FakeDirectionalClassifier(training_metadata=self._matching_metadata())
-        s = _make_strategy(pretrained_leaves={"directional_classifier": fake})
-        assert id(s._classifier) == id(fake)
-        assert "directional_classifier" in s._pretrained_leaves
-
-    def test_train_does_not_refit_pretrained_leaf(self, wide_df: pd.DataFrame) -> None:
-        fake = FakeDirectionalClassifier(training_metadata=self._matching_metadata())
-        s = _make_strategy(pretrained_leaves={"directional_classifier": fake})
-        s.train(wide_df)
-        assert fake.fit_calls == 0
-        assert s.training_metadata is not None
-        assert s.training_metadata.train_end == pd.Timestamp(wide_df.index[-1])
-
-    def test_get_all_training_metadata_marks_classifier_pretrained(
-        self, wide_df: pd.DataFrame
-    ) -> None:
-        fake = FakeDirectionalClassifier(training_metadata=self._matching_metadata())
-        s = _make_strategy(pretrained_leaves={"directional_classifier": fake})
-        s.train(wide_df)
-        tracked = s.get_all_training_metadata()
-        assert tracked[0].origin == "strategy"
-        assert tracked[0].is_pretrained is False
-        leaf_entries = tracked[1:]
-        assert len(leaf_entries) == 1
-        assert leaf_entries[0].origin == "classifier"
-        assert leaf_entries[0].is_pretrained is True
-
-    def test_feature_columns_mismatch_rejected_at_ctor(self) -> None:
-        fake = FakeDirectionalClassifier(
-            training_metadata=make_leaf_training_metadata(("lag1_BBB", "lag5_BBB"))
-        )
-        with pytest.raises(ValueError, match="feature_columns mismatch"):
-            _make_strategy(pretrained_leaves={"directional_classifier": fake})
-
-    def test_interval_mismatch_rejected_at_ctor(self) -> None:
-        fake = FakeDirectionalClassifier(
-            training_metadata=make_leaf_training_metadata(
-                tuple(_derive_feature_columns(_FEATURE_TICKERS, _LAGS)),
-                interval=Interval.HOUR,
-            )
-        )
-        with pytest.raises(ValueError, match="interval mismatch"):
-            _make_strategy(pretrained_leaves={"directional_classifier": fake})
-
-    def test_unknown_leaf_key_rejected(self) -> None:
-        with pytest.raises(ValueError, match="does not own"):
-            _make_strategy(pretrained_leaves={"return_model": object()})
 
 
 class TestRegistration:
@@ -294,7 +240,6 @@ class TestParamsDataclassDriftGuard:
         assert_params_match_constructor(
             _CrossAssetMomentumConfig,
             CrossAssetMomentumStrategy,
-            ignore={"pretrained_leaves"},
         )
 
 

@@ -239,7 +239,6 @@ def make_synthetic_run(
             "data_hash": "deadbeef",
             "slippage_scenario": SlippageScenario.NORMAL.value,
             "holdout_start": None,
-            "pretrained_leaves": [],
         },
     )
 

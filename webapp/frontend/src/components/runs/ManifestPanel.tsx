@@ -24,7 +24,6 @@ export function ManifestPanel({ run }: { run: RunDetail }) {
           label="Holdout start"
           value={run.holdout_start ? formatDateTime(run.holdout_start) : "—"}
         />
-        <MetadataField label="Pretrained leaves" value={run.pretrained_leaves.length} />
       </CardContent>
     </Card>
   );

@@ -7,10 +7,10 @@ thin click wrapper around :func:`run_regime_report`.
 
 Why a separate module
 ---------------------
-Mirrors the ``run_comparison`` / ``train_model_standalone`` split: the
-CLI does YAML loading + click-friendly error wrapping, the orchestration
-layer does the actual coordination work and is unit-testable without
-spinning up the click runner.
+Mirrors the ``run_comparison`` split: the CLI does YAML loading +
+click-friendly error wrapping, the orchestration layer does the actual
+coordination work and is unit-testable without spinning up the click
+runner.
 """
 
 from __future__ import annotations

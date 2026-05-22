@@ -34,12 +34,10 @@ from webapp.backend.app.schemas.strategies import (
 # Ctor params that are framework-injected or duplicate a top-level config
 # block, so they must never surface as form fields:
 #   * ``self`` — Python receiver.
-#   * ``pretrained_leaves`` — composite kwarg the experiment builder
-#     injects from ``ExperimentConfig.pretrained_leaves``.
 #   * ``interval`` — always equal to ``data.interval``; showing it as a
 #     strategy param duplicates the data-block field and lets the user
 #     desync the two.
-_HIDDEN_PARAMS: frozenset[str] = frozenset({"self", "pretrained_leaves", "interval"})
+_HIDDEN_PARAMS: frozenset[str] = frozenset({"self", "interval"})
 
 
 def _peel_optional(annotation: object) -> tuple[object, bool]:

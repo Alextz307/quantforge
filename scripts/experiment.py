@@ -4,10 +4,6 @@ Subcommands:
 
 * ``run``          Fetch data, walk-forward, persist artifacts to
                    ``experiment_results/runs/<experiment_id>/``.
-* ``train-model``  Fit one model standalone and persist to
-                   ``experiment_results/models/<name>/`` for later
-                   injection via ``ExperimentConfig.pretrained_leaves``.
-* ``list-models``  Enumerate saved model artifacts for discovery.
 * ``tune``         Drive an Optuna study over a config's HPO space,
                    persisting to ``experiment_results/hpo/<study>/``.
 * ``compare``      Run N configs, rank them, compute pairwise Sharpe
@@ -39,9 +35,7 @@ from src.core import json_io
 from src.core.config import (
     DataConfig,
     ExperimentConfig,
-    StandaloneModelConfig,
     load_experiment_config,
-    load_standalone_model_config,
 )
 from src.core.config_overrides import apply_overrides
 from src.core.exceptions import LeakageError
@@ -51,10 +45,6 @@ from src.core.persistence import (
     COMPARISONS_SUBDIR,
     HOLDOUT_EVALS_SUBDIR,
     HPO_SUBDIR,
-    METADATA_JSON,
-    MODEL_ARTIFACT_MANIFEST_JSON,
-    MODEL_ARTIFACT_WEIGHTS_SUBDIR,
-    MODELS_SUBDIR,
     RUNS_SUBDIR,
 )
 from src.core.regime_config import load_regime_config
@@ -62,13 +52,11 @@ from src.orchestration.builder import build_experiment
 from src.orchestration.comparison import SignificanceTest, run_comparison
 from src.orchestration.experiment import RunOptions
 from src.orchestration.holdout_eval import resolve_source, run_holdout_eval
-from src.orchestration.model_artifact import ModelArtifactManifest, save_model_artifact
 from src.orchestration.regime_run import resolve_run_dir, run_regime_report
 from src.orchestration.run_loader import (
     load_experiment_config_from_run,
     load_experiment_result,
 )
-from src.orchestration.standalone_training import train_model_standalone
 from src.orchestration.types import ExperimentResult
 
 # ``optuna`` is deferred into ``tune_cmd`` so it does not load on every CLI
@@ -212,151 +200,6 @@ def run_cmd(
         click.echo(f"experiment_id: {result.experiment_id}")
         click.echo(f"artifacts:    {run_dir}")
         click.echo(f"folds:        {len(result.folds)}")
-
-
-@cli.command("train-model")
-@click.option(
-    "--config",
-    "config_path",
-    required=True,
-    type=click.Path(exists=True, dir_okay=False, path_type=Path),
-    help="Path to a StandaloneModelConfig YAML.",
-)
-@click.option(
-    "--name",
-    default=None,
-    help="Override the config's `name` field (used as the artifact directory name).",
-)
-@click.option(
-    "--seed",
-    default=None,
-    type=int,
-    help="Override the config's `seed` field for this invocation.",
-)
-@click.option(
-    "--store-root",
-    default=str(DEFAULT_STORE_ROOT),
-    type=click.Path(file_okay=False, path_type=Path),
-    help="Override the experiment_results/ directory.",
-)
-@click.option(
-    "--override",
-    "overrides",
-    multiple=True,
-    help=(
-        "Dotted-path override applied to the loaded config (e.g. "
-        "data.tickers=[QQQ]). Value parsed as YAML; intermediate keys "
-        "must exist. Repeatable."
-    ),
-)
-def train_model_cmd(
-    config_path: Path,
-    name: str | None,
-    seed: int | None,
-    store_root: Path,
-    overrides: tuple[str, ...],
-) -> None:
-    """Train one model standalone and persist to experiment_results/models/<name>/.
-
-    The resulting artifact is reusable via ``ExperimentConfig.pretrained_leaves``
-    — `experiment run --config strategy.yaml` with a matching ``pretrained_leaves``
-    entry will load this model frozen into the strategy.
-    """
-    with attach_cli_log_file(store_root, "train_model") as log_path:
-        try:
-            cfg = load_standalone_model_config(config_path)
-        except (ValidationError, FileNotFoundError, ValueError) as e:
-            raise click.ClickException(f"failed to load config {config_path}: {e}") from e
-
-        if name is not None or seed is not None:
-            cfg = _override_standalone(cfg, name=name, seed=seed)
-        cfg = _apply_dotted_overrides(cfg, overrides)
-
-        click.echo(
-            f"training model '{cfg.name}' ({cfg.model.name} / "
-            f"{cfg.model_kind.value}) on {cfg.data.tickers} → log: {log_path}"
-        )
-        try:
-            trained = train_model_standalone(cfg)
-        except (NotImplementedError, ValueError, RuntimeError) as e:
-            raise click.ClickException(f"standalone training failed: {e}") from e
-
-        artifact_dir = store_root / MODELS_SUBDIR / cfg.name
-        try:
-            save_model_artifact(
-                artifact_dir,
-                model=trained.model,
-                manifest=trained.manifest,
-                config=cfg,
-            )
-        except FileExistsError as e:
-            raise click.ClickException(
-                f"artifact path {artifact_dir} already exists and is non-empty; "
-                f"choose a fresh --name or delete the existing directory. ({e})"
-            ) from e
-
-        click.echo(f"artifact:  {artifact_dir}")
-        click.echo(f"data_hash: {trained.manifest.data_hash[:12]}...")
-    click.echo(f"git_sha:   {trained.manifest.git_sha}")
-
-
-@cli.command("list-models")
-@click.option(
-    "--store-root",
-    default=str(DEFAULT_STORE_ROOT),
-    type=click.Path(file_okay=False, path_type=Path),
-    help="Root directory whose `models/` subdirectory is enumerated.",
-)
-def list_models_cmd(store_root: Path) -> None:
-    """Enumerate saved model artifacts under experiment_results/models/."""
-    models_root = store_root / MODELS_SUBDIR
-    if not models_root.is_dir():
-        click.echo(f"no models directory at {models_root} — nothing to list.")
-        return
-
-    rows: list[tuple[str, str, str, str, str, str]] = []
-    for entry in sorted(models_root.iterdir()):
-        if not entry.is_dir():
-            continue
-        manifest_path = entry / MODEL_ARTIFACT_MANIFEST_JSON
-        if not manifest_path.is_file():
-            continue
-        try:
-            manifest = ModelArtifactManifest.from_dict(json_io.read_dict(manifest_path))
-        except (ValueError, KeyError) as e:
-            click.echo(f"  [skip] {entry.name}: manifest unreadable ({e})")
-            continue
-
-        train_end = "?"
-        meta_path = entry / MODEL_ARTIFACT_WEIGHTS_SUBDIR / METADATA_JSON
-        if meta_path.is_file():
-            try:
-                meta_raw = json_io.read_dict(meta_path)
-                train_end = str(meta_raw.get("train_end", "?"))
-            except (ValueError, KeyError):
-                train_end = "?"
-
-        rows.append(
-            (
-                manifest.name,
-                manifest.model_name,
-                manifest.model_kind.value,
-                train_end,
-                manifest.data_hash[:8],
-                manifest.git_sha,
-            )
-        )
-
-    if not rows:
-        click.echo(f"no model artifacts under {models_root}.")
-        return
-
-    header = ("name", "model", "kind", "train_end", "data_hash", "git_sha")
-    widths = [max(len(h), max((len(r[i]) for r in rows), default=0)) for i, h in enumerate(header)]
-    click.echo("  ".join(h.ljust(w) for h, w in zip(header, widths, strict=True)))
-    click.echo("  ".join("-" * w for w in widths))
-    for row in rows:
-        click.echo("  ".join(c.ljust(w) for c, w in zip(row, widths, strict=True)))
 
 
 @cli.command("tune")
@@ -891,9 +734,9 @@ def _apply_hpo_overrides(cfg: HPOConfig, *, n_trials: int | None, n_jobs: int | 
     return HPOConfig.model_validate(payload)
 
 
-def _override[CfgT: (ExperimentConfig, StandaloneModelConfig)](
-    cfg: CfgT, *, name: str | None, seed: int | None
-) -> CfgT:
+def _override_experiment(
+    cfg: ExperimentConfig, *, name: str | None, seed: int | None
+) -> ExperimentConfig:
     """Rebuild ``cfg`` with CLI ``--name`` / ``--seed`` overrides applied.
 
     Re-runs the pydantic validator so an override never leaves the config
@@ -905,7 +748,7 @@ def _override[CfgT: (ExperimentConfig, StandaloneModelConfig)](
         payload["name"] = name
     if seed is not None:
         payload["seed"] = seed
-    return type(cfg).model_validate(payload)
+    return ExperimentConfig.model_validate(payload)
 
 
 def _load_reused_runs(
@@ -951,9 +794,9 @@ def _load_reused_runs(
     return results, data_cfg
 
 
-def _apply_dotted_overrides[CfgT: (ExperimentConfig, StandaloneModelConfig)](
-    cfg: CfgT, overrides: tuple[str, ...]
-) -> CfgT:
+def _apply_dotted_overrides(
+    cfg: ExperimentConfig, overrides: tuple[str, ...]
+) -> ExperimentConfig:
     """Apply repeatable ``--override key.path=value`` flags via dict round-trip.
 
     Empty ``overrides`` is a no-op; otherwise we ``model_dump`` to JSON-safe
@@ -968,24 +811,9 @@ def _apply_dotted_overrides[CfgT: (ExperimentConfig, StandaloneModelConfig)](
     except ValueError as e:
         raise click.ClickException(f"--override failed: {e}") from e
     try:
-        return type(cfg).model_validate(payload)
+        return ExperimentConfig.model_validate(payload)
     except ValidationError as e:
         raise click.ClickException(f"--override re-validation failed: {e}") from e
-
-
-# Type-narrowed aliases kept for call-site + test clarity — both are the
-# same generic; a collision on the overload form (two concrete bindings
-# sharing a symbol) is what we want to prevent.
-def _override_experiment(
-    cfg: ExperimentConfig, *, name: str | None, seed: int | None
-) -> ExperimentConfig:
-    return _override(cfg, name=name, seed=seed)
-
-
-def _override_standalone(
-    cfg: StandaloneModelConfig, *, name: str | None, seed: int | None
-) -> StandaloneModelConfig:
-    return _override(cfg, name=name, seed=seed)
 
 
 from scripts.study import study  # noqa: E402  — circular-free: study imports orchestrators only
