@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import sys
 from abc import ABC, abstractmethod
+from collections.abc import Mapping
 from pathlib import Path
+from types import MappingProxyType
 from typing import TYPE_CHECKING, ClassVar, Self
 
 import pandas as pd
@@ -195,6 +197,18 @@ class IStrategy(ABC):
         that drifted (strategy vs garch vs lstm vs classifier).
         """
         return collect_metadata(("strategy", self.training_metadata))
+
+    def get_fold_diagnostics(self) -> Mapping[str, float]:
+        """Per-fold diagnostic scalars surfaced from the most recent predict.
+
+        Default: empty mapping. Walk-forward calls this once per fold
+        AFTER ``generate_signals()`` and bundles the result into
+        :class:`FoldResult.strategy_diagnostics` so the experiment
+        manifest persists it. Composite strategies that track in-flight
+        diagnostics (e.g. ``VolatilityTargeting``'s ``floor_bind_fraction``)
+        override to return them.
+        """
+        return MappingProxyType({})
 
     def _build_strategy_plus_leaf_metadata(
         self,

@@ -106,7 +106,7 @@ class _StubFoldResult:
     typing is sufficient.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, strategy_diagnostics: dict[str, float] | None = None) -> None:
         self.fold_index = _FOLD_INDEX
         self.train_start = pd.Timestamp(_TRAIN_START_ISO)
         self.train_end = pd.Timestamp(_TRAIN_END_ISO)
@@ -114,6 +114,7 @@ class _StubFoldResult:
         self.test_end = pd.Timestamp(_TEST_END_ISO)
         self.backtest = _StubBacktest()
         self.metrics = _StubMetrics()
+        self.strategy_diagnostics = strategy_diagnostics if strategy_diagnostics is not None else {}
 
 
 class TestFoldRecordFromFoldResult:
@@ -156,8 +157,22 @@ class TestFoldRecordRoundTrip:
             "win_rate",
             "trade_count",
             "equity_curve",
+            "strategy_diagnostics",
         }
         assert set(rec.to_dict().keys()) == expected
+
+    def test_diagnostics_round_trip_preserves_keys_and_values(self) -> None:
+        original = _make_record(strategy_diagnostics={"floor_bind_fraction": 0.123})
+        revived = FoldRecord.from_dict(original.to_dict())
+        assert dict(revived.strategy_diagnostics) == {"floor_bind_fraction": 0.123}
+
+    def test_diagnostics_missing_in_dict_defaults_to_empty(self) -> None:
+        """Backwards-compat: existing JSONL files (no strategy_diagnostics
+        key) deserialize cleanly to an empty mapping."""
+        d = _make_record().to_dict()
+        del d["strategy_diagnostics"]
+        revived = FoldRecord.from_dict(d)
+        assert dict(revived.strategy_diagnostics) == {}
 
     def test_timestamps_serialize_as_iso_strings(self) -> None:
         d = _make_record().to_dict()

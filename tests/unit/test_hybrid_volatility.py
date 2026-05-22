@@ -144,6 +144,50 @@ class TestHybridVolatilityModel:
         result = model.predict(hybrid_train_df).dropna()
         assert (result >= model._params.min_vol).all()
 
+    def test_floor_bind_fraction_is_none_before_predict(
+        self,
+        hybrid_train_df: pd.DataFrame,
+        realized_vol_target: pd.Series,
+        synthetic_feature_columns: list[str],
+    ) -> None:
+        model = _fit_model(hybrid_train_df, realized_vol_target, synthetic_feature_columns)
+        assert model.last_floor_bind_fraction is None
+
+    def test_floor_bind_fraction_within_unit_interval_after_predict(
+        self,
+        hybrid_train_df: pd.DataFrame,
+        realized_vol_target: pd.Series,
+        synthetic_feature_columns: list[str],
+    ) -> None:
+        model = _fit_model(hybrid_train_df, realized_vol_target, synthetic_feature_columns)
+        _ = model.predict(hybrid_train_df)
+        frac = model.last_floor_bind_fraction
+        assert frac is not None
+        assert 0.0 <= frac <= 1.0
+
+    def test_floor_bind_fraction_one_when_min_vol_dominates(
+        self,
+        hybrid_train_df: pd.DataFrame,
+        realized_vol_target: pd.Series,
+        synthetic_feature_columns: list[str],
+    ) -> None:
+        """min_vol set far above any plausible volatility forecast forces
+        every bar to clip; the tracked fraction should saturate at 1.0."""
+        from src.models.hybrid_volatility import HybridVolatilityModel
+
+        # Set min_vol so high that every (garch + lstm) bar gets clipped.
+        # 1e6 is well above any realised-vol realisation our synthetic
+        # frames produce — the floor is sure to bind on every non-NaN bar.
+        model = HybridVolatilityModel(
+            feature_columns=synthetic_feature_columns,
+            lstm_epochs=5,
+            lstm_lookback=5,
+            min_vol=1e6,
+        )
+        model.fit(hybrid_train_df, realized_vol_target)
+        _ = model.predict(hybrid_train_df)
+        assert model.last_floor_bind_fraction == pytest.approx(1.0)
+
     def test_scaler_refit_raises_leakage(
         self,
         hybrid_train_df: pd.DataFrame,

@@ -147,6 +147,18 @@ class HybridVolatilityModel(IPredictor):
         )
 
         self._scaler: StandardScaler | None = None
+        self._last_floor_bind_fraction: float | None = None
+
+    @property
+    def last_floor_bind_fraction(self) -> float | None:
+        """Fraction of non-NaN bars where the most recent ``predict()`` clipped
+        ``(garch_vol + lstm_residual)`` up to ``min_vol``.
+
+        ``None`` before any predict call. Surfaces to the manifest via
+        ``VolatilityTargetingStrategy.get_fold_diagnostics()`` so each fold's
+        floor-saturation rate is recoverable from saved artifacts.
+        """
+        return self._last_floor_bind_fraction
 
     @property
     def params(self) -> _HybridVolConfig:
@@ -233,7 +245,17 @@ class HybridVolatilityModel(IPredictor):
         lstm_residual = self._lstm.predict(scaled_features)
         # Clip floor: vol is non-negative by definition; a large negative LSTM
         # residual can drive `garch_vol + residual` below zero on noisy data.
-        final_vol = (garch_vol + lstm_residual).clip(lower=self._params.min_vol)
+        unclipped = garch_vol + lstm_residual
+        # Track floor activation over non-NaN bars (LSTM warmup leaves leading
+        # NaNs that would otherwise distort the fraction).
+        valid_mask = unclipped.notna()
+        n_valid = int(valid_mask.sum())
+        if n_valid > 0:
+            below_floor = (unclipped < self._params.min_vol) & valid_mask
+            self._last_floor_bind_fraction = float(below_floor.sum()) / n_valid
+        else:
+            self._last_floor_bind_fraction = 0.0
+        final_vol = unclipped.clip(lower=self._params.min_vol)
         final_vol.name = "hybrid_vol"
         return final_vol
 

@@ -20,9 +20,10 @@ computed performance metrics so callers don't need to recompute.
 
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable
-from dataclasses import dataclass
+from collections.abc import Callable, Iterable, Mapping
+from dataclasses import dataclass, field
 from pathlib import Path
+from types import MappingProxyType
 
 import pandas as pd
 
@@ -45,6 +46,9 @@ from src.strategies.interface import IStrategy
 logger = get_logger(__name__)
 
 
+_EMPTY_DIAGNOSTICS: Mapping[str, float] = MappingProxyType({})
+
+
 @dataclass(frozen=True)
 class FoldResult:
     """Per-fold orchestration output: metadata + raw + metrics."""
@@ -56,6 +60,10 @@ class FoldResult:
     test_end: pd.Timestamp
     backtest: BacktestResult
     metrics: PerformanceMetrics
+    # Strategy-emitted scalars surfaced once per fold via
+    # ``IStrategy.get_fold_diagnostics()`` after generate_signals. Default
+    # empty for strategies that don't track any (AdaptiveBollinger, Pairs).
+    strategy_diagnostics: Mapping[str, float] = field(default_factory=lambda: _EMPTY_DIAGNOSTICS)
 
 
 _LEG_A_RENAME: dict[str, str] = {f"{c}{PAIRS_LEG_SUFFIXES[0]}": c for c in OHLCV_COLUMNS}
@@ -277,6 +285,7 @@ def evaluate_walk_forward(
         validate_deep_metadata(strategy, train_data=train_frame, test_data=test_frame)
 
         signals = strategy.generate_signals(test_frame)
+        diagnostics = MappingProxyType(dict(strategy.get_fold_diagnostics()))
         raw = dispatch_engine_run(engine, strategy, fold.test, signals, slippage)
         metrics = MetricsCalculator.compute(
             raw.equity_curve,
@@ -298,6 +307,7 @@ def evaluate_walk_forward(
                 test_end=fold.test.index[-1],
                 backtest=raw,
                 metrics=metrics,
+                strategy_diagnostics=diagnostics,
             )
         )
     return results

@@ -88,6 +88,7 @@ from src.orchestration.study_state import (
 )
 from src.visualization.comparison_reporter import ComparisonReporter
 from src.visualization.holdout_eval_reporter import HoldoutEvalReporter
+from src.visualization.hpo_reporter import HPOReporter
 from src.visualization.regime_reporter import RegimeReporter
 
 _logger = get_logger(__name__)
@@ -277,7 +278,8 @@ def run_leg(
                 hpo_cfg=hpo_cfg,
                 store_root=study_dir,
             )
-            tuner.run(progress=False)
+            study = tuner.run(progress=False)
+            HPOReporter().generate_full_report(study, tuner.study_dir)
             state = state.with_step_completed(LEG_STEP_TUNE)
             _logger.info("leg %s: tune done", leg.leg_id)
 

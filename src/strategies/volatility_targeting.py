@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import asdict, dataclass
 from pathlib import Path
+from types import MappingProxyType
 from typing import TYPE_CHECKING, ClassVar, Self, cast
 
 import pandas as pd
@@ -365,6 +366,21 @@ class VolatilityTargetingStrategy(IStrategy):
             LEAF_KEY_VOL_MODEL,
             self._hybrid_vol.get_all_training_metadata(),
         )
+
+    def get_fold_diagnostics(self) -> Mapping[str, float]:
+        """Surface HybridVolatility's σ_min floor-saturation rate for this fold.
+
+        ``floor_bind_fraction`` is the fraction of non-NaN bars where the
+        most recent ``predict()`` clipped ``garch_vol + lstm_residual`` up
+        to ``min_vol``. A high value indicates the floor is binding often —
+        either ``min_vol`` is set too high relative to realised vol, or
+        the GARCH+LSTM forecast is too pessimistic. Persisted per-fold in
+        the experiment manifest for the thesis §3.6 floor-saturation table.
+        """
+        frac = self._hybrid_vol.last_floor_bind_fraction
+        if frac is None:
+            return MappingProxyType({})
+        return MappingProxyType({"floor_bind_fraction": frac})
 
     @staticmethod
     def suggest_params(trial: optuna.trial.BaseTrial) -> dict[str, object]:

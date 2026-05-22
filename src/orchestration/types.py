@@ -49,6 +49,10 @@ class FoldRecord:
     win_rate: float
     trade_count: int
     equity_curve: tuple[float, ...]
+    # Strategy-emitted scalars (e.g. floor_bind_fraction). Persisted as a
+    # plain JSON object alongside the headline metrics so post-hoc analyses
+    # can read per-fold diagnostics without rerunning the strategy.
+    strategy_diagnostics: Mapping[str, float] = MappingProxyType({})
 
     @classmethod
     def from_fold_result(cls, fr: FoldResult) -> FoldRecord:
@@ -69,6 +73,7 @@ class FoldRecord:
             win_rate=fr.metrics.win_rate,
             trade_count=fr.backtest.trade_count,
             equity_curve=tuple(fr.backtest.equity_curve.tolist()),
+            strategy_diagnostics=MappingProxyType(dict(fr.strategy_diagnostics)),
         )
 
     def to_dict(self) -> dict[str, object]:
@@ -88,10 +93,17 @@ class FoldRecord:
             "win_rate": self.win_rate,
             "trade_count": self.trade_count,
             "equity_curve": list(self.equity_curve),
+            "strategy_diagnostics": dict(self.strategy_diagnostics),
         }
 
     @classmethod
     def from_dict(cls, d: dict[str, object]) -> FoldRecord:
+        diagnostics_raw = d.get("strategy_diagnostics", {})
+        if not isinstance(diagnostics_raw, dict):
+            raise TypeError(
+                f"strategy_diagnostics must be a dict, got {type(diagnostics_raw).__name__}"
+            )
+        diagnostics: dict[str, float] = {str(k): float(v) for k, v in diagnostics_raw.items()}
         return cls(
             fold_index=json_io.get_int(d, "fold_index"),
             train_start=json_io.get_timestamp(d, "train_start"),
@@ -108,6 +120,7 @@ class FoldRecord:
             win_rate=json_io.get_float(d, "win_rate"),
             trade_count=json_io.get_int(d, "trade_count"),
             equity_curve=tuple(json_io.get_float_list(d, "equity_curve")),
+            strategy_diagnostics=MappingProxyType(diagnostics),
         )
 
 

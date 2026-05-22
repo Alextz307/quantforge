@@ -104,6 +104,20 @@ class TestVolatilityTargetingStrategy:
         assert signals.index.equals(train_df.index)
         assert signals.name == "vol_target_signal"
 
+    def test_fold_diagnostics_empty_before_predict(
+        self, fitted_strategy: VolatilityTargetingStrategy
+    ) -> None:
+        """No predict yet — the floor-bind metric is not reported."""
+        assert dict(fitted_strategy.get_fold_diagnostics()) == {}
+
+    def test_fold_diagnostics_after_predict_carries_floor_bind_fraction(
+        self, fitted_strategy: VolatilityTargetingStrategy, train_df: pd.DataFrame
+    ) -> None:
+        _ = fitted_strategy.generate_signals(train_df)
+        diagnostics = fitted_strategy.get_fold_diagnostics()
+        assert "floor_bind_fraction" in diagnostics
+        assert 0.0 <= diagnostics["floor_bind_fraction"] <= 1.0
+
     def test_leverage_clipped_to_bounds(
         self, fitted_strategy: VolatilityTargetingStrategy, train_df: pd.DataFrame
     ) -> None:
