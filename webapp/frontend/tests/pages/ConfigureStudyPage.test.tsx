@@ -122,6 +122,27 @@ describe("ConfigureStudyPage", () => {
     expect(await screen.findByText(/already running/i)).toBeInTheDocument();
   });
 
+  it("Upload .yaml drops file contents into the editor and pre-fills the slug", async () => {
+    mockStudySpecsList();
+    mockUploadsEmpty();
+    mockSchema();
+    const user = userEvent.setup();
+    renderWithProviders(<ConfigureStudyPage />);
+
+    await user.click(screen.getByRole("tab", { name: /New spec/i }));
+    const fileInput = await screen.findByTestId<HTMLInputElement>("yaml-file-input");
+
+    const yamlText = "name: from_disk\nlegs: []\n";
+    const file = new File([yamlText], "from_disk.yaml", { type: "application/x-yaml" });
+    await user.upload(fileInput, file);
+
+    const editor = await screen.findByTestId<HTMLTextAreaElement>("monaco-editor");
+    await waitFor(() => {
+      expect(editor.value).toBe(yamlText);
+    });
+    expect(screen.getByLabelText<HTMLInputElement>(/Slug/i).value).toBe("from_disk");
+  });
+
   it("switches to the New tab and shows the annotated skeleton", async () => {
     mockStudySpecsList();
     mockUploadsEmpty();

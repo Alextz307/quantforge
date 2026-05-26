@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -32,6 +32,9 @@ const SLUG_FORMAT_ERROR: ValidationErrorItem = {
   type: "value_error",
 };
 const VALIDATE_DEBOUNCE_MS = 500;
+// Mirrors ``StudySpecUploadCreate.yaml`` Field(max_length=131072) on the
+// backend so the file picker rejects oversized inputs before the request.
+const MAX_YAML_BYTES = 131072;
 
 function parseLegList(raw: string): string[] {
   return raw
@@ -213,6 +216,38 @@ export function ConfigureStudyPage() {
     setEditorYaml((prev) => `${prev.replace(/\n$/, "")}\n${snippet}`);
   };
 
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const onFilePicked = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    // Reset the input synchronously so re-picking the same filename re-fires onChange.
+    e.target.value = "";
+    if (!file) return;
+    if (file.size > MAX_YAML_BYTES) {
+      setClientErrors([
+        {
+          loc: ["yaml"],
+          msg: `File is ${String(file.size)} bytes — exceeds the ${String(MAX_YAML_BYTES)}-byte cap`,
+          type: "value_error",
+        },
+      ]);
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const text = typeof reader.result === "string" ? reader.result : "";
+      setEditorYaml(text);
+      // Pre-fill slug from the filename stem only when empty and the stem is a
+      // valid slug — otherwise leave the user to type one.
+      if (newSlug === "") {
+        const stem = file.name.replace(/\.ya?ml$/i, "");
+        if (SLUG_PATTERN.test(stem)) setNewSlug(stem);
+      }
+      setClientErrors([]);
+    };
+    reader.readAsText(file);
+  };
+
   const onDeleteUpload = async () => {
     if (uploadSlug === "") return;
     if (!window.confirm(`Delete upload "${uploadSlug}"?`)) return;
@@ -281,15 +316,34 @@ export function ConfigureStudyPage() {
           {mode === "new" && (
             <section className="space-y-3">
               <div className="space-y-2">
-                <Label htmlFor="study-new-slug">Slug</Label>
-                <Input
-                  id="study-new-slug"
-                  value={newSlug}
-                  placeholder="my_first_study"
-                  onChange={(e) => {
-                    setNewSlug(e.target.value);
-                  }}
-                />
+                <div className="flex items-end gap-2">
+                  <div className="flex-1 space-y-2">
+                    <Label htmlFor="study-new-slug">Slug</Label>
+                    <Input
+                      id="study-new-slug"
+                      value={newSlug}
+                      placeholder="my_first_study"
+                      onChange={(e) => {
+                        setNewSlug(e.target.value);
+                      }}
+                    />
+                  </div>
+                  <input
+                    ref={fileInputRef}
+                    data-testid="yaml-file-input"
+                    type="file"
+                    accept=".yaml,.yml,application/x-yaml,text/yaml"
+                    className="hidden"
+                    onChange={onFilePicked}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    Upload .yaml
+                  </Button>
+                </div>
                 <p className="text-xs text-muted-foreground">
                   Becomes the spec name. Letters, digits, <code>_</code>, <code>-</code>. Cannot
                   collide with a file under <code className="font-mono">config/study/</code>.
