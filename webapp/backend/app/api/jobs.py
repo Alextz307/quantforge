@@ -73,6 +73,7 @@ async def post_job(
             store_root=settings.store_root,
             config_root=settings.config_root,
             job_temp_dir=settings.job_temp_dir,
+            study_spec_uploads_dir=settings.study_spec_uploads_dir,
         )
     except JobConfigInvalidError as exc:
         raise HTTPException(

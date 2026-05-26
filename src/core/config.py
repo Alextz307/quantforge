@@ -63,8 +63,13 @@ class ComponentConfig(BaseModel):
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
-    name: str
-    params: dict[str, object] = Field(default_factory=dict)
+    name: str = Field(
+        description="Registry key — must match a registered component name.",
+    )
+    params: dict[str, object] = Field(
+        default_factory=dict,
+        description="Kwargs forwarded to the component constructor. Empty by default.",
+    )
 
 
 class DataConfig(BaseModel):
@@ -78,12 +83,30 @@ class DataConfig(BaseModel):
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
-    source: ComponentConfig
-    tickers: list[str] = Field(min_length=1)
-    start: datetime
-    end: datetime
-    interval: Interval = Interval.DAILY
-    cache_dir: Path | None = None
+    source: ComponentConfig = Field(
+        description=(
+            "Data-source component spec. Accepts the bare-string short form "
+            "(e.g. `source: yfinance`) — coerced to ComponentConfig(name=..., params={})."
+        ),
+    )
+    tickers: list[str] = Field(
+        min_length=1,
+        description="One or more ticker symbols to fetch (e.g. ['SPY', 'QQQ']).",
+    )
+    start: datetime = Field(
+        description="Inclusive start of the fetch window (ISO 8601, e.g. 2018-01-01).",
+    )
+    end: datetime = Field(
+        description="Exclusive end of the fetch window (ISO 8601). Must be strictly after `start`.",
+    )
+    interval: Interval = Field(
+        default=Interval.DAILY,
+        description="Bar interval. One of: daily, hour, minute.",
+    )
+    cache_dir: Path | None = Field(
+        default=None,
+        description="Optional on-disk cache for fetched bars. Null disables caching.",
+    )
 
     @field_validator("source", mode="before")
     @classmethod
@@ -153,11 +176,32 @@ class ValidationConfig(BaseModel):
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
-    n_splits: int = Field(default=4, ge=1)
-    test_size: int = Field(default=252, ge=1)
-    gap: int = Field(default=5, ge=0)
-    expanding: bool = True
-    snap_to_day: bool = False
+    n_splits: int = Field(
+        default=4,
+        ge=1,
+        description="Number of walk-forward folds (>= 1).",
+    )
+    test_size: int = Field(
+        default=252,
+        ge=1,
+        description="Per-fold test-window size in bars (>= 1). 252 ≈ one trading year of daily bars.",
+    )
+    gap: int = Field(
+        default=5,
+        ge=0,
+        description="Embargo gap between train and test (in bars) to prevent leakage.",
+    )
+    expanding: bool = Field(
+        default=True,
+        description="If True, training window grows fold over fold; if False, it rolls.",
+    )
+    snap_to_day: bool = Field(
+        default=False,
+        description=(
+            "If True, training cutoff aligns to a day boundary even on intraday bars. "
+            "Required for the intraday day-boundary rule."
+        ),
+    )
     holdout_pct: float = Field(
         default=0.0,
         ge=0.0,
@@ -193,7 +237,10 @@ class SlippageConfigSpec(BaseModel):
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
-    scenario: SlippageScenario = SlippageScenario.NORMAL
+    scenario: SlippageScenario = Field(
+        default=SlippageScenario.NORMAL,
+        description="Slippage profile applied at fill time. One of: zero, normal, severe.",
+    )
 
 
 class ExperimentConfig(BaseModel):
@@ -205,14 +252,37 @@ class ExperimentConfig(BaseModel):
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
-    name: str = Field(min_length=1)
-    seed: int = 42
-    data: DataConfig
-    features: ComponentConfig | None = None
-    strategy: ComponentConfig
-    validation: ValidationConfig = Field(default_factory=ValidationConfig)
-    slippage: SlippageConfigSpec = Field(default_factory=SlippageConfigSpec)
-    risk_free_rate: float = 0.0
+    name: str = Field(
+        min_length=1,
+        description="Human-readable experiment name. Also the slug used for artifact directories.",
+    )
+    seed: int = Field(
+        default=42,
+        description="Master RNG seed for reproducibility (numpy, torch, Optuna).",
+    )
+    data: DataConfig = Field(description="Data-fetch spec — source, tickers, range, interval.")
+    features: ComponentConfig | None = Field(
+        default=None,
+        description=(
+            "Optional feature-pipeline component. Null when the strategy owns its "
+            "own feature engineering."
+        ),
+    )
+    strategy: ComponentConfig = Field(
+        description="Strategy component spec — registry name plus per-strategy kwargs.",
+    )
+    validation: ValidationConfig = Field(
+        default_factory=ValidationConfig,
+        description="Walk-forward splitter knobs + holdout reservation contract.",
+    )
+    slippage: SlippageConfigSpec = Field(
+        default_factory=SlippageConfigSpec,
+        description="Slippage scenario applied during backtest execution.",
+    )
+    risk_free_rate: float = Field(
+        default=0.0,
+        description="Annualised risk-free rate used for Sharpe / Sortino calculations.",
+    )
 
     @model_validator(mode="after")
     def _validate_component_names(self) -> Self:
@@ -240,8 +310,11 @@ class UniverseProfile(BaseModel):
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
-    data: DataConfig
-    validation: ValidationConfig = Field(default_factory=ValidationConfig)
+    data: DataConfig = Field(description="Data-fetch spec for this universe.")
+    validation: ValidationConfig = Field(
+        default_factory=ValidationConfig,
+        description="Validation knobs for this universe.",
+    )
 
 
 class StudyLeg(BaseModel):
@@ -249,10 +322,29 @@ class StudyLeg(BaseModel):
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
-    strategy: str = Field(min_length=1)
-    strategy_config: Path
-    hpo_config: Path
-    universes: list[str] = Field(min_length=1)
+    strategy: str = Field(
+        min_length=1,
+        description="Registered strategy name (e.g. AdaptiveBollinger, VolatilityTargeting).",
+    )
+    strategy_config: Path = Field(
+        description=(
+            "Path to the strategy YAML (typically `config/strategies/<name>.yaml`). "
+            "Resolved relative to the CLI working directory."
+        ),
+    )
+    hpo_config: Path = Field(
+        description=(
+            "Path to the HPO YAML (typically `config/hpo/<name>.yaml`). "
+            "Defines the Optuna search space for this leg."
+        ),
+    )
+    universes: list[str] = Field(
+        min_length=1,
+        description=(
+            "Universe slugs evaluated against this strategy. Each must match a "
+            "file under `config/universes/<slug>.yaml`. No duplicates."
+        ),
+    )
 
     @field_validator("universes")
     @classmethod
@@ -276,11 +368,30 @@ class StudySpec(BaseModel):
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
-    name: str = Field(min_length=1)
-    description: str | None = None
-    seed: int = 42
-    output_dir: Path
-    legs: list[StudyLeg] = Field(min_length=1)
+    name: str = Field(
+        min_length=1,
+        description="Human-readable study name. Also the slug used for artifact directories.",
+    )
+    description: str | None = Field(
+        default=None,
+        description="Free-form summary of what the study tests and why. Surfaced in the webapp.",
+    )
+    seed: int = Field(
+        default=42,
+        description="Master RNG seed for reproducibility across all legs.",
+    )
+    output_dir: Path = Field(
+        description=(
+            "Artifact root relative to the store root. Convention: `studies/<study_name>`."
+        ),
+    )
+    legs: list[StudyLeg] = Field(
+        min_length=1,
+        description=(
+            "One leg per strategy. Each leg sweeps the strategy across its universe list. "
+            "Strategy names must be unique across legs."
+        ),
+    )
 
     @field_validator("legs")
     @classmethod

@@ -27,6 +27,10 @@ export const API_PATHS = {
   configs: "/api/configs/{kind}",
   configDetail: "/api/configs/{kind}/{name}",
   configValidate: "/api/configs/validate",
+  studySpecSchema: "/api/configs/study_spec/schema",
+  studySpecValidate: "/api/configs/study_spec/validate",
+  studyUploads: "/api/configs/study/uploads",
+  studyUpload: "/api/configs/study/uploads/{slug}",
   strategies: "/api/strategies",
   strategySchema: "/api/strategies/{name}/schema",
 } as const;

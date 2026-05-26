@@ -18,6 +18,23 @@ vi.mock("react-plotly.js/factory", () => ({
     },
 }));
 
+// Monaco's WebGL + worker pipeline can't mount in jsdom. Stand in with a plain
+// <textarea> so YAML editor tests can still exercise text changes via fireEvent.
+vi.mock("@monaco-editor/react", () => ({
+  default: function MockEditor(props: {
+    value?: string;
+    onChange?: (next: string | undefined) => void;
+    options?: { readOnly?: boolean };
+  }) {
+    return createElement("textarea", {
+      "data-testid": "monaco-editor",
+      value: props.value ?? "",
+      readOnly: props.options?.readOnly ?? false,
+      onChange: (e: { target: { value: string } }) => props.onChange?.(e.target.value),
+    });
+  },
+}));
+
 beforeAll(() => {
   server.listen({ onUnhandledRequest: "error" });
 });

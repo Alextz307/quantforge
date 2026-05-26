@@ -22,6 +22,14 @@ from webapp.backend.app.schemas.configs import (
 )
 from webapp.backend.app.services.strategy_service import describe_strategy
 
+__all__ = [
+    "ConfigNotFoundError",
+    "get_study_spec_schema",
+    "list_configs",
+    "read_config",
+    "validate",
+]
+
 # Strategy YAMLs are loose dict bodies consumed by component ctors at
 # runtime; there's no Pydantic class to validate them against without
 # re-implementing the registry's coercion. ``None`` here means
@@ -49,6 +57,17 @@ _KIND_TO_DIRNAME: dict[ConfigKind, str] = {
 
 class ConfigNotFoundError(FileNotFoundError):
     """Raised when ``config_root/<kind>/<name>.yaml`` is missing."""
+
+
+def get_study_spec_schema() -> dict[str, object]:
+    """Return the JSON Schema for :class:`StudySpec`.
+
+    Surfaced via ``GET /api/configs/study_spec/schema`` and fed to
+    ``monaco-yaml`` on the frontend so the editor gets autocomplete,
+    hover docs, and inline type / required-field markers from the same
+    Pydantic source of truth the CLI validates against.
+    """
+    return StudySpec.model_json_schema()
 
 
 def _kind_dir(config_root: Path, kind: ConfigKind) -> Path:

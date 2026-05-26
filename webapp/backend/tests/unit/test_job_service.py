@@ -101,6 +101,7 @@ def test_submit_writes_yaml_and_persists_running(
             store_root=store_root,
             config_root=tmp_path / "config",
             job_temp_dir=job_temp_dir,
+            study_spec_uploads_dir=tmp_path / "uploads",
         )
     )
 
@@ -138,6 +139,7 @@ def test_submit_auto_injects_features_for_strategies_that_need_them(
             store_root=tmp_path / "store",
             config_root=tmp_path / "config",
             job_temp_dir=job_temp_dir,
+            study_spec_uploads_dir=tmp_path / "uploads",
         )
     )
 
@@ -165,6 +167,7 @@ def test_submit_does_not_inject_features_for_self_contained_strategies(
             store_root=tmp_path / "store",
             config_root=tmp_path / "config",
             job_temp_dir=job_temp_dir,
+            study_spec_uploads_dir=tmp_path / "uploads",
         )
     )
 
@@ -196,6 +199,7 @@ def test_submit_respects_user_supplied_features_block(
             store_root=tmp_path / "store",
             config_root=tmp_path / "config",
             job_temp_dir=job_temp_dir,
+            study_spec_uploads_dir=tmp_path / "uploads",
         )
     )
 
@@ -222,6 +226,7 @@ def test_submit_rejects_invalid_payload_before_persisting(
                 store_root=tmp_path / "store",
                 config_root=tmp_path / "config",
                 job_temp_dir=tmp_path / "jobs",
+                study_spec_uploads_dir=tmp_path / "uploads",
             )
         )
 
@@ -406,6 +411,7 @@ def test_submit_tune_writes_both_yamls_and_persists_study_name(
             store_root=tmp_path / "store",
             config_root=tmp_path / "config",
             job_temp_dir=job_temp_dir,
+            study_spec_uploads_dir=tmp_path / "uploads",
         )
     )
 
@@ -444,6 +450,7 @@ def test_submit_tune_rejects_invalid_hpo_payload(
                 store_root=tmp_path / "store",
                 config_root=tmp_path / "config",
                 job_temp_dir=job_temp_dir,
+                study_spec_uploads_dir=tmp_path / "uploads",
             )
         )
 
@@ -541,6 +548,7 @@ def test_submit_compare_spawns_with_reuse_runs_and_persists_out_name(
             store_root=store_root,
             config_root=tmp_path / "config",
             job_temp_dir=tmp_path / "jobs",
+            study_spec_uploads_dir=tmp_path / "uploads",
         )
     )
 
@@ -587,6 +595,7 @@ def test_submit_compare_rejects_unknown_run_id(db_conn: sqlite3.Connection, tmp_
                 store_root=store_root,
                 config_root=tmp_path / "config",
                 job_temp_dir=tmp_path / "jobs",
+                study_spec_uploads_dir=tmp_path / "uploads",
             )
         )
 
@@ -630,6 +639,7 @@ def test_submit_holdout_from_run_spawns_with_run_dir_flag(
             store_root=store_root,
             config_root=tmp_path / "config",
             job_temp_dir=tmp_path / "jobs",
+            study_spec_uploads_dir=tmp_path / "uploads",
         )
     )
 
@@ -666,6 +676,7 @@ def test_submit_holdout_from_hpo_spawns_with_hpo_best_flag(
             store_root=store_root,
             config_root=tmp_path / "config",
             job_temp_dir=tmp_path / "jobs",
+            study_spec_uploads_dir=tmp_path / "uploads",
         )
     )
 
@@ -702,6 +713,7 @@ def test_submit_holdout_rejects_run_without_holdout_start(
                 store_root=store_root,
                 config_root=tmp_path / "config",
                 job_temp_dir=tmp_path / "jobs",
+                study_spec_uploads_dir=tmp_path / "uploads",
             )
         )
 
@@ -733,6 +745,7 @@ def test_submit_holdout_rejects_hpo_without_best_config(
                 store_root=store_root,
                 config_root=tmp_path / "config",
                 job_temp_dir=tmp_path / "jobs",
+                study_spec_uploads_dir=tmp_path / "uploads",
             )
         )
 
@@ -766,6 +779,7 @@ def test_submit_holdout_rejects_hpo_whose_best_config_reserves_no_holdout(
                 store_root=store_root,
                 config_root=tmp_path / "config",
                 job_temp_dir=tmp_path / "jobs",
+                study_spec_uploads_dir=tmp_path / "uploads",
             )
         )
 

@@ -33,6 +33,9 @@ export const queryKeys = {
   job: (id: string) => ["jobs", id] as const,
   configs: (kind: string) => ["configs", kind] as const,
   configDetail: (kind: string, name: string) => ["configs", kind, name] as const,
+  studySpecSchema: ["configs", "studySpec", "schema"] as const,
+  studyUploads: ["configs", "studyUploads"] as const,
+  studyUpload: (slug: string) => ["configs", "studyUploads", slug] as const,
   strategies: ["strategies"] as const,
   strategySchema: (name: string) => ["strategies", name, "schema"] as const,
 } as const;

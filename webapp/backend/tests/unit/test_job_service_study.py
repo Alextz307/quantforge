@@ -22,6 +22,7 @@ from webapp.backend.app.services.job_service import (
     JobConfigInvalidError,
     submit_job,
 )
+from webapp.backend.app.services.study_spec_uploads import save_upload
 from webapp.backend.app.services.user_service import create_user
 
 USER_PASSWORD = "password123"
@@ -95,6 +96,7 @@ def test_submit_study_persists_running_with_output_dir_as_experiment_id(
             store_root=tmp_path / "store",
             config_root=config_root,
             job_temp_dir=tmp_path / "jobs",
+            study_spec_uploads_dir=tmp_path / "uploads",
         )
     )
 
@@ -128,6 +130,7 @@ def test_submit_study_command_includes_flags(db_conn: sqlite3.Connection, tmp_pa
             store_root=tmp_path / "store",
             config_root=config_root,
             job_temp_dir=tmp_path / "jobs",
+            study_spec_uploads_dir=tmp_path / "uploads",
         )
     )
 
@@ -159,6 +162,7 @@ def test_submit_study_rejects_missing_spec_file(
                 store_root=tmp_path / "store",
                 config_root=tmp_path / "config",
                 job_temp_dir=tmp_path / "jobs",
+                study_spec_uploads_dir=tmp_path / "uploads",
             )
         )
 
@@ -187,6 +191,7 @@ def test_submit_study_rejects_malformed_yaml(db_conn: sqlite3.Connection, tmp_pa
                 store_root=tmp_path / "store",
                 config_root=config_root,
                 job_temp_dir=tmp_path / "jobs",
+                study_spec_uploads_dir=tmp_path / "uploads",
             )
         )
 
@@ -214,6 +219,7 @@ def test_submit_study_rejects_schema_invalid(db_conn: sqlite3.Connection, tmp_pa
                 store_root=tmp_path / "store",
                 config_root=config_root,
                 job_temp_dir=tmp_path / "jobs",
+                study_spec_uploads_dir=tmp_path / "uploads",
             )
         )
 
@@ -241,6 +247,7 @@ def test_submit_study_rejects_unknown_only_leg(db_conn: sqlite3.Connection, tmp_
                 store_root=tmp_path / "store",
                 config_root=config_root,
                 job_temp_dir=tmp_path / "jobs",
+                study_spec_uploads_dir=tmp_path / "uploads",
             )
         )
 
@@ -282,9 +289,100 @@ def test_submit_study_rejects_when_running_collision_exists(
                 store_root=tmp_path / "store",
                 config_root=config_root,
                 job_temp_dir=tmp_path / "jobs",
+                study_spec_uploads_dir=tmp_path / "uploads",
             )
         )
 
     locs = [err.loc for err in excinfo.value.errors]
     assert ["study_payload", "spec_name"] in locs
     assert "already running" in excinfo.value.errors[0].msg
+
+
+def test_submit_study_resolves_user_upload_when_present(
+    db_conn: sqlite3.Connection, tmp_path: Path
+) -> None:
+    """An upload owned by the submitting user takes precedence over the library."""
+    user = _user(db_conn, "alice")
+    manager = _stub_manager()
+    config_root = tmp_path / "config"
+    config_root.mkdir()
+    (config_root / "strategies").mkdir()
+    (config_root / "hpo").mkdir()
+    (config_root / "universes").mkdir()
+    (config_root / "strategies" / "adaptive_bollinger.yaml").write_text("body\n")
+    (config_root / "hpo" / "adaptive_bollinger.yaml").write_text("body\n")
+    (config_root / "universes" / f"{_UNIVERSE}.yaml").write_text("body\n")
+
+    upload_yaml = yaml.safe_dump(
+        {
+            "name": _SPEC_NAME,
+            "output_dir": _OUTPUT_DIR,
+            "legs": [
+                {
+                    "strategy": _STRATEGY,
+                    "strategy_config": str(
+                        config_root / "strategies" / "adaptive_bollinger.yaml"
+                    ),
+                    "hpo_config": str(config_root / "hpo" / "adaptive_bollinger.yaml"),
+                    "universes": [_UNIVERSE],
+                }
+            ],
+        }
+    )
+    uploads_root = tmp_path / "uploads"
+    save_upload(
+        db_conn,
+        user=user,
+        slug=_SPEC_NAME,
+        yaml_text=upload_yaml,
+        uploads_root=uploads_root,
+        config_root=config_root,
+    )
+
+    submission = _study_submission()
+    asyncio.run(
+        submit_job(
+            conn=db_conn,
+            manager=manager,
+            user=user,
+            submission=submission,
+            store_root=tmp_path / "store",
+            config_root=config_root,
+            job_temp_dir=tmp_path / "jobs",
+            study_spec_uploads_dir=uploads_root,
+        )
+    )
+
+    spawn_call = manager.spawn.await_args  # type: ignore[attr-defined]
+    command = spawn_call.kwargs["command"]
+    spec_arg = command[command.index("--spec") + 1]
+    assert Path(spec_arg) == uploads_root / str(user.id) / f"{_SPEC_NAME}.yaml"
+
+
+def test_submit_study_falls_back_to_library_when_no_upload(
+    db_conn: sqlite3.Connection, tmp_path: Path
+) -> None:
+    """No matching upload for caller → resolver uses ``config/study/<slug>.yaml``."""
+    user = _user(db_conn, "alice")
+    manager = _stub_manager()
+    config_root = tmp_path / "config"
+    _write_spec(config_root, _minimal_spec_dict())
+    submission = _study_submission()
+
+    asyncio.run(
+        submit_job(
+            conn=db_conn,
+            manager=manager,
+            user=user,
+            submission=submission,
+            store_root=tmp_path / "store",
+            config_root=config_root,
+            job_temp_dir=tmp_path / "jobs",
+            study_spec_uploads_dir=tmp_path / "uploads",
+        )
+    )
+
+    spawn_call = manager.spawn.await_args  # type: ignore[attr-defined]
+    command = spawn_call.kwargs["command"]
+    spec_arg = command[command.index("--spec") + 1]
+    assert Path(spec_arg) == config_root / "study" / f"{_SPEC_NAME}.yaml"

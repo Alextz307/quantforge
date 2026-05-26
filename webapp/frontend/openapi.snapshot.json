@@ -1776,6 +1776,121 @@
         "title": "StudyPayload",
         "type": "object"
       },
+      "StudySpecUploadCreate": {
+        "description": "POST /configs/study/uploads body.",
+        "properties": {
+          "slug": {
+            "maxLength": 64,
+            "minLength": 1,
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_\\-]*$",
+            "title": "Slug",
+            "type": "string"
+          },
+          "yaml": {
+            "maxLength": 131072,
+            "minLength": 1,
+            "title": "Yaml",
+            "type": "string"
+          }
+        },
+        "required": [
+          "slug",
+          "yaml"
+        ],
+        "title": "StudySpecUploadCreate",
+        "type": "object"
+      },
+      "StudySpecUploadDetail": {
+        "description": "Single-upload read shape with the full YAML body.",
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "owner_user_id": {
+            "title": "Owner User Id",
+            "type": "integer"
+          },
+          "owner_username": {
+            "title": "Owner Username",
+            "type": "string"
+          },
+          "slug": {
+            "title": "Slug",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "yaml": {
+            "title": "Yaml",
+            "type": "string"
+          }
+        },
+        "required": [
+          "slug",
+          "yaml",
+          "created_at",
+          "updated_at",
+          "owner_user_id",
+          "owner_username"
+        ],
+        "title": "StudySpecUploadDetail",
+        "type": "object"
+      },
+      "StudySpecUploadSummary": {
+        "description": "Listing entry \u2014 no YAML body, no validation errors.",
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "owner_user_id": {
+            "title": "Owner User Id",
+            "type": "integer"
+          },
+          "owner_username": {
+            "title": "Owner Username",
+            "type": "string"
+          },
+          "slug": {
+            "title": "Slug",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "slug",
+          "created_at",
+          "updated_at",
+          "owner_user_id",
+          "owner_username"
+        ],
+        "title": "StudySpecUploadSummary",
+        "type": "object"
+      },
+      "StudySpecValidateRequest": {
+        "description": "``POST /configs/study_spec/validate`` body \u2014 raw YAML text.\n\nA dedicated wire type keeps the existing ValidateRequest (parsed payload)\nuncoupled from the YAML-text path, which has to handle parse errors before\nPydantic ever sees the body.",
+        "properties": {
+          "yaml": {
+            "title": "Yaml",
+            "type": "string"
+          }
+        },
+        "required": [
+          "yaml"
+        ],
+        "title": "StudySpecValidateRequest",
+        "type": "object"
+      },
       "StudySummary": {
         "properties": {
           "completed_legs": {
@@ -2258,6 +2373,231 @@
         "summary": "Get Comparison Plot",
         "tags": [
           "comparisons"
+        ]
+      }
+    },
+    "/api/configs/study/uploads": {
+      "get": {
+        "operationId": "get_study_uploads_api_configs_study_uploads_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "all",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "All",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/StudySpecUploadSummary"
+                  },
+                  "title": "Response Get Study Uploads Api Configs Study Uploads Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Study Uploads",
+        "tags": [
+          "configs"
+        ]
+      },
+      "post": {
+        "operationId": "post_study_upload_api_configs_study_uploads_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StudySpecUploadCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StudySpecUploadDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Post Study Upload",
+        "tags": [
+          "configs"
+        ]
+      }
+    },
+    "/api/configs/study/uploads/{slug}": {
+      "delete": {
+        "operationId": "delete_study_upload_api_configs_study_uploads__slug__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "title": "Slug",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Study Upload",
+        "tags": [
+          "configs"
+        ]
+      },
+      "get": {
+        "operationId": "get_study_upload_api_configs_study_uploads__slug__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "title": "Slug",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StudySpecUploadDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Study Upload",
+        "tags": [
+          "configs"
+        ]
+      }
+    },
+    "/api/configs/study_spec/schema": {
+      "get": {
+        "operationId": "get_study_spec_json_schema_api_configs_study_spec_schema_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Study Spec Json Schema Api Configs Study Spec Schema Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Study Spec Json Schema",
+        "tags": [
+          "configs"
+        ]
+      }
+    },
+    "/api/configs/study_spec/validate": {
+      "post": {
+        "operationId": "post_validate_study_spec_api_configs_study_spec_validate_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StudySpecValidateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidateResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Post Validate Study Spec",
+        "tags": [
+          "configs"
         ]
       }
     },
