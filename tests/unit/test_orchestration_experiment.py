@@ -132,7 +132,6 @@ class TestExperimentRun:
         assert (run_dir / EXPERIMENT_STRATEGY_SUBDIR).is_dir()
         # write_report defaults True → reporter artifacts land alongside.
         assert (run_dir / "plots" / "equity_curves.png").is_file()
-        assert (run_dir / "plots" / "fold_stability.png").is_file()
         assert (run_dir / "tables" / "metrics_summary.tex").is_file()
 
     def test_manifest_round_trips(

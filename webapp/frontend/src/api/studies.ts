@@ -1,5 +1,5 @@
 import { useCallback } from "react";
-import { useQueryClient, type UseQueryResult } from "@tanstack/react-query";
+import { useMutation, useQueryClient, type UseQueryResult } from "@tanstack/react-query";
 import {
   apiClient,
   prefetchApiQuery,
@@ -7,6 +7,7 @@ import {
   type ApiQueryOptions,
   type components,
 } from "./client";
+import { extractApiError } from "./errors";
 import { API_PATHS, fillPath } from "./paths";
 import { queryKeys } from "./queryKeys";
 
@@ -55,6 +56,26 @@ export function useStudy(name: string): UseQueryResult<StudyDetail> {
 
 export function useStudyConsolidated(name: string): UseQueryResult<StudyConsolidatedDTO> {
   return useApiQuery(studyConsolidatedConfig(name));
+}
+
+export function useGenerateStudyConsolidated(name: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (): Promise<StudyConsolidatedDTO> => {
+      const { data, error, response } = await apiClient.POST(API_PATHS.studyConsolidated, {
+        params: { path: { name } },
+      });
+      if (!response.ok || !data)
+        throw new Error(extractApiError(error, "Failed to generate consolidated report"));
+      return data;
+    },
+    onSuccess: (data) => {
+      queryClient.setQueryData(queryKeys.studyConsolidated(name), data);
+      // The study summary/detail caches may render stale leg counts now that
+      // the report has refreshed leg artifacts; force a refetch on next read.
+      void queryClient.invalidateQueries({ queryKey: queryKeys.study(name) });
+    },
+  });
 }
 
 export function usePrefetchStudy(): (name: string) => void {

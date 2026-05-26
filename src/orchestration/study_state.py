@@ -123,13 +123,19 @@ class LegState:
 
     @classmethod
     def from_dict(cls, d: dict[str, object]) -> Self:
+        # Unknown step strings are dropped to keep legacy state files (e.g. with
+        # discontinued step names) readable rather than crashing the studies list.
+        valid_steps: set[str] = {step.value for step in LegStep}
+        steps = tuple(
+            LegStep(s) for s in json_io.get_str_list(d, "steps_completed") if s in valid_steps
+        )
         return cls(
             leg_id=json_io.get_str(d, "leg_id"),
             strategy=json_io.get_str(d, "strategy"),
             universe=json_io.get_str(d, "universe"),
             started_at=json_io.get_optional_iso_datetime(d, "started_at"),
             completed_at=json_io.get_optional_iso_datetime(d, "completed_at"),
-            steps_completed=tuple(LegStep(s) for s in json_io.get_str_list(d, "steps_completed")),
+            steps_completed=steps,
             is_complete=json_io.get_bool(d, "is_complete"),
             error=json_io.get_optional_str(d, "error"),
             run_experiment_id=json_io.get_optional_str(d, "run_experiment_id"),

@@ -32,7 +32,6 @@ class WebappSettings(BaseSettings):
     db_path: Path = Path("webapp/data/webapp.sqlite")
     secret_key: str = ""
     session_ttl_minutes: int = DEFAULT_SESSION_TTL_MINUTES
-    jobs_enabled: bool = False
     job_temp_dir: Path = Path("webapp/data/jobs")
 
 

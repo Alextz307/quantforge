@@ -1,7 +1,20 @@
+import type { components } from "./client";
+
+export interface RunsPageParams {
+  limit: number;
+  offset: number;
+  sortBy: components["schemas"]["RunSortBy"];
+  order: components["schemas"]["SortOrder"];
+  strategy?: string;
+  ticker?: string;
+  since?: string;
+}
+
 export const queryKeys = {
   me: ["auth", "me"] as const,
   users: ["users"] as const,
   runs: ["runs"] as const,
+  runsPage: (params: RunsPageParams) => ["runs", "page", params] as const,
   run: (id: string) => ["runs", id] as const,
   runFolds: (id: string) => ["runs", id, "folds"] as const,
   comparisons: ["comparisons"] as const,
@@ -22,5 +35,4 @@ export const queryKeys = {
   configDetail: (kind: string, name: string) => ["configs", kind, name] as const,
   strategies: ["strategies"] as const,
   strategySchema: (name: string) => ["strategies", name, "schema"] as const,
-  publicSettings: ["publicSettings"] as const,
 } as const;

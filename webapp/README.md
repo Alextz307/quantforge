@@ -21,7 +21,6 @@ to the same command issued from `bash`.
 
 Public:
 - `GET /api/health` — `{status, version}` liveness probe.
-- `GET /api/settings/public` — `{jobs_enabled}` feature flags the SPA reads before login.
 - `GET /openapi.json`, `GET /docs` — OpenAPI 3.1 schema + Swagger UI.
 
 Auth:
@@ -46,7 +45,7 @@ Configs (auth-gated):
 - `GET /api/configs/{kind}/{name}` — raw + parsed body for a single config.
 - `POST /api/configs/validate` — validate a payload against the matching Pydantic model; returns `{valid, errors[]}` with structured `loc/msg/type` items.
 
-Jobs (auth-gated, gated by `WEBAPP_JOBS_ENABLED=true`; per-user scope, admins may pass `?all=1`):
+Jobs (auth-gated; per-user scope, admins may pass `?all=1`):
 - `POST /api/jobs` — submit a `JobSubmission` (`kind=run` with `config_payload`, or `kind=tune` with `config_payload` + `hpo_payload`); validates upfront and returns 422 with the same `loc/msg/type` shape on bad payloads.
 - `GET /api/jobs`, `GET /api/jobs/{id}`, `DELETE /api/jobs/{id}` — list / fetch / cancel.
 - `GET /api/jobs/{id}/log` — full log file (text response).
@@ -103,12 +102,9 @@ in one terminal and `make webapp-frontend-dev` in another. CORS is open to
 forwards both `/api/*` HTTP and the `/api/jobs/{id}/stream` WebSocket
 upgrade so the session cookie travels through dev mode unchanged.
 
-To launch real runs from the UI, set `WEBAPP_JOBS_ENABLED=true` (default
-is off so a read-only deploy never accepts launch traffic). The backend
-then accepts `POST /api/jobs`, spawns the existing `experiment run` CLI
-as a subprocess under `webapp/data/jobs/<job_id>.{yaml,log}`, and the
-SPA's Configure + Jobs pages light up. Without the flag, those pages
-render a friendly "job execution is disabled" banner.
+The backend accepts `POST /api/jobs`, spawns the existing `experiment run`
+CLI as a subprocess under `webapp/data/jobs/<job_id>.{yaml,log}`, and the
+SPA's Configure + Jobs pages drive the lifecycle.
 
 ## Cross-links
 

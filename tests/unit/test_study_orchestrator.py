@@ -175,11 +175,13 @@ class TestLegStateRoundTrip:
         # Idempotent on re-add.
         assert s.with_step_completed(LEG_STEP_TUNE).steps_completed == s.steps_completed
 
-    def test_unknown_step_in_persisted_json_raises(self) -> None:
-        bad_dict = LegState.initial("X__y", "X", "y").to_dict()
-        bad_dict["steps_completed"] = ["not_a_real_step"]
-        with pytest.raises(ValueError, match="not_a_real_step"):
-            LegState.from_dict(bad_dict)
+    def test_unknown_step_in_persisted_json_is_dropped(self) -> None:
+        # Legacy state files may contain steps from discontinued sub-step names;
+        # they're silently dropped so the studies listing stays loadable.
+        d = LegState.initial("X__y", "X", "y").to_dict()
+        d["steps_completed"] = [LEG_STEP_TUNE.value, "regime", LEG_STEP_RUN.value]
+        recovered = LegState.from_dict(d)
+        assert recovered.steps_completed == (LEG_STEP_TUNE, LEG_STEP_RUN)
 
     def test_dict_round_trip(self) -> None:
         original = LegState.initial("X__y", "X", "y").with_step_completed(LEG_STEP_TUNE)

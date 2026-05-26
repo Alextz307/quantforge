@@ -15,7 +15,6 @@ from webapp.backend.app.services.user_service import get_user
 WS_CLOSE_UNAUTHORIZED = 4401
 WS_CLOSE_FORBIDDEN = 4403
 WS_CLOSE_NOT_FOUND = 4404
-WS_CLOSE_FEATURE_DISABLED = 4503
 
 
 def resolve_ws_user(websocket: WebSocket) -> UserPublic | None:
@@ -32,7 +31,6 @@ def resolve_ws_user(websocket: WebSocket) -> UserPublic | None:
 
 
 __all__ = [
-    "WS_CLOSE_FEATURE_DISABLED",
     "WS_CLOSE_FORBIDDEN",
     "WS_CLOSE_NOT_FOUND",
     "WS_CLOSE_UNAUTHORIZED",

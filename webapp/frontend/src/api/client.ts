@@ -60,6 +60,7 @@ export interface ApiQueryOptions<T> {
   fetcher: Fetcher<T>;
   errorMsg: string;
   staleTime?: number;
+  gcTime?: number;
   refetchInterval?: number | false | RefetchIntervalFn<T>;
   enabled?: boolean;
 }
@@ -69,6 +70,7 @@ export function useApiQuery<T>(opts: ApiQueryOptions<T>): UseQueryResult<T> {
     queryKey: opts.queryKey,
     queryFn: () => runFetch(opts.fetcher, opts.errorMsg),
     ...(opts.staleTime !== undefined ? { staleTime: opts.staleTime } : {}),
+    ...(opts.gcTime !== undefined ? { gcTime: opts.gcTime } : {}),
     ...(opts.refetchInterval !== undefined ? { refetchInterval: opts.refetchInterval } : {}),
     ...(opts.enabled !== undefined ? { enabled: opts.enabled } : {}),
   });

@@ -9,7 +9,6 @@ from typing import cast
 from fastapi import Depends, HTTPException, Request, status
 
 from webapp.backend.app.core.security import SESSION_COOKIE_NAME, SessionCookies
-from webapp.backend.app.core.settings import WebappSettings, get_settings
 from webapp.backend.app.core.types import Role
 from webapp.backend.app.infrastructure.db import open_db
 from webapp.backend.app.infrastructure.process_manager import ProcessManager
@@ -54,11 +53,3 @@ def require_admin(user: UserPublic = Depends(get_current_user)) -> UserPublic:
 
 def get_job_manager(request: Request) -> ProcessManager:
     return cast(ProcessManager, request.app.state.job_manager)
-
-
-def require_jobs_enabled(settings: WebappSettings = Depends(get_settings)) -> None:
-    if not settings.jobs_enabled:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="job execution is disabled (set WEBAPP_JOBS_ENABLED=true to enable)",
-        )

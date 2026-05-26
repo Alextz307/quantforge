@@ -1038,19 +1038,6 @@
         "title": "PerStrategyStatsRow",
         "type": "object"
       },
-      "PublicSettings": {
-        "properties": {
-          "jobs_enabled": {
-            "title": "Jobs Enabled",
-            "type": "boolean"
-          }
-        },
-        "required": [
-          "jobs_enabled"
-        ],
-        "title": "PublicSettings",
-        "type": "object"
-      },
       "RegistryEntry": {
         "properties": {
           "name": {
@@ -1173,6 +1160,15 @@
         "title": "RunDetail",
         "type": "object"
       },
+      "RunSortBy": {
+        "enum": [
+          "created_at",
+          "sharpe_mean",
+          "calmar_mean"
+        ],
+        "title": "RunSortBy",
+        "type": "string"
+      },
       "RunSummary": {
         "description": "List-view row for `/api/runs`.\n\nStrategy/tickers/interval are sourced from the run's frozen\n`config.yaml` so any future strategy works without changing this code.",
         "properties": {
@@ -1245,6 +1241,38 @@
         "title": "RunSummary",
         "type": "object"
       },
+      "RunsPage": {
+        "description": "Paginated envelope for `/api/runs`.",
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/RunSummary"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "limit": {
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "title": "Offset",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "RunsPage",
+        "type": "object"
+      },
       "SlippageScenario": {
         "description": "Named lookup keys for ``SLIPPAGE_SCENARIOS``.",
         "enum": [
@@ -1254,6 +1282,14 @@
           "extreme"
         ],
         "title": "SlippageScenario",
+        "type": "string"
+      },
+      "SortOrder": {
+        "enum": [
+          "asc",
+          "desc"
+        ],
+        "title": "SortOrder",
         "type": "string"
       },
       "StrategyParam": {
@@ -2658,20 +2694,118 @@
     "/api/runs": {
       "get": {
         "operationId": "get_runs_api_runs_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 500,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "sort_by",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/RunSortBy",
+              "default": "created_at"
+            }
+          },
+          {
+            "in": "query",
+            "name": "order",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/SortOrder",
+              "default": "desc"
+            }
+          },
+          {
+            "in": "query",
+            "name": "strategy",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Strategy"
+            }
+          },
+          {
+            "in": "query",
+            "name": "ticker",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Ticker"
+            }
+          },
+          {
+            "in": "query",
+            "name": "since",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Since"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/RunSummary"
-                  },
-                  "title": "Response Get Runs Api Runs Get",
-                  "type": "array"
+                  "$ref": "#/components/schemas/RunsPage"
                 }
               }
             },
             "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
           }
         },
         "summary": "Get Runs",
@@ -2814,27 +2948,6 @@
         "summary": "Get Run Plot",
         "tags": [
           "runs"
-        ]
-      }
-    },
-    "/api/settings/public": {
-      "get": {
-        "operationId": "get_public_settings_api_settings_public_get",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PublicSettings"
-                }
-              }
-            },
-            "description": "Successful Response"
-          }
-        },
-        "summary": "Get Public Settings",
-        "tags": [
-          "settings"
         ]
       }
     },
@@ -3009,6 +3122,47 @@
           }
         },
         "summary": "Get Study Consolidated",
+        "tags": [
+          "studies"
+        ]
+      },
+      "post": {
+        "description": "Build (or rebuild) the consolidated report for a study and return it.\n\nRuns the matplotlib + table-writing work in the threadpool so the event\nloop stays responsive while the (few-seconds) job completes. A study\nthat hasn't completed any legs yet returns 422.",
+        "operationId": "post_study_consolidated_api_studies__name__consolidated_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StudyConsolidatedDTO"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Post Study Consolidated",
         "tags": [
           "studies"
         ]

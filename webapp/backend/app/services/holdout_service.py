@@ -16,6 +16,7 @@ from webapp.backend.app.infrastructure.store import (
     store_label,
 )
 from webapp.backend.app.schemas.holdout import HoldoutEvalDetail, HoldoutEvalSummary
+from webapp.backend.app.services._dir_cache import cached_artifact_dirs
 from webapp.backend.app.services.plots import (
     PlotNotFoundError,
     list_plots,
@@ -34,7 +35,7 @@ __all__ = [
 def list_holdout_evals(root: Path) -> list[HoldoutEvalSummary]:
     """List every holdout eval under ``root``, newest first."""
     summaries: list[HoldoutEvalSummary] = []
-    for eval_dir in iter_holdout_eval_dirs(root):
+    for eval_dir in cached_artifact_dirs(root, "holdout", iter_holdout_eval_dirs):
         payload = json_io.read_dict(eval_dir / HOLDOUT_EVAL_JSON)
         summaries.append(
             HoldoutEvalSummary(

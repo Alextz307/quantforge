@@ -29,16 +29,40 @@ def test_list_runs_returns_both_layouts(webapp_store: Path, authed_client: TestC
 
     assert response.status_code == HTTPStatus.OK
     payload = response.json()
-    ids = {row["experiment_id"] for row in payload}
+    ids = {row["experiment_id"] for row in payload["items"]}
     assert ids == {FLAT_ID, STUDY_ID}
-    assert len(payload) == EXPECTED_RUN_COUNT
+    assert payload["total"] == EXPECTED_RUN_COUNT
+    assert len(payload["items"]) == EXPECTED_RUN_COUNT
 
 
 def test_list_runs_sorted_newest_first(webapp_store: Path, authed_client: TestClient) -> None:
     payload = authed_client.get(RUNS_PATH).json()
+    items = payload["items"]
 
-    assert payload[0]["experiment_id"] == STUDY_ID  # 2026-02-01 newer than 2026-01-01
-    assert payload[1]["experiment_id"] == FLAT_ID
+    assert items[0]["experiment_id"] == STUDY_ID  # 2026-02-01 newer than 2026-01-01
+    assert items[1]["experiment_id"] == FLAT_ID
+
+
+def test_list_runs_pagination_clips_to_limit(
+    webapp_store: Path, authed_client: TestClient
+) -> None:
+    payload = authed_client.get(f"{RUNS_PATH}?limit=1&offset=0").json()
+    assert payload["total"] == EXPECTED_RUN_COUNT
+    assert len(payload["items"]) == 1
+    assert payload["limit"] == 1
+    assert payload["offset"] == 0
+
+
+def test_list_runs_sort_by_sharpe_asc(webapp_store: Path, authed_client: TestClient) -> None:
+    payload = authed_client.get(f"{RUNS_PATH}?sort_by=sharpe_mean&order=asc").json()
+    sharpes = [row["sharpe_mean"] for row in payload["items"] if row["sharpe_mean"] is not None]
+    assert sharpes == sorted(sharpes)
+
+
+def test_list_runs_filter_by_strategy(webapp_store: Path, authed_client: TestClient) -> None:
+    payload = authed_client.get(f"{RUNS_PATH}?strategy=AdaptiveBollinger").json()
+    assert payload["total"] == 1
+    assert payload["items"][0]["experiment_id"] == FLAT_ID
 
 
 def test_get_run_detail_returns_manifest_and_metrics(

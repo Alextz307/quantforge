@@ -6,7 +6,6 @@ import type { HpoDetail, HpoSummary, ParamImportanceResponse, TrialRow } from "@
 import type { JobRow, JobSubmission } from "@/api/jobs";
 import { API_PATHS, toMswPath } from "@/api/paths";
 import type { FoldRow, RunDetail, RunSummary } from "@/api/runs";
-import type { PublicSettings } from "@/api/settings";
 import type { RegistryEntry, StrategySchema } from "@/api/strategies";
 import type { StudyConsolidatedDTO, StudyDetail, StudySummary } from "@/api/studies";
 import { ROLE_ADMIN, ROLE_USER, type UserCreate, type UserPublic } from "@/api/users";
@@ -56,7 +55,7 @@ export const RUN_SPY_DETAIL: RunDetail = {
   slippage_scenario: "normal",
   holdout_start: "2026-01-01T00:00:00Z",
   metrics: { sharpe_mean: 1.234, calmar_mean: 0.456, max_drawdown_mean: -0.12 },
-  plots: ["equity.png", "fold_stability.svg"],
+  plots: ["equity.png", "equity.svg"],
 };
 
 export const RUN_SPY_FOLDS: FoldRow[] = [
@@ -363,9 +362,6 @@ export const HPO_DEMO_IMPORTANCE_EMPTY: ParamImportanceResponse = {
   message: "Importance available after at least 2 completed trials.",
 };
 
-export const PUBLIC_SETTINGS_ENABLED: PublicSettings = { jobs_enabled: true };
-export const PUBLIC_SETTINGS_DISABLED: PublicSettings = { jobs_enabled: false };
-
 export const SEED_STRATEGIES: RegistryEntry[] = [
   { name: "AdaptiveBollinger", qualname: "src.strategies.adaptive.AdaptiveBollinger" },
   { name: "PairsTrading", qualname: "src.strategies.pairs.PairsTrading" },
@@ -461,7 +457,19 @@ export const handlers = [
     return HttpResponse.json({ id: 99, username: body.username, role: body.role });
   }),
   http.delete("/api/users/:id", () => new HttpResponse(null, { status: 204 })),
-  http.get(API_PATHS.runs, () => HttpResponse.json(SEED_RUNS)),
+  http.get(API_PATHS.runs, ({ request }) => {
+    const url = new URL(request.url);
+    const limit = Number.parseInt(url.searchParams.get("limit") ?? "50", 10);
+    const offset = Number.parseInt(url.searchParams.get("offset") ?? "0", 10);
+    const strategy = url.searchParams.get("strategy");
+    const ticker = url.searchParams.get("ticker");
+    let rows = [...SEED_RUNS];
+    if (strategy) rows = rows.filter((r) => r.strategy === strategy);
+    if (ticker) rows = rows.filter((r) => r.tickers.includes(ticker));
+    const total = rows.length;
+    const items = rows.slice(offset, offset + limit);
+    return HttpResponse.json({ items, total, limit, offset });
+  }),
   http.get(toMswPath(API_PATHS.run), ({ params }) => {
     if (params.experiment_id === RUN_SPY.experiment_id) return HttpResponse.json(RUN_SPY_DETAIL);
     return new HttpResponse(null, { status: 404 });
@@ -505,7 +513,6 @@ export const handlers = [
     if (params.name === HPO_DEMO_SUMMARY.name) return HttpResponse.json(HPO_DEMO_IMPORTANCE);
     return new HttpResponse(null, { status: 404 });
   }),
-  http.get(API_PATHS.publicSettings, () => HttpResponse.json(PUBLIC_SETTINGS_ENABLED)),
   http.get(API_PATHS.strategies, () => HttpResponse.json(SEED_STRATEGIES)),
   http.get(toMswPath(API_PATHS.strategySchema), ({ params }) => {
     if (params.name === STRATEGY_SCHEMA_AB.name) return HttpResponse.json(STRATEGY_SCHEMA_AB);

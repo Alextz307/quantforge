@@ -94,8 +94,8 @@ def test_get_run_returns_full_detail(tmp_path: Path) -> None:
     assert PLOT_FILENAME in detail.plots
 
 
-def test_get_run_lazy_renders_plots_when_missing(tmp_path: Path) -> None:
-    """HPO-trial / comparison-leg runs skip plot generation; webapp renders on first access."""
+def test_get_run_does_not_render_plots_on_mount(tmp_path: Path) -> None:
+    """Detail-page mount returns immediately; plot rendering is deferred to resolve_plot."""
     root = tmp_path / "experiment_results"
     nested_runs_dir = (
         root / "studies" / "main" / "hpo" / "AdaptiveBollinger" / "trials_artifacts" / "runs"
@@ -104,15 +104,28 @@ def test_get_run_lazy_renders_plots_when_missing(tmp_path: Path) -> None:
 
     detail = get_run(root, NEWER_ID)
 
-    assert "equity_curves.png" in detail.plots
-    assert "fold_stability.png" in detail.plots
-    plot_path = run_dir / "plots" / "equity_curves.png"
-    assert plot_path.is_file()
-    mtime_before = plot_path.stat().st_mtime_ns
+    assert detail.plots == []
+    assert not (run_dir / "plots" / "equity_curves.png").exists()
 
-    get_run(root, NEWER_ID)
 
-    assert plot_path.stat().st_mtime_ns == mtime_before, "second call should not re-render"
+def test_resolve_plot_lazy_renders_when_missing(tmp_path: Path) -> None:
+    """Direct plot fetch triggers lazy rendering once."""
+    from webapp.backend.app.services.run_service import resolve_plot
+
+    root = tmp_path / "experiment_results"
+    nested_runs_dir = (
+        root / "studies" / "main" / "hpo" / "AdaptiveBollinger" / "trials_artifacts" / "runs"
+    )
+    run_dir = make_synthetic_run(nested_runs_dir, experiment_id=NEWER_ID, write_plot=False)
+
+    path = resolve_plot(root, NEWER_ID, "equity_curves.png")
+    assert path.is_file()
+    assert path == run_dir / "plots" / "equity_curves.png"
+    mtime_before = path.stat().st_mtime_ns
+
+    resolve_plot(root, NEWER_ID, "equity_curves.png")
+
+    assert path.stat().st_mtime_ns == mtime_before, "second call should not re-render"
 
 
 def test_get_run_raises_for_unknown_id(tmp_path: Path) -> None:

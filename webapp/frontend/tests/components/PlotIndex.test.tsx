@@ -11,13 +11,13 @@ describe("PlotIndex", () => {
   });
 
   it("renders a download link per plot using urlForPlot", () => {
-    render(<PlotIndex plots={["equity.png", "fold_stability.svg"]} urlForPlot={URL_FOR} />);
+    render(<PlotIndex plots={["equity.png", "equity.svg"]} urlForPlot={URL_FOR} />);
     const equity = screen.getByRole("link", { name: "equity.png" });
     expect(equity).toHaveAttribute("href", "/api/runs/exp_x/plots/equity.png");
     expect(equity).toHaveAttribute("download", "equity.png");
-    expect(screen.getByRole("link", { name: "fold_stability.svg" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "equity.svg" })).toHaveAttribute(
       "href",
-      "/api/runs/exp_x/plots/fold_stability.svg",
+      "/api/runs/exp_x/plots/equity.svg",
     );
   });
 

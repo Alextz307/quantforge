@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import FileResponse
 
 from webapp.backend.app.core.deps import get_current_user
@@ -15,7 +16,9 @@ from webapp.backend.app.schemas.studies import (
 from webapp.backend.app.services.study_service import (
     ConsolidatedReportNotFoundError,
     PlotNotFoundError,
+    StudyConsolidationError,
     StudyNotFoundError,
+    generate_consolidated,
     get_consolidated,
     get_study,
     list_studies,
@@ -45,6 +48,24 @@ def get_study_consolidated(name: str) -> StudyConsolidatedDTO:
         return get_consolidated(get_settings().store_root, name)
     except (StudyNotFoundError, ConsolidatedReportNotFoundError) as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+
+
+@router.post("/{name}/consolidated", response_model=StudyConsolidatedDTO)
+async def post_study_consolidated(name: str) -> StudyConsolidatedDTO:
+    """Build (or rebuild) the consolidated report for a study and return it.
+
+    Runs the matplotlib + table-writing work in the threadpool so the event
+    loop stays responsive while the (few-seconds) job completes. A study
+    that hasn't completed any legs yet returns 422.
+    """
+    try:
+        return await run_in_threadpool(generate_consolidated, get_settings().store_root, name)
+    except StudyNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    except StudyConsolidationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+        ) from exc
 
 
 @router.get("/{name}/consolidated/plots/{plot_name}")

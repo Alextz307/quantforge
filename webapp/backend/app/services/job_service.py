@@ -30,14 +30,20 @@ from webapp.backend.app.infrastructure.process_manager import (
     build_run_command,
     build_tune_command,
 )
+from webapp.backend.app.infrastructure.store import (
+    iter_hpo_study_dirs,
+    iter_run_dirs,
+)
 from webapp.backend.app.schemas.configs import ConfigKind, ValidationErrorItem
 from webapp.backend.app.schemas.jobs import (
+    TERMINAL_STATUSES,
     JobKind,
     JobRow,
     JobStatus,
     JobSubmission,
 )
 from webapp.backend.app.schemas.users import UserPublic
+from webapp.backend.app.services._dir_cache import cached_artifact_dirs
 from webapp.backend.app.services.config_service import validate as validate_config
 from webapp.backend.app.services.strategy_service import describe_strategy
 
@@ -278,14 +284,52 @@ def _extract_study_name(hpo_payload: dict[str, object]) -> str:
 
 
 def list_jobs_for(
-    conn: sqlite3.Connection, *, user: UserPublic, all_users: bool = False
+    conn: sqlite3.Connection,
+    *,
+    user: UserPublic,
+    store_root: Path,
+    all_users: bool = False,
 ) -> list[JobRow]:
-    """Per-user view by default; admins may pass ``all_users=True``."""
+    """Per-user view by default; admins may pass ``all_users=True``.
+
+    Terminal jobs whose ``experiment_id`` no longer resolves to an artifact
+    on disk are filtered out so the UI doesn't show entries that would
+    error on click. Non-terminal jobs are kept regardless (their artifact
+    may not exist yet).
+    """
     if all_users:
         if user.role is not Role.ADMIN:
             raise JobNotOwnedError("only admins can list all users' jobs")
-        return list_jobs(conn)
-    return list_jobs(conn, user_id=user.id)
+        rows = list_jobs(conn)
+    else:
+        rows = list_jobs(conn, user_id=user.id)
+
+    # Gather all valid IDs in two tree walks rather than calling find_*_dir
+    # per terminal job (each of which would re-walk the whole tree). Reuses
+    # the shared TTL cache so consecutive job-polls skip the walks entirely.
+    # Only built if any terminal job actually has an experiment_id to validate.
+    needs_validation = any(
+        row.status in TERMINAL_STATUSES and row.experiment_id is not None for row in rows
+    )
+    if not needs_validation:
+        return list(rows)
+    valid_run_ids = {p.name for p in cached_artifact_dirs(store_root, "run", iter_run_dirs)}
+    valid_hpo_ids = {p.name for p in cached_artifact_dirs(store_root, "hpo", iter_hpo_study_dirs)}
+    return [
+        row for row in rows if _job_artifact_present(row, valid_run_ids, valid_hpo_ids)
+    ]
+
+
+def _job_artifact_present(
+    job: JobRow, valid_run_ids: set[str], valid_hpo_ids: set[str]
+) -> bool:
+    if job.status not in TERMINAL_STATUSES:
+        return True
+    if job.experiment_id is None:
+        return True
+    if job.kind is JobKind.RUN:
+        return job.experiment_id in valid_run_ids
+    return job.experiment_id in valid_hpo_ids
 
 
 def get_job_for(conn: sqlite3.Connection, *, user: UserPublic, job_id: str) -> JobRow:

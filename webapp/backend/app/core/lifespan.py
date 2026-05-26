@@ -58,8 +58,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
                 "<username> --role admin` to bootstrap an admin account.",
                 settings.db_path,
             )
-        if settings.jobs_enabled:
-            reconcile_orphans(conn)
+        reconcile_orphans(conn)
 
     broker = JobEventBroker()
     hpo_broker = HpoEventBroker()

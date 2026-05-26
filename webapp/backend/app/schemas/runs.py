@@ -3,10 +3,22 @@
 from __future__ import annotations
 
 from datetime import datetime
+from enum import StrEnum
 
 from pydantic import BaseModel
 
 from src.engine.scenarios import SlippageScenario
+
+
+class RunSortBy(StrEnum):
+    CREATED_AT = "created_at"
+    SHARPE_MEAN = "sharpe_mean"
+    CALMAR_MEAN = "calmar_mean"
+
+
+class SortOrder(StrEnum):
+    ASC = "asc"
+    DESC = "desc"
 
 
 class RunSummary(BaseModel):
@@ -62,3 +74,12 @@ class FoldRow(BaseModel):
     win_rate: float
     trade_count: int
     equity_curve: list[float]
+
+
+class RunsPage(BaseModel):
+    """Paginated envelope for `/api/runs`."""
+
+    items: list[RunSummary]
+    total: int
+    limit: int
+    offset: int

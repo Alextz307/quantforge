@@ -17,6 +17,7 @@ from webapp.backend.app.infrastructure.store import (
     iter_hpo_study_dirs,
     store_label,
 )
+from webapp.backend.app.services._dir_cache import cached_artifact_dirs
 from webapp.backend.app.schemas.hpo import (
     HpoDetail,
     HpoSummary,
@@ -47,7 +48,7 @@ _DB_MISSING_MESSAGE = "Importance unavailable: optuna study DB not yet written."
 def list_hpo_studies(root: Path) -> list[HpoSummary]:
     """List every HPO study under ``root``, newest first."""
     summaries: list[HpoSummary] = []
-    for study_dir in iter_hpo_study_dirs(root):
+    for study_dir in cached_artifact_dirs(root, "hpo", iter_hpo_study_dirs):
         trials = json_io.read_jsonl(study_dir / TRIALS_JSONL_NAME)
         summaries.append(_summary_from_trials(study_dir, trials, root))
     summaries.sort(key=lambda s: s.created_at, reverse=True)

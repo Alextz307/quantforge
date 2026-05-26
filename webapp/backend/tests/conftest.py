@@ -99,14 +99,20 @@ TRIAL_STATE_FAIL = "FAIL"
 
 @pytest.fixture(autouse=True)
 def _webapp_test_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
+    from webapp.backend.app.services import _dir_cache, run_service
+
     monkeypatch.setenv("WEBAPP_SECRET_KEY", TEST_SECRET_KEY)
     monkeypatch.setenv("WEBAPP_DB_PATH", str(tmp_path / "webapp.sqlite"))
     monkeypatch.setenv("WEBAPP_ENV", "local")
     get_settings.cache_clear()
     login_limiter.reset()
+    run_service._SUMMARY_CACHE.clear()
+    _dir_cache.clear()
     yield
     get_settings.cache_clear()
     login_limiter.reset()
+    run_service._SUMMARY_CACHE.clear()
+    _dir_cache.clear()
 
 
 @pytest.fixture
@@ -142,13 +148,13 @@ def authed_client(client: TestClient, db_conn: sqlite3.Connection) -> TestClient
 
 
 @pytest.fixture
-def _jobs_enabled(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
-    """Flip ``WEBAPP_JOBS_ENABLED`` on + point job artifacts at ``tmp_path``.
+def _isolated_job_paths(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
+    """Point job artifacts at ``tmp_path`` so spawned subprocesses + the store
+    write under a per-test scratch dir.
 
     Must run before any TestClient is constructed (lifespan reads settings on
     create_app). Tests requesting ``jobs_client`` get this fixture transitively.
     """
-    monkeypatch.setenv("WEBAPP_JOBS_ENABLED", "true")
     monkeypatch.setenv("WEBAPP_JOB_TEMP_DIR", str(tmp_path / "jobs"))
     monkeypatch.setenv("WEBAPP_STORE_ROOT", str(tmp_path / "experiment_results"))
     get_settings.cache_clear()
@@ -157,8 +163,8 @@ def _jobs_enabled(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[N
 
 
 @pytest.fixture
-def jobs_client(_jobs_enabled: None) -> Iterator[TestClient]:
-    """A jobs-enabled TestClient — sets the feature flag before app creation."""
+def jobs_client(_isolated_job_paths: None) -> Iterator[TestClient]:
+    """A TestClient whose job artifacts live under a per-test scratch dir."""
     with TestClient(create_app()) as test_client:
         yield test_client
 

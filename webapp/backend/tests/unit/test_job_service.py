@@ -211,32 +211,64 @@ def test_submit_rejects_invalid_payload_before_persisting(
     cast(AsyncMock, manager.spawn).assert_not_awaited()
 
 
-def test_list_jobs_for_filters_by_user(db_conn: sqlite3.Connection) -> None:
+def test_list_jobs_for_filters_by_user(db_conn: sqlite3.Connection, tmp_path: Path) -> None:
     alice = _user(db_conn, "alice")
     bob = _user(db_conn, "bob")
     insert_job(db_conn, _new_job_for(alice))
     insert_job(db_conn, _new_job_for(bob))
     insert_job(db_conn, _new_job_for(alice))
 
-    alice_view = list_jobs_for(db_conn, user=alice)
+    alice_view = list_jobs_for(db_conn, user=alice, store_root=tmp_path)
     assert {j.user_id for j in alice_view} == {alice.id}
     assert len(alice_view) == 2
 
 
-def test_list_jobs_admin_all_users(db_conn: sqlite3.Connection) -> None:
+def test_list_jobs_admin_all_users(db_conn: sqlite3.Connection, tmp_path: Path) -> None:
     admin = _user(db_conn, "boss", role=Role.ADMIN)
     alice = _user(db_conn, "alice")
     insert_job(db_conn, _new_job_for(alice))
     insert_job(db_conn, _new_job_for(admin))
 
-    full = list_jobs_for(db_conn, user=admin, all_users=True)
+    full = list_jobs_for(db_conn, user=admin, store_root=tmp_path, all_users=True)
     assert {j.user_id for j in full} == {alice.id, admin.id}
 
 
-def test_list_jobs_non_admin_all_users_rejected(db_conn: sqlite3.Connection) -> None:
+def test_list_jobs_non_admin_all_users_rejected(
+    db_conn: sqlite3.Connection, tmp_path: Path
+) -> None:
     alice = _user(db_conn, "alice")
     with pytest.raises(JobNotOwnedError):
-        list_jobs_for(db_conn, user=alice, all_users=True)
+        list_jobs_for(db_conn, user=alice, store_root=tmp_path, all_users=True)
+
+
+def test_list_jobs_hides_terminal_jobs_with_missing_artifacts(
+    db_conn: sqlite3.Connection, tmp_path: Path
+) -> None:
+    """Completed jobs whose experiment_id no longer resolves on disk are filtered."""
+    alice = _user(db_conn, "alice")
+    store_root = tmp_path / "store"
+    store_root.mkdir()
+
+    # Job 1: terminal + experiment_id missing on disk → filtered.
+    orphan = insert_job(db_conn, _new_job_for(alice))
+    mark_running(db_conn, orphan.id, FAKE_PID)
+    mark_terminal(
+        db_conn, orphan.id, status=JobStatus.COMPLETED, exit_code=0, experiment_id="ghost_id"
+    )
+
+    # Job 2: queued/running, no experiment_id yet → kept.
+    live = insert_job(db_conn, _new_job_for(alice))
+
+    # Job 3: terminal with no experiment_id (failed early) → kept.
+    failed = insert_job(db_conn, _new_job_for(alice))
+    mark_running(db_conn, failed.id, FAKE_PID + 1)
+    mark_terminal(db_conn, failed.id, status=JobStatus.FAILED, exit_code=1)
+
+    view = list_jobs_for(db_conn, user=alice, store_root=store_root)
+    ids = {j.id for j in view}
+    assert orphan.id not in ids
+    assert live.id in ids
+    assert failed.id in ids
 
 
 def test_get_job_blocks_other_user(db_conn: sqlite3.Connection) -> None:

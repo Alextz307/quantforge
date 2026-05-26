@@ -72,7 +72,6 @@ def test_cli_run_produces_full_artifact_tree(
         assert (run_dir / child).exists(), f"missing artifact: {child}"
     # Reporter artifacts (default --report).
     assert (run_dir / "plots" / "equity_curves.png").is_file()
-    assert (run_dir / "plots" / "fold_stability.png").is_file()
     assert (run_dir / "tables" / "metrics_summary.tex").is_file()
 
 

@@ -17,6 +17,7 @@ from webapp.backend.app.schemas.comparisons import (
     ComparisonSummary,
     PerStrategyStatsRow,
 )
+from webapp.backend.app.services._dir_cache import cached_artifact_dirs
 from webapp.backend.app.services.plots import (
     PlotNotFoundError,
     list_plots,
@@ -35,7 +36,7 @@ __all__ = [
 def list_comparisons(root: Path) -> list[ComparisonSummary]:
     """List every comparison under ``root``, newest first."""
     summaries: list[ComparisonSummary] = []
-    for cmp_dir in iter_comparison_dirs(root):
+    for cmp_dir in cached_artifact_dirs(root, "comparison", iter_comparison_dirs):
         manifest = json_io.read_dict(cmp_dir / EXPERIMENT_MANIFEST_JSON)
         per_strategy = json_io.get_dict(manifest, "per_strategy_experiment_id")
         summaries.append(

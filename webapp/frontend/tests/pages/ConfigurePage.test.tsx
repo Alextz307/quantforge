@@ -6,7 +6,6 @@ import { Route, Routes } from "react-router-dom";
 import { ConfigurePage } from "@/pages/ConfigurePage";
 import { API_PATHS } from "@/api/paths";
 import { ROUTES } from "@/lib/routes";
-import { PUBLIC_SETTINGS_DISABLED } from "../msw/handlers";
 import { server } from "../msw/server";
 import { renderWithProviders } from "../util/render";
 
@@ -22,16 +21,6 @@ async function fillBaseFields(user: ReturnType<typeof userEvent.setup>): Promise
 }
 
 describe("ConfigurePage", () => {
-  it("renders the disabled state when jobs_enabled is false", async () => {
-    server.use(
-      http.get(API_PATHS.publicSettings, () => HttpResponse.json(PUBLIC_SETTINGS_DISABLED)),
-    );
-
-    renderWithProviders(<ConfigurePage />);
-
-    expect(await screen.findByText(/Job execution is disabled/i)).toBeInTheDocument();
-  });
-
   it("submits a valid payload and navigates to the new job's detail page", async () => {
     const user = userEvent.setup();
     renderWithProviders(
@@ -42,7 +31,7 @@ describe("ConfigurePage", () => {
       { initialEntries: [ROUTES.configure] },
     );
 
-    // Wait for /api/strategies + /api/settings/public to settle.
+    // Wait for /api/strategies to settle.
     await screen.findByLabelText(/Run name/i);
     await waitFor(() => {
       expect(screen.getByLabelText(/Strategy$/i)).not.toBeDisabled();

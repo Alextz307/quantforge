@@ -66,11 +66,6 @@ class TestGenerateFullReport:
         assert (tmp_path / "plots" / "equity_curves.png").is_file()
         assert (tmp_path / "plots" / "equity_curves.svg").is_file()
 
-    def test_fold_stability_png_and_svg(self, tmp_path: Path) -> None:
-        StrategyReporter().generate_full_report(_make_result(), tmp_path)
-        assert (tmp_path / "plots" / "fold_stability.png").is_file()
-        assert (tmp_path / "plots" / "fold_stability.svg").is_file()
-
     def test_metrics_summary_tex_contains_fold_rows(self, tmp_path: Path) -> None:
         StrategyReporter().generate_full_report(_make_result(n_folds=3), tmp_path)
         tex = (tmp_path / "tables" / "metrics_summary.tex").read_text()
@@ -107,11 +102,11 @@ class TestNormaliseCurve:
 
 
 class TestDegenerateFoldsAreSkippedIntegration:
-    """Single integration test for each defensive path — verifies the
-    reporter's plot methods log and skip without crashing when fed
-    degenerate folds. Pure predicate logic is covered by
-    ``TestNormaliseCurve`` above; these tests exercise the plotting-side
-    wiring (one fold good, one fold bad → plot still renders).
+    """Integration test for the defensive path — verifies the equity plot
+    method logs and skips without crashing when fed a degenerate fold.
+    Pure predicate logic is covered by ``TestNormaliseCurve`` above; this
+    test exercises the plotting-side wiring (one fold good, one bad →
+    plot still renders).
     """
 
     def test_nan_equity_base_is_skipped_with_warning(
@@ -129,15 +124,3 @@ class TestDegenerateFoldsAreSkippedIntegration:
         assert (tmp_path / "plots" / "equity_curves.png").is_file()
         assert any("skipping from equity plot" in r.message for r in caplog.records)
 
-    def test_nan_sharpe_filtered_from_stability_scatter(
-        self,
-        tmp_path: Path,
-        caplog: pytest.LogCaptureFixture,
-    ) -> None:
-        base_result = _make_result(n_folds=2)
-        bad_fold = dataclasses.replace(base_result.folds[0], sharpe_ratio=math.nan)
-        result = dataclasses.replace(base_result, folds=(bad_fold, base_result.folds[1]))
-        with caplog.at_level(logging.WARNING, logger="src.visualization.strategy_reporter"):
-            StrategyReporter().generate_full_report(result, tmp_path)
-        assert (tmp_path / "plots" / "fold_stability.png").is_file()
-        assert any("skipping from stability plot" in r.message for r in caplog.records)

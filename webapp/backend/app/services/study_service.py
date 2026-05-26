@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
 from src.core import json_io
 from src.orchestration.study import STUDY_STATE_FILENAME
+from src.orchestration.study_report import consolidate_study
 from src.orchestration.study_state import StudyState, read_study_state
 from src.visualization.plots import MANIFEST_FILENAME
+from src.visualization.study_report_reporter import StudyReportReporter
 from webapp.backend.app.infrastructure.store import (
     StudyNotFoundError,
     find_study_dir,
@@ -19,6 +22,7 @@ from webapp.backend.app.schemas.studies import (
     StudyDetail,
     StudySummary,
 )
+from webapp.backend.app.services._dir_cache import cached_artifact_dirs
 from webapp.backend.app.services.plots import (
     PLOTS_DIRNAME,
     TABLES_DIRNAME,
@@ -27,10 +31,14 @@ from webapp.backend.app.services.plots import (
     resolve_file_under,
 )
 
+logger = logging.getLogger(__name__)
+
 __all__ = [
     "ConsolidatedReportNotFoundError",
     "PlotNotFoundError",
+    "StudyConsolidationError",
     "StudyNotFoundError",
+    "generate_consolidated",
     "get_consolidated",
     "get_study",
     "list_studies",
@@ -43,11 +51,19 @@ class ConsolidatedReportNotFoundError(LookupError):
     """Raised when a study has no consolidated report (``manifest.json`` absent)."""
 
 
+class StudyConsolidationError(ValueError):
+    """Raised when consolidation cannot complete (e.g. missing per-leg artifacts)."""
+
+
 def list_studies(root: Path) -> list[StudySummary]:
     """List every study under ``root``, newest first."""
     summaries: list[StudySummary] = []
-    for study_dir in iter_study_dirs(root):
-        state = read_study_state(study_dir / STUDY_STATE_FILENAME)
+    for study_dir in cached_artifact_dirs(root, "study", iter_study_dirs):
+        try:
+            state = read_study_state(study_dir / STUDY_STATE_FILENAME)
+        except Exception as exc:  # noqa: BLE001 — one bad study must not 500 the whole listing
+            logger.warning("skipping unreadable study at %s: %s", study_dir, exc)
+            continue
         summaries.append(_summary_from_state(study_dir.name, state))
     summaries.sort(key=lambda s: s.started_at, reverse=True)
     return summaries
@@ -105,6 +121,24 @@ def get_consolidated(root: Path, name: str) -> StudyConsolidatedDTO:
         tables=list_files_under(study_dir, TABLES_DIRNAME),
         plots=list_files_under(study_dir, PLOTS_DIRNAME),
     )
+
+
+def generate_consolidated(root: Path, name: str) -> StudyConsolidatedDTO:
+    """Build (or rebuild) the consolidated report for a study and return its DTO.
+
+    Idempotent: safe to call against a study that already has a consolidated
+    report — old tables/plots are overwritten. Raises :class:`StudyNotFoundError`
+    if the study doesn't exist, :class:`StudyConsolidationError` if the per-leg
+    artifacts are missing or malformed (e.g. running against a study that
+    hasn't completed any legs yet).
+    """
+    study_dir = find_study_dir(root, name)
+    try:
+        report = consolidate_study(study_dir)
+    except (FileNotFoundError, ValueError) as exc:
+        raise StudyConsolidationError(str(exc)) from exc
+    StudyReportReporter().generate_full_report(report, study_dir)
+    return get_consolidated(root, name)
 
 
 def resolve_consolidated_plot(root: Path, name: str, plot_name: str) -> Path:

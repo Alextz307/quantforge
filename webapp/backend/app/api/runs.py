@@ -2,27 +2,52 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from datetime import datetime
+
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import FileResponse
 
 from webapp.backend.app.core.deps import get_current_user
 from webapp.backend.app.core.settings import get_settings
-from webapp.backend.app.schemas.runs import FoldRow, RunDetail, RunSummary
+from webapp.backend.app.schemas.runs import (
+    FoldRow,
+    RunDetail,
+    RunSortBy,
+    RunsPage,
+    SortOrder,
+)
 from webapp.backend.app.services.run_service import (
     PlotNotFoundError,
     RunNotFoundError,
     get_folds,
     get_run,
-    list_runs,
+    list_runs_page,
     resolve_plot,
 )
 
 router = APIRouter(prefix="/runs", tags=["runs"], dependencies=[Depends(get_current_user)])
 
 
-@router.get("", response_model=list[RunSummary])
-def get_runs() -> list[RunSummary]:
-    return list_runs(get_settings().store_root)
+@router.get("", response_model=RunsPage)
+def get_runs(
+    limit: int = Query(50, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+    sort_by: RunSortBy = Query(RunSortBy.CREATED_AT),
+    order: SortOrder = Query(SortOrder.DESC),
+    strategy: str | None = Query(None),
+    ticker: str | None = Query(None),
+    since: datetime | None = Query(None),
+) -> RunsPage:
+    return list_runs_page(
+        get_settings().store_root,
+        limit=limit,
+        offset=offset,
+        sort_by=sort_by,
+        order=order,
+        strategy=strategy,
+        ticker=ticker,
+        since=since,
+    )
 
 
 @router.get("/{experiment_id}", response_model=RunDetail)

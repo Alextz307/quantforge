@@ -3,15 +3,11 @@
 Consumes a persisted or in-memory :class:`ExperimentResult` and writes
 thesis-ready artifacts under ``<run_dir>/plots/`` + ``<run_dir>/tables/``.
 
-The three artifacts Chapter 7 relies on at the single-experiment level:
+The two artifacts Chapter 7 relies on at the single-experiment level:
 
 * ``plots/equity_curves.png/svg`` — per-fold equity curves overlaid, each
   series normalised to 1.0 at fold start so a reader eyeballs the fold's
   own performance rather than being dominated by compounding across folds.
-* ``plots/fold_stability.png/svg`` — fold-index vs. Sharpe dots with a
-  horizontal zero line. Walk-forward stability check: tight cluster = the
-  strategy is robust across windows; wide scatter = overfit or regime-
-  sensitive.
 * ``tables/metrics_summary.tex`` — booktabs LaTeX, one row per fold with
   Sharpe / Sortino / Calmar / MaxDD / TotalReturn / TradeCount. Per-run
   mean is NOT included here (it's a cross-run concern; ``comparison``
@@ -20,7 +16,6 @@ The three artifacts Chapter 7 relies on at the single-experiment level:
 
 from __future__ import annotations
 
-import math
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -42,7 +37,6 @@ from src.visualization.plots import (
 _logger = get_logger(__name__)
 
 _EQUITY_FILENAME = "equity_curves.png"
-_STABILITY_FILENAME = "fold_stability.png"
 _METRICS_FILENAME = "metrics_summary.tex"
 
 
@@ -90,7 +84,6 @@ class StrategyReporter:
 
         if result.folds:
             self._plot_equity_curves(result.folds, plots_dir / _EQUITY_FILENAME)
-            self._plot_fold_stability(result.folds, plots_dir / _STABILITY_FILENAME)
 
         return out_dir
 
@@ -157,41 +150,6 @@ class StrategyReporter:
         ax.grid(True, which="both", alpha=0.3)
         if plotted > 0:
             ax.legend(loc="best", fontsize="small")
-        fig.tight_layout()
-        save_png_and_svg(fig, out_path)
-        plt.close(fig)
-        return out_path
-
-    def _plot_fold_stability(self, folds: tuple[FoldRecord, ...], out_path: Path) -> Path:
-        """Sharpe per fold as a scatter with a horizontal zero line.
-
-        Thesis-narrative check: a strategy that's robust across windows
-        produces a tight cluster above 0; wide scatter + frequent dips
-        below 0 means the walk-forward didn't generalise.
-
-        Folds with non-finite Sharpe (zero-trade or zero-volatility windows)
-        are logged + filtered before plotting — matplotlib silently skips
-        NaN points, which would leave an unexplained gap in the scatter.
-        """
-        fig, ax = plt.subplots(figsize=(FIGURE_WIDTH_IN, FIGURE_HEIGHT_IN), dpi=FIGURE_DPI)
-        indices: list[int] = []
-        sharpes: list[float] = []
-        for fold in folds:
-            if not math.isfinite(fold.sharpe_ratio):
-                _logger.warning(
-                    "fold %d: sharpe_ratio=%s is non-finite — skipping from stability plot",
-                    fold.fold_index,
-                    fold.sharpe_ratio,
-                )
-                continue
-            indices.append(fold.fold_index)
-            sharpes.append(fold.sharpe_ratio)
-        ax.scatter(indices, sharpes, s=40, alpha=0.8)
-        ax.axhline(0.0, color="black", linewidth=0.8, alpha=0.5)
-        ax.set_xlabel("fold index")
-        ax.set_ylabel("Sharpe ratio")
-        ax.set_title("walk-forward stability — per-fold Sharpe")
-        ax.grid(True, which="both", alpha=0.3)
         fig.tight_layout()
         save_png_and_svg(fig, out_path)
         plt.close(fig)

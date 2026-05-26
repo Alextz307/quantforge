@@ -5,7 +5,6 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ExperimentFieldsSection } from "@/components/forms/ExperimentFieldsSection";
-import { JobsGate } from "@/components/forms/JobsGate";
 import { ServerErrorList } from "@/components/forms/ServerErrorList";
 import { SubmitFailureAlert } from "@/components/forms/SubmitFailureAlert";
 import { SubmitJobError, useSubmitJob, type ValidationErrorItem } from "@/api/jobs";
@@ -78,39 +77,37 @@ export function ConfigurePage() {
   };
 
   return (
-    <JobsGate>
-      <Card className="max-w-4xl">
-        <CardHeader>
-          <CardTitle>Configure run</CardTitle>
-          <CardDescription>
-            Build an experiment config and launch it as a background job. Server-side validation
-            mirrors the YAML rules used by the CLI.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-6">
-            <ExperimentFieldsSection
-              register={register}
-              setValue={setValue}
-              errors={errors}
-              strategyParams={strategyParams}
-              onStrategyParamsChange={setStrategyParams}
-              schemaData={schema.data}
-              errorsByLoc={errorsByLoc}
-              isSubmitting={isSubmitting}
-            />
+    <Card className="max-w-4xl">
+      <CardHeader>
+        <CardTitle>Configure run</CardTitle>
+        <CardDescription>
+          Build an experiment config and launch it as a background job. Server-side validation
+          mirrors the YAML rules used by the CLI.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-6">
+          <ExperimentFieldsSection
+            register={register}
+            setValue={setValue}
+            errors={errors}
+            strategyParams={strategyParams}
+            onStrategyParamsChange={setStrategyParams}
+            schemaData={schema.data}
+            errorsByLoc={errorsByLoc}
+            isSubmitting={isSubmitting}
+          />
 
-            <ServerErrorList errors={serverErrors} />
-            <SubmitFailureAlert mutation={submit} />
+          <ServerErrorList errors={serverErrors} />
+          <SubmitFailureAlert mutation={submit} />
 
-            <div className="flex justify-end gap-2">
-              <Button type="submit" disabled={isSubmitting || submit.isPending}>
-                {submit.isPending ? "Launching…" : "Launch run"}
-              </Button>
-            </div>
-          </form>
-        </CardContent>
-      </Card>
-    </JobsGate>
+          <div className="flex justify-end gap-2">
+            <Button type="submit" disabled={isSubmitting || submit.isPending}>
+              {submit.isPending ? "Launching…" : "Launch run"}
+            </Button>
+          </div>
+        </form>
+      </CardContent>
+    </Card>
   );
 }

@@ -217,14 +217,6 @@ def test_cancel_completed_job_returns_409(
     assert resp.status_code == HTTPStatus.CONFLICT
 
 
-def test_jobs_disabled_returns_503(authed_client: TestClient) -> None:
-    """When ``WEBAPP_JOBS_ENABLED`` isn't set (default fixture), every job
-    endpoint short-circuits to 503."""
-    resp = authed_client.post(JOBS_PATH, json=make_valid_job_submission())
-    assert resp.status_code == HTTPStatus.SERVICE_UNAVAILABLE
-    assert authed_client.get(JOBS_PATH).status_code == HTTPStatus.SERVICE_UNAVAILABLE
-
-
 def test_unauthenticated_post_redirects_to_401(
     jobs_client: TestClient,
 ) -> None:

@@ -28,7 +28,6 @@ export const API_PATHS = {
   configValidate: "/api/configs/validate",
   strategies: "/api/strategies",
   strategySchema: "/api/strategies/{name}/schema",
-  publicSettings: "/api/settings/public",
 } as const;
 
 // MSW v2 expects `:name` path params; openapi-fetch (matching FastAPI's path

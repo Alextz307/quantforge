@@ -19,7 +19,6 @@ from fastapi.responses import FileResponse
 from starlette.websockets import WebSocketState
 
 from webapp.backend.app.api._ws_auth import (
-    WS_CLOSE_FEATURE_DISABLED,
     WS_CLOSE_FORBIDDEN,
     WS_CLOSE_NOT_FOUND,
     WS_CLOSE_UNAUTHORIZED,
@@ -29,7 +28,6 @@ from webapp.backend.app.core.deps import (
     get_current_user,
     get_db,
     get_job_manager,
-    require_jobs_enabled,
 )
 from webapp.backend.app.core.settings import WebappSettings, get_settings
 from webapp.backend.app.infrastructure.db import open_db
@@ -55,11 +53,7 @@ from webapp.backend.app.services.job_service import (
     submit_job,
 )
 
-router = APIRouter(
-    prefix="/jobs",
-    tags=["jobs"],
-    dependencies=[Depends(require_jobs_enabled)],
-)
+router = APIRouter(prefix="/jobs", tags=["jobs"])
 
 
 @router.post("", response_model=JobRow, status_code=status.HTTP_201_CREATED)
@@ -91,9 +85,12 @@ def get_jobs(
     all_users: bool = Query(False, alias="all"),
     user: UserPublic = Depends(get_current_user),
     conn: sqlite3.Connection = Depends(get_db),
+    settings: WebappSettings = Depends(get_settings),
 ) -> list[JobRow]:
     try:
-        return list_jobs_for(conn, user=user, all_users=all_users)
+        return list_jobs_for(
+            conn, user=user, store_root=settings.store_root, all_users=all_users
+        )
     except JobNotOwnedError as exc:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
 
@@ -153,11 +150,7 @@ async def stream_job(
     job_id: str,
 ) -> None:
     # FastAPI's WS DI only binds WebSocket-typed params; Depends(...) providers
-    # that take Request fail. Resolve settings/user/broker inline.
-    settings = get_settings()
-    if not settings.jobs_enabled:
-        await websocket.close(code=WS_CLOSE_FEATURE_DISABLED)
-        return
+    # that take Request fail. Resolve user/broker inline.
     user = resolve_ws_user(websocket)
     if user is None:
         await websocket.close(code=WS_CLOSE_UNAUTHORIZED)

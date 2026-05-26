@@ -8,7 +8,15 @@ import { PlotIndex } from "@/components/PlotIndex";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatDateTime, shortHash } from "@/lib/format";
 
-export function ConsolidatedReportPanel({ dto }: { dto: StudyConsolidatedDTO }) {
+interface ConsolidatedReportPanelProps {
+  dto: StudyConsolidatedDTO;
+  // The study's directory name — used to build artifact URLs. Distinct from
+  // ``dto.study_name``, which is the logical spec name from the manifest and
+  // does not necessarily match the route segment.
+  studyDirName: string;
+}
+
+export function ConsolidatedReportPanel({ dto, studyDirName }: ConsolidatedReportPanelProps) {
   return (
     <div className="flex flex-col gap-4" data-testid="consolidated-report-panel">
       <Card>
@@ -34,7 +42,7 @@ export function ConsolidatedReportPanel({ dto }: { dto: StudyConsolidatedDTO }) 
         <CardContent>
           <PlotIndex
             plots={dto.tables}
-            urlForPlot={(name) => studyConsolidatedTableUrl(dto.study_name, name)}
+            urlForPlot={(name) => studyConsolidatedTableUrl(studyDirName, name)}
             emptyMessage="No consolidated tables produced."
           />
         </CardContent>
@@ -47,7 +55,7 @@ export function ConsolidatedReportPanel({ dto }: { dto: StudyConsolidatedDTO }) 
         <CardContent>
           <PlotIndex
             plots={dto.plots}
-            urlForPlot={(name) => studyConsolidatedPlotUrl(dto.study_name, name)}
+            urlForPlot={(name) => studyConsolidatedPlotUrl(studyDirName, name)}
             emptyMessage="No consolidated plots produced for this study."
           />
         </CardContent>
