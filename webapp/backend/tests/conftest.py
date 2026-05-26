@@ -160,6 +160,9 @@ def _isolated_job_paths(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iter
     monkeypatch.setenv(
         "WEBAPP_STUDY_SPEC_UPLOADS_DIR", str(tmp_path / "study_specs")
     )
+    monkeypatch.setenv(
+        "WEBAPP_UNIVERSE_SPEC_UPLOADS_DIR", str(tmp_path / "universe_specs")
+    )
     get_settings.cache_clear()
     yield
     get_settings.cache_clear()

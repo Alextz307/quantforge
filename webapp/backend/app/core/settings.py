@@ -34,6 +34,7 @@ class WebappSettings(BaseSettings):
     session_ttl_minutes: int = DEFAULT_SESSION_TTL_MINUTES
     job_temp_dir: Path = Path("webapp/data/jobs")
     study_spec_uploads_dir: Path = Path("webapp/data/study_specs")
+    universe_spec_uploads_dir: Path = Path("webapp/data/universe_specs")
 
 
 @lru_cache

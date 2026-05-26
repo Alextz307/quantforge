@@ -19,7 +19,7 @@ from webapp.backend.app.api import (
     studies,
     users,
 )
-from webapp.backend.app.core import rate_limit
+from webapp.backend.app.core import rate_limit, upload_handlers
 from webapp.backend.app.core.lifespan import lifespan
 from webapp.backend.app.core.security import SessionCookies
 from webapp.backend.app.core.settings import WebappEnv, get_settings
@@ -44,6 +44,7 @@ def create_app() -> FastAPI:
     )
     app.state.sessions = sessions
     rate_limit.attach(app)
+    upload_handlers.attach(app)
 
     if settings.env is WebappEnv.DEVELOPMENT:
         app.add_middleware(

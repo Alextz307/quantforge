@@ -57,6 +57,22 @@ CREATE INDEX IF NOT EXISTS idx_study_spec_uploads_user_id
     ON study_spec_uploads(user_id);
 """
 
+UNIVERSE_SPEC_UPLOADS_SCHEMA = """
+CREATE TABLE IF NOT EXISTS universe_spec_uploads (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL REFERENCES users(id),
+    slug TEXT NOT NULL,
+    yaml_text TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    deleted_at TEXT
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_universe_spec_uploads_active_slug
+    ON universe_spec_uploads(user_id, slug) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_universe_spec_uploads_user_id
+    ON universe_spec_uploads(user_id);
+"""
+
 
 def get_connection(db_path: Path) -> sqlite3.Connection:
     db_path.parent.mkdir(parents=True, exist_ok=True)
@@ -74,6 +90,7 @@ def bootstrap_schema(conn: sqlite3.Connection) -> None:
     conn.executescript(USERS_SCHEMA)
     conn.executescript(JOBS_SCHEMA)
     conn.executescript(STUDY_SPEC_UPLOADS_SCHEMA)
+    conn.executescript(UNIVERSE_SPEC_UPLOADS_SCHEMA)
     conn.commit()
 
 

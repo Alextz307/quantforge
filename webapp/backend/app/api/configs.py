@@ -1,4 +1,11 @@
-"""HTTP endpoints for config validation, browsing, and user-authored uploads."""
+"""HTTP endpoints for config validation, browsing, and user-authored uploads.
+
+Spec-upload routes raise pure service-layer exceptions
+(:class:`SpecUploadNotFoundError`, :class:`SpecUploadInvalidError`,
+:class:`LibrarySlugCollisionError`, :class:`PermissionError`); the
+status-code mapping lives in :mod:`core.upload_handlers`, registered at
+app startup. That's why the route bodies have no try/except.
+"""
 
 from __future__ import annotations
 
@@ -21,23 +28,33 @@ from webapp.backend.app.schemas.study_uploads import (
     StudySpecUploadDetail,
     StudySpecUploadSummary,
 )
+from webapp.backend.app.schemas.universe_uploads import (
+    UniverseSpecUploadCreate,
+    UniverseSpecUploadDetail,
+    UniverseSpecUploadSummary,
+)
 from webapp.backend.app.schemas.users import UserPublic
 from webapp.backend.app.services.config_service import (
     ConfigNotFoundError,
     get_study_spec_schema,
+    get_universe_spec_schema,
     list_configs,
     read_config,
     validate,
 )
 from webapp.backend.app.services.study_spec_uploads import (
-    LibrarySlugCollisionError,
-    StudySpecUploadInvalidError,
-    StudySpecUploadNotFoundError,
     get_upload,
     list_uploads,
     save_upload,
     soft_delete_upload,
     validate_study_spec_text,
+)
+from webapp.backend.app.services.universe_spec_uploads import (
+    get_upload as get_universe_upload,
+    list_uploads as list_universe_uploads,
+    save_upload as save_universe_upload,
+    soft_delete_upload as soft_delete_universe_upload,
+    validate_universe_spec_text,
 )
 
 router = APIRouter(
@@ -54,6 +71,12 @@ class StudySpecValidateRequest(BaseModel):
     uncoupled from the YAML-text path, which has to handle parse errors before
     Pydantic ever sees the body.
     """
+
+    yaml: str
+
+
+class UniverseSpecValidateRequest(BaseModel):
+    """``POST /configs/universe_spec/validate`` body — raw YAML text."""
 
     yaml: str
 
@@ -79,10 +102,7 @@ def get_study_uploads(
     user: UserPublic = Depends(get_current_user),
     conn: sqlite3.Connection = Depends(get_db),
 ) -> list[StudySpecUploadSummary]:
-    try:
-        return list_uploads(conn, user=user, all_users=all_users)
-    except PermissionError as exc:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
+    return list_uploads(conn, user=user, all_users=all_users)
 
 
 @router.post(
@@ -96,28 +116,14 @@ def post_study_upload(
     conn: sqlite3.Connection = Depends(get_db),
     settings: WebappSettings = Depends(get_settings),
 ) -> StudySpecUploadDetail:
-    try:
-        return save_upload(
-            conn,
-            user=user,
-            slug=body.slug,
-            yaml_text=body.yaml,
-            uploads_root=settings.study_spec_uploads_dir,
-            config_root=settings.config_root,
-        )
-    except LibrarySlugCollisionError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=(
-                f"slug '{exc.slug}' shadows a library spec at "
-                f"config/study/{exc.slug}.yaml — pick a different slug"
-            ),
-        ) from exc
-    except StudySpecUploadInvalidError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=[err.model_dump() for err in exc.errors],
-        ) from exc
+    return save_upload(
+        conn,
+        user=user,
+        slug=body.slug,
+        yaml_text=body.yaml,
+        uploads_root=settings.study_spec_uploads_dir,
+        config_root=settings.config_root,
+    )
 
 
 @router.get("/study/uploads/{slug}", response_model=StudySpecUploadDetail)
@@ -126,13 +132,7 @@ def get_study_upload(
     user: UserPublic = Depends(get_current_user),
     conn: sqlite3.Connection = Depends(get_db),
 ) -> StudySpecUploadDetail:
-    try:
-        return get_upload(conn, user=user, slug=slug)
-    except StudySpecUploadNotFoundError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"study spec upload not found: {slug}",
-        ) from exc
+    return get_upload(conn, user=user, slug=slug)
 
 
 @router.delete("/study/uploads/{slug}", status_code=status.HTTP_204_NO_CONTENT)
@@ -142,18 +142,76 @@ def delete_study_upload(
     conn: sqlite3.Connection = Depends(get_db),
     settings: WebappSettings = Depends(get_settings),
 ) -> None:
-    try:
-        soft_delete_upload(
-            conn,
-            user=user,
-            slug=slug,
-            uploads_root=settings.study_spec_uploads_dir,
-        )
-    except StudySpecUploadNotFoundError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"study spec upload not found: {slug}",
-        ) from exc
+    soft_delete_upload(
+        conn,
+        user=user,
+        slug=slug,
+        uploads_root=settings.study_spec_uploads_dir,
+    )
+
+
+@router.post("/universe_spec/validate", response_model=ValidateResponse)
+def post_validate_universe_spec(request: UniverseSpecValidateRequest) -> ValidateResponse:
+    return validate_universe_spec_text(request.yaml)
+
+
+@router.get("/universe_spec/schema", response_model=dict[str, object])
+def get_universe_spec_json_schema() -> dict[str, object]:
+    return get_universe_spec_schema()
+
+
+@router.get("/universe/uploads", response_model=list[UniverseSpecUploadSummary])
+def get_universe_uploads(
+    all_users: bool = Query(False, alias="all"),
+    user: UserPublic = Depends(get_current_user),
+    conn: sqlite3.Connection = Depends(get_db),
+) -> list[UniverseSpecUploadSummary]:
+    return list_universe_uploads(conn, user=user, all_users=all_users)
+
+
+@router.post(
+    "/universe/uploads",
+    response_model=UniverseSpecUploadDetail,
+    status_code=status.HTTP_201_CREATED,
+)
+def post_universe_upload(
+    body: UniverseSpecUploadCreate,
+    user: UserPublic = Depends(get_current_user),
+    conn: sqlite3.Connection = Depends(get_db),
+    settings: WebappSettings = Depends(get_settings),
+) -> UniverseSpecUploadDetail:
+    return save_universe_upload(
+        conn,
+        user=user,
+        slug=body.slug,
+        yaml_text=body.yaml,
+        uploads_root=settings.universe_spec_uploads_dir,
+        config_root=settings.config_root,
+    )
+
+
+@router.get("/universe/uploads/{slug}", response_model=UniverseSpecUploadDetail)
+def get_universe_upload_detail(
+    slug: str,
+    user: UserPublic = Depends(get_current_user),
+    conn: sqlite3.Connection = Depends(get_db),
+) -> UniverseSpecUploadDetail:
+    return get_universe_upload(conn, user=user, slug=slug)
+
+
+@router.delete("/universe/uploads/{slug}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_universe_upload(
+    slug: str,
+    user: UserPublic = Depends(get_current_user),
+    conn: sqlite3.Connection = Depends(get_db),
+    settings: WebappSettings = Depends(get_settings),
+) -> None:
+    soft_delete_universe_upload(
+        conn,
+        user=user,
+        slug=slug,
+        uploads_root=settings.universe_spec_uploads_dir,
+    )
 
 
 @router.get("/{kind}", response_model=list[ConfigEntry])

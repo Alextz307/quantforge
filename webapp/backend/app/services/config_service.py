@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from functools import lru_cache
 from pathlib import Path
 
 import yaml
@@ -25,6 +26,7 @@ from webapp.backend.app.services.strategy_service import describe_strategy
 __all__ = [
     "ConfigNotFoundError",
     "get_study_spec_schema",
+    "get_universe_spec_schema",
     "list_configs",
     "read_config",
     "validate",
@@ -59,6 +61,7 @@ class ConfigNotFoundError(FileNotFoundError):
     """Raised when ``config_root/<kind>/<name>.yaml`` is missing."""
 
 
+@lru_cache(maxsize=1)
 def get_study_spec_schema() -> dict[str, object]:
     """Return the JSON Schema for :class:`StudySpec`.
 
@@ -66,8 +69,22 @@ def get_study_spec_schema() -> dict[str, object]:
     ``monaco-yaml`` on the frontend so the editor gets autocomplete,
     hover docs, and inline type / required-field markers from the same
     Pydantic source of truth the CLI validates against.
+
+    Cached: the schema is derived from a static Pydantic class, so the
+    walk is pure CPU work that repeats identically on every request.
     """
     return StudySpec.model_json_schema()
+
+
+@lru_cache(maxsize=1)
+def get_universe_spec_schema() -> dict[str, object]:
+    """Return the JSON Schema for :class:`UniverseProfile`.
+
+    Counterpart to :func:`get_study_spec_schema` — drives the universe-
+    upload editor's autocomplete + hover docs from the same Pydantic
+    source of truth the framework uses at load time.
+    """
+    return UniverseProfile.model_json_schema()
 
 
 def _kind_dir(config_root: Path, kind: ConfigKind) -> Path:
