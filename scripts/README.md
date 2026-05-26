@@ -8,7 +8,7 @@ pyproject, leaf-keys vs. strategy ctors).
 
 | Script | Role |
 | --- | --- |
-| `experiment.py` (`make experiment`) | Click group with `run`, `tune`, `compare`, `regime`, `holdout-eval`, `study`, `clean` subcommands. Drives the orchestration layer end to end. |
+| `experiment.py` (`make experiment`) | Click group with `run`, `tune`, `compare`, `holdout-eval`, `study`, `clean` subcommands. Drives the orchestration layer end to end. |
 | `benchmark.py` (`make bench`) | Click group with `run`, `compare`, `latex`, `history`, `show-baseline` over `BenchmarkRunner` / `BenchmarkStore`. |
 | `check_ci_deps.py` | Drift guard: every runtime dep in `pyproject.toml` appears in CI's `python-test` pip install line; every `types-*` / `*-stubs` dev dep appears in CI's `lint-and-typecheck` pip install line. Runs in CI as an early lint step. (The `webapp` + `webapp-frontend` jobs use `pip install -e ".[webapp]"` so their installs cannot drift from `[webapp]` extras.) |
 | `check_readme_test_counts.py` | Drift guard: README's "**N Python tests** (+M opt-in skips), **K C++ tests**" phrase agrees with `pytest --collect-only` and `ctest -N`. Pass `--fix` to rewrite the README in place from the live numbers (runs the suite to split passed vs skipped). C++ check downgraded to a notice when `cpp/build/` is absent. |
@@ -22,7 +22,7 @@ pyproject, leaf-keys vs. strategy ctors).
 
 | File | Role |
 | --- | --- |
-| `experiment.py` | `experiment run / tune / compare / regime / holdout-eval / study / clean`. |
+| `experiment.py` | `experiment run / tune / compare / holdout-eval / study / clean`. |
 | `study.py` | `experiment study run / report` — sub-group registered under `experiment.py`'s `cli`. |
 | `benchmark.py` | `benchmark run / compare / latex / history / show-baseline`. |
 | `check_ci_deps.py` | Stdlib-only (no PyYAML) so it runs in CI before deps install. |
@@ -39,11 +39,10 @@ pyproject, leaf-keys vs. strategy ctors).
 | --- | --- | --- |
 | `run --config <yaml>` | `experiment_results/runs/<experiment_id>/` | Walk-forward → `manifest.json` + `fold_results.jsonl` + `metrics.json` + optional `strategy_state/`. |
 | `tune --config <exp.yaml> --hpo-config <hpo.yaml>` | `experiment_results/hpo/<study>/` | Optuna study via `StrategyTuner`; resumable. |
-| `compare --config <yaml> ... --out <name> [--regime-config <yaml>] [--reuse-runs <dirs>]` | `experiment_results/comparisons/<out>/` | N strategies on aligned data, ranked + pairwise-bootstrapped. With `--regime-config` the report also contains a strategy × regime heatmap + LaTeX table; every config must declare an identical `data` block. With `--reuse-runs <a,b,...>` (one path per `--config` in matching order) the per-strategy walk-forward step is skipped and prior fold artifacts feed ranking + bootstrap; the `data:` block for an optional regime overlay is read from the first reused run's frozen `config.yaml`. |
-| `regime --exp-id <id> --regime-config <yaml> --out <name>` | `experiment_results/regime_reports/<out>/` | Re-tag a persisted run by regime detector + emit per-regime stats. |
+| `compare --config <yaml> ... --out <name> [--reuse-runs <dirs>]` | `experiment_results/comparisons/<out>/` | N strategies on aligned data, ranked + pairwise-bootstrapped. With `--reuse-runs <a,b,...>` (one path per `--config` in matching order) the per-strategy walk-forward step is skipped and prior fold artifacts feed ranking + bootstrap. |
 | `holdout-eval --run-dir <path> \| --hpo-best <path>` | `experiment_results/holdout_evals/<out>/` | Refit on full dev, evaluate once on the reserved holdout — the honest one-shot OOS number. Sources are mutually exclusive; manifest cross-checks `holdout_start` + `data_hash` before fitting. |
-| `study run --spec <yaml>` | `<store_root>/<spec.output_dir>/` | Cross-strategy × cross-universe sweep: tune → run → regime → holdout-eval per leg, then per-universe cross-strategy compare. Resumable via `study_state.json`; per-leg failures isolated. |
-| `study report --study-dir <path>` | `<study_dir>/{tables,plots,manifest.json}` | Walk a completed study tree; emit master / per-universe / per-regime / holdout rankings (`.tex`+`.csv`), strategy×universe + strategy×regime heatmaps, dev-vs-holdout scatter, and per-universe equity-overlay / regime-timeline / per-leg holdout-equity copies. Read-only with respect to the per-leg tree. |
+| `study run --spec <yaml>` | `<store_root>/<spec.output_dir>/` | Cross-strategy × cross-universe sweep: tune → run → holdout-eval per leg, then per-universe cross-strategy compare. Resumable via `study_state.json`; per-leg failures isolated. |
+| `study report --study-dir <path>` | `<study_dir>/{tables,plots,manifest.json}` | Walk a completed study tree; emit master / per-universe / holdout rankings (`.tex`+`.csv`), strategy×universe heatmap, dev-vs-holdout scatter, and per-universe equity-overlay / per-leg holdout-equity copies. Read-only with respect to the per-leg tree. |
 | `clean [--store-root experiment_results] [--apply] [--keep <name>]` | `<store-root>/` | Remove ephemeral child directories under the store root (default: `experiment_results/`). Always preserves `thesis_demo/`; refuses to delete any directory containing git-tracked files. Default = dry-run; pass `--apply` to delete. |
 
 Multi-ticker pairs configs route through `experiment run` with no
@@ -55,11 +54,11 @@ special flag — the builder dispatches on the strategy class's
 | Flag | Applies to | Role |
 | --- | --- | --- |
 | `--override key.path=value` (repeatable) | `run`, `tune`, `compare` | Dotted-path mutation of the loaded YAML before pydantic re-validation. Value parsed with `yaml.safe_load`; intermediate keys must already exist (typo guard). On `compare` the same set applies to every `--config`. |
-| `--publish-label <slug>` | `run`, `regime`, `compare`, `holdout-eval` | Stable LaTeX `\caption` + `\label` slug for the emitted tables. When unset the legacy volatile id (`experiment_id` / `out_name` / `source_id`) is used; when set the slug overrides it so thesis-prose `\ref` stays valid across reruns. Slug regex: starts with a letter, then letters / digits / `_` / `-` / `:`. |
+| `--publish-label <slug>` | `run`, `compare`, `holdout-eval` | Stable LaTeX `\caption` + `\label` slug for the emitted tables. When unset the legacy volatile id (`experiment_id` / `out_name` / `source_id`) is used; when set the slug overrides it so thesis-prose `\ref` stays valid across reruns. Slug regex: starts with a letter, then letters / digits / `_` / `-` / `:`. |
 
 ### Per-invocation log files (`cli_logs/`)
 
-Every persistent CLI subcommand (`run`, `tune`, `compare`, `regime`,
+Every persistent CLI subcommand (`run`, `tune`, `compare`,
 `holdout-eval`, `study run`, `study report`) tees its full Python-logger
 stream to a timestamped file under
 `<store_root>/cli_logs/<command>_<UTC_YYYYMMDD_HHMMSS>_<pid>.log` (or
@@ -116,8 +115,7 @@ make experiment ARGS="compare \
 ## Cross-links
 
 - `experiment.py` is a thin click wrapper over
-  `src/orchestration/builder.py`, `src/orchestration/comparison.py`,
-  `src/orchestration/regime_run.py`, and
+  `src/orchestration/builder.py`, `src/orchestration/comparison.py`, and
   `src/orchestration/holdout_eval.py`.
 - `benchmark.py` wraps `src/benchmarking/`.
 - The Makefile binds these CLIs to `make experiment` / `make bench` /

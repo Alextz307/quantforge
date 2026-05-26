@@ -9,8 +9,8 @@ Why a separate state file (not Manifest):
 
 * Manifest is per-run, frozen, and conceptually immutable — adding an
   ``is_complete`` field there would muddle that contract.
-* A leg has multiple sub-steps (tune, run, regime, holdout_eval); we
-  need fine-grained state to resume mid-leg if a later step fails.
+* A leg has multiple sub-steps (tune, run, holdout_eval); we need
+  fine-grained state to resume mid-leg if a later step fails.
 * Study-level concerns (which legs ran, against which spec snapshot)
   don't belong in any individual run's manifest.
 
@@ -38,11 +38,10 @@ from src.core.fs import atomic_write_path
 
 
 class LegStep(StrEnum):
-    """The four sub-steps of a study leg, in canonical execution order."""
+    """The three sub-steps of a study leg, in canonical execution order."""
 
     TUNE = "tune"
     RUN = "run"
-    REGIME = "regime"
     HOLDOUT_EVAL = "holdout_eval"
 
 
@@ -50,7 +49,6 @@ class LegStep(StrEnum):
 # rest of the codebase's bare-constant style for things-named-once-and-imported).
 LEG_STEP_TUNE = LegStep.TUNE
 LEG_STEP_RUN = LegStep.RUN
-LEG_STEP_REGIME = LegStep.REGIME
 LEG_STEP_HOLDOUT_EVAL = LegStep.HOLDOUT_EVAL
 
 # Canonical step ordering — consumed by the orchestrator and by tests
@@ -58,7 +56,6 @@ LEG_STEP_HOLDOUT_EVAL = LegStep.HOLDOUT_EVAL
 LEG_STEPS_ORDER: tuple[LegStep, ...] = (
     LegStep.TUNE,
     LegStep.RUN,
-    LegStep.REGIME,
     LegStep.HOLDOUT_EVAL,
 )
 

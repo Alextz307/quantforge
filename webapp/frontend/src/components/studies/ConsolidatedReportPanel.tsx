@@ -21,7 +21,6 @@ export function ConsolidatedReportPanel({ dto }: { dto: StudyConsolidatedDTO }) 
           <MetadataField label="Git SHA" value={shortHash(dto.git_sha)} />
           <MetadataField label="Strategies" value={dto.strategies.length} />
           <MetadataField label="Universes" value={dto.universes.length} />
-          <MetadataField label="Legs with regime" value={dto.n_legs_with_regime} />
           <MetadataField label="Legs with holdout" value={dto.n_legs_with_holdout} />
           <MetadataField label="Universes w/ pairwise" value={dto.n_universes_with_pairwise} />
           <MetadataField label="Incomplete legs" value={dto.incomplete_leg_ids.length} />

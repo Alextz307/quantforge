@@ -1,20 +1,19 @@
 """Render a :class:`ConsolidatedStudyReport` to disk.
 
 Produces the cross-leg artifact tree required by the empirical-study
-writeup (master ranking, per-regime ranking, holdout-vs-dev scatter,
-strategy × universe heatmap, etc.). Output goes directly under the
-study directory the consolidator was pointed at — alongside the
-existing ``runs/`` / ``regime_reports/`` / ``holdout_evals/`` /
-``comparisons/`` per-leg trees the orchestrator wrote, NOT into a
-nested subdirectory. Callers commit only the consolidated subset
-(``manifest.json``, ``tables/``, ``plots/``); the per-leg ephemera
-remain gitignored.
+writeup (master ranking, holdout-vs-dev scatter, strategy × universe
+heatmap, etc.). Output goes directly under the study directory the
+consolidator was pointed at — alongside the existing ``runs/`` /
+``holdout_evals/`` / ``comparisons/`` per-leg trees the orchestrator
+wrote, NOT into a nested subdirectory. Callers commit only the
+consolidated subset (``manifest.json``, ``tables/``, ``plots/``); the
+per-leg ephemera remain gitignored.
 
 This reporter is the visualization-layer counterpart to
 :mod:`src.orchestration.study_report`. It does not load anything from
-disk other than the per-leg PNG/SVG copies for equity overlays, regime
-timelines, and holdout equity curves — every scalar already lives on
-the in-memory :class:`ConsolidatedStudyReport`.
+disk other than the per-leg PNG/SVG copies for equity overlays and
+holdout equity curves — every scalar already lives on the in-memory
+:class:`ConsolidatedStudyReport`.
 """
 
 from __future__ import annotations
@@ -33,11 +32,10 @@ from src.core.logging import get_logger
 from src.core.persistence import (
     COMPARISONS_SUBDIR,
     HOLDOUT_EVALS_SUBDIR,
-    REGIME_REPORTS_SUBDIR,
 )
 from src.orchestration.study import make_leg_id
 from src.orchestration.study_report import ConsolidatedStudyReport, HoldoutSnapshot
-from src.orchestration.types import MIXED_REGIME_LABEL, PairwiseSignificance
+from src.orchestration.types import PairwiseSignificance
 from src.visualization.comparison_reporter import EQUITY_OVERLAY_FILENAME
 from src.visualization.holdout_eval_reporter import HOLDOUT_EQUITY_FILENAME
 from src.visualization.latex import validate_publish_label, write_booktabs_table
@@ -51,23 +49,19 @@ from src.visualization.plots import (
     render_value_heatmap,
     save_png_and_svg,
 )
-from src.visualization.regime_reporter import TIMELINE_FILENAME
 
 _logger = get_logger(__name__)
 
 _MASTER_RANKING_FILENAME = "master_ranking"
 _PER_UNIVERSE_RANKING_FILENAME = "per_universe_ranking"
-_PER_REGIME_RANKING_FILENAME = "per_regime_ranking"
 _HOLDOUT_RESULTS_FILENAME = "holdout_results"
 _PAIRWISE_LONG_CSV_FILENAME = "pairwise_significance.csv"
 _PAIRWISE_PER_UNIVERSE_SUBDIR = "pairwise_significance"
 
 _STRATEGY_X_UNIVERSE_HEATMAP_FILENAME = "strategy_x_universe_heatmap.png"
-_STRATEGY_X_REGIME_HEATMAP_FILENAME = "strategy_x_regime_heatmap.png"
 _HOLDOUT_DEV_SCATTER_FILENAME = "holdout_dev_scatter.png"
 
 _EQUITY_OVERLAYS_SUBDIR = "per_universe_equity_overlays"
-_REGIME_TIMELINES_SUBDIR = "regime_timelines"
 _HOLDOUT_EQUITY_CURVES_SUBDIR = "holdout_equity_curves"
 
 
@@ -113,15 +107,12 @@ class StudyReportReporter:
         ranking_df = _build_ranking_df(report.per_leg_aggregate)
         self._write_master_ranking(ranking_df, tables_dir, slug=slug)
         self._write_per_universe_ranking(ranking_df, tables_dir, slug=slug)
-        self._write_per_regime_ranking(report, tables_dir, slug=slug)
         self._write_holdout_results(report, tables_dir, slug=slug)
         self._write_pairwise_significance(report, tables_dir, slug=slug)
 
         self._plot_strategy_x_universe_heatmap(report, plots_dir)
-        self._plot_strategy_x_regime_heatmap(report, plots_dir)
         self._plot_holdout_dev_scatter(report, plots_dir)
         self._copy_equity_overlays(report, plots_dir)
-        self._copy_regime_timelines(report, plots_dir)
         self._copy_holdout_equity_curves(report, plots_dir)
 
         return out_dir
@@ -156,30 +147,6 @@ class StudyReportReporter:
             stem=_PER_UNIVERSE_RANKING_FILENAME,
             caption=f"Per-universe ranking, sorted by Sharpe within each universe — {slug}",
             label=f"tab:per_universe_ranking_{slug}",
-        )
-
-    def _write_per_regime_ranking(
-        self, report: ConsolidatedStudyReport, tables_dir: Path, *, slug: str
-    ) -> None:
-        if not report.per_leg_regime:
-            _logger.info("no regime data on any leg — skipping per_regime_ranking")
-            return
-        df = _build_per_regime_ranking_df(report.per_leg_regime)
-        if df.empty:
-            _logger.info(
-                "regime manifests present but every per-regime stats block is empty — "
-                "skipping per_regime_ranking"
-            )
-            return
-        df = df.sort_values(["regime", "sharpe_mean"], ascending=[True, False]).reset_index(
-            drop=True
-        )
-        _write_table_pair(
-            df,
-            tables_dir,
-            stem=_PER_REGIME_RANKING_FILENAME,
-            caption=f"Per-regime ranking (long-form: strategy × universe × regime) — {slug}",
-            label=f"tab:per_regime_ranking_{slug}",
         )
 
     def _write_holdout_results(
@@ -256,35 +223,6 @@ class StudyReportReporter:
             placeholder_log_label="strategy × universe",
         )
 
-    def _plot_strategy_x_regime_heatmap(
-        self, report: ConsolidatedStudyReport, plots_dir: Path
-    ) -> None:
-        if not report.per_leg_regime:
-            return
-        regimes = _ordered_regime_labels(report.per_leg_regime)
-        if not regimes:
-            return
-        strategies = report.strategies
-        # Cell = n_folds-weighted mean sharpe_mean across universes for that
-        # (strategy, regime). Cells with zero contributing folds stay NaN.
-        pooled = _pool_regime_sharpe_matrix(report.per_leg_regime)
-        matrix = np.full((len(strategies), len(regimes)), np.nan, dtype=np.float64)
-        for i, strategy in enumerate(strategies):
-            for j, regime in enumerate(regimes):
-                value = pooled.get((strategy, regime))
-                if value is not None:
-                    matrix[i, j] = value
-        render_value_heatmap(
-            matrix,
-            row_labels=strategies,
-            col_labels=regimes,
-            out_path=plots_dir / _STRATEGY_X_REGIME_HEATMAP_FILENAME,
-            title="strategy × regime (n_folds-weighted mean Sharpe)",
-            xlabel="regime",
-            ylabel="strategy",
-            placeholder_log_label="strategy × regime (study)",
-        )
-
     def _plot_holdout_dev_scatter(self, report: ConsolidatedStudyReport, plots_dir: Path) -> None:
         if not report.per_leg_holdout:
             return
@@ -352,24 +290,6 @@ class StudyReportReporter:
             )
             _copy_per_leg_artifact(src_png, dest_dir / f"{universe}.png", missing_label=universe)
 
-    def _copy_regime_timelines(self, report: ConsolidatedStudyReport, plots_dir: Path) -> None:
-        if not report.per_leg_regime:
-            return
-        dest_dir = plots_dir / _REGIME_TIMELINES_SUBDIR
-        # Regime tagging is strategy-independent for a given universe + detector
-        # config, so any one leg's timeline is canonical. Pick the lex-first
-        # leg per universe so the choice is deterministic across reruns.
-        canonical_by_universe: dict[str, str] = {}
-        for strategy, universe in sorted(report.per_leg_regime):
-            canonical_by_universe.setdefault(universe, make_leg_id(strategy, universe))
-        for universe, leg_id in canonical_by_universe.items():
-            src_png = (
-                report.study_dir / REGIME_REPORTS_SUBDIR / leg_id / PLOTS_SUBDIR / TIMELINE_FILENAME
-            )
-            _copy_per_leg_artifact(
-                src_png, dest_dir / f"{universe}.png", missing_label=str(src_png)
-            )
-
     def _copy_holdout_equity_curves(self, report: ConsolidatedStudyReport, plots_dir: Path) -> None:
         if not report.per_leg_holdout:
             return
@@ -431,29 +351,6 @@ def _build_ranking_df(
                 "trade_count_total": stats.trade_count_total,
             }
         )
-    return pd.DataFrame(rows)
-
-
-def _build_per_regime_ranking_df(
-    per_leg_regime: Mapping[tuple[str, str], Mapping[str, AggregateStats]],
-) -> pd.DataFrame:
-    rows: list[dict[str, object]] = []
-    for (strategy, universe), per_regime in per_leg_regime.items():
-        for regime, stats in per_regime.items():
-            if stats.n_folds == 0:
-                continue
-            rows.append(
-                {
-                    "strategy": strategy,
-                    "universe": universe,
-                    "regime": regime,
-                    "n_folds": stats.n_folds,
-                    "sharpe_mean": stats.sharpe_mean,
-                    "sortino_mean": stats.sortino_mean,
-                    "calmar_mean": stats.calmar_mean,
-                    "max_drawdown_worst": stats.max_drawdown_worst,
-                }
-            )
     return pd.DataFrame(rows)
 
 
@@ -530,39 +427,6 @@ def _build_pairwise_matrix_df(pairs: tuple[PairwiseSignificance, ...]) -> pd.Dat
     return df
 
 
-def _ordered_regime_labels(
-    per_leg_regime: Mapping[tuple[str, str], Mapping[str, AggregateStats]],
-) -> list[str]:
-    """Sorted union of every regime label seen, with ``mixed`` pinned last."""
-    seen: set[str] = set()
-    for per_regime in per_leg_regime.values():
-        seen.update(per_regime.keys())
-    real = sorted(label for label in seen if label != MIXED_REGIME_LABEL)
-    if MIXED_REGIME_LABEL in seen:
-        real.append(MIXED_REGIME_LABEL)
-    return real
-
-
-def _pool_regime_sharpe_matrix(
-    per_leg_regime: Mapping[tuple[str, str], Mapping[str, AggregateStats]],
-) -> dict[tuple[str, str], float]:
-    """Single pass: ``(strategy, regime) -> n_folds-weighted mean sharpe_mean``.
-
-    Cells with zero contributing folds are absent from the returned dict;
-    the heatmap renderer treats missing entries as masked.
-    """
-    sums: dict[tuple[str, str], float] = {}
-    weights: dict[tuple[str, str], int] = {}
-    for (strategy, _universe), per_regime in per_leg_regime.items():
-        for regime, stats in per_regime.items():
-            if stats.n_folds == 0:
-                continue
-            key = (strategy, regime)
-            sums[key] = sums.get(key, 0.0) + stats.sharpe_mean * stats.n_folds
-            weights[key] = weights.get(key, 0) + stats.n_folds
-    return {key: sums[key] / weights[key] for key in sums}
-
-
 def _copy_per_leg_artifact(src_png: Path, dst_png: Path, *, missing_label: str) -> None:
     """Copy a PNG (and sibling SVG when present) from a per-leg artifact tree.
 
@@ -602,7 +466,6 @@ def _build_manifest_dict(report: ConsolidatedStudyReport, *, slug: str) -> dict[
             make_leg_id(strategy, universe): run_id
             for (strategy, universe), run_id in report.per_leg_run_id.items()
         },
-        "n_legs_with_regime": len(report.per_leg_regime),
         "n_legs_with_holdout": len(report.per_leg_holdout),
         "n_universes_with_pairwise": len(report.per_universe_pairwise),
     }

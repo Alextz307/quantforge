@@ -2,10 +2,10 @@
 
 Two subcommands under the ``experiment study`` group:
 
-* ``study run``           Drive the full sweep: tune -> run -> regime ->
-                          holdout-eval per leg, then per-universe
-                          cross-strategy compare. Resumable via
-                          ``study_state.json`` under ``<study_dir>/``.
+* ``study run``           Drive the full sweep: tune -> run -> holdout-eval
+                          per leg, then per-universe cross-strategy
+                          compare. Resumable via ``study_state.json`` under
+                          ``<study_dir>/``.
 * ``study report``        Walk a completed study directory and consolidate
                           per-leg artifacts into ``<study_dir>/{tables,
                           plots,manifest.json}``. Read-only with respect
@@ -25,7 +25,6 @@ from pydantic import ValidationError
 
 from src.core.exceptions import LeakageError
 from src.core.logging import attach_cli_log_file
-from src.core.regime_config import RegimeConfig, load_regime_config
 from src.orchestration.study import run_study
 from src.orchestration.study_report import consolidate_study
 from src.visualization.study_report_reporter import StudyReportReporter
@@ -51,17 +50,6 @@ def study() -> None:
     default=str(DEFAULT_STORE_ROOT),
     type=click.Path(file_okay=False, path_type=Path),
     help="Override the experiment_results/ directory (artifacts root).",
-)
-@click.option(
-    "--regime-config",
-    "regime_config_path",
-    default=None,
-    type=click.Path(exists=True, dir_okay=False, path_type=Path),
-    help=(
-        "Optional RegimeConfig YAML. When set, every leg writes a regime "
-        "split AND every cross-strategy compare gets the strategy x regime "
-        "heatmap. Same config drives both."
-    ),
 )
 @click.option(
     "--force-rerun",
@@ -93,7 +81,6 @@ def study() -> None:
 def run_cmd(
     spec_path: Path,
     store_root: Path,
-    regime_config_path: Path | None,
     force_rerun: bool,
     only_legs: tuple[str, ...],
     skip_compares: bool,
@@ -104,20 +91,11 @@ def run_cmd(
     Per-leg failures are isolated (one bad leg does not abort the
     sweep); rerun the same command to retry only the failed legs.
     """
-    regime_cfg: RegimeConfig | None = None
-    if regime_config_path is not None:
-        try:
-            regime_cfg = load_regime_config(regime_config_path)
-        except (ValidationError, FileNotFoundError, ValueError) as e:
-            raise click.ClickException(
-                f"failed to load regime config {regime_config_path}: {e}"
-            ) from e
-
     with attach_cli_log_file(store_root, "study_run") as log_path:
         click.echo(
             f"running study from spec '{spec_path}' "
-            f"(store_root={store_root}, regime={'yes' if regime_cfg is not None else 'no'}, "
-            f"force_rerun={force_rerun}, only_legs={list(only_legs) or 'all'}, "
+            f"(store_root={store_root}, force_rerun={force_rerun}, "
+            f"only_legs={list(only_legs) or 'all'}, "
             f"skip_compares={skip_compares}, skip_holdout_eval={skip_holdout_eval}) "
             f"→ log: {log_path}"
         )
@@ -125,7 +103,6 @@ def run_cmd(
             result = run_study(
                 spec_path,
                 store_root=store_root,
-                regime_cfg=regime_cfg,
                 force_rerun=force_rerun,
                 only_legs=list(only_legs) if only_legs else None,
                 skip_compares=skip_compares,
@@ -172,12 +149,11 @@ def run_cmd(
 def report_cmd(study_dir: Path, publish_label: str | None) -> None:
     """Consolidate a completed study's per-leg artifacts into one tree.
 
-    Reads ``runs/``, ``regime_reports/``, ``holdout_evals/``, and
-    ``comparisons/`` under ``--study-dir``; writes
-    ``<study-dir>/{manifest.json,tables/,plots/}`` with cross-leg
-    rankings, heatmaps, and per-universe equity / regime / holdout
-    plot copies. Read-only with respect to the per-leg tree — safe
-    to rerun.
+    Reads ``runs/``, ``holdout_evals/``, and ``comparisons/`` under
+    ``--study-dir``; writes ``<study-dir>/{manifest.json,tables/,plots/}``
+    with cross-leg rankings, heatmaps, and per-universe equity / holdout
+    plot copies. Read-only with respect to the per-leg tree — safe to
+    rerun.
     """
     with attach_cli_log_file(study_dir, "study_report") as log_path:
         click.echo(f"consolidating study at {study_dir} → log: {log_path}")
@@ -192,6 +168,5 @@ def report_cmd(study_dir: Path, publish_label: str | None) -> None:
         click.echo(f"universes:        {len(report.universes)}")
         click.echo(f"completed legs:   {len(report.per_leg_aggregate)}")
         click.echo(f"incomplete legs:  {len(report.incomplete_leg_ids)}")
-        click.echo(f"legs w/ regime:   {len(report.per_leg_regime)}")
         click.echo(f"legs w/ holdout:  {len(report.per_leg_holdout)}")
         click.echo(f"output:           {study_dir}")

@@ -138,8 +138,7 @@
           "universe",
           "study",
           "strategy",
-          "hpo",
-          "regime"
+          "hpo"
         ],
         "title": "ConfigKind",
         "type": "string"
@@ -824,11 +823,10 @@
         "type": "object"
       },
       "LegStep": {
-        "description": "The four sub-steps of a study leg, in canonical execution order.",
+        "description": "The three sub-steps of a study leg, in canonical execution order.",
         "enum": [
           "tune",
           "run",
-          "regime",
           "holdout_eval"
         ],
         "title": "LegStep",
@@ -926,114 +924,6 @@
         ],
         "title": "ParamKind",
         "type": "string"
-      },
-      "PerRegimeStatsRow": {
-        "properties": {
-          "calmar_ci95_high": {
-            "title": "Calmar Ci95 High",
-            "type": "number"
-          },
-          "calmar_ci95_low": {
-            "title": "Calmar Ci95 Low",
-            "type": "number"
-          },
-          "calmar_mean": {
-            "title": "Calmar Mean",
-            "type": "number"
-          },
-          "calmar_std": {
-            "title": "Calmar Std",
-            "type": "number"
-          },
-          "max_drawdown_mean": {
-            "title": "Max Drawdown Mean",
-            "type": "number"
-          },
-          "max_drawdown_worst": {
-            "title": "Max Drawdown Worst",
-            "type": "number"
-          },
-          "n_folds": {
-            "title": "N Folds",
-            "type": "integer"
-          },
-          "regime_label": {
-            "title": "Regime Label",
-            "type": "string"
-          },
-          "sharpe_ci95_high": {
-            "title": "Sharpe Ci95 High",
-            "type": "number"
-          },
-          "sharpe_ci95_low": {
-            "title": "Sharpe Ci95 Low",
-            "type": "number"
-          },
-          "sharpe_mean": {
-            "title": "Sharpe Mean",
-            "type": "number"
-          },
-          "sharpe_std": {
-            "title": "Sharpe Std",
-            "type": "number"
-          },
-          "sortino_ci95_high": {
-            "title": "Sortino Ci95 High",
-            "type": "number"
-          },
-          "sortino_ci95_low": {
-            "title": "Sortino Ci95 Low",
-            "type": "number"
-          },
-          "sortino_mean": {
-            "title": "Sortino Mean",
-            "type": "number"
-          },
-          "sortino_std": {
-            "title": "Sortino Std",
-            "type": "number"
-          },
-          "total_return_mean": {
-            "title": "Total Return Mean",
-            "type": "number"
-          },
-          "total_return_std": {
-            "title": "Total Return Std",
-            "type": "number"
-          },
-          "trade_count_total": {
-            "title": "Trade Count Total",
-            "type": "integer"
-          },
-          "win_rate_mean": {
-            "title": "Win Rate Mean",
-            "type": "number"
-          }
-        },
-        "required": [
-          "regime_label",
-          "n_folds",
-          "sharpe_mean",
-          "sharpe_std",
-          "sharpe_ci95_low",
-          "sharpe_ci95_high",
-          "sortino_mean",
-          "sortino_std",
-          "sortino_ci95_low",
-          "sortino_ci95_high",
-          "calmar_mean",
-          "calmar_std",
-          "calmar_ci95_low",
-          "calmar_ci95_high",
-          "total_return_mean",
-          "total_return_std",
-          "max_drawdown_mean",
-          "max_drawdown_worst",
-          "win_rate_mean",
-          "trade_count_total"
-        ],
-        "title": "PerRegimeStatsRow",
-        "type": "object"
       },
       "PerStrategyStatsRow": {
         "properties": {
@@ -1159,173 +1049,6 @@
           "jobs_enabled"
         ],
         "title": "PublicSettings",
-        "type": "object"
-      },
-      "RegimeKind": {
-        "description": "Detector family \u2014 encodes the *type* of split, not the labels.\n\nSurfaced on :class:`RegimeReport` so a downstream reader knows which\ndetector produced the labels without having to parse the YAML config\nagain. The labels themselves are arbitrary strings supplied by the\ndetector (e.g. ``\"bull\"`` / ``\"bear\"`` for trend, ``\"Q1\"``..``\"Q5\"``\nfor volatility quintiles).",
-        "enum": [
-          "period",
-          "trend",
-          "volatility"
-        ],
-        "title": "RegimeKind",
-        "type": "string"
-      },
-      "RegimeReportDetail": {
-        "properties": {
-          "created_at": {
-            "format": "date-time",
-            "title": "Created At",
-            "type": "string"
-          },
-          "detector_name": {
-            "title": "Detector Name",
-            "type": "string"
-          },
-          "experiment_id": {
-            "title": "Experiment Id",
-            "type": "string"
-          },
-          "git_sha": {
-            "title": "Git Sha",
-            "type": "string"
-          },
-          "kind": {
-            "$ref": "#/components/schemas/RegimeKind"
-          },
-          "mixed_fold_indices": {
-            "items": {
-              "type": "integer"
-            },
-            "title": "Mixed Fold Indices",
-            "type": "array"
-          },
-          "name": {
-            "title": "Name",
-            "type": "string"
-          },
-          "per_regime_fold_indices": {
-            "additionalProperties": {
-              "items": {
-                "type": "integer"
-              },
-              "type": "array"
-            },
-            "title": "Per Regime Fold Indices",
-            "type": "object"
-          },
-          "per_regime_stats": {
-            "items": {
-              "$ref": "#/components/schemas/PerRegimeStatsRow"
-            },
-            "title": "Per Regime Stats",
-            "type": "array"
-          },
-          "plots": {
-            "items": {
-              "type": "string"
-            },
-            "title": "Plots",
-            "type": "array"
-          },
-          "slices": {
-            "items": {
-              "$ref": "#/components/schemas/RegimeSliceDTO"
-            },
-            "title": "Slices",
-            "type": "array"
-          },
-          "store": {
-            "title": "Store",
-            "type": "string"
-          }
-        },
-        "required": [
-          "name",
-          "store",
-          "created_at",
-          "git_sha",
-          "experiment_id",
-          "kind",
-          "detector_name",
-          "per_regime_stats",
-          "per_regime_fold_indices",
-          "mixed_fold_indices",
-          "slices",
-          "plots"
-        ],
-        "title": "RegimeReportDetail",
-        "type": "object"
-      },
-      "RegimeReportSummary": {
-        "properties": {
-          "created_at": {
-            "format": "date-time",
-            "title": "Created At",
-            "type": "string"
-          },
-          "detector_name": {
-            "title": "Detector Name",
-            "type": "string"
-          },
-          "experiment_id": {
-            "title": "Experiment Id",
-            "type": "string"
-          },
-          "kind": {
-            "$ref": "#/components/schemas/RegimeKind"
-          },
-          "name": {
-            "title": "Name",
-            "type": "string"
-          },
-          "regime_labels": {
-            "items": {
-              "type": "string"
-            },
-            "title": "Regime Labels",
-            "type": "array"
-          },
-          "store": {
-            "title": "Store",
-            "type": "string"
-          }
-        },
-        "required": [
-          "name",
-          "store",
-          "created_at",
-          "experiment_id",
-          "kind",
-          "detector_name",
-          "regime_labels"
-        ],
-        "title": "RegimeReportSummary",
-        "type": "object"
-      },
-      "RegimeSliceDTO": {
-        "properties": {
-          "end": {
-            "format": "date-time",
-            "title": "End",
-            "type": "string"
-          },
-          "label": {
-            "title": "Label",
-            "type": "string"
-          },
-          "start": {
-            "format": "date-time",
-            "title": "Start",
-            "type": "string"
-          }
-        },
-        "required": [
-          "label",
-          "start",
-          "end"
-        ],
-        "title": "RegimeSliceDTO",
         "type": "object"
       },
       "RegistryEntry": {
@@ -1644,10 +1367,6 @@
             "title": "N Legs With Holdout",
             "type": "integer"
           },
-          "n_legs_with_regime": {
-            "title": "N Legs With Regime",
-            "type": "integer"
-          },
           "n_universes_with_pairwise": {
             "title": "N Universes With Pairwise",
             "type": "integer"
@@ -1697,7 +1416,6 @@
           "strategies",
           "universes",
           "incomplete_leg_ids",
-          "n_legs_with_regime",
           "n_legs_with_holdout",
           "n_universes_with_pairwise",
           "tables",
@@ -2934,122 +2652,6 @@
         "summary": "Get Models",
         "tags": [
           "models"
-        ]
-      }
-    },
-    "/api/regime-reports": {
-      "get": {
-        "operationId": "get_regime_reports_api_regime_reports_get",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/RegimeReportSummary"
-                  },
-                  "title": "Response Get Regime Reports Api Regime Reports Get",
-                  "type": "array"
-                }
-              }
-            },
-            "description": "Successful Response"
-          }
-        },
-        "summary": "Get Regime Reports",
-        "tags": [
-          "regime"
-        ]
-      }
-    },
-    "/api/regime-reports/{name}": {
-      "get": {
-        "operationId": "get_regime_report_detail_api_regime_reports__name__get",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "name",
-            "required": true,
-            "schema": {
-              "title": "Name",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RegimeReportDetail"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Get Regime Report Detail",
-        "tags": [
-          "regime"
-        ]
-      }
-    },
-    "/api/regime-reports/{name}/plots/{plot_name}": {
-      "get": {
-        "operationId": "get_regime_report_plot_api_regime_reports__name__plots__plot_name__get",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "name",
-            "required": true,
-            "schema": {
-              "title": "Name",
-              "type": "string"
-            }
-          },
-          {
-            "in": "path",
-            "name": "plot_name",
-            "required": true,
-            "schema": {
-              "title": "Plot Name",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Get Regime Report Plot",
-        "tags": [
-          "regime"
         ]
       }
     },

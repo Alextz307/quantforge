@@ -1,8 +1,8 @@
 # `src/analysis/`
 
 Numeric post-processing layer between fold records and reports:
-fold-level → run-level metric aggregation, strategy ranking, regime
-splitting, and pairwise / forecaster significance tests.
+fold-level → run-level metric aggregation, strategy ranking, and
+pairwise / forecaster significance tests.
 
 ## Public surface
 
@@ -11,7 +11,6 @@ splitting, and pairwise / forecaster significance tests.
 | `aggregate_folds(folds, *, rng=None)` → `AggregateStats` | Collapse `tuple[FoldRecord, ...]` to per-metric mean / std / 95% CI + run-wide scalars. Deterministic by default (fixed RNG seed). |
 | `AggregateStats.to_dict()` | Flat dict consumed by HPO objectives + `metrics.json`. |
 | `rank_strategies(per_strategy_stats, *, by=...)` → `pd.DataFrame` | Tidy ranking table with deterministic tie-break. `RankingMetric` selects the primary axis (Sharpe / Sortino / Calmar). |
-| `split_folds_by_regime(folds, detector, bars, ...)` → `SplitResult` | Assign each fold to a regime by majority bar count over its test window; folds without a dominant regime go to `mixed`. |
 | `paired_bootstrap_sharpe_differential(returns_a, returns_b, ...)` | Stationary bootstrap on aligned bar-level returns; returns a 95% CI on the Sharpe differential. |
 | `bootstrap_sharpe_ci(returns, ...)` | 95% CI on a single strategy's Sharpe via stationary bootstrap. |
 | `diebold_mariano_test(forecasts_a, forecasts_b, realised, *, loss=...)` | DM test on aligned forecaster outputs (with Harvey-Leybourne-Newbold small-sample correction). |
@@ -23,7 +22,6 @@ splitting, and pairwise / forecaster significance tests.
 | --- | --- |
 | `metrics_aggregator.py` | `AggregateStats`, `aggregate_folds`, `_mean_std_ci` (IID percentile bootstrap over fold means). |
 | `ranking.py` | `RankingMetric` (StrEnum) + `rank_strategies` (stable mergesort tie-break). |
-| `regime_split.py` | `SplitResult` + `split_folds_by_regime` (majority-by-bar-count, default 60% threshold). |
 | `significance.py` | Stationary bootstrap (Politis-Romano), Diebold-Mariano (HLN-corrected), `DMLoss`, `DMDirection`. |
 
 ## Aggregation choices worth knowing
@@ -46,10 +44,10 @@ splitting, and pairwise / forecaster significance tests.
 ```python
 from src.analysis.metrics_aggregator import aggregate_folds
 from src.analysis.ranking import RankingMetric, rank_strategies
-from src.orchestration.regime_run import load_run_from_disk
+from src.orchestration.run_loader import load_experiment_result
 
-run = load_run_from_disk("experiment_results/runs/<exp_id>")
-stats = aggregate_folds(run.folds)
+result = load_experiment_result("experiment_results/runs/<exp_id>")
+stats = aggregate_folds(result.folds)
 print(stats.sharpe_mean, stats.sharpe_ci95_low, stats.sharpe_ci95_high)
 
 # Two-strategy ranking
@@ -60,8 +58,7 @@ print(ranking.to_string(index=False))
 ## Cross-links
 
 - Drives `src/visualization/comparison_reporter.py` (consumes
-  `rank_strategies` output) and `src/visualization/regime_reporter.py`
-  (consumes `SplitResult`).
+  `rank_strategies` output).
 - Powers `src/orchestration/comparison.py` pairwise significance and
   every HPO objective in `src/optimization/objectives.py`.
 - Fold record shape is owned by `src/orchestration/types.py::FoldRecord`.

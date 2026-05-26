@@ -36,14 +36,13 @@ Read-only artifact API (auth-gated, all `GET`):
 - `/api/strategies`, `/api/strategies/{name}/schema`, `/api/models` — registry introspection + per-strategy ctor schema for the Configure form.
 - `/api/runs`, `/api/runs/{id}`, `/api/runs/{id}/folds`, `/api/runs/{id}/plots/{plot_name}` — persisted runs.
 - `/api/comparisons`, `/api/comparisons/{name}`, `/api/comparisons/{name}/plots/{plot_name}` — cross-strategy comparisons.
-- `/api/regime-reports`, `/api/regime-reports/{name}`, `/api/regime-reports/{name}/plots/{plot_name}` — regime analyses.
 - `/api/holdout-evals`, `/api/holdout-evals/{name}`, `/api/holdout-evals/{name}/plots/{plot_name}` — holdout evaluations.
 - `/api/studies`, `/api/studies/{name}` — multi-leg study state + completion progress.
 - `/api/hpo`, `/api/hpo/{name}`, `/api/hpo/{name}/trials?after_trial=N` — HPO study summaries + Optuna trial feeds.
 - `/api/hpo/{name}/param-importance` — fANOVA-style relative importance per hyperparameter, computed on demand from the study's Optuna SQLite. Returns `{importance, message}` with `importance={}` plus a human-readable `message` while the study has too few completed trials, no DB yet, or a degenerate search space — the endpoint stays 200 across the live lifecycle.
 
 Configs (auth-gated):
-- `GET /api/configs/{kind}` — list `*.yaml` under `config/<kind>/` (kinds: experiment / universe / strategy / hpo / study / regime / model).
+- `GET /api/configs/{kind}` — list `*.yaml` under `config/<kind>/` (kinds: experiment / universe / strategy / hpo / study / model).
 - `GET /api/configs/{kind}/{name}` — raw + parsed body for a single config.
 - `POST /api/configs/validate` — validate a payload against the matching Pydantic model; returns `{valid, errors[]}` with structured `loc/msg/type` items.
 

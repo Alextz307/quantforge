@@ -19,7 +19,6 @@ device selection, and small JSON / FS helpers.
 | `ExperimentConfig` + `load_experiment_config(path)` + `write_frozen_yaml(...)` | Pydantic root config; loads the canonical `config/strategies/*.yaml`. |
 | `apply_overrides(payload, overrides)` | Dotted-path mutation of a config dict (e.g. `data.tickers=[QQQ]`); powers every CLI's `--override` flag. |
 | `HPOConfig` + `load_hpo_config(path)` | HPO study spec (sampler, pruner, n_trials, objective). |
-| `RegimeConfig` + `load_regime_config(path)` | Regime-detector spec for `experiment regime`. |
 | `LeakageError`, `DataQualityError`, `guard_scaler_fit_once` | Custom exceptions + the centralised fit-once helper. |
 | `get_logger(name, **context)` | Contextual logger wrapper that prepends `[k=v ...]` to every message. |
 | `select_device`, `select_xgboost_device` | Auto-detect CUDA / MPS / CPU; honour user preference. |
@@ -39,7 +38,7 @@ device selection, and small JSON / FS helpers.
 | `exceptions.py` | `LeakageError`, `DataQualityError`, `guard_scaler_fit_once`. |
 | `config.py` | `ExperimentConfig` + Pydantic validators. |
 | `config_overrides.py` | `apply_overrides(payload, overrides)` — dotted-path mutation of a config dict before pydantic re-validation, used by every CLI's `--override` flag. |
-| `hpo_config.py`, `regime_config.py` | Sibling pydantic configs for HPO / regime CLIs. |
+| `hpo_config.py` | Pydantic config for the `experiment tune` CLI. |
 | `logging.py` | `_ContextAdapter` + `get_logger`. |
 | `device.py` | torch / xgboost device selection helpers. |
 | `seeding.py` | `seed_all` (lazy torch import). |

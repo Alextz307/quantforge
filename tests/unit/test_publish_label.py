@@ -133,7 +133,6 @@ class TestComparisonReporterPublishLabel:
             per_strategy_stats=stats,
             ranking=ranking,
             pairwise=(),
-            per_strategy_per_regime_stats=None,
         )
 
     def test_publish_label_replaces_out_name_in_ranking_tex(self, tmp_path: Path) -> None:
@@ -159,7 +158,7 @@ class TestComparisonReporterPublishLabel:
         assert r"\label{tab:ranking_compare_dir}" in tex
 
 
-class TestRegimeAndHoldoutPublishLabel:
+class TestHoldoutPublishLabel:
     def test_invalid_slug_raises_through_reporter(self, tmp_path: Path) -> None:
         """Invalid slugs raise from the validator, regardless of which
         reporter receives the value — covers the shared codepath without

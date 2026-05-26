@@ -14,7 +14,6 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
-from enum import StrEnum
 from types import MappingProxyType
 
 import pandas as pd
@@ -213,12 +212,6 @@ class StrategyComparisonReport:
     run directory under ``experiment_results/runs/`` so a user can
     drill into a specific strategy's fold records from the report.
 
-    ``per_strategy_per_regime_stats`` is populated when
-    :func:`run_comparison` is called with a regime config. The outer key
-    is the strategy name; the inner key is a regime label (incl.
-    :data:`MIXED_REGIME_LABEL` for folds without a dominant regime).
-    ``None`` indicates regime overlay was not requested for this run.
-
     Distinct from :class:`src.benchmarking.types.ComparisonReport` (which
     compares perf benchmark runs); the qualified name keeps the two from
     colliding when both packages are imported in the same module.
@@ -231,7 +224,6 @@ class StrategyComparisonReport:
     per_strategy_stats: Mapping[str, AggregateStats]
     ranking: pd.DataFrame
     pairwise: tuple[PairwiseSignificance, ...]
-    per_strategy_per_regime_stats: Mapping[str, Mapping[str, AggregateStats]] | None = None
 
     def __post_init__(self) -> None:
         # Frozen dataclass freezes the bindings, not the dict objects
@@ -246,116 +238,4 @@ class StrategyComparisonReport:
             self,
             "per_strategy_stats",
             MappingProxyType(dict(self.per_strategy_stats)),
-        )
-        if self.per_strategy_per_regime_stats is not None:
-            object.__setattr__(
-                self,
-                "per_strategy_per_regime_stats",
-                MappingProxyType(
-                    {
-                        name: MappingProxyType(dict(per_regime))
-                        for name, per_regime in self.per_strategy_per_regime_stats.items()
-                    }
-                ),
-            )
-
-
-class RegimeKind(StrEnum):
-    """Detector family — encodes the *type* of split, not the labels.
-
-    Surfaced on :class:`RegimeReport` so a downstream reader knows which
-    detector produced the labels without having to parse the YAML config
-    again. The labels themselves are arbitrary strings supplied by the
-    detector (e.g. ``"bull"`` / ``"bear"`` for trend, ``"Q1"``..``"Q5"``
-    for volatility quintiles).
-    """
-
-    PERIOD = "period"
-    TREND = "trend"
-    VOLATILITY = "volatility"
-
-
-# Reserved label for folds whose test window straddles regime boundaries
-# without a dominant regime — see :func:`split_folds_by_regime` and the
-# ``majority_threshold`` knob. Surfaced as a separate row in regime
-# reports rather than silently dropped.
-MIXED_REGIME_LABEL = "mixed"
-
-# Reserved label for bars the detector cannot classify (trend / volatility
-# warmup, period-detector gap days). Distinct from :data:`MIXED_REGIME_LABEL`
-# (which is a fold-level concept). Excluded from per-regime stats and from
-# the bar-count majority math in :func:`split_folds_by_regime`.
-UNCLASSIFIED_LABEL = "unclassified"
-
-
-@dataclass(frozen=True)
-class RegimeSlice:
-    """Contiguous time range tagged with a single regime label.
-
-    ``start`` is inclusive, ``end`` is exclusive — matches ``df.loc[start:end]``
-    semantics when the index is a ``DatetimeIndex``. A detector emits a
-    list of slices via run-length encoding of its per-bar tag series; the
-    same label may appear in multiple slices when the regime is non-contiguous
-    (e.g., a "bear" period that recurs years later).
-    """
-
-    label: str
-    start: pd.Timestamp
-    end: pd.Timestamp
-
-    def to_dict(self) -> dict[str, object]:
-        return {
-            "label": self.label,
-            "start": self.start.isoformat(),
-            "end": self.end.isoformat(),
-        }
-
-    @classmethod
-    def from_dict(cls, d: dict[str, object]) -> RegimeSlice:
-        return cls(
-            label=json_io.get_str(d, "label"),
-            start=json_io.get_timestamp(d, "start"),
-            end=json_io.get_timestamp(d, "end"),
-        )
-
-
-@dataclass(frozen=True)
-class RegimeReport:
-    """Per-regime aggregate stats for a single experiment.
-
-    Maps regime label → :class:`AggregateStats` over the folds whose test
-    windows landed primarily in that regime. ``per_regime_fold_indices``
-    records which fold indices contributed to which regime so a reader can
-    drill back into ``fold_results.jsonl``. Folds without a dominant regime
-    (majority below threshold) are collected in ``mixed_fold_indices`` and
-    aggregated under :data:`MIXED_REGIME_LABEL` in ``per_regime_stats`` —
-    they are not silently dropped.
-
-    The detector that produced the labels is referenced via ``kind`` (the
-    family) plus ``detector_name`` (the registry key) so a future reader can
-    rebuild the same split by loading the matching regime YAML; the actual
-    label semantics live in the detector itself.
-    """
-
-    out_name: str
-    experiment_id: str
-    kind: RegimeKind
-    detector_name: str
-    created_at: datetime
-    git_sha: str
-    per_regime_stats: Mapping[str, AggregateStats]
-    per_regime_fold_indices: Mapping[str, tuple[int, ...]]
-    mixed_fold_indices: tuple[int, ...]
-    slices: tuple[RegimeSlice, ...]
-
-    def __post_init__(self) -> None:
-        object.__setattr__(
-            self,
-            "per_regime_stats",
-            MappingProxyType(dict(self.per_regime_stats)),
-        )
-        object.__setattr__(
-            self,
-            "per_regime_fold_indices",
-            MappingProxyType(dict(self.per_regime_fold_indices)),
         )

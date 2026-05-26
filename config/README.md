@@ -11,7 +11,6 @@ typos in user YAML fail at load time, not mid-run.
 | --- | --- | --- |
 | `strategies/` | One YAML per strategy `experiment run` configuration. | `load_experiment_config(path)` |
 | `hpo/` | One per-strategy HPO study spec consumed by `experiment tune`. | `load_hpo_config(path)` |
-| `regimes/` | Detector specs consumed by `experiment regime`. | `load_regime_config(path)` |
 | `universes/` | Reusable `UniverseProfile` files (`data:` + `validation:` blocks). Deep-merged onto a strategy YAML by the study orchestrator. See `universes/README.md`. | `load_universe_profile(path)` |
 | `study/` | Top-level study specs enumerating every (strategy × universe) leg the empirical sweep evaluates. See `study/README.md`. | `load_study_spec(path)` |
 | `example.yaml` | Reference `ExperimentConfig` with every field documented inline. Copy-and-edit for new runs. | `load_experiment_config` |
@@ -62,10 +61,6 @@ config/
         pairs_trading.yaml
         return_forecast.yaml
         volatility_targeting.yaml
-    regimes/
-        bull_bear_200ma.yaml
-        covid_split.yaml
-        vol_quintile.yaml
     universes/
         spy_daily_5y.yaml
         spy_daily_10y.yaml
@@ -120,7 +115,6 @@ without keeping demo-specific duplicates.
 ## Cross-links
 
 - Schemas: `ExperimentConfig` (`src/core/config.py`),
-  `HPOConfig` (`src/core/hpo_config.py`),
-  `RegimeConfig` (`src/core/regime_config.py`).
+  `HPOConfig` (`src/core/hpo_config.py`).
 - Wiring: `src/orchestration/builder.py::build_experiment` resolves
   every name via the global registries.

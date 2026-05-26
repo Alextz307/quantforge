@@ -22,9 +22,9 @@ from webapp.backend.app.schemas.configs import (
 )
 from webapp.backend.app.services.strategy_service import describe_strategy
 
-# Strategy/regime YAMLs are loose dict bodies consumed by component
-# ctors at runtime; there's no Pydantic class to validate them against
-# without re-implementing the registry's coercion. ``None`` here means
+# Strategy YAMLs are loose dict bodies consumed by component ctors at
+# runtime; there's no Pydantic class to validate them against without
+# re-implementing the registry's coercion. ``None`` here means
 # "validation degrades to YAML-parse only".
 _KIND_TO_MODEL: dict[ConfigKind, type[BaseModel] | None] = {
     ConfigKind.EXPERIMENT: ExperimentConfig,
@@ -32,7 +32,6 @@ _KIND_TO_MODEL: dict[ConfigKind, type[BaseModel] | None] = {
     ConfigKind.STUDY: StudySpec,
     ConfigKind.HPO: HPOConfig,
     ConfigKind.STRATEGY: None,
-    ConfigKind.REGIME: None,
 }
 
 # `config/` directory names are not 1:1 with kind values — some are
@@ -45,7 +44,6 @@ _KIND_TO_DIRNAME: dict[ConfigKind, str] = {
     ConfigKind.STRATEGY: "strategies",
     ConfigKind.HPO: "hpo",
     ConfigKind.STUDY: "study",
-    ConfigKind.REGIME: "regimes",
 }
 
 
@@ -88,7 +86,7 @@ def read_config(config_root: Path, kind: ConfigKind, name: str) -> ConfigDetail:
 def validate(kind: ConfigKind, payload: dict[str, object]) -> ValidateResponse:
     """Validate ``payload`` against the Pydantic model bound to ``kind``.
 
-    For loose-bodied kinds (strategy/hpo/regime) the response is always
+    For loose-bodied kinds (strategy) the response is always
     ``valid=True`` — there is no Pydantic counterpart and the deeper
     coercion happens when the CLI actually instantiates the component.
 

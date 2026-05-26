@@ -1,4 +1,4 @@
-"""Shared matplotlib primitives for experiment + HPO + regime reporters.
+"""Shared matplotlib primitives for experiment + HPO reporters.
 
 Pins the Agg backend UNCONDITIONALLY (before ``pyplot`` is imported anywhere)
 and the figure geometry so every PNG / SVG produced by this codebase renders

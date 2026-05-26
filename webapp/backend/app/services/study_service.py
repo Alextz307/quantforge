@@ -100,7 +100,6 @@ def get_consolidated(root: Path, name: str) -> StudyConsolidatedDTO:
         strategies=list(json_io.get_str_list(raw, "strategies")),
         universes=list(json_io.get_str_list(raw, "universes")),
         incomplete_leg_ids=list(json_io.get_str_list(raw, "incomplete_leg_ids")),
-        n_legs_with_regime=json_io.get_int(raw, "n_legs_with_regime"),
         n_legs_with_holdout=json_io.get_int(raw, "n_legs_with_holdout"),
         n_universes_with_pairwise=json_io.get_int(raw, "n_universes_with_pairwise"),
         tables=list_files_under(study_dir, TABLES_DIRNAME),

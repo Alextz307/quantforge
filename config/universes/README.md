@@ -45,8 +45,9 @@ GFC stress window:
 | `ivv_voo_daily_5y.yaml` | IVV, VOO | 2020–2024 | S&P 500 ETF pair |
 | `spy_daily_2008.yaml` | SPY | 2007–2010 | GFC stress; `holdout_pct: 0.0` |
 
-`spy_daily_2008` deliberately disables holdout — the regime IS the test;
-slicing off the last 20% would discard most of the recovery window.
+`spy_daily_2008` deliberately disables holdout — the crisis window IS
+the test; slicing off the last 20% would discard most of the recovery
+period.
 
 ## Loading a profile
 

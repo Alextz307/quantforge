@@ -22,7 +22,6 @@ EXPECTED_STUDY_NAME = "main"
 EXPECTED_PUBLISH_LABEL = "demo_publish"
 EXPECTED_STRATEGIES = ("AdaptiveBollinger", "PairsTrading")
 EXPECTED_UNIVERSES = ("spy_daily_5y", "spy_daily_10y")
-EXPECTED_N_LEGS_REGIME = 3
 EXPECTED_N_LEGS_HOLDOUT = 2
 EXPECTED_N_PAIRWISE = 1
 
@@ -34,7 +33,6 @@ def _populate(webapp_store: Path) -> None:
         publish_label=EXPECTED_PUBLISH_LABEL,
         strategies=EXPECTED_STRATEGIES,
         universes=EXPECTED_UNIVERSES,
-        n_legs_with_regime=EXPECTED_N_LEGS_REGIME,
         n_legs_with_holdout=EXPECTED_N_LEGS_HOLDOUT,
         n_universes_with_pairwise=EXPECTED_N_PAIRWISE,
     )
@@ -59,7 +57,6 @@ def test_consolidated_returns_dto(authed_client: TestClient, webapp_store: Path)
     assert body["publish_label"] == EXPECTED_PUBLISH_LABEL
     assert body["strategies"] == list(EXPECTED_STRATEGIES)
     assert body["universes"] == list(EXPECTED_UNIVERSES)
-    assert body["n_legs_with_regime"] == EXPECTED_N_LEGS_REGIME
     assert body["n_legs_with_holdout"] == EXPECTED_N_LEGS_HOLDOUT
     assert body["n_universes_with_pairwise"] == EXPECTED_N_PAIRWISE
     assert body["tables"] == [CONSOLIDATED_TABLE_FILENAME]

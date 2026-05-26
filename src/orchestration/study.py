@@ -2,8 +2,8 @@
 
 For each (strategy, universe) leg in a :class:`StudySpec`, compose the
 experiment config (deep-merge universe profile onto strategy YAML), run
-tune -> run -> regime -> holdout-eval, then per-universe cross-strategy
-compare. Resumable via :class:`StudyState` (one ``study_state.json`` under
+tune -> run -> holdout-eval, then per-universe cross-strategy compare.
+Resumable via :class:`StudyState` (one ``study_state.json`` under
 ``<study_dir>/``); per-leg failures are isolated and don't abort the sweep.
 
 The orchestrator's per-leg outputs reuse the standard artifact
@@ -11,7 +11,6 @@ directories under the study root:
 
 * ``<study_dir>/hpo/<leg_id>/``           tune output (best_config.yaml, trials_artifacts)
 * ``<study_dir>/runs/<run_experiment_id>/`` run materialised from best_config.yaml
-* ``<study_dir>/regime_reports/<leg_id>/``  per-leg regime split (if --regime-config)
 * ``<study_dir>/holdout_evals/<leg_id>/``   honest OOS (if validation has a holdout)
 * ``<study_dir>/comparisons/<universe>/``   cross-strategy compare per universe
 
@@ -45,20 +44,17 @@ from src.core.persistence import (
     COMPARISONS_SUBDIR,
     HPO_SUBDIR,
 )
-from src.core.regime_config import RegimeConfig
 from src.optimization.checkpointing import BEST_CONFIG_YAML_NAME
 from src.orchestration.builder import build_experiment
 from src.orchestration.comparison import SignificanceTest, run_comparison
 from src.orchestration.experiment import RunOptions
 from src.orchestration.holdout_eval import resolve_source, run_holdout_eval
-from src.orchestration.regime_run import resolve_run_dir, run_regime_report
 from src.orchestration.run_loader import (
-    load_experiment_config_from_run,
     load_experiment_result,
+    resolve_run_dir,
 )
 from src.orchestration.study_state import (
     LEG_STEP_HOLDOUT_EVAL,
-    LEG_STEP_REGIME,
     LEG_STEP_RUN,
     LEG_STEP_TUNE,
     LegState,
@@ -70,7 +66,6 @@ from src.orchestration.study_state import (
 from src.visualization.comparison_reporter import ComparisonReporter
 from src.visualization.holdout_eval_reporter import HoldoutEvalReporter
 from src.visualization.hpo_reporter import HPOReporter
-from src.visualization.regime_reporter import RegimeReporter
 
 _logger = get_logger(__name__)
 
@@ -184,12 +179,10 @@ def run_leg(
     leg: StudyLegRun,
     *,
     study_dir: Path,
-    store_root: Path,
-    regime_cfg: RegimeConfig | None,
     skip_holdout_eval: bool,
     prior_state: LegState,
 ) -> LegState:
-    """Execute one leg's tune -> run -> regime -> holdout pipeline.
+    """Execute one leg's tune -> run -> holdout pipeline.
 
     Returns the updated :class:`LegState`. Steps already in
     ``prior_state.steps_completed`` are skipped (mid-leg resume). Any
@@ -254,34 +247,6 @@ def run_leg(
         if run_experiment_id is None:
             raise RuntimeError(f"leg {leg.leg_id}: run step did not record an experiment_id")
 
-        # Regime + holdout-eval are recorded as completed even when skipped
-        # (no regime config, no holdout reservation, or caller opted out)
-        # so resume logic treats the leg as done in the current invocation.
-        if LEG_STEP_REGIME not in state.steps_completed:
-            if regime_cfg is not None:
-                # Regime detectors operate on a single price series; the
-                # multi-ticker pair frame the engine consumes (close_a /
-                # close_b) has no canonical regime to split on.
-                if len(cfg.data.tickers) > 1:
-                    _logger.info(
-                        "leg %s: skipping regime split (multi-ticker pair leg)",
-                        leg.leg_id,
-                    )
-                else:
-                    run_dir = resolve_run_dir(study_dir, run_experiment_id)
-                    _logger.info("leg %s: starting regime split", leg.leg_id)
-                    report, out_dir = run_regime_report(
-                        run_dir=run_dir,
-                        regime_cfg=regime_cfg,
-                        out_name=leg.leg_id,
-                        store_root=study_dir,
-                    )
-                    RegimeReporter().generate_full_report(
-                        report, out_dir, publish_label=f"study:regime:{leg.leg_id}"
-                    )
-                    _logger.info("leg %s: regime split done", leg.leg_id)
-            state = state.with_step_completed(LEG_STEP_REGIME)
-
         if LEG_STEP_HOLDOUT_EVAL not in state.steps_completed:
             has_holdout = (
                 cfg.validation.holdout_pct > 0.0 or cfg.validation.holdout_start is not None
@@ -323,7 +288,6 @@ def run_study(
     spec_path: Path,
     *,
     store_root: Path,
-    regime_cfg: RegimeConfig | None = None,
     force_rerun: bool = False,
     only_legs: Sequence[str] | None = None,
     skip_compares: bool = False,
@@ -394,8 +358,6 @@ def run_study(
         updated = run_leg(
             leg,
             study_dir=study_dir,
-            store_root=store_root,
-            regime_cfg=regime_cfg,
             skip_holdout_eval=skip_holdout_eval,
             prior_state=prior,
         )
@@ -412,7 +374,6 @@ def run_study(
             legs,
             state=state,
             study_dir=study_dir,
-            regime_cfg=regime_cfg,
             force_rerun=force_rerun,
         )
         write_study_state(state_path, state)
@@ -440,7 +401,6 @@ def _run_per_universe_compares(
     *,
     state: StudyState,
     study_dir: Path,
-    regime_cfg: RegimeConfig | None,
     force_rerun: bool,
 ) -> tuple[StudyState, int]:
     """Group completed runs by universe; run cross-strategy compare per universe.
@@ -475,22 +435,17 @@ def _run_per_universe_compares(
         ]
         try:
             results = [load_experiment_result(d) for d in run_dirs]
-            configs = [load_experiment_config_from_run(d) for d in run_dirs]
-            reused_data_cfg = configs[0].data if regime_cfg is not None else None
             _logger.info(
                 "compare for universe %s: %d strategies",
                 universe,
                 len(universe_legs),
             )
             report, folds_by_strategy = run_comparison(
-                configs,
                 out_name=universe,
                 store_root=study_dir,
                 n_jobs=1,
                 significance_test=SignificanceTest.BOOTSTRAP,
-                regime_config=regime_cfg,
                 reused_results=results,
-                reused_data_cfg=reused_data_cfg,
             )
             cmp_dir = study_dir / COMPARISONS_SUBDIR / universe
             ComparisonReporter().generate_full_report(

@@ -25,7 +25,6 @@ HPOReporter / StrategyReporter split already in place.
 from __future__ import annotations
 
 import math
-from collections.abc import Mapping
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -33,11 +32,9 @@ import numpy as np
 import numpy.typing as npt
 import pandas as pd
 
-from src.analysis.metrics_aggregator import AggregateStats
 from src.core import json_io
 from src.core.logging import get_logger
 from src.orchestration.types import (
-    MIXED_REGIME_LABEL,
     FoldRecord,
     PairwiseSignificance,
     StrategyComparisonReport,
@@ -50,7 +47,6 @@ from src.visualization.plots import (
     MANIFEST_FILENAME,
     PLOTS_SUBDIR,
     TABLES_SUBDIR,
-    render_value_heatmap,
     save_png_and_svg,
 )
 
@@ -59,8 +55,6 @@ _logger = get_logger(__name__)
 _RANKING_FILENAME = "ranking.tex"
 _PAIRWISE_FILENAME = "pairwise_significance.tex"
 EQUITY_OVERLAY_FILENAME = "equity_overlay.png"
-_STRATEGY_X_REGIME_PLOT_FILENAME = "strategy_x_regime_heatmap.png"
-_STRATEGY_X_REGIME_TABLE_FILENAME = "strategy_x_regime.tex"
 
 
 class ComparisonReporter:
@@ -129,19 +123,6 @@ class ComparisonReporter:
         else:
             self._plot_equity_overlay(folds_by_strategy, plots_dir / EQUITY_OVERLAY_FILENAME)
 
-        if report.per_strategy_per_regime_stats is not None:
-            write_booktabs_table(
-                _build_strategy_x_regime_df(report.per_strategy_per_regime_stats),
-                tables_dir / _STRATEGY_X_REGIME_TABLE_FILENAME,
-                caption=(
-                    f"Per-strategy mean Sharpe ($\\pm$ std) split by regime — comparison {slug}"
-                ),
-                label=f"tab:strategy_x_regime_{slug}",
-            )
-            self._plot_strategy_x_regime_heatmap(
-                report.per_strategy_per_regime_stats,
-                plots_dir / _STRATEGY_X_REGIME_PLOT_FILENAME,
-            )
         return out_dir
 
     def _build_pairwise_table(self, pairwise: tuple[PairwiseSignificance, ...]) -> pd.DataFrame:
@@ -169,46 +150,6 @@ class ComparisonReporter:
         df.insert(0, "strategy", df.index)
         df = df.reset_index(drop=True)
         return df
-
-    def _plot_strategy_x_regime_heatmap(
-        self,
-        per_strategy_per_regime_stats: Mapping[str, Mapping[str, AggregateStats]],
-        out_path: Path,
-    ) -> Path:
-        """Render the strategy × regime heatmap (cell = ``sharpe_mean``).
-
-        Cells without a fold (``n_folds == 0``) are masked grey.
-        :data:`MIXED_REGIME_LABEL` is pinned last when present.
-        """
-        strategies = list(per_strategy_per_regime_stats)
-        labels = _ordered_regime_labels(per_strategy_per_regime_stats)
-        if not strategies or not labels:
-            _logger.warning(
-                "strategy × regime heatmap has no cells (strategies=%d, regimes=%d) — skipping",
-                len(strategies),
-                len(labels),
-            )
-            return out_path
-
-        matrix = np.full((len(strategies), len(labels)), np.nan, dtype=np.float64)
-        for i, strategy in enumerate(strategies):
-            per_regime = per_strategy_per_regime_stats[strategy]
-            for j, label in enumerate(labels):
-                stats = per_regime.get(label)
-                if stats is None or stats.n_folds == 0:
-                    continue
-                matrix[i, j] = stats.sharpe_mean
-
-        return render_value_heatmap(
-            matrix,
-            row_labels=strategies,
-            col_labels=labels,
-            out_path=out_path,
-            title="strategy × regime (Sharpe)",
-            xlabel="regime",
-            ylabel="strategy",
-            placeholder_log_label="strategy × regime",
-        )
 
     def _plot_equity_overlay(
         self,
@@ -264,47 +205,7 @@ def _build_manifest_dict(report: StrategyComparisonReport) -> dict[str, object]:
         },
         "pairwise": [p.to_dict() for p in report.pairwise],
     }
-    if report.per_strategy_per_regime_stats is not None:
-        payload["per_strategy_per_regime_stats"] = {
-            name: {label: stats.to_dict() for label, stats in per_regime.items()}
-            for name, per_regime in report.per_strategy_per_regime_stats.items()
-        }
     return payload
-
-
-def _ordered_regime_labels(
-    per_strategy_per_regime_stats: Mapping[str, Mapping[str, AggregateStats]],
-) -> list[str]:
-    """Union of regime labels seen, sorted with ``mixed`` pinned last."""
-    seen = {label for per_regime in per_strategy_per_regime_stats.values() for label in per_regime}
-    real = sorted(label for label in seen if label != MIXED_REGIME_LABEL)
-    if MIXED_REGIME_LABEL in seen:
-        real.append(MIXED_REGIME_LABEL)
-    return real
-
-
-def _build_strategy_x_regime_df(
-    per_strategy_per_regime_stats: Mapping[str, Mapping[str, AggregateStats]],
-) -> pd.DataFrame:
-    """LaTeX-friendly DataFrame: one row per strategy, one column per regime.
-
-    Cell format mirrors :func:`RegimeReporter._build_summary_df`:
-    ``+sharpe_mean ± sharpe_std`` for non-empty regimes, ``--`` for
-    regimes the strategy did not encounter (or encountered with zero
-    folds after the majority-threshold filter).
-    """
-    labels = _ordered_regime_labels(per_strategy_per_regime_stats)
-    rows: list[dict[str, object]] = []
-    for strategy, per_regime in per_strategy_per_regime_stats.items():
-        row: dict[str, object] = {"strategy": strategy}
-        for label in labels:
-            stats = per_regime.get(label)
-            if stats is None or stats.n_folds == 0:
-                row[label] = "--"
-            else:
-                row[label] = f"{stats.sharpe_mean:+.3f} $\\pm$ {stats.sharpe_std:.3f}"
-        rows.append(row)
-    return pd.DataFrame(rows)
 
 
 def _unique_names(pairwise: tuple[PairwiseSignificance, ...]) -> list[str]:

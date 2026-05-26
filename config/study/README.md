@@ -51,11 +51,10 @@ for leg in spec.legs:
 ## Driving the spec — `experiment study`
 
 ```bash
-# Drive the sweep: tune -> run -> regime -> holdout-eval per leg, then
-# per-universe cross-strategy compare. Resumable via study_state.json.
+# Drive the sweep: tune -> run -> holdout-eval per leg, then per-universe
+# cross-strategy compare. Resumable via study_state.json.
 python -m scripts.experiment study run \
-    --spec config/study/main_study.yaml \
-    --regime-config config/regimes/vol_quintile.yaml
+    --spec config/study/main_study.yaml
 ```
 
 Per-leg outputs land under `<store_root>/<spec.output_dir>/`:
@@ -66,7 +65,6 @@ Per-leg outputs land under `<store_root>/<spec.output_dir>/`:
 | `spec.yaml` | Frozen copy of the input spec (provenance). |
 | `hpo/<leg_id>/` | Standard `tune` output. |
 | `runs/<run_experiment_id>/` | `run` materialised from `best_config.yaml`. |
-| `regime_reports/<leg_id>/` | Per-leg regime split (when `--regime-config` set). |
 | `holdout_evals/<leg_id>/` | Honest OOS (when `validation.holdout_pct > 0`). |
 | `comparisons/<universe>/` | Cross-strategy compare (skipped for single-strategy universes). |
 
@@ -84,4 +82,3 @@ compare can resolve the run dir without re-walking `runs/`.
 - Universe profiles consumed by every leg: `config/universes/`.
 - Per-strategy and per-HPO YAMLs referenced by each leg:
   `config/strategies/`, `config/hpo/`.
-- Default regime config for the sweep: `config/regimes/vol_quintile.yaml`.

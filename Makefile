@@ -60,8 +60,7 @@ thesis-demo:
 	@echo "  experiment_results/studies/ separately."
 	@echo "──────────────────────────────────────────────────────────────"
 	@rm -rf $(THESIS_DEMO_DIR)/runs \
-	        $(THESIS_DEMO_DIR)/comparisons \
-	        $(THESIS_DEMO_DIR)/regime_reports
+	        $(THESIS_DEMO_DIR)/comparisons
 	python -m scripts.experiment run \
 		--config config/strategies/adaptive_bollinger.yaml \
 		--store-root $(THESIS_DEMO_DIR) \
@@ -72,19 +71,10 @@ thesis-demo:
 		--out-name pipeline_compare \
 		--store-root $(THESIS_DEMO_DIR) \
 		$(THESIS_DEMO_DATA_OVERRIDES)
-	@EXP_ID=$$(ls -1t $(THESIS_DEMO_DIR)/runs/ | head -n 1); \
-		test -n "$$EXP_ID" || { echo "no run found under $(THESIS_DEMO_DIR)/runs/"; exit 1; }; \
-		echo "regime split on $$EXP_ID"; \
-		python -m scripts.experiment regime \
-			--exp-id $$EXP_ID \
-			--regime-config config/regimes/bull_bear_200ma.yaml \
-			--out-name pipeline_regime \
-			--store-root $(THESIS_DEMO_DIR)
 	@echo "──────────────────────────────────────────────────────────────"
 	@echo "  thesis-demo finished. Fresh artifacts under:"
 	@echo "    $(THESIS_DEMO_DIR)/runs/<exp_id>/"
 	@echo "    $(THESIS_DEMO_DIR)/comparisons/pipeline_compare/"
-	@echo "    $(THESIS_DEMO_DIR)/regime_reports/pipeline_regime/"
 	@echo "  Committed sample lives at $(THESIS_DEMO_DIR)/sample/."
 	@echo "──────────────────────────────────────────────────────────────"
 

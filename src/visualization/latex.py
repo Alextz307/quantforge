@@ -1,4 +1,4 @@
-"""LaTeX table builder shared by strategy / HPO / regime reporters.
+"""LaTeX table builder shared by strategy / HPO reporters.
 
 ``build_booktabs_table`` is the single call site between pandas DataFrames
 and a booktabs-styled LaTeX ``tabular`` environment. Every reporter writes

@@ -2,7 +2,7 @@
 
 A thesis-grade, bifurcated C++/Python quantitative trading framework with strict anti-leakage guarantees, temporal contracts, and a clean separation between computation (C++) and orchestration (Python). Built around walk-forward validation, typed interfaces, and end-to-end hyperparameter tuning.
 
-**Current state:** a Python orchestration layer built on top of a C++ core. Implemented and under test: the typed temporal contracts, data layer, ML leaf models (GARCH, ARMA, LSTM, XGBoost), hybrid residual models, five trading strategies, the feature pipeline, a C++ indicator suite (RSI, MACD, Bollinger, Garman-Klass, Parkinson), a GARCH inference filter, two strategy state machines and two full `IStrategy` C++ classes (pairs trading + adaptive bollinger) with a shared `SpreadCalculator` primitive, and the C++ backtest engine + performance metrics — all bridged through a `pybind11` module (`quant_engine`) with the GIL released on every compute call. Every model and strategy round-trips through directory-based `save()` / `load()` (JSON configs + metadata + native binary weights, zero pickle). `WalkForwardValidator` supports an optional `snap_to_day` mode that keeps every train/test boundary on a daily close, honouring the intraday day-boundary rule. An offline `make thesis-demo` target runs the full data → walk-forward → metrics → reporters → cross-strategy comparison → regime split flow on a committed SPY parquet so a fresh checkout can verify the pipeline end-to-end without network access. CI is green on Linux and macOS with **1248 Python tests** (+21 opt-in skips), **222 C++ tests**, `mypy --strict` clean on the full Python tree, and `ruff` clean across the whole repo.
+**Current state:** a Python orchestration layer built on top of a C++ core. Implemented and under test: the typed temporal contracts, data layer, ML leaf models (GARCH, ARMA, LSTM, XGBoost), hybrid residual models, five trading strategies, the feature pipeline, a C++ indicator suite (RSI, MACD, Bollinger, Garman-Klass, Parkinson), a GARCH inference filter, two strategy state machines and two full `IStrategy` C++ classes (pairs trading + adaptive bollinger) with a shared `SpreadCalculator` primitive, and the C++ backtest engine + performance metrics — all bridged through a `pybind11` module (`quant_engine`) with the GIL released on every compute call. Every model and strategy round-trips through directory-based `save()` / `load()` (JSON configs + metadata + native binary weights, zero pickle). `WalkForwardValidator` supports an optional `snap_to_day` mode that keeps every train/test boundary on a daily close, honouring the intraday day-boundary rule. An offline `make thesis-demo` target runs the full data → walk-forward → metrics → reporters → cross-strategy comparison flow on a committed SPY parquet so a fresh checkout can verify the pipeline end-to-end without network access. CI is green on Linux and macOS with **1248 Python tests** (+21 opt-in skips), **222 C++ tests**, `mypy --strict` clean on the full Python tree, and `ruff` clean across the whole repo.
 
 ## Architecture
 
@@ -155,9 +155,8 @@ The holdout split is reserved for the final thesis evaluation — it is never to
 
 The orchestration layer turns a validated YAML config into a fully-wired
 `Experiment`, drives the walk-forward, and routes results to the
-matching reporter. Three CLI subcommands compose the full surface — one
-config feeds `experiment run`, N configs feed `experiment compare`, and
-a saved run + a regime detector feed `experiment regime`.
+matching reporter. Two CLI subcommands compose the full surface — one
+config feeds `experiment run`, N configs feed `experiment compare`.
 
 ```mermaid
 graph LR
@@ -167,15 +166,12 @@ graph LR
     WalkForward["evaluate_walk_forward<br/>+ deep-metadata tripwire"]
     RunCLI["scripts.experiment.run<br/>artefacts → runs/"]
     CompareCLI["scripts.experiment.compare<br/>N configs → comparisons/"]
-    RegimeCLI["scripts.experiment.regime<br/>1 run + detector → regime_reports/"]
     StrategyReporter["StrategyReporter<br/>(equity · stability · LaTeX)"]
     ComparisonReporter["ComparisonReporter<br/>(ranking · pairwise CIs)"]
-    RegimeReporter["RegimeReporter<br/>(heatmap · timeline)"]
 
     Config --> Builder --> Experiment --> WalkForward
     WalkForward --> RunCLI --> StrategyReporter
     Config -->|N×| CompareCLI --> ComparisonReporter
-    RunCLI --> RegimeCLI --> RegimeReporter
 ```
 
 `Experiment` is a frozen bundle — every component is resolved once via
@@ -314,31 +310,27 @@ Every strategy exposes the same four-verb API — `train(data)`, `generate_signa
 The `make thesis-demo` target runs the full Python orchestration stack
 on a committed SPY parquet fixture (`tests/fixtures/SPY.parquet`) so a
 fresh checkout can verify every wire connects without network access.
-Three CLI invocations land back-to-back: `experiment run` (single
-walk-forward), `experiment compare` (cross-strategy ranking), and
-`experiment regime` (per-regime split). Total wall time on a 2024
-laptop is well under a minute.
+Two CLI invocations land back-to-back: `experiment run` (single
+walk-forward) and `experiment compare` (cross-strategy ranking). Total
+wall time on a 2024 laptop is well under a minute.
 
 ```bash
 make thesis-demo
 ```
 
 > ⚠️ **The demo's output is illustrative — not a benchmark and not an
-> empirical claim.** Strategies are not tuned, the walk-forward window
-> is short (~7 years of daily SPY across 4 expanding folds), and only
-> one regime detector is exercised. The comprehensive empirical study
-> will land separately under `experiment_results/studies/`.
+> empirical claim.** Strategies are not tuned and the walk-forward
+> window is short (~7 years of daily SPY across 4 expanding folds).
+> The comprehensive empirical study will land separately under
+> `experiment_results/studies/`.
 
 A curated subset of one demo run is committed under
 [`experiment_results/thesis_demo/sample/`](experiment_results/thesis_demo/README.md)
 so a casual reader sees the shape of the output without needing to run
-anything. Two of the figures — the walk-forward equity curves and the
-regime-vs-metric heatmap — give the quickest read on what the pipeline
-actually produces:
+anything. The walk-forward equity curves give the quickest read on what
+the pipeline actually produces:
 
 ![Per-fold equity curves](experiment_results/thesis_demo/sample/plots/run_equity_curves.png)
-
-![Per-regime metric heatmap](experiment_results/thesis_demo/sample/plots/regime_metric_heatmap.png)
 
 The full `sample/` index (every committed plot + LaTeX table + the
 aggregated metrics JSON) lives in
@@ -371,10 +363,10 @@ src/
   strategies/            Five strategies + IStrategy interface (each with save / load)
   engine/                CppBacktestEngine adapter, slippage scenarios, walk-forward orchestrator
   quant_engine/          pybind11 module re-exports + checked-in mypy stubs
-  orchestration/         Builder, Experiment + RunOptions, comparison, regime-run, manifest, model-artifact, standalone training
+  orchestration/         Builder, Experiment + RunOptions, comparison, manifest, model-artifact, standalone training
   optimization/          Optuna StrategyTuner + samplers / pruners / objectives + checkpointing
-  analysis/              Fold aggregator, ranking, regime split, paired-bootstrap significance
-  visualization/         Strategy / Comparison / Regime / HPO reporters (plots + booktabs LaTeX)
+  analysis/              Fold aggregator, ranking, paired-bootstrap significance
+  visualization/         Strategy / Comparison / HPO reporters (plots + booktabs LaTeX)
   benchmarking/          Runner + store + analyzer + reporter + comparator
 
 tests/
@@ -385,7 +377,7 @@ tests/
   conftest.py            Shared fixtures (synthetic data, global seeds)
 
 scripts/                 experiment + benchmark CLIs + stdlib-only drift guards
-config/                  Strategy / HPO / regime / universe YAMLs + thesis-demo entry config
+config/                  Strategy / HPO / universe YAMLs + thesis-demo entry config
 benchmark_results/
   baselines/             Tracked JSONL anchors (pre-/post-optimization)
   runs/                  Per-run JSONL (gitignored)
@@ -393,7 +385,7 @@ benchmark_results/
 experiment_results/
   thesis_demo/           Tracked: README + curated `sample/` from one demo run
   thesis_demo/runs/      Fresh per-`make thesis-demo` outputs (gitignored)
-  runs/, comparisons/, regime_reports/, hpo/, models/  Ephemeral per-developer artefacts (gitignored)
+  runs/, comparisons/, hpo/, models/  Ephemeral per-developer artefacts (gitignored)
 .github/workflows/ci.yml Lint, typecheck, C++ matrix, Python matrix
 Makefile                 Canonical build/test entry points
 pyproject.toml           Python deps + scikit-build-core config
@@ -408,7 +400,7 @@ navigation aids; function signatures and detailed docstrings live in the
 code.
 
 - [`cpp/`](cpp/README.md) — C++20 engine: indicators, filters, state machines, backtest engine, metrics, pybind11 module.
-- [`src/orchestration/`](src/orchestration/README.md) — config → wired experiment, walk-forward driver, comparison + regime + holdout pipelines.
+- [`src/orchestration/`](src/orchestration/README.md) — config → wired experiment, walk-forward driver, comparison + holdout pipelines.
 - [`src/strategies/`](src/strategies/README.md) — `IStrategy` + the five concrete strategies (incl. pairs).
 - [`src/engine/`](src/engine/README.md) — `CppBacktestEngine` adapter + walk-forward orchestrator (single-leg / pairs dispatch).
 - [`src/features/`](src/features/README.md) — `FeatureEngineeringPipeline` + fit-once anti-leakage scaler.
@@ -416,11 +408,11 @@ code.
 - [`src/data/`](src/data/README.md) — sources, normaliser, cache, fingerprint (single + pair).
 - [`src/core/`](src/core/README.md) — types, constants, registry, temporal primitives, persistence layout, exceptions, config.
 - [`src/models/`](src/models/README.md) — leaf predictors / classifiers / hybrids / cointegration / dataset.
-- [`src/analysis/`](src/analysis/README.md) — fold aggregator, ranking, regime split, significance.
-- [`src/visualization/`](src/visualization/README.md) — strategy / comparison / regime / HPO reporters.
+- [`src/analysis/`](src/analysis/README.md) — fold aggregator, ranking, significance.
+- [`src/visualization/`](src/visualization/README.md) — strategy / comparison / HPO reporters.
 - [`src/benchmarking/`](src/benchmarking/README.md) — benchmark runner / store / analyzer / reporter.
 - [`scripts/`](scripts/README.md) — `experiment` + `benchmark` CLIs and drift guards.
-- [`config/`](config/README.md) — strategy / HPO / regime / model / universe YAMLs.
+- [`config/`](config/README.md) — strategy / HPO / model / universe YAMLs.
 - [`webapp/`](webapp/README.md) — FastAPI backend + React/Vite SPA: read-only artifact viewer, configurable runner (run + tune), live job + HPO monitors with WebSocket streaming.
 
 ## Tech Stack

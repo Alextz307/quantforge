@@ -4,7 +4,6 @@ The empirical-study orchestrator (:func:`src.orchestration.study.run_study`)
 writes per-leg artifact directories under ``<study_dir>/``:
 
 * ``runs/<run_experiment_id>/``           one per leg (best-config materialised run)
-* ``regime_reports/<leg_id>/``            one per leg, only when ``--regime-config`` was set
 * ``holdout_evals/<leg_id>/``             one per leg, only when validation reserved a holdout
 * ``comparisons/<universe>/``             one per universe with ≥2 strategies
 
@@ -39,13 +38,11 @@ from src.core.persistence import (
     COMPARISONS_SUBDIR,
     HOLDOUT_EVAL_JSON,
     HOLDOUT_EVALS_SUBDIR,
-    REGIME_REPORTS_SUBDIR,
 )
 from src.orchestration.git_info import read_git_sha
-from src.orchestration.regime_run import resolve_run_dir
-from src.orchestration.run_loader import load_experiment_result
+from src.orchestration.run_loader import load_experiment_result, resolve_run_dir
 from src.orchestration.study import STUDY_STATE_FILENAME
-from src.orchestration.study_state import LegState, read_study_state
+from src.orchestration.study_state import read_study_state
 from src.orchestration.types import PairwiseSignificance
 from src.visualization.plots import MANIFEST_FILENAME
 
@@ -113,9 +110,9 @@ class ConsolidatedStudyReport:
 
     All per-leg maps are keyed by ``(strategy, universe)`` tuples. Per-universe
     maps are keyed by universe name. Maps may be empty when the underlying
-    artifacts weren't produced (study run without ``--regime-config``,
-    universes with ``holdout_pct=0``, single-strategy universes for pairwise);
-    consumers must check membership before reading.
+    artifacts weren't produced (universes with ``holdout_pct=0``,
+    single-strategy universes for pairwise); consumers must check membership
+    before reading.
     """
 
     study_name: str
@@ -124,7 +121,6 @@ class ConsolidatedStudyReport:
     git_sha: str
     per_leg_aggregate: Mapping[tuple[str, str], AggregateStats]
     per_leg_run_id: Mapping[tuple[str, str], str]
-    per_leg_regime: Mapping[tuple[str, str], Mapping[str, AggregateStats]]
     per_leg_holdout: Mapping[tuple[str, str], HoldoutSnapshot]
     per_universe_pairwise: Mapping[str, tuple[PairwiseSignificance, ...]]
     incomplete_leg_ids: tuple[str, ...]
@@ -137,16 +133,6 @@ class ConsolidatedStudyReport:
             self, "per_leg_aggregate", MappingProxyType(dict(self.per_leg_aggregate))
         )
         object.__setattr__(self, "per_leg_run_id", MappingProxyType(dict(self.per_leg_run_id)))
-        object.__setattr__(
-            self,
-            "per_leg_regime",
-            MappingProxyType(
-                {
-                    key: MappingProxyType(dict(per_regime))
-                    for key, per_regime in self.per_leg_regime.items()
-                }
-            ),
-        )
         object.__setattr__(self, "per_leg_holdout", MappingProxyType(dict(self.per_leg_holdout)))
         object.__setattr__(
             self, "per_universe_pairwise", MappingProxyType(dict(self.per_universe_pairwise))
@@ -168,10 +154,9 @@ def consolidate_study(study_dir: Path) -> ConsolidatedStudyReport:
 
     Reads ``study_state.json`` for the leg roster, then for each completed
     leg loads ``runs/<run_id>/{manifest.json,fold_results.jsonl}`` (via
-    :func:`load_experiment_result`) plus optional ``regime_reports/<leg_id>/
-    manifest.json`` and ``holdout_evals/<leg_id>/holdout_eval.json``.
-    Per-universe pairwise data comes from
-    ``comparisons/<universe>/manifest.json``.
+    :func:`load_experiment_result`) plus optional
+    ``holdout_evals/<leg_id>/holdout_eval.json``. Per-universe pairwise
+    data comes from ``comparisons/<universe>/manifest.json``.
 
     Raises ``FileNotFoundError`` only when ``study_state.json`` itself is
     missing — every other artifact is treated as best-effort. Incomplete
@@ -190,7 +175,6 @@ def consolidate_study(study_dir: Path) -> ConsolidatedStudyReport:
 
     per_leg_aggregate: dict[tuple[str, str], AggregateStats] = {}
     per_leg_run_id: dict[tuple[str, str], str] = {}
-    per_leg_regime: dict[tuple[str, str], dict[str, AggregateStats]] = {}
     per_leg_holdout: dict[tuple[str, str], HoldoutSnapshot] = {}
     incomplete: list[str] = []
 
@@ -204,10 +188,6 @@ def consolidate_study(study_dir: Path) -> ConsolidatedStudyReport:
         result = load_experiment_result(run_dir)
         per_leg_aggregate[key] = aggregate_folds(result.folds)
         per_leg_run_id[key] = leg.run_experiment_id
-
-        regime_payload = _try_read_regime_manifest(study_dir, leg)
-        if regime_payload is not None:
-            per_leg_regime[key] = regime_payload
 
         holdout_path = study_dir / HOLDOUT_EVALS_SUBDIR / leg.leg_id / HOLDOUT_EVAL_JSON
         if holdout_path.is_file():
@@ -233,30 +213,10 @@ def consolidate_study(study_dir: Path) -> ConsolidatedStudyReport:
         git_sha=read_git_sha(),
         per_leg_aggregate=per_leg_aggregate,
         per_leg_run_id=per_leg_run_id,
-        per_leg_regime=per_leg_regime,
         per_leg_holdout=per_leg_holdout,
         per_universe_pairwise=per_universe_pairwise,
         incomplete_leg_ids=tuple(incomplete),
     )
-
-
-def _try_read_regime_manifest(study_dir: Path, leg: LegState) -> dict[str, AggregateStats] | None:
-    """Load ``regime_reports/<leg_id>/manifest.json`` if it exists.
-
-    Returns ``None`` (not an empty dict) when the manifest is absent so the
-    caller can distinguish "no regime data for this leg" from "regime data
-    with zero classified labels" — the latter would warrant investigation,
-    the former is the no-regime-config-was-set happy path.
-    """
-    manifest_path = study_dir / REGIME_REPORTS_SUBDIR / leg.leg_id / MANIFEST_FILENAME
-    if not manifest_path.is_file():
-        return None
-    payload = json_io.read_dict(manifest_path)
-    per_regime_raw = json_io.get_dict(payload, "per_regime_stats")
-    return {
-        label: AggregateStats.from_dict(json_io.get_dict(per_regime_raw, label))
-        for label in per_regime_raw
-    }
 
 
 def _try_read_comparison_pairwise(

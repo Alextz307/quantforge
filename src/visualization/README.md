@@ -1,6 +1,6 @@
 # `src/visualization/`
 
-Thesis-ready report renderers. Six sibling reporters consume the
+Thesis-ready report renderers. Five sibling reporters consume the
 in-memory result types from `src/orchestration/types.py` (and the
 cross-leg `ConsolidatedStudyReport` from
 `src/orchestration/study_report.py`) and emit PNG + SVG plots plus
@@ -12,11 +12,10 @@ subdirectories.
 | Symbol | Role |
 | --- | --- |
 | `StrategyReporter.generate_full_report(result, out_dir, *, publish_label=None)` | Per-experiment artefacts: equity curves overlay, fold-stability scatter, per-fold metrics LaTeX. |
-| `ComparisonReporter.generate_full_report(report, folds_by_strategy, out_dir, *, publish_label=None)` | Cross-strategy artefacts: ranking LaTeX, pairwise-significance LaTeX, equity overlay normalised at 1.0, optional strategy × regime heatmap + LaTeX table when `report.per_strategy_per_regime_stats` is populated, comparison `manifest.json`. |
-| `RegimeReporter.generate_full_report(report, out_dir, *, publish_label=None)` | Per-regime artefacts: regime summary LaTeX, regime × metric heatmap, regime timeline tape, regime `manifest.json`. |
+| `ComparisonReporter.generate_full_report(report, folds_by_strategy, out_dir, *, publish_label=None)` | Cross-strategy artefacts: ranking LaTeX, pairwise-significance LaTeX, equity overlay normalised at 1.0, comparison `manifest.json`. |
 | `HPOReporter.generate_full_report(study, out_dir)` | Optuna-study artefacts: convergence curve, parameter-importance bars, top-trials LaTeX. |
 | `HoldoutEvalReporter.generate_full_report(result, out_dir, *, publish_label=None)` | One-shot holdout-eval artefacts: holdout-metrics LaTeX (two-column metric · value), normalised holdout-equity curve. |
-| `StudyReportReporter.generate_full_report(report, out_dir, *, publish_label=None)` | Cross-leg consolidated artefacts: master / per-universe / per-regime / holdout rankings (`.tex` + `.csv`), strategy × universe + strategy × regime heatmaps, dev-vs-holdout scatter, per-universe equity-overlay copies, regime-timeline copies, per-leg holdout-equity copies. |
+| `StudyReportReporter.generate_full_report(report, out_dir, *, publish_label=None)` | Cross-leg consolidated artefacts: master / per-universe / holdout rankings (`.tex` + `.csv`), strategy × universe heatmap, dev-vs-holdout scatter, per-universe equity-overlay copies, per-leg holdout-equity copies. |
 | `build_booktabs_table(df, *, caption, label, ...)` / `write_booktabs_table` | Single LaTeX styling entry point — every reporter routes through here. |
 | `validate_publish_label(slug)` | Shared regex gate for the citation slug accepted by every reporter's `publish_label` kwarg. |
 | `save_png_and_svg(fig, png_path)` | PNG + SVG twin-write helper; pinned `FIGURE_WIDTH_IN`, `FIGURE_HEIGHT_IN`, `FIGURE_DPI`. |
@@ -30,10 +29,9 @@ subdirectories.
 | `latex.py` | `build_booktabs_table` + `write_booktabs_table` (pandas → booktabs LaTeX). |
 | `strategy_reporter.py` | `StrategyReporter` (one experiment). |
 | `comparison_reporter.py` | `ComparisonReporter` (multi-strategy ranking + significance). |
-| `regime_reporter.py` | `RegimeReporter` (per-regime aggregation + timeline). |
 | `hpo_reporter.py` | `HPOReporter` (Optuna study convergence + importance + top trials). |
 | `holdout_eval_reporter.py` | `HoldoutEvalReporter` (one-shot holdout-eval table + equity plot). |
-| `study_report_reporter.py` | `StudyReportReporter` (cross-leg consolidated tables + heatmaps + dev-vs-holdout scatter + per-leg artefact copies). |
+| `study_report_reporter.py` | `StudyReportReporter` (cross-leg consolidated tables + heatmap + dev-vs-holdout scatter + per-leg artefact copies). |
 
 ## Conventions enforced here
 
@@ -64,12 +62,12 @@ subdirectories.
 ```python
 from pathlib import Path
 
-from src.orchestration.regime_run import load_run_from_disk
+from src.orchestration.run_loader import load_experiment_result
 from src.visualization.strategy_reporter import StrategyReporter
 
-run = load_run_from_disk(Path("experiment_results/runs/<exp_id>"))
+result = load_experiment_result(Path("experiment_results/runs/<exp_id>"))
 StrategyReporter().generate_full_report(
-    result=run,  # ExperimentResult-shaped (folds + manifest)
+    result=result,
     out_dir=Path("experiment_results/runs/<exp_id>"),
 )
 ```
@@ -77,8 +75,8 @@ StrategyReporter().generate_full_report(
 ## Cross-links
 
 - Consumes `AggregateStats` from `src/analysis/metrics_aggregator.py`,
-  ranking DataFrames from `src/analysis/ranking.py`, and `RegimeReport`
-  / `StrategyComparisonReport` / `ExperimentResult` from
+  ranking DataFrames from `src/analysis/ranking.py`, and
+  `StrategyComparisonReport` / `ExperimentResult` from
   `src/orchestration/types.py`.
 - Benchmark reporting under `src/benchmarking/reporter.py` reuses
   these figure geometry / LaTeX constants — keep them in sync if

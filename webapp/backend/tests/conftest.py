@@ -25,7 +25,6 @@ from src.core.persistence import (
     HOLDOUT_EVAL_JSON,
     HOLDOUT_EVALS_SUBDIR,
     HPO_SUBDIR,
-    REGIME_REPORTS_SUBDIR,
 )
 from src.core.types import Interval
 from src.engine.scenarios import SlippageScenario
@@ -299,7 +298,7 @@ def make_synthetic_run(
 
 
 def _aggregate_stats(sharpe_mean: float = 0.5) -> dict[str, object]:
-    """Synthetic per-strategy / per-regime aggregate-stats payload."""
+    """Synthetic per-strategy aggregate-stats payload."""
     return {
         "n_folds": 3,
         "sharpe_mean": sharpe_mean,
@@ -356,52 +355,6 @@ def make_synthetic_comparison(
         (plots / PLOT_FILENAME).write_bytes(PLOT_BYTES)
 
     return cmp_dir
-
-
-def make_synthetic_regime_report(
-    parent_dir: Path,
-    *,
-    name: str,
-    experiment_id: str = "20260101_120000_AdaptiveBollinger_abc1234_deadbeef",
-    kind: str = "trend",
-    detector_name: str = "trend",
-    regime_labels: tuple[str, ...] = ("bull", "bear"),
-    created_at: datetime | None = None,
-    write_plot: bool = True,
-) -> Path:
-    """Materialize a minimal valid regime-report directory under ``parent_dir``."""
-    report_dir = parent_dir / name
-    report_dir.mkdir(parents=True, exist_ok=True)
-    ts = (created_at or datetime(2026, 4, 2, tzinfo=UTC)).isoformat()
-
-    json_io.write(
-        report_dir / EXPERIMENT_MANIFEST_JSON,
-        {
-            "out_name": name,
-            "experiment_id": experiment_id,
-            "kind": kind,
-            "detector_name": detector_name,
-            "created_at": ts,
-            "git_sha": "abc1234",
-            "per_regime_stats": {label: _aggregate_stats() for label in regime_labels},
-            "per_regime_fold_indices": {label: [i] for i, label in enumerate(regime_labels)},
-            "mixed_fold_indices": [],
-            "slices": [
-                {
-                    "label": regime_labels[0],
-                    "start": "2020-01-01T00:00:00",
-                    "end": "2020-06-30T00:00:00",
-                }
-            ],
-        },
-    )
-
-    if write_plot:
-        plots = report_dir / PLOTS_DIRNAME
-        plots.mkdir(exist_ok=True)
-        (plots / PLOT_FILENAME).write_bytes(PLOT_BYTES)
-
-    return report_dir
 
 
 def make_synthetic_holdout_eval(
@@ -519,7 +472,6 @@ def make_synthetic_consolidated_report(
     strategies: tuple[str, ...] = ("AdaptiveBollinger", "PairsTrading"),
     universes: tuple[str, ...] = ("spy_daily_5y", "spy_daily_10y"),
     incomplete_leg_ids: tuple[str, ...] = (),
-    n_legs_with_regime: int = 2,
     n_legs_with_holdout: int = 1,
     n_universes_with_pairwise: int = 1,
 ) -> Path:
@@ -543,7 +495,6 @@ def make_synthetic_consolidated_report(
         "universes": list(universes),
         "incomplete_leg_ids": list(incomplete_leg_ids),
         "per_leg_run_id": {},
-        "n_legs_with_regime": n_legs_with_regime,
         "n_legs_with_holdout": n_legs_with_holdout,
         "n_universes_with_pairwise": n_universes_with_pairwise,
     }
@@ -638,10 +589,6 @@ def webapp_store(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
             "AdaptiveBollinger": "20260101_120000_AdaptiveBollinger_abc1234_deadbeef",
             "PairsTrading": "20260201_090000_PairsTrading_def5678_cafebabe",
         },
-    )
-    make_synthetic_regime_report(
-        root / "thesis_demo" / REGIME_REPORTS_SUBDIR,
-        name="flat_regime",
     )
     make_synthetic_holdout_eval(
         root / "studies" / "main" / HOLDOUT_EVALS_SUBDIR,

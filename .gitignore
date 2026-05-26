@@ -63,7 +63,6 @@ experiment_results/*
 !experiment_results/thesis_demo/
 experiment_results/thesis_demo/runs/
 experiment_results/thesis_demo/comparisons/
-experiment_results/thesis_demo/regime_reports/
 experiment_results/thesis_demo/hpo/
 experiment_results/thesis_demo/models/
 experiment_results/thesis_demo/holdout_evals/

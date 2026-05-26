@@ -3,8 +3,8 @@ description: >
   Empirical study — five strategies evaluated across twelve universes
   (index ETFs, single large-caps, commodity, GFC stress window). Each leg
   is composed by deep-merging a universe profile (config/universes/<name>.yaml)
-  onto the strategy YAML, then running HPO + cross-strategy comparison + regime
-  split + holdout-eval. ML-bearing strategies use the non-pretrained variant
+  onto the strategy YAML, then running HPO + cross-strategy comparison +
+  holdout-eval. ML-bearing strategies use the non-pretrained variant
   (leaf refits per fold) so walk-forward folds remain self-contained.
 seed: 42
 output_dir: studies/main

@@ -13,7 +13,6 @@ class ConfigKind(StrEnum):
     STUDY = "study"
     STRATEGY = "strategy"
     HPO = "hpo"
-    REGIME = "regime"
 
 
 class ConfigEntry(BaseModel):

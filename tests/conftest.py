@@ -737,9 +737,8 @@ def make_stub_fold_record(
     """Build a :class:`FoldRecord` with the minimal fields every caller cares about.
 
     The ``*_start`` / ``*_end`` kwargs default to a fixed 2020 calendar window
-    so callers that only care about metric aggregation can stay terse; regime-
-    splitter tests pass real fold windows so the bar-level tagging math has
-    something to work against.
+    so callers that only care about metric aggregation can stay terse;
+    callers that need specific fold windows pass them in explicitly.
     """
     return FoldRecord(
         fold_index=fold_index,
@@ -771,9 +770,7 @@ def make_stub_experiment_result(
 
     Callers control folds fully; the manifest is plausible scaffolding
     (synthetic data hash, 'unknown' git sha). Used by cross-strategy
-    comparison tests that need aligned folds across strategies. Override
-    ``data_hash`` when the test exercises the regime-overlay path — that
-    code cross-checks the manifest hash against re-fetched bars.
+    comparison tests that need aligned folds across strategies.
     """
     manifest = Manifest(
         experiment_id=f"stub_{name}",

@@ -35,7 +35,6 @@ def config_root(tmp_path: Path) -> Path:
     (tmp_path / "universes").mkdir()
     (tmp_path / "hpo").mkdir()
     (tmp_path / "study").mkdir()
-    (tmp_path / "regimes").mkdir()
     (tmp_path / "models").mkdir()
 
     (tmp_path / "strategies" / "ab.yaml").write_text(
@@ -66,13 +65,12 @@ def test_validate_universe_happy_path() -> None:
     assert response.valid is True
 
 
-def test_validate_loose_kinds_always_pass() -> None:
-    # strategy / regime have no Pydantic counterpart — HPO is validated
-    # against HPOConfig and has its own dedicated tests below.
-    for kind in (ConfigKind.STRATEGY, ConfigKind.REGIME):
-        response = validate(kind, {"arbitrary": "shape"})
-        assert response.valid is True
-        assert response.errors == []
+def test_validate_strategy_kind_always_passes() -> None:
+    # strategy has no Pydantic counterpart — HPO is validated against
+    # HPOConfig and has its own dedicated tests below.
+    response = validate(ConfigKind.STRATEGY, {"arbitrary": "shape"})
+    assert response.valid is True
+    assert response.errors == []
 
 
 def test_validate_hpo_happy_path() -> None:

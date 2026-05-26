@@ -5,7 +5,6 @@ import type { HoldoutEvalDetail, HoldoutEvalSummary } from "@/api/holdout";
 import type { HpoDetail, HpoSummary, ParamImportanceResponse, TrialRow } from "@/api/hpo";
 import type { JobRow, JobSubmission } from "@/api/jobs";
 import { API_PATHS, toMswPath } from "@/api/paths";
-import type { RegimeReportDetail, RegimeReportSummary } from "@/api/regime";
 import type { FoldRow, RunDetail, RunSummary } from "@/api/runs";
 import type { PublicSettings } from "@/api/settings";
 import type { RegistryEntry, StrategySchema } from "@/api/strategies";
@@ -219,82 +218,6 @@ export const HOLDOUT_DEMO_DETAIL: HoldoutEvalDetail = {
 
 export const SEED_HOLDOUT_EVALS: HoldoutEvalSummary[] = [HOLDOUT_DEMO_SUMMARY];
 
-export const REGIME_DEMO_SUMMARY: RegimeReportSummary = {
-  name: "demo_regime_volatility",
-  store: "thesis_demo/regime_reports",
-  created_at: "2026-04-22T12:00:00Z",
-  experiment_id: RUN_SPY.experiment_id,
-  kind: "volatility",
-  detector_name: "VolatilityRegime",
-  regime_labels: ["LOW", "HIGH"],
-};
-
-export const REGIME_DEMO_DETAIL: RegimeReportDetail = {
-  name: REGIME_DEMO_SUMMARY.name,
-  store: REGIME_DEMO_SUMMARY.store,
-  created_at: REGIME_DEMO_SUMMARY.created_at,
-  git_sha: "11111111111111111111111111111111111111aa",
-  experiment_id: REGIME_DEMO_SUMMARY.experiment_id,
-  kind: REGIME_DEMO_SUMMARY.kind,
-  detector_name: REGIME_DEMO_SUMMARY.detector_name,
-  per_regime_stats: [
-    {
-      regime_label: "LOW",
-      n_folds: 4,
-      sharpe_mean: 1.2,
-      sharpe_std: 0.3,
-      sharpe_ci95_low: 0.6,
-      sharpe_ci95_high: 1.8,
-      sortino_mean: 1.4,
-      sortino_std: 0.3,
-      sortino_ci95_low: 0.8,
-      sortino_ci95_high: 2.0,
-      calmar_mean: 1.0,
-      calmar_std: 0.2,
-      calmar_ci95_low: 0.7,
-      calmar_ci95_high: 1.4,
-      total_return_mean: 0.18,
-      total_return_std: 0.04,
-      max_drawdown_mean: -0.05,
-      max_drawdown_worst: -0.08,
-      win_rate_mean: 0.58,
-      trade_count_total: 100,
-    },
-    {
-      regime_label: "HIGH",
-      n_folds: 3,
-      sharpe_mean: 0.4,
-      sharpe_std: 0.5,
-      sharpe_ci95_low: -0.4,
-      sharpe_ci95_high: 1.2,
-      sortino_mean: 0.5,
-      sortino_std: 0.5,
-      sortino_ci95_low: -0.3,
-      sortino_ci95_high: 1.3,
-      calmar_mean: 0.2,
-      calmar_std: 0.3,
-      calmar_ci95_low: -0.2,
-      calmar_ci95_high: 0.7,
-      total_return_mean: 0.05,
-      total_return_std: 0.06,
-      max_drawdown_mean: -0.12,
-      max_drawdown_worst: -0.18,
-      win_rate_mean: 0.46,
-      trade_count_total: 60,
-    },
-  ],
-  per_regime_fold_indices: { LOW: [0, 2, 4, 6], HIGH: [1, 3, 5] },
-  mixed_fold_indices: [],
-  slices: [
-    { label: "LOW", start: "2024-01-01T00:00:00Z", end: "2024-06-01T00:00:00Z" },
-    { label: "HIGH", start: "2024-06-01T00:00:00Z", end: "2024-09-01T00:00:00Z" },
-    { label: "LOW", start: "2024-09-01T00:00:00Z", end: "2025-01-01T00:00:00Z" },
-  ],
-  plots: ["timeline.png", "metric_heatmap.svg"],
-};
-
-export const SEED_REGIME_REPORTS: RegimeReportSummary[] = [REGIME_DEMO_SUMMARY];
-
 export const STUDY_DEMO_SUMMARY: StudySummary = {
   name: "main",
   spec_name: "demo_spec",
@@ -323,7 +246,7 @@ export const STUDY_DEMO_DETAIL: StudyDetail = {
       run_experiment_id: RUN_SPY.experiment_id,
       started_at: "2026-04-01T00:00:00Z",
       completed_at: "2026-04-01T01:00:00Z",
-      steps_completed: ["tune", "run", "regime", "holdout_eval"],
+      steps_completed: ["tune", "run", "holdout_eval"],
     },
     {
       leg_id: "AdaptiveBollinger__spy_daily_10y",
@@ -345,7 +268,7 @@ export const STUDY_DEMO_DETAIL: StudyDetail = {
       run_experiment_id: RUN_IVV_VOO.experiment_id,
       started_at: "2026-04-01T02:00:00Z",
       completed_at: "2026-04-01T03:00:00Z",
-      steps_completed: ["tune", "run", "regime", "holdout_eval"],
+      steps_completed: ["tune", "run", "holdout_eval"],
     },
     {
       leg_id: "PairsTrading__spy_daily_10y",
@@ -369,10 +292,9 @@ export const STUDY_CONSOLIDATED_DEMO: StudyConsolidatedDTO = {
   strategies: ["AdaptiveBollinger", "PairsTrading"],
   universes: ["spy_daily_5y", "spy_daily_10y"],
   incomplete_leg_ids: ["AdaptiveBollinger__spy_daily_10y", "PairsTrading__spy_daily_10y"],
-  n_legs_with_regime: 2,
   n_legs_with_holdout: 1,
   n_universes_with_pairwise: 1,
-  tables: ["master_ranking.tex", "per_regime_ranking.tex"],
+  tables: ["master_ranking.tex"],
   plots: ["strategy_x_universe_heatmap.png", "holdout_dev_scatter.png"],
 };
 
@@ -559,11 +481,6 @@ export const handlers = [
   http.get(API_PATHS.holdoutEvals, () => HttpResponse.json(SEED_HOLDOUT_EVALS)),
   http.get(toMswPath(API_PATHS.holdoutEval), ({ params }) => {
     if (params.name === HOLDOUT_DEMO_SUMMARY.name) return HttpResponse.json(HOLDOUT_DEMO_DETAIL);
-    return new HttpResponse(null, { status: 404 });
-  }),
-  http.get(API_PATHS.regimeReports, () => HttpResponse.json(SEED_REGIME_REPORTS)),
-  http.get(toMswPath(API_PATHS.regimeReport), ({ params }) => {
-    if (params.name === REGIME_DEMO_SUMMARY.name) return HttpResponse.json(REGIME_DEMO_DETAIL);
     return new HttpResponse(null, { status: 404 });
   }),
   http.get(API_PATHS.studies, () => HttpResponse.json(SEED_STUDIES)),

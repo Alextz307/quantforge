@@ -101,14 +101,12 @@ def assert_data_hash_matches(
     """Refuse on ``data_hash`` drift between a refetch and the manifest.
 
     Drifted bars silently slide every temporal boundary downstream
-    (dev/holdout, walk-forward fold edges, regime-tag windows). That's
-    an anti-leakage vector regardless of which consumer reads it next,
-    so we centralise the check + raise here and use :class:`LeakageError`
-    uniformly. ``context`` names the consumer (e.g. ``"regime tagging"``,
-    ``"holdout boundary anchor"``, ``"compare regime overlay for
-    'AdaptiveBollinger'"``) so the raised message identifies which
-    caller fired the tripwire without the caller needing to spell out
-    the consequence each time.
+    (dev/holdout, walk-forward fold edges). That's an anti-leakage
+    vector regardless of which consumer reads it next, so we centralise
+    the check + raise here and use :class:`LeakageError` uniformly.
+    ``context`` names the consumer (e.g. ``"holdout boundary anchor"``)
+    so the raised message identifies which caller fired the tripwire
+    without the caller needing to spell out the consequence each time.
 
     ``fix_hint`` overrides the default "use the same data source /
     cache" instruction. Callers whose recovery path is different pass a

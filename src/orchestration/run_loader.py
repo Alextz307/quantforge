@@ -6,10 +6,9 @@ Two readers, both anchored on the canonical persistence layout
 * :func:`load_experiment_result` — used by ``experiment compare
   --reuse-runs`` so the comparison reporter can rank + bootstrap-test
   prior runs without retraining the underlying experiments.
-* :func:`load_experiment_config_from_run` — used by the regime-overlay
-  branch of compare when reused runs are passed in. The frozen
-  ``config.yaml`` carries the data block we need to refetch bars for
-  detector tagging.
+* :func:`load_experiment_config_from_run` — reads the frozen
+  ``config.yaml`` back into a typed :class:`ExperimentConfig`.
+* :func:`resolve_run_dir` — path helper that joins ``<store_root>/runs/<id>``.
 """
 
 from __future__ import annotations
@@ -22,6 +21,7 @@ from src.core.persistence import (
     EXPERIMENT_CONFIG_YAML,
     EXPERIMENT_MANIFEST_JSON,
     FOLD_RESULTS_JSONL,
+    RUNS_SUBDIR,
 )
 from src.orchestration.manifest import Manifest
 from src.orchestration.types import ExperimentResult, FoldRecord
@@ -77,3 +77,8 @@ def load_experiment_config_from_run(run_dir: Path) -> ExperimentConfig:
             f"different path."
         )
     return load_experiment_config(config_path)
+
+
+def resolve_run_dir(store_root: Path, experiment_id: str) -> Path:
+    """Resolve ``store_root / runs / <experiment_id>``."""
+    return store_root / RUNS_SUBDIR / experiment_id

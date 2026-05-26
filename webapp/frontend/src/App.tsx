@@ -11,7 +11,6 @@ import { HpoPage } from "@/pages/HpoPage";
 import { JobsPage } from "@/pages/JobsPage";
 import { LoginPage } from "@/pages/LoginPage";
 import { NotFoundPage } from "@/pages/NotFoundPage";
-import { RegimePage } from "@/pages/RegimePage";
 import { RunsPage } from "@/pages/RunsPage";
 import { StudiesPage } from "@/pages/StudiesPage";
 import { ROUTES } from "@/lib/routes";
@@ -24,9 +23,6 @@ const ComparisonDetailPage = lazy(() =>
 );
 const HoldoutDetailPage = lazy(() =>
   import("@/pages/HoldoutDetailPage").then((m) => ({ default: m.HoldoutDetailPage })),
-);
-const RegimeDetailPage = lazy(() =>
-  import("@/pages/RegimeDetailPage").then((m) => ({ default: m.RegimeDetailPage })),
 );
 const StudyDetailPage = lazy(() =>
   import("@/pages/StudyDetailPage").then((m) => ({ default: m.StudyDetailPage })),
@@ -126,15 +122,6 @@ export function App() {
           element={
             <Suspense fallback={<ChartFallback />}>
               <HoldoutDetailPage />
-            </Suspense>
-          }
-        />
-        <Route path={ROUTES.regime} element={<RegimePage />} />
-        <Route
-          path={ROUTES.regimeDetail}
-          element={
-            <Suspense fallback={<ChartFallback />}>
-              <RegimeDetailPage />
             </Suspense>
           }
         />

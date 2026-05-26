@@ -52,7 +52,6 @@ class StudyConsolidatedDTO(BaseModel):
     strategies: list[str]
     universes: list[str]
     incomplete_leg_ids: list[str]
-    n_legs_with_regime: int
     n_legs_with_holdout: int
     n_universes_with_pairwise: int
     tables: list[str]

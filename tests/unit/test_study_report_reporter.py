@@ -27,8 +27,8 @@ _PUBLISH_LABEL = "test_study_v1"
 def _make_report(study_dir: Path) -> ConsolidatedStudyReport:
     """Build a 2-strategy × 2-universe consolidated report.
 
-    Includes regime data on one leg and holdout data on two legs so the
-    full set of conditional sections fires under one assertion sweep.
+    Includes holdout data on two legs so the full set of conditional
+    sections fires under one assertion sweep.
     """
     return ConsolidatedStudyReport(
         study_name="test_study",
@@ -46,16 +46,6 @@ def _make_report(study_dir: Path) -> ConsolidatedStudyReport:
             ("StratA", "uni2"): "stub_StratA__uni2",
             ("StratB", "uni1"): "stub_StratB__uni1",
             ("StratB", "uni2"): "stub_StratB__uni2",
-        },
-        per_leg_regime={
-            ("StratA", "uni1"): {
-                "bull": make_stub_aggregate_stats(sharpe=1.5, n_folds=2),
-                "bear": make_stub_aggregate_stats(sharpe=0.7, n_folds=2),
-            },
-            ("StratB", "uni1"): {
-                "bull": make_stub_aggregate_stats(sharpe=1.0, n_folds=3),
-                "bear": make_stub_aggregate_stats(sharpe=0.4, n_folds=1),
-            },
         },
         per_leg_holdout={
             ("StratA", "uni1"): _holdout(0.95),
@@ -105,25 +95,22 @@ def test_generate_full_report_writes_full_tree(tmp_path: Path) -> None:
     manifest_path = tmp_path / MANIFEST_FILENAME
     assert manifest_path.is_file()
 
-    # Tables: master, per-universe, per-regime, holdout, pairwise long CSV +
+    # Tables: master, per-universe, holdout, pairwise long CSV +
     # per-universe matrix.
     tables = tmp_path / TABLES_SUBDIR
     assert (tables / "master_ranking.tex").is_file()
     assert (tables / "master_ranking.csv").is_file()
     assert (tables / "per_universe_ranking.tex").is_file()
     assert (tables / "per_universe_ranking.csv").is_file()
-    assert (tables / "per_regime_ranking.tex").is_file()
-    assert (tables / "per_regime_ranking.csv").is_file()
     assert (tables / "holdout_results.tex").is_file()
     assert (tables / "holdout_results.csv").is_file()
     assert (tables / "pairwise_significance.csv").is_file()
     assert (tables / "pairwise_significance" / "uni1.tex").is_file()
 
-    # Plots: heatmaps + scatter.
+    # Plots: heatmap + scatter.
     plots = tmp_path / PLOTS_SUBDIR
     for stem in (
         "strategy_x_universe_heatmap",
-        "strategy_x_regime_heatmap",
         "holdout_dev_scatter",
     ):
         assert (plots / f"{stem}.png").is_file(), stem
@@ -140,17 +127,6 @@ def test_master_ranking_sorts_by_sharpe_desc(tmp_path: Path) -> None:
     assert df.iloc[0]["strategy"] == "StratB"
     assert df.iloc[0]["universe"] == "uni2"
     assert df.iloc[0]["sharpe_mean"] == pytest.approx(1.50)
-
-
-def test_per_regime_ranking_long_form(tmp_path: Path) -> None:
-    """Long-form: one row per (strategy, universe, regime) — 4 rows from the fixture."""
-    report = _make_report(study_dir=tmp_path)
-    StudyReportReporter().generate_full_report(report, tmp_path)
-
-    df = pd.read_csv(tmp_path / TABLES_SUBDIR / "per_regime_ranking.csv")
-    assert {"strategy", "universe", "regime", "sharpe_mean"} <= set(df.columns)
-    # 2 strategies × 1 universe × 2 regimes = 4 rows.
-    assert len(df) == 4
 
 
 def test_holdout_results_includes_dev_and_holdout_columns(tmp_path: Path) -> None:
@@ -192,7 +168,7 @@ def test_publish_label_appears_in_tex_caption(tmp_path: Path) -> None:
 
 
 def test_skips_sections_when_no_input_data(tmp_path: Path) -> None:
-    """Sparse report: no regime / no holdout / no pairwise → those tables not written."""
+    """Sparse report: no holdout / no pairwise → those tables not written."""
     sparse = ConsolidatedStudyReport(
         study_name="sparse",
         study_dir=tmp_path,
@@ -200,7 +176,6 @@ def test_skips_sections_when_no_input_data(tmp_path: Path) -> None:
         git_sha="stubsha1",
         per_leg_aggregate={("S", "u"): make_stub_aggregate_stats(sharpe=1.0, n_folds=3)},
         per_leg_run_id={("S", "u"): "stub_run"},
-        per_leg_regime={},
         per_leg_holdout={},
         per_universe_pairwise={},
         incomplete_leg_ids=(),
@@ -209,7 +184,6 @@ def test_skips_sections_when_no_input_data(tmp_path: Path) -> None:
 
     tables = tmp_path / TABLES_SUBDIR
     assert (tables / "master_ranking.tex").is_file()
-    assert not (tables / "per_regime_ranking.tex").exists()
     assert not (tables / "holdout_results.tex").exists()
     assert not (tables / "pairwise_significance.csv").exists()
 

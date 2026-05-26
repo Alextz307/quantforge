@@ -26,7 +26,6 @@ from click.testing import CliRunner
 from src.core.persistence import HPO_SUBDIR, RUNS_SUBDIR
 from src.orchestration.study_state import (
     LEG_STEP_HOLDOUT_EVAL,
-    LEG_STEP_REGIME,
     LEG_STEP_RUN,
     LEG_STEP_TUNE,
     read_study_state,
@@ -220,10 +219,9 @@ def test_study_run_produces_complete_leg_state(
     for leg in state.legs:
         assert leg.is_complete, f"leg {leg.leg_id} did not complete: error={leg.error}"
         assert leg.run_experiment_id is not None
-        # Holdout-eval was on (universe.holdout_pct=0.20), regime off.
+        # Holdout-eval was on (universe.holdout_pct=0.20).
         assert LEG_STEP_TUNE in leg.steps_completed
         assert LEG_STEP_RUN in leg.steps_completed
-        assert LEG_STEP_REGIME in leg.steps_completed
         assert LEG_STEP_HOLDOUT_EVAL in leg.steps_completed
 
     # Per-leg artifact directories materialised.

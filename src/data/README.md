@@ -77,5 +77,5 @@ print(bars.shape, fingerprint_bars(bars)[:12])
 - `data_source_registry` is the source registry used by the config
   layer; `Experiment.run` resolves it via `data_source_registry.create_from_config`.
 - `Manifest.data_hash` (in `src/orchestration/manifest.py`) stores the
-  fingerprint at run time; the regime + holdout-eval workflows
-  re-fetch and compare to detect vendor drift.
+  fingerprint at run time; the holdout-eval workflow re-fetches and
+  compares to detect vendor drift.

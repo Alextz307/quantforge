@@ -2,9 +2,9 @@
 
 Exercises :func:`consolidate_study` against a synthetic ``<study_dir>/``
 tree built on ``tmp_path``. The tree mirrors the orchestrator's output
-layout (``runs/``, ``regime_reports/``, ``holdout_evals/``,
-``comparisons/``, ``study_state.json``) — handcrafting it here avoids
-running the orchestrator and keeps these tests in unit-tier latency.
+layout (``runs/``, ``holdout_evals/``, ``comparisons/``,
+``study_state.json``) — handcrafting it here avoids running the
+orchestrator and keeps these tests in unit-tier latency.
 
 The reporter side (PNG/SVG/.tex emission) is exercised in
 ``test_study_report_reporter.py``; this file focuses on the JSON parsing
@@ -20,7 +20,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from src.analysis.metrics_aggregator import AggregateStats, aggregate_folds
+from src.analysis.metrics_aggregator import aggregate_folds
 from src.core import json_io
 from src.core.persistence import (
     COMPARISONS_SUBDIR,
@@ -28,7 +28,6 @@ from src.core.persistence import (
     FOLD_RESULTS_JSONL,
     HOLDOUT_EVAL_JSON,
     HOLDOUT_EVALS_SUBDIR,
-    REGIME_REPORTS_SUBDIR,
     RUNS_SUBDIR,
 )
 from src.engine.scenarios import SlippageScenario
@@ -46,7 +45,6 @@ from src.orchestration.types import FoldRecord, PairwiseSignificance
 from src.visualization.plots import MANIFEST_FILENAME
 from tests.conftest import (
     make_log_return_equity_curve,
-    make_stub_aggregate_stats,
     make_stub_fold_record,
 )
 
@@ -93,30 +91,6 @@ def _write_fake_run(
         holdout_start=_HOLDOUT_START,
     )
     json_io.write(run_dir / EXPERIMENT_MANIFEST_JSON, manifest.to_dict())
-
-
-def _write_fake_regime_manifest(
-    regime_dir: Path,
-    *,
-    leg_id: str,
-    per_regime: dict[str, AggregateStats],
-) -> None:
-    """Match ``RegimeReporter`` manifest schema for the fields the consolidator reads."""
-    out_dir = regime_dir / leg_id
-    out_dir.mkdir(parents=True)
-    payload: dict[str, object] = {
-        "out_name": leg_id,
-        "experiment_id": f"stub_{leg_id}",
-        "kind": "trend",
-        "detector_name": "trend",
-        "created_at": datetime.now(UTC).isoformat(),
-        "git_sha": "stubsha1",
-        "per_regime_stats": {label: stats.to_dict() for label, stats in per_regime.items()},
-        "per_regime_fold_indices": {label: [] for label in per_regime},
-        "mixed_fold_indices": [],
-        "slices": [],
-    }
-    json_io.write(out_dir / MANIFEST_FILENAME, payload)
 
 
 def _write_fake_holdout(
@@ -179,7 +153,6 @@ def _build_study_dir(
     *,
     legs: Sequence[tuple[str, str, str, tuple[float, ...]]],
     incomplete_leg_ids: tuple[str, ...] = (),
-    regime_data: dict[str, dict[str, AggregateStats]] | None = None,
     holdout_data: dict[str, float] | None = None,
     comparison_data: dict[str, tuple[PairwiseSignificance, ...]] | None = None,
 ) -> Path:
@@ -193,7 +166,6 @@ def _build_study_dir(
     study_dir = tmp_path / "study"
     study_dir.mkdir()
     runs_dir = study_dir / RUNS_SUBDIR
-    regime_dir = study_dir / REGIME_REPORTS_SUBDIR
     holdout_dir = study_dir / HOLDOUT_EVALS_SUBDIR
     comparisons_dir = study_dir / COMPARISONS_SUBDIR
 
@@ -218,9 +190,6 @@ def _build_study_dir(
             )
         )
 
-    if regime_data:
-        for leg_id, per_regime in regime_data.items():
-            _write_fake_regime_manifest(regime_dir, leg_id=leg_id, per_regime=per_regime)
     if holdout_data:
         for leg_id, sharpe in holdout_data.items():
             _write_fake_holdout(holdout_dir, leg_id=leg_id, sharpe=sharpe)
@@ -243,7 +212,7 @@ def _build_study_dir(
 
 
 def test_consolidate_study_full_tree(tmp_path: Path) -> None:
-    """All four artifact kinds present → all four maps populated."""
+    """All artifact kinds present → all maps populated."""
     legs = [
         ("StratA__uni1", "StratA", "uni1", (1.2, 1.3, 1.1)),
         ("StratA__uni2", "StratA", "uni2", (0.5, 0.6, 0.7)),
@@ -264,7 +233,6 @@ def test_consolidate_study_full_tree(tmp_path: Path) -> None:
     study_dir = _build_study_dir(
         tmp_path,
         legs=legs,
-        regime_data={"StratA__uni1": {"bull": make_stub_aggregate_stats(sharpe=1.5, n_folds=2)}},
         holdout_data={"StratA__uni1": 0.95, "StratB__uni2": 1.10},
         comparison_data={"uni1": pair_uni1},
     )
@@ -282,8 +250,6 @@ def test_consolidate_study_full_tree(tmp_path: Path) -> None:
     assert strat_a_uni1.sharpe_mean == pytest.approx(
         aggregate_folds(_load_folds(study_dir, "stub_StratA__uni1")).sharpe_mean
     )
-    assert ("StratA", "uni1") in report.per_leg_regime
-    assert "bull" in report.per_leg_regime[("StratA", "uni1")]
     assert ("StratA", "uni1") in report.per_leg_holdout
     assert report.per_leg_holdout[("StratA", "uni1")].sharpe_ratio == 0.95
     assert "uni1" in report.per_universe_pairwise
@@ -304,13 +270,12 @@ def test_consolidate_study_skips_incomplete_legs(tmp_path: Path) -> None:
     assert report.incomplete_leg_ids == ("StratA__uni2",)
 
 
-def test_consolidate_study_no_regime_no_holdout_no_compare(tmp_path: Path) -> None:
+def test_consolidate_study_no_holdout_no_compare(tmp_path: Path) -> None:
     """Sparse tree: only runs/, no auxiliary artifacts."""
     legs = [("StratA__uni1", "StratA", "uni1", (1.0, 1.1, 1.2))]
     study_dir = _build_study_dir(tmp_path, legs=legs)
     report = consolidate_study(study_dir)
     assert len(report.per_leg_aggregate) == 1
-    assert report.per_leg_regime == {}
     assert report.per_leg_holdout == {}
     assert report.per_universe_pairwise == {}
 
