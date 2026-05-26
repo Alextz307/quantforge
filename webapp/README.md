@@ -46,7 +46,12 @@ Configs (auth-gated):
 - `POST /api/configs/validate` — validate a payload against the matching Pydantic model; returns `{valid, errors[]}` with structured `loc/msg/type` items.
 
 Jobs (auth-gated; per-user scope, admins may pass `?all=1`):
-- `POST /api/jobs` — submit a `JobSubmission` (`kind=run` with `config_payload`, or `kind=tune` with `config_payload` + `hpo_payload`); validates upfront and returns 422 with the same `loc/msg/type` shape on bad payloads.
+- `POST /api/jobs` — submit a `JobSubmission`. The `kind` discriminator selects the payload:
+  - `kind=run` + `config_payload` — spawn `experiment run`.
+  - `kind=tune` + `config_payload` + `hpo_payload` — spawn `experiment tune`.
+  - `kind=compare` + `compare_payload` — spawn `experiment compare` in `--reuse-runs` mode over 2–8 existing run dirs.
+  - `kind=holdout` + `holdout_payload` — spawn `experiment holdout-eval` against a run (with `holdout_start`) or an HPO study (with `best_config.yaml`).
+  Validates upfront and returns 422 with the same `loc/msg/type` shape on bad payloads.
 - `GET /api/jobs`, `GET /api/jobs/{id}`, `DELETE /api/jobs/{id}` — list / fetch / cancel.
 - `GET /api/jobs/{id}/log` — full log file (text response).
 
@@ -102,9 +107,13 @@ in one terminal and `make webapp-frontend-dev` in another. CORS is open to
 forwards both `/api/*` HTTP and the `/api/jobs/{id}/stream` WebSocket
 upgrade so the session cookie travels through dev mode unchanged.
 
-The backend accepts `POST /api/jobs`, spawns the existing `experiment run`
-CLI as a subprocess under `webapp/data/jobs/<job_id>.{yaml,log}`, and the
-SPA's Configure + Jobs pages drive the lifecycle.
+The backend accepts `POST /api/jobs`, spawns the matching `experiment`
+subcommand (`run` / `tune` / `compare` / `holdout-eval`) under
+`webapp/data/jobs/<job_id>.{yaml,log}`, and the SPA's Configure + Jobs
+pages drive the lifecycle. `/configure` is a 4-card hub: Run / Tune build
+experiments from scratch, while Compare / Holdout reuse completed
+artifacts (the run/HPO detail pages also surface contextual "Run holdout
+eval" CTAs when the source carries the required artifact).
 
 ## Cross-links
 

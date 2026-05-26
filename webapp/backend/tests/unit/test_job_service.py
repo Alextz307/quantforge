@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import os
 import sqlite3
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import cast
 from unittest.mock import AsyncMock
@@ -12,6 +13,14 @@ from unittest.mock import AsyncMock
 import pytest
 import yaml
 
+from src.core import json_io
+from src.core.persistence import (
+    EXPERIMENT_MANIFEST_JSON,
+    HPO_SUBDIR,
+    RUNS_SUBDIR,
+)
+from src.optimization.checkpointing import BEST_CONFIG_YAML_NAME
+from src.orchestration.comparison import SignificanceTest
 from webapp.backend.app.core.types import Role
 from webapp.backend.app.infrastructure.job_store import (
     NewJob,
@@ -25,7 +34,13 @@ from webapp.backend.app.infrastructure.process_manager import (
     JobEventBroker,
     ProcessManager,
 )
-from webapp.backend.app.schemas.jobs import JobKind, JobStatus, JobSubmission
+from webapp.backend.app.schemas.jobs import (
+    ComparePayload,
+    HoldoutPayload,
+    JobKind,
+    JobStatus,
+    JobSubmission,
+)
 from webapp.backend.app.schemas.users import UserPublic
 from webapp.backend.app.services.job_service import (
     JobConfigInvalidError,
@@ -39,7 +54,7 @@ from webapp.backend.app.services.job_service import (
 )
 from webapp.backend.app.services.user_service import create_user
 
-from ..conftest import make_valid_experiment_payload
+from ..conftest import make_synthetic_run, make_valid_experiment_payload
 
 USER_PASSWORD = "password123"
 FAKE_PID = 12345
@@ -443,4 +458,336 @@ def test_job_submission_validator_requires_hpo_payload_for_tune() -> None:
         JobSubmission(
             kind=JobKind.TUNE,
             config_payload=make_valid_experiment_payload(),
+        )
+
+
+# Compare + holdout fixtures + tests --------------------------------------------------------
+
+# All run ids share a 64-char hash suffix shape so ``find_run_dir``'s glob
+# resolves without ambiguity in a freshly-seeded store.
+_COMPARE_RUN_A = "20260101_120000_AdaptiveBollinger_abc1234_deadbeef"
+_COMPARE_RUN_B = "20260201_090000_AdaptiveBollinger_def5678_cafebabe"
+_HOLDOUT_RUN_ID = "20260301_080000_AdaptiveBollinger_aaa0000_bbbb1111"
+_HPO_STUDY = "demo_study"
+
+
+def _seed_run_with_holdout(store_root: Path, experiment_id: str, holdout_start: str) -> Path:
+    """Synthetic run whose ``manifest.holdout_start`` is non-null."""
+    run_dir = make_synthetic_run(
+        store_root / RUNS_SUBDIR,
+        experiment_id=experiment_id,
+        created_at=datetime(2026, 3, 1, tzinfo=UTC),
+    )
+    # ``make_synthetic_run`` stamps ``holdout_start=None``; patch in place.
+    manifest = json_io.read_dict(run_dir / EXPERIMENT_MANIFEST_JSON)
+    manifest["holdout_start"] = holdout_start
+    json_io.write(run_dir / EXPERIMENT_MANIFEST_JSON, manifest)
+    return run_dir
+
+
+def _seed_hpo_study(
+    store_root: Path,
+    name: str,
+    *,
+    write_best_config: bool = True,
+    holdout_pct: float = 0.2,
+) -> Path:
+    study_dir = store_root / HPO_SUBDIR / name
+    study_dir.mkdir(parents=True, exist_ok=True)
+    json_io.write_jsonl(study_dir / "trials.jsonl", [])
+    if write_best_config:
+        best_cfg: dict[str, object] = {
+            "strategy": {"name": "AdaptiveBollinger", "params": {}},
+            "validation": {"holdout_pct": holdout_pct},
+        }
+        (study_dir / BEST_CONFIG_YAML_NAME).write_text(
+            yaml.safe_dump(best_cfg),
+            encoding="utf-8",
+        )
+    return study_dir
+
+
+def test_submit_compare_spawns_with_reuse_runs_and_persists_out_name(
+    db_conn: sqlite3.Connection, tmp_path: Path
+) -> None:
+    user = _user(db_conn, "alice")
+    manager = _stub_manager()
+    store_root = tmp_path / "store"
+    make_synthetic_run(store_root / RUNS_SUBDIR, experiment_id=_COMPARE_RUN_A)
+    make_synthetic_run(store_root / RUNS_SUBDIR, experiment_id=_COMPARE_RUN_B)
+    submission = JobSubmission(
+        kind=JobKind.COMPARE,
+        compare_payload=ComparePayload(
+            run_ids=[_COMPARE_RUN_A, _COMPARE_RUN_B],
+            out_name="my_compare",
+            significance_test=SignificanceTest.BOOTSTRAP,
+        ),
+    )
+
+    row = asyncio.run(
+        submit_job(
+            conn=db_conn,
+            manager=manager,
+            user=user,
+            submission=submission,
+            store_root=store_root,
+            job_temp_dir=tmp_path / "jobs",
+        )
+    )
+
+    assert row.status is JobStatus.RUNNING
+    assert row.kind is JobKind.COMPARE
+    # Artifact name is pre-committed at submission so live-job lookups work
+    # before the subprocess writes the comparison dir.
+    assert row.experiment_id == "my_compare"
+    spawn = cast(AsyncMock, manager.spawn)
+    spawn.assert_awaited_once()
+    assert spawn.await_args is not None
+    spawn_kwargs = spawn.await_args.kwargs
+    command = spawn_kwargs["command"]
+    assert "compare" in command
+    assert "--reuse-runs" in command
+    reuse_value = command[command.index("--reuse-runs") + 1]
+    # Reuse runs string carries both run dirs in matching order.
+    assert _COMPARE_RUN_A in reuse_value
+    assert _COMPARE_RUN_B in reuse_value
+    assert reuse_value.index(_COMPARE_RUN_A) < reuse_value.index(_COMPARE_RUN_B)
+    assert spawn_kwargs["artifact_id"] == "my_compare"
+
+
+def test_submit_compare_rejects_unknown_run_id(
+    db_conn: sqlite3.Connection, tmp_path: Path
+) -> None:
+    user = _user(db_conn, "alice")
+    manager = _stub_manager()
+    store_root = tmp_path / "store"
+    make_synthetic_run(store_root / RUNS_SUBDIR, experiment_id=_COMPARE_RUN_A)
+    submission = JobSubmission(
+        kind=JobKind.COMPARE,
+        compare_payload=ComparePayload(
+            run_ids=[_COMPARE_RUN_A, "ghost_run_id_not_on_disk"],
+            out_name="bad_compare",
+        ),
+    )
+
+    with pytest.raises(JobConfigInvalidError) as excinfo:
+        asyncio.run(
+            submit_job(
+                conn=db_conn,
+                manager=manager,
+                user=user,
+                submission=submission,
+                store_root=store_root,
+                job_temp_dir=tmp_path / "jobs",
+            )
+        )
+
+    # Errors are positional: ghost id sits at index 1.
+    locs = [err.loc for err in excinfo.value.errors]
+    assert ["compare_payload", "run_ids", "1"] in locs
+    assert list_jobs(db_conn, user_id=user.id) == []
+    cast(AsyncMock, manager.spawn).assert_not_awaited()
+
+
+def test_compare_payload_rejects_fewer_than_two_runs() -> None:
+    with pytest.raises(ValueError):
+        ComparePayload(run_ids=[_COMPARE_RUN_A], out_name="single_run_compare")
+
+
+def test_compare_payload_rejects_invalid_slug() -> None:
+    with pytest.raises(ValueError):
+        ComparePayload(run_ids=[_COMPARE_RUN_A, _COMPARE_RUN_B], out_name="has spaces")
+
+
+def test_submit_holdout_from_run_spawns_with_run_dir_flag(
+    db_conn: sqlite3.Connection, tmp_path: Path
+) -> None:
+    user = _user(db_conn, "alice")
+    manager = _stub_manager()
+    store_root = tmp_path / "store"
+    run_dir = _seed_run_with_holdout(store_root, _HOLDOUT_RUN_ID, "2024-01-01T00:00:00")
+    submission = JobSubmission(
+        kind=JobKind.HOLDOUT,
+        holdout_payload=HoldoutPayload(
+            source_kind="run", source_id=_HOLDOUT_RUN_ID, out_name="my_holdout"
+        ),
+    )
+
+    row = asyncio.run(
+        submit_job(
+            conn=db_conn,
+            manager=manager,
+            user=user,
+            submission=submission,
+            store_root=store_root,
+            job_temp_dir=tmp_path / "jobs",
+        )
+    )
+
+    assert row.status is JobStatus.RUNNING
+    assert row.kind is JobKind.HOLDOUT
+    assert row.experiment_id == "my_holdout"
+    spawn = cast(AsyncMock, manager.spawn)
+    assert spawn.await_args is not None
+    command = spawn.await_args.kwargs["command"]
+    assert "holdout-eval" in command
+    assert "--run-dir" in command
+    assert str(run_dir) in command
+    assert "--hpo-best" not in command
+
+
+def test_submit_holdout_from_hpo_spawns_with_hpo_best_flag(
+    db_conn: sqlite3.Connection, tmp_path: Path
+) -> None:
+    user = _user(db_conn, "alice")
+    manager = _stub_manager()
+    store_root = tmp_path / "store"
+    study_dir = _seed_hpo_study(store_root, _HPO_STUDY)
+    submission = JobSubmission(
+        kind=JobKind.HOLDOUT,
+        holdout_payload=HoldoutPayload(source_kind="hpo", source_id=_HPO_STUDY),
+    )
+
+    row = asyncio.run(
+        submit_job(
+            conn=db_conn,
+            manager=manager,
+            user=user,
+            submission=submission,
+            store_root=store_root,
+            job_temp_dir=tmp_path / "jobs",
+        )
+    )
+
+    # out_name defaults to the source basename (= study name).
+    assert row.experiment_id == _HPO_STUDY
+    spawn = cast(AsyncMock, manager.spawn)
+    assert spawn.await_args is not None
+    command = spawn.await_args.kwargs["command"]
+    assert "--hpo-best" in command
+    assert str(study_dir) in command
+
+
+def test_submit_holdout_rejects_run_without_holdout_start(
+    db_conn: sqlite3.Connection, tmp_path: Path
+) -> None:
+    """A run with ``manifest.holdout_start == null`` cannot be evaluated."""
+    user = _user(db_conn, "alice")
+    manager = _stub_manager()
+    store_root = tmp_path / "store"
+    # ``make_synthetic_run`` defaults ``holdout_start=None`` — the rejected case.
+    make_synthetic_run(store_root / RUNS_SUBDIR, experiment_id=_HOLDOUT_RUN_ID)
+    submission = JobSubmission(
+        kind=JobKind.HOLDOUT,
+        holdout_payload=HoldoutPayload(source_kind="run", source_id=_HOLDOUT_RUN_ID),
+    )
+
+    with pytest.raises(JobConfigInvalidError) as excinfo:
+        asyncio.run(
+            submit_job(
+                conn=db_conn,
+                manager=manager,
+                user=user,
+                submission=submission,
+                store_root=store_root,
+                job_temp_dir=tmp_path / "jobs",
+            )
+        )
+
+    locs = [err.loc for err in excinfo.value.errors]
+    assert ["holdout_payload", "source_id"] in locs
+    assert "no holdout boundary" in excinfo.value.errors[0].msg
+
+
+def test_submit_holdout_rejects_hpo_without_best_config(
+    db_conn: sqlite3.Connection, tmp_path: Path
+) -> None:
+    """HPO study with no completed trials → no ``best_config.yaml`` → rejected."""
+    user = _user(db_conn, "alice")
+    manager = _stub_manager()
+    store_root = tmp_path / "store"
+    _seed_hpo_study(store_root, _HPO_STUDY, write_best_config=False)
+    submission = JobSubmission(
+        kind=JobKind.HOLDOUT,
+        holdout_payload=HoldoutPayload(source_kind="hpo", source_id=_HPO_STUDY),
+    )
+
+    with pytest.raises(JobConfigInvalidError) as excinfo:
+        asyncio.run(
+            submit_job(
+                conn=db_conn,
+                manager=manager,
+                user=user,
+                submission=submission,
+                store_root=store_root,
+                job_temp_dir=tmp_path / "jobs",
+            )
+        )
+
+    assert "best_config.yaml" in excinfo.value.errors[0].msg
+
+
+def test_submit_holdout_rejects_hpo_whose_best_config_reserves_no_holdout(
+    db_conn: sqlite3.Connection, tmp_path: Path
+) -> None:
+    """Best_config exists but ``validation.holdout_pct=0`` → 422 with structured loc.
+
+    Mirrors the CLI's manifest-level guard but fires at the API boundary so the
+    user doesn't pay a "submit → wait → fail" round trip.
+    """
+    user = _user(db_conn, "alice")
+    manager = _stub_manager()
+    store_root = tmp_path / "store"
+    _seed_hpo_study(store_root, _HPO_STUDY, holdout_pct=0.0)
+    submission = JobSubmission(
+        kind=JobKind.HOLDOUT,
+        holdout_payload=HoldoutPayload(source_kind="hpo", source_id=_HPO_STUDY),
+    )
+
+    with pytest.raises(JobConfigInvalidError) as excinfo:
+        asyncio.run(
+            submit_job(
+                conn=db_conn,
+                manager=manager,
+                user=user,
+                submission=submission,
+                store_root=store_root,
+                job_temp_dir=tmp_path / "jobs",
+            )
+        )
+
+    assert "reserved no holdout region" in excinfo.value.errors[0].msg
+    assert excinfo.value.errors[0].loc == ["holdout_payload", "source_id"]
+    assert list_jobs(db_conn, user_id=user.id) == []
+
+
+def test_job_submission_validator_rejects_compare_with_config_payload() -> None:
+    with pytest.raises(ValueError, match="config_payload must be omitted"):
+        JobSubmission(
+            kind=JobKind.COMPARE,
+            config_payload=make_valid_experiment_payload(),
+            compare_payload=ComparePayload(
+                run_ids=[_COMPARE_RUN_A, _COMPARE_RUN_B], out_name="x"
+            ),
+        )
+
+
+def test_job_submission_validator_requires_compare_payload_for_compare() -> None:
+    with pytest.raises(ValueError, match="compare_payload is required"):
+        JobSubmission(kind=JobKind.COMPARE)
+
+
+def test_job_submission_validator_requires_holdout_payload_for_holdout() -> None:
+    with pytest.raises(ValueError, match="holdout_payload is required"):
+        JobSubmission(kind=JobKind.HOLDOUT)
+
+
+def test_job_submission_validator_rejects_holdout_with_compare_payload() -> None:
+    with pytest.raises(ValueError, match="compare_payload must be omitted"):
+        JobSubmission(
+            kind=JobKind.HOLDOUT,
+            compare_payload=ComparePayload(
+                run_ids=[_COMPARE_RUN_A, _COMPARE_RUN_B], out_name="x"
+            ),
+            holdout_payload=HoldoutPayload(source_kind="run", source_id=_HOLDOUT_RUN_ID),
         )

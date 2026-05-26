@@ -40,6 +40,13 @@ class HpoSummary(BaseModel):
     best_value: float | None
     best_trial_number: int | None
     direction: StudyDirection
+    has_best_config: bool
+    # True iff best_config.yaml exists AND its validation block reserves a
+    # holdout region (``holdout_pct > 0`` or ``holdout_start`` pinned). The
+    # holdout-launcher picker filters to eligible studies on this flag so the
+    # user can't pick a source the CLI would reject for "no holdout
+    # reservation" after the subprocess spawns.
+    best_config_reserves_holdout: bool
 
 
 class HpoDetail(BaseModel):
@@ -52,6 +59,7 @@ class HpoDetail(BaseModel):
     best_trial_number: int | None
     direction: StudyDirection
     best_config: dict[str, object]
+    best_config_reserves_holdout: bool
     live_job_id: str | None
 
 

@@ -1,7 +1,8 @@
 import { useMemo } from "react";
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { plotDownloadUrl, useRun, useRunFolds, type FoldRow } from "@/api/runs";
 import { BackLink } from "@/components/BackLink";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EquityChart, type EquityTrace } from "@/components/charts/EquityChart";
 import { FoldMetricsTable } from "@/components/runs/FoldMetricsTable";
@@ -10,6 +11,7 @@ import { PlotIndex } from "@/components/PlotIndex";
 import { QueryRenderer } from "@/components/QueryRenderer";
 import { formatMetric } from "@/lib/format";
 import { ROUTES } from "@/lib/routes";
+import { SOURCE_KIND_RUN } from "@/lib/sourceKind";
 
 function MetricsGrid({ metrics }: { metrics: Record<string, number> }) {
   const entries = useMemo(
@@ -44,7 +46,19 @@ export function RunDetailPage() {
     <QueryRenderer query={runQuery} errorTitle="Failed to load run" loadingMessage="Loading run…">
       {(run) => (
         <div className="flex flex-col gap-4">
-          <BackLink to={ROUTES.runs}>All runs</BackLink>
+          <div className="flex items-center justify-between">
+            <BackLink to={ROUTES.runs}>All runs</BackLink>
+            {run.holdout_start !== null && (
+              <Button asChild variant="outline" size="sm">
+                <Link
+                  to={`${ROUTES.configureHoldout}?source_kind=${SOURCE_KIND_RUN}&source_id=${encodeURIComponent(run.experiment_id)}`}
+                  data-testid="run-detail-holdout-cta"
+                >
+                  Run holdout eval
+                </Link>
+              </Button>
+            )}
+          </div>
           <ManifestPanel run={run} />
 
           <Card>

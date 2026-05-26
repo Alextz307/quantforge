@@ -73,6 +73,31 @@ def test_list_jobs_filters_by_user(db_conn: sqlite3.Connection) -> None:
     assert len(all_jobs) == 3
 
 
+def test_list_jobs_orders_queued_first_then_started_newest_first(
+    db_conn: sqlite3.Connection,
+) -> None:
+    """Queued jobs surface above started ones; started jobs are newest-first.
+
+    Pins the SQL ORDER BY contract so the UI doesn't need a sort widget.
+    """
+    uid = _create_user(db_conn, "alice")
+    earliest = insert_job(db_conn, _new_job(uid, command="earliest"))
+    middle = insert_job(db_conn, _new_job(uid, command="middle"))
+    latest = insert_job(db_conn, _new_job(uid, command="latest"))
+    queued = insert_job(db_conn, _new_job(uid, command="still_queued"))
+    # Start in non-id order so the test would fail under the legacy ``ORDER BY id DESC``.
+    mark_running(db_conn, earliest.id, RUN_PID)
+    mark_running(db_conn, latest.id, RUN_PID + 1)
+    mark_running(db_conn, middle.id, RUN_PID + 2)
+
+    ordering = [j.id for j in list_jobs(db_conn, user_id=uid)]
+
+    # Queued (no started_at) comes first; started jobs follow in started_at-desc.
+    # mark_running stamps started_at to now(), so the most recently marked
+    # (``middle``) is the freshest start.
+    assert ordering == [queued.id, middle.id, latest.id, earliest.id]
+
+
 def test_mark_running_then_terminal_transitions(db_conn: sqlite3.Connection) -> None:
     uid = _create_user(db_conn, "alice")
     job = insert_job(db_conn, _new_job(uid))

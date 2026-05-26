@@ -97,4 +97,28 @@ describe("HpoDetailPage", () => {
       expect(screen.getByTestId("connection-indicator")).toBeInTheDocument();
     });
   });
+
+  it("shows the 'Run holdout eval' CTA when best_config reserves a holdout region", async () => {
+    renderWithProviders(<Tree />, {
+      initialEntries: [`/hpo/${HPO_DEMO_SUMMARY.name}`],
+    });
+    const cta = await screen.findByTestId("hpo-detail-holdout-cta");
+    expect(cta).toHaveAttribute(
+      "href",
+      `${ROUTES.configureHoldout}?source_kind=hpo&source_id=${HPO_DEMO_SUMMARY.name}`,
+    );
+  });
+
+  it("hides the holdout CTA when best_config does not reserve a holdout region", async () => {
+    server.use(
+      http.get(toMswPath(API_PATHS.hpoStudy), () =>
+        HttpResponse.json({ ...HPO_DEMO_DETAIL, best_config_reserves_holdout: false }),
+      ),
+    );
+    renderWithProviders(<Tree />, {
+      initialEntries: [`/hpo/${HPO_DEMO_SUMMARY.name}`],
+    });
+    await screen.findByTestId("hpo-convergence");
+    expect(screen.queryByTestId("hpo-detail-holdout-cta")).not.toBeInTheDocument();
+  });
 });

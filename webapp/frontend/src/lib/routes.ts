@@ -3,6 +3,8 @@ export const ROUTES = {
   configure: "/configure",
   configureRun: "/configure/run",
   configureTune: "/configure/tune",
+  configureCompare: "/configure/compare",
+  configureHoldout: "/configure/holdout",
   jobs: "/jobs",
   jobDetail: "/jobs/:jobId",
   runs: "/runs",

@@ -1,7 +1,8 @@
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { useHpoParamImportance, useHpoStudy, useHpoTrials, type HpoDetail } from "@/api/hpo";
 import { BackLink } from "@/components/BackLink";
 import { ConnectionIndicator } from "@/components/ConnectionIndicator";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { HpoConvergenceChart } from "@/components/charts/HpoConvergenceChart";
 import { HpoParamImportanceChart } from "@/components/charts/HpoParamImportanceChart";
@@ -12,6 +13,7 @@ import { QueryRenderer } from "@/components/QueryRenderer";
 import { useHpoTrialStream } from "@/hooks/useHpoTrialStream";
 import { formatDateTime, formatMetric } from "@/lib/format";
 import { ROUTES } from "@/lib/routes";
+import { SOURCE_KIND_HPO } from "@/lib/sourceKind";
 
 function IdentityCard({ study }: { study: HpoDetail }) {
   return (
@@ -48,7 +50,19 @@ export function HpoDetailPage() {
     >
       {(study) => (
         <div className="flex flex-col gap-4">
-          <BackLink to={ROUTES.hpo}>All HPO studies</BackLink>
+          <div className="flex items-center justify-between">
+            <BackLink to={ROUTES.hpo}>All HPO studies</BackLink>
+            {study.best_config_reserves_holdout && (
+              <Button asChild variant="outline" size="sm">
+                <Link
+                  to={`${ROUTES.configureHoldout}?source_kind=${SOURCE_KIND_HPO}&source_id=${encodeURIComponent(study.name)}`}
+                  data-testid="hpo-detail-holdout-cta"
+                >
+                  Run holdout eval
+                </Link>
+              </Button>
+            )}
+          </div>
           {isLive && <ConnectionIndicator state={stream.connection} className="self-start" />}
           <IdentityCard study={study} />
 

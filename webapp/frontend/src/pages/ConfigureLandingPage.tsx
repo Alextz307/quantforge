@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Beaker, PlayCircle, type LucideIcon } from "lucide-react";
+import { Beaker, GitCompareArrows, PlayCircle, ShieldCheck, type LucideIcon } from "lucide-react";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ROUTES } from "@/lib/routes";
 
@@ -35,8 +35,8 @@ export function ConfigureLandingPage() {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Configure</h1>
         <p className="text-sm text-muted-foreground">
-          Pick what to launch. Both flows share the same data + strategy block; tune adds the HPO
-          knobs.
+          Pick what to launch. Run + tune build experiments from scratch; compare + holdout reuse
+          completed artifacts.
         </p>
       </div>
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -51,6 +51,18 @@ export function ConfigureLandingPage() {
           icon={Beaker}
           title="New tune"
           description="Optuna study over the strategy's suggest_params space. Live-monitors trials as they land."
+        />
+        <KindCard
+          to={ROUTES.configureCompare}
+          icon={GitCompareArrows}
+          title="New comparison"
+          description="Rank 2-8 completed runs head-to-head with paired Sharpe-differential bootstrap."
+        />
+        <KindCard
+          to={ROUTES.configureHoldout}
+          icon={ShieldCheck}
+          title="New holdout eval"
+          description="Refit on full dev, evaluate once on the reserved holdout — honest OOS metrics."
         />
       </div>
     </div>

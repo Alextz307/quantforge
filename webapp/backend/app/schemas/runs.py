@@ -26,6 +26,11 @@ class RunSummary(BaseModel):
 
     Strategy/tickers/interval are sourced from the run's frozen
     `config.yaml` so any future strategy works without changing this code.
+    ``has_holdout`` mirrors ``manifest.holdout_start is not None`` so the
+    holdout-launcher form can filter eligible runs without a per-row
+    detail fetch. ``data_hash`` is the run's bar-series fingerprint so the
+    compare picker can lock subsequent selections to the first run's
+    universe (the paired-bootstrap test rejects mixed bar indices).
     """
 
     experiment_id: str
@@ -37,6 +42,8 @@ class RunSummary(BaseModel):
     created_at: datetime
     sharpe_mean: float | None
     calmar_mean: float | None
+    has_holdout: bool
+    data_hash: str
 
 
 class RunDetail(BaseModel):

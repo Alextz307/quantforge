@@ -307,6 +307,8 @@ def _summarize(run_dir: Path, root: Path) -> RunSummary:
         created_at=manifest.created_at,
         sharpe_mean=metrics.get("sharpe_mean"),
         calmar_mean=metrics.get("calmar_mean"),
+        has_holdout=manifest.holdout_start is not None,
+        data_hash=manifest.data_hash,
     )
 
 

@@ -22,7 +22,11 @@ const DEFAULT_LIMIT = 50;
 // query/fetch waits for the input to settle so the server isn't hit per
 // keystroke and the React Query cache cannot accumulate unbounded keys.
 const FILTER_DEBOUNCE_MS = 300;
-const SORT_BY_VALUES: ReadonlySet<RunSortBy> = new Set(["created_at", "sharpe_mean", "calmar_mean"]);
+const SORT_BY_VALUES: ReadonlySet<RunSortBy> = new Set([
+  "created_at",
+  "sharpe_mean",
+  "calmar_mean",
+]);
 const ORDER_VALUES: ReadonlySet<SortOrder> = new Set(["asc", "desc"]);
 
 interface RunsPageState {
@@ -43,7 +47,8 @@ function readState(params: URLSearchParams): RunsPageState {
   return {
     limit: Number.isFinite(limit) && limit > 0 ? limit : DEFAULT_LIMIT,
     offset: Number.isFinite(offset) && offset >= 0 ? offset : 0,
-    sortBy: sortBy && SORT_BY_VALUES.has(sortBy as RunSortBy) ? (sortBy as RunSortBy) : "created_at",
+    sortBy:
+      sortBy && SORT_BY_VALUES.has(sortBy as RunSortBy) ? (sortBy as RunSortBy) : "created_at",
     order: order && ORDER_VALUES.has(order as SortOrder) ? (order as SortOrder) : "desc",
     strategy: params.get("strategy") ?? "",
     ticker: params.get("ticker") ?? "",
@@ -109,7 +114,9 @@ export function RunsPage() {
               id="filter-strategy"
               value={state.strategy}
               placeholder="e.g. VolatilityTargeting"
-              onChange={(e) => updateFilter("strategy", e.target.value)}
+              onChange={(e) => {
+                updateFilter("strategy", e.target.value);
+              }}
             />
           </div>
           <div className="flex flex-col gap-1">
@@ -118,14 +125,18 @@ export function RunsPage() {
               id="filter-ticker"
               value={state.ticker}
               placeholder="e.g. SPY"
-              onChange={(e) => updateFilter("ticker", e.target.value)}
+              onChange={(e) => {
+                updateFilter("ticker", e.target.value);
+              }}
             />
           </div>
           <FilterDate
             id="filter-since"
             label="Since"
             value={state.since}
-            onChange={(v) => updateFilter("since", v)}
+            onChange={(v) => {
+              updateFilter("since", v);
+            }}
           />
         </div>
 
@@ -135,12 +146,12 @@ export function RunsPage() {
               page={page}
               state={state}
               onToggleSort={toggleSort}
-              onPrev={() =>
-                updateParam("offset", String(Math.max(0, state.offset - state.limit)))
-              }
-              onNext={() =>
-                updateParam("offset", String(state.offset + state.limit))
-              }
+              onPrev={() => {
+                updateParam("offset", String(Math.max(0, state.offset - state.limit)));
+              }}
+              onNext={() => {
+                updateParam("offset", String(state.offset + state.limit));
+              }}
             />
           )}
         </QueryRenderer>
@@ -226,12 +237,8 @@ function RunsBody({ page, state, onToggleSort, onPrev, onNext }: RunsBodyProps) 
                 <td className="py-2 pr-4 font-mono">{r.tickers.join(", ")}</td>
                 <td className="py-2 pr-4 font-mono">{r.interval}</td>
                 <td className="py-2 pr-4 font-mono text-xs">{formatDateTime(r.created_at)}</td>
-                <td className="py-2 pr-4 text-right font-mono">
-                  {formatMetric(r.sharpe_mean, 3)}
-                </td>
-                <td className="py-2 pr-0 text-right font-mono">
-                  {formatMetric(r.calmar_mean, 3)}
-                </td>
+                <td className="py-2 pr-4 text-right font-mono">{formatMetric(r.sharpe_mean, 3)}</td>
+                <td className="py-2 pr-0 text-right font-mono">{formatMetric(r.calmar_mean, 3)}</td>
               </tr>
             ))}
           </tbody>
@@ -264,7 +271,14 @@ interface SortableHeaderProps {
   isLast?: boolean;
 }
 
-function SortableHeader({ label, col, state, onToggle, align = "left", isLast }: SortableHeaderProps) {
+function SortableHeader({
+  label,
+  col,
+  state,
+  onToggle,
+  align = "left",
+  isLast,
+}: SortableHeaderProps) {
   const active = state.sortBy === col;
   const indicator = active ? (state.order === "desc" ? " ↓" : " ↑") : "";
   const padRight = isLast ? "pr-0" : "pr-4";

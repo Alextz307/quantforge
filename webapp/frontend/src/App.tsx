@@ -39,6 +39,12 @@ const ConfigureLandingPage = lazy(() =>
 const ConfigureTunePage = lazy(() =>
   import("@/pages/ConfigureTunePage").then((m) => ({ default: m.ConfigureTunePage })),
 );
+const ConfigureComparePage = lazy(() =>
+  import("@/pages/ConfigureComparePage").then((m) => ({ default: m.ConfigureComparePage })),
+);
+const ConfigureHoldoutPage = lazy(() =>
+  import("@/pages/ConfigureHoldoutPage").then((m) => ({ default: m.ConfigureHoldoutPage })),
+);
 const JobDetailPage = lazy(() =>
   import("@/pages/JobDetailPage").then((m) => ({ default: m.JobDetailPage })),
 );
@@ -86,6 +92,22 @@ export function App() {
           element={
             <Suspense fallback={<ChartFallback />}>
               <ConfigureTunePage />
+            </Suspense>
+          }
+        />
+        <Route
+          path={ROUTES.configureCompare}
+          element={
+            <Suspense fallback={<ChartFallback />}>
+              <ConfigureComparePage />
+            </Suspense>
+          }
+        />
+        <Route
+          path={ROUTES.configureHoldout}
+          element={
+            <Suspense fallback={<ChartFallback />}>
+              <ConfigureHoldoutPage />
             </Suspense>
           }
         />

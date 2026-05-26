@@ -1,5 +1,7 @@
 import { useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { useComparisons, usePrefetchComparison, type ComparisonSummary } from "@/api/comparisons";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FilterDate } from "@/components/FilterDate";
 import { FilterableTablePage } from "@/components/FilterableTablePage";
@@ -7,7 +9,7 @@ import { FilterSelect } from "@/components/FilterSelect";
 import { QueryRenderer } from "@/components/QueryRenderer";
 import { ALL_OPTION, uniqSorted } from "@/lib/filters";
 import { formatDateTime } from "@/lib/format";
-import { comparisonDetailPath } from "@/lib/routes";
+import { comparisonDetailPath, ROUTES } from "@/lib/routes";
 
 interface ComparisonsFilters {
   strategy: string;
@@ -33,8 +35,13 @@ export function ComparisonsPage() {
 
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0">
         <CardTitle>Comparisons</CardTitle>
+        <Button asChild size="sm">
+          <Link to={ROUTES.configureCompare} data-testid="comparisons-new-cta">
+            New comparison
+          </Link>
+        </Button>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         <QueryRenderer query={query} errorTitle="Failed to load comparisons">

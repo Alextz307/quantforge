@@ -36,9 +36,7 @@ const NAV_ITEMS: NavItem[] = [
 ];
 
 export function Sidebar({ user }: SidebarProps) {
-  const items = NAV_ITEMS.filter(
-    (item) => !item.adminOnly || user.role === ROLE_ADMIN,
-  );
+  const items = NAV_ITEMS.filter((item) => !item.adminOnly || user.role === ROLE_ADMIN);
   return (
     <aside className="flex w-64 flex-col border-r bg-card">
       <div className="flex h-16 items-center border-b px-6">

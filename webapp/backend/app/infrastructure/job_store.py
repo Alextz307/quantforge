@@ -85,12 +85,19 @@ def get_job(conn: sqlite3.Connection, job_id: str) -> JobRow:
 
 
 def list_jobs(conn: sqlite3.Connection, *, user_id: int | None = None) -> list[JobRow]:
-    """List jobs newest-first. ``user_id=None`` returns every job (admin view)."""
+    """List jobs newest-first by ``started_at``. ``user_id=None`` returns every job (admin view).
+
+    Ordering: ``started_at DESC NULLS FIRST, id DESC``. Queued jobs (no
+    ``started_at``) surface at the top — they're the freshest activity even
+    though the subprocess hasn't spawned — and ``id`` breaks ties for stable
+    pagination across the polling refetch.
+    """
+    order_clause = "ORDER BY started_at DESC NULLS FIRST, id DESC"
     if user_id is None:
-        rows = conn.execute(f"SELECT {_JOB_COLUMNS} FROM jobs ORDER BY id DESC").fetchall()
+        rows = conn.execute(f"SELECT {_JOB_COLUMNS} FROM jobs {order_clause}").fetchall()
     else:
         rows = conn.execute(
-            f"SELECT {_JOB_COLUMNS} FROM jobs WHERE user_id = ? ORDER BY id DESC",
+            f"SELECT {_JOB_COLUMNS} FROM jobs WHERE user_id = ? {order_clause}",
             (user_id,),
         ).fetchall()
     return [_row_to_job(row) for row in rows]

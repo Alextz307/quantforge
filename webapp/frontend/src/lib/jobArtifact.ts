@@ -1,5 +1,10 @@
 import type { JobRow } from "@/api/jobs";
-import { hpoDetailPath, runDetailPath } from "@/lib/routes";
+import {
+  comparisonDetailPath,
+  holdoutDetailPath,
+  hpoDetailPath,
+  runDetailPath,
+} from "@/lib/routes";
 
 export interface JobArtifactLink {
   to: string;
@@ -8,8 +13,14 @@ export interface JobArtifactLink {
 
 export function jobArtifactLink(job: JobRow): JobArtifactLink | null {
   if (job.status !== "completed" || job.experiment_id === null) return null;
-  if (job.kind === "tune") {
-    return { to: hpoDetailPath(job.experiment_id), label: "View study →" };
+  switch (job.kind) {
+    case "tune":
+      return { to: hpoDetailPath(job.experiment_id), label: "View study →" };
+    case "compare":
+      return { to: comparisonDetailPath(job.experiment_id), label: "View comparison →" };
+    case "holdout":
+      return { to: holdoutDetailPath(job.experiment_id), label: "View holdout →" };
+    case "run":
+      return { to: runDetailPath(job.experiment_id), label: "View run →" };
   }
-  return { to: runDetailPath(job.experiment_id), label: "View run →" };
 }

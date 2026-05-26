@@ -555,10 +555,14 @@ def make_synthetic_hpo_study(
     json_io.write_jsonl(study_dir / TRIALS_JSONL_NAME, trials)
 
     if write_best_config:
-        best_cfg = {
+        best_cfg: dict[str, object] = {
             "name": "demo",
             "seed": 42,
             "strategy": {"name": "AdaptiveBollinger", "params": {"window": 30, "k": 2.0}},
+            # Default to a non-zero holdout fraction so the synthetic study is a
+            # valid holdout-eval source. Tests that need the opposite (no holdout
+            # reservation) pass write_best_config=False or override in place.
+            "validation": {"holdout_pct": 0.2},
         }
         (study_dir / BEST_CONFIG_YAML_NAME).write_text(yaml.safe_dump(best_cfg), encoding="utf-8")
 

@@ -25,6 +25,8 @@ export const RUN_SPY: RunSummary = {
   created_at: "2026-04-01T12:00:00Z",
   sharpe_mean: 1.234,
   calmar_mean: 0.456,
+  has_holdout: true,
+  data_hash: "hash_spy_daily_5y",
 };
 
 export const RUN_IVV_VOO: RunSummary = {
@@ -37,6 +39,8 @@ export const RUN_IVV_VOO: RunSummary = {
   created_at: "2026-04-15T12:00:00Z",
   sharpe_mean: 2.0,
   calmar_mean: 1.1,
+  has_holdout: false,
+  data_hash: "hash_ivv_voo_pairs",
 };
 
 export const SEED_RUNS: RunSummary[] = [RUN_SPY, RUN_IVV_VOO];
@@ -308,6 +312,8 @@ export const HPO_DEMO_SUMMARY: HpoSummary = {
   best_value: 0.85,
   best_trial_number: 1,
   direction: "maximize",
+  has_best_config: true,
+  best_config_reserves_holdout: true,
 };
 
 export const HPO_DEMO_DETAIL: HpoDetail = {
@@ -549,15 +555,21 @@ export const handlers = [
   }),
   http.post(API_PATHS.jobs, async ({ request }) => {
     const body = (await request.json()) as JobSubmission;
-    if ((body.config_payload as Record<string, unknown>).name === "") {
-      return HttpResponse.json(
-        { detail: [{ loc: ["name"], msg: "Name is required", type: "missing" }] },
-        { status: 422 },
-      );
+    // Legacy guard: kind=run validates the experiment payload's ``name`` field.
+    // Compare/holdout submissions skip this since they carry no ExperimentConfig.
+    if (body.kind === "run" || body.kind === "tune") {
+      const config = body.config_payload as Record<string, unknown> | undefined;
+      if (config && config.name === "") {
+        return HttpResponse.json(
+          { detail: [{ loc: ["name"], msg: "Name is required", type: "missing" }] },
+          { status: 422 },
+        );
+      }
     }
     const created: JobRow = {
       ...JOB_RUNNING,
       id: "job-uuid-newly-submitted",
+      kind: body.kind,
       status: "queued",
       started_at: null,
       pid: null,

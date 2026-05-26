@@ -1,5 +1,7 @@
 import { useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { useHoldoutEvals, usePrefetchHoldoutEval, type HoldoutEvalSummary } from "@/api/holdout";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FilterDate } from "@/components/FilterDate";
 import { FilterableTablePage } from "@/components/FilterableTablePage";
@@ -7,7 +9,7 @@ import { FilterSelect } from "@/components/FilterSelect";
 import { QueryRenderer } from "@/components/QueryRenderer";
 import { ALL_OPTION, uniqSorted } from "@/lib/filters";
 import { formatDateTime } from "@/lib/format";
-import { holdoutDetailPath } from "@/lib/routes";
+import { holdoutDetailPath, ROUTES } from "@/lib/routes";
 import { SOURCE_KINDS, sourceKindLabel, type SourceKind } from "@/lib/sourceKind";
 
 type SourceKindFilter = SourceKind | typeof ALL_OPTION;
@@ -40,8 +42,13 @@ export function HoldoutPage() {
 
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0">
         <CardTitle>Holdout evaluations</CardTitle>
+        <Button asChild size="sm">
+          <Link to={ROUTES.configureHoldout} data-testid="holdout-new-cta">
+            New holdout eval
+          </Link>
+        </Button>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         <QueryRenderer query={query} errorTitle="Failed to load holdout evaluations">

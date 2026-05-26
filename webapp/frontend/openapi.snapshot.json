@@ -1,6 +1,60 @@
 {
   "components": {
     "schemas": {
+      "ComparePayload": {
+        "description": "Inputs for ``experiment compare`` in ``--reuse-runs`` mode.\n\nEach ``run_ids[i]`` must resolve to a completed run dir under the\nserver's ``store_root``. The webapp passes each run's existing\n``config.yaml`` to the CLI's ``--config`` flag in matching order.\nFrom-scratch compare (no ``--reuse-runs``) is intentionally out of\nscope here \u2014 heavy and rarely interactive.",
+        "properties": {
+          "n_jobs": {
+            "default": 1,
+            "maximum": 8.0,
+            "minimum": 1.0,
+            "title": "N Jobs",
+            "type": "integer"
+          },
+          "out_name": {
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9_\\-:]+$",
+            "title": "Out Name",
+            "type": "string"
+          },
+          "publish_label": {
+            "anyOf": [
+              {
+                "pattern": "^[A-Za-z0-9_\\-:]+$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Publish Label"
+          },
+          "run_ids": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 8,
+            "minItems": 2,
+            "title": "Run Ids",
+            "type": "array"
+          },
+          "significance_test": {
+            "$ref": "#/components/schemas/SignificanceTest",
+            "default": "bootstrap"
+          },
+          "write_report": {
+            "default": true,
+            "title": "Write Report",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "run_ids",
+          "out_name"
+        ],
+        "title": "ComparePayload",
+        "type": "object"
+      },
       "ComparisonDetail": {
         "properties": {
           "created_at": {
@@ -442,12 +496,70 @@
         "title": "HoldoutEvalSummary",
         "type": "object"
       },
+      "HoldoutPayload": {
+        "description": "Inputs for ``experiment holdout-eval`` (run-dir XOR hpo-best source).\n\n``source_id`` is interpreted as a run id when ``source_kind='run'``\nand as an HPO study name when ``source_kind='hpo'``. The job_service\nresolves it to an on-disk path and surfaces a 422 with structured\n``loc`` if the source is missing the required artifacts (a non-null\n``holdout_start`` for runs, ``best_config.yaml`` for HPO studies).",
+        "properties": {
+          "out_name": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9_\\-:]+$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Out Name"
+          },
+          "publish_label": {
+            "anyOf": [
+              {
+                "pattern": "^[A-Za-z0-9_\\-:]+$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Publish Label"
+          },
+          "source_id": {
+            "minLength": 1,
+            "title": "Source Id",
+            "type": "string"
+          },
+          "source_kind": {
+            "enum": [
+              "run",
+              "hpo"
+            ],
+            "title": "Source Kind",
+            "type": "string"
+          },
+          "write_report": {
+            "default": true,
+            "title": "Write Report",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "source_kind",
+          "source_id"
+        ],
+        "title": "HoldoutPayload",
+        "type": "object"
+      },
       "HpoDetail": {
         "properties": {
           "best_config": {
             "additionalProperties": true,
             "title": "Best Config",
             "type": "object"
+          },
+          "best_config_reserves_holdout": {
+            "title": "Best Config Reserves Holdout",
+            "type": "boolean"
           },
           "best_trial_number": {
             "anyOf": [
@@ -517,6 +629,7 @@
           "best_trial_number",
           "direction",
           "best_config",
+          "best_config_reserves_holdout",
           "live_job_id"
         ],
         "title": "HpoDetail",
@@ -524,6 +637,10 @@
       },
       "HpoSummary": {
         "properties": {
+          "best_config_reserves_holdout": {
+            "title": "Best Config Reserves Holdout",
+            "type": "boolean"
+          },
           "best_trial_number": {
             "anyOf": [
               {
@@ -554,6 +671,10 @@
           "direction": {
             "$ref": "#/components/schemas/StudyDirection"
           },
+          "has_best_config": {
+            "title": "Has Best Config",
+            "type": "boolean"
+          },
           "n_complete": {
             "title": "N Complete",
             "type": "integer"
@@ -579,7 +700,9 @@
           "n_complete",
           "best_value",
           "best_trial_number",
-          "direction"
+          "direction",
+          "has_best_config",
+          "best_config_reserves_holdout"
         ],
         "title": "HpoSummary",
         "type": "object"
@@ -587,7 +710,9 @@
       "JobKind": {
         "enum": [
           "run",
-          "tune"
+          "tune",
+          "compare",
+          "holdout"
         ],
         "title": "JobKind",
         "type": "string"
@@ -698,11 +823,38 @@
       },
       "JobSubmission": {
         "properties": {
+          "compare_payload": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ComparePayload"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "config_payload": {
-            "additionalProperties": true,
-            "minProperties": 1,
-            "title": "Config Payload",
-            "type": "object"
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "minProperties": 1,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Config Payload"
+          },
+          "holdout_payload": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/HoldoutPayload"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "hpo_payload": {
             "anyOf": [
@@ -730,8 +882,7 @@
           }
         },
         "required": [
-          "kind",
-          "config_payload"
+          "kind"
         ],
         "title": "JobSubmission",
         "type": "object"
@@ -1170,7 +1321,7 @@
         "type": "string"
       },
       "RunSummary": {
-        "description": "List-view row for `/api/runs`.\n\nStrategy/tickers/interval are sourced from the run's frozen\n`config.yaml` so any future strategy works without changing this code.",
+        "description": "List-view row for `/api/runs`.\n\nStrategy/tickers/interval are sourced from the run's frozen\n`config.yaml` so any future strategy works without changing this code.\n``has_holdout`` mirrors ``manifest.holdout_start is not None`` so the\nholdout-launcher form can filter eligible runs without a per-row\ndetail fetch. ``data_hash`` is the run's bar-series fingerprint so the\ncompare picker can lock subsequent selections to the first run's\nuniverse (the paired-bootstrap test rejects mixed bar indices).",
         "properties": {
           "calmar_mean": {
             "anyOf": [
@@ -1188,9 +1339,17 @@
             "title": "Created At",
             "type": "string"
           },
+          "data_hash": {
+            "title": "Data Hash",
+            "type": "string"
+          },
           "experiment_id": {
             "title": "Experiment Id",
             "type": "string"
+          },
+          "has_holdout": {
+            "title": "Has Holdout",
+            "type": "boolean"
           },
           "interval": {
             "title": "Interval",
@@ -1236,7 +1395,9 @@
           "store",
           "created_at",
           "sharpe_mean",
-          "calmar_mean"
+          "calmar_mean",
+          "has_holdout",
+          "data_hash"
         ],
         "title": "RunSummary",
         "type": "object"
@@ -1272,6 +1433,15 @@
         ],
         "title": "RunsPage",
         "type": "object"
+      },
+      "SignificanceTest": {
+        "description": "Pairwise Sharpe-differential test selector for :func:`run_comparison`.",
+        "enum": [
+          "bootstrap",
+          "none"
+        ],
+        "title": "SignificanceTest",
+        "type": "string"
       },
       "SlippageScenario": {
         "description": "Named lookup keys for ``SLIPPAGE_SCENARIOS``.",

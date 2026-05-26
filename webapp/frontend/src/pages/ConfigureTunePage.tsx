@@ -104,8 +104,8 @@ export function ConfigureTunePage() {
       <CardHeader>
         <CardTitle>Configure tune</CardTitle>
         <CardDescription>
-          Optuna study over the strategy's <code className="font-mono">suggest_params</code>{" "}
-          space. The same experiment fields below are reused inside every trial.
+          Optuna study over the strategy's <code className="font-mono">suggest_params</code> space.
+          The same experiment fields below are reused inside every trial.
         </CardDescription>
       </CardHeader>
       <CardContent>

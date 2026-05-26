@@ -1,14 +1,24 @@
 import { useMemo, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 
-export interface FilterableTableColumn<TRow> {
+export type SortOrder = "asc" | "desc";
+
+export interface SortState<K extends string> {
+  sortBy: K;
+  order: SortOrder;
+}
+
+export interface FilterableTableColumn<TRow, K extends string = string> {
   header: string;
   align?: "left" | "right";
   cellClassName?: string;
   render: (row: TRow) => ReactNode;
+  // When set, the column's header becomes a click-to-sort toggle. Existing
+  // consumers omit this field and get a static header.
+  sortKey?: K;
 }
 
-export interface FilterableTablePageProps<TRow, TFilters> {
+export interface FilterableTablePageProps<TRow, TFilters, K extends string = string> {
   rows: readonly TRow[];
   filters: TFilters;
   applyFilters: (rows: readonly TRow[], filters: TFilters) => readonly TRow[];
@@ -18,10 +28,15 @@ export interface FilterableTablePageProps<TRow, TFilters> {
   rowName: (row: TRow) => string;
   rowHref: (row: TRow) => string;
   rowOnHover?: (row: TRow) => void;
-  columns: readonly FilterableTableColumn<TRow>[];
+  columns: readonly FilterableTableColumn<TRow, K>[];
   emptyMessage: string;
   tableTestId: string;
   nameHeader?: string;
+  // Sortable-header opt-in: both must be supplied for any column.sortKey to
+  // render as a toggle. Sorting itself happens upstream (in ``applyFilters``);
+  // these props only control the header indicator + click handler.
+  sortState?: SortState<K>;
+  onSortToggle?: (col: K) => void;
 }
 
 function cellClass(isLast: boolean, align: "left" | "right", extra?: string): string {
@@ -31,7 +46,36 @@ function cellClass(isLast: boolean, align: "left" | "right", extra?: string): st
   return extra ? `${base} ${extra}` : base;
 }
 
-export function FilterableTablePage<TRow, TFilters>({
+interface SortableHeaderProps<K extends string> {
+  label: string;
+  sortKey: K;
+  state: SortState<K>;
+  onToggle: (col: K) => void;
+}
+
+function SortableHeader<K extends string>({
+  label,
+  sortKey,
+  state,
+  onToggle,
+}: SortableHeaderProps<K>): ReactNode {
+  const active = state.sortBy === sortKey;
+  const indicator = active ? (state.order === "desc" ? " ↓" : " ↑") : "";
+  return (
+    <button
+      type="button"
+      className={`hover:text-foreground ${active ? "text-foreground" : ""}`}
+      onClick={() => {
+        onToggle(sortKey);
+      }}
+    >
+      {label}
+      {indicator}
+    </button>
+  );
+}
+
+export function FilterableTablePage<TRow, TFilters, K extends string = string>({
   rows,
   filters,
   applyFilters,
@@ -45,7 +89,9 @@ export function FilterableTablePage<TRow, TFilters>({
   emptyMessage,
   tableTestId,
   nameHeader = "Name",
-}: FilterableTablePageProps<TRow, TFilters>) {
+  sortState,
+  onSortToggle,
+}: FilterableTablePageProps<TRow, TFilters, K>) {
   const filtered = useMemo(() => applyFilters(rows, filters), [rows, filters, applyFilters]);
   const nameIsLast = columns.length === 0;
 
@@ -61,14 +107,29 @@ export function FilterableTablePage<TRow, TFilters>({
             <thead>
               <tr className="border-b text-left text-muted-foreground">
                 <th className={cellClass(nameIsLast, "left")}>{nameHeader}</th>
-                {columns.map((c, i) => (
-                  <th
-                    key={c.header}
-                    className={cellClass(i === columns.length - 1, c.align ?? "left")}
-                  >
-                    {c.header}
-                  </th>
-                ))}
+                {columns.map((c, i) => {
+                  const isSortable =
+                    c.sortKey !== undefined &&
+                    sortState !== undefined &&
+                    onSortToggle !== undefined;
+                  return (
+                    <th
+                      key={c.header}
+                      className={cellClass(i === columns.length - 1, c.align ?? "left")}
+                    >
+                      {isSortable ? (
+                        <SortableHeader
+                          label={c.header}
+                          sortKey={c.sortKey as K}
+                          state={sortState}
+                          onToggle={onSortToggle}
+                        />
+                      ) : (
+                        c.header
+                      )}
+                    </th>
+                  );
+                })}
               </tr>
             </thead>
             <tbody>

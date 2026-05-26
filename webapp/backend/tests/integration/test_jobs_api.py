@@ -312,3 +312,124 @@ def test_post_tune_rejects_invalid_hpo_payload(
     assert resp.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
     detail = resp.json()["detail"]
     assert any("hpo_payload" in err["loc"] for err in detail)
+
+
+# Compare + holdout API integration ---------------------------------------------------------
+
+_COMPARE_RUN_A = "20260101_120000_AdaptiveBollinger_abc1234_deadbeef"
+_COMPARE_RUN_B = "20260201_090000_AdaptiveBollinger_def5678_cafebabe"
+
+
+def _seed_compare_runs(
+    monkeypatch: pytest.MonkeyPatch, run_ids: tuple[str, ...]
+) -> Path:
+    """Provision a per-test store-root + synthetic runs at ``run_ids``."""
+    from webapp.backend.app.core.settings import get_settings
+
+    from ..conftest import make_synthetic_run
+
+    settings = get_settings()
+    store_root = settings.store_root
+    runs_dir = store_root / "runs"
+    runs_dir.mkdir(parents=True, exist_ok=True)
+    for run_id in run_ids:
+        make_synthetic_run(runs_dir, experiment_id=run_id)
+    # Settings cache is already test-scoped via _webapp_test_env.
+    return store_root
+
+
+def test_post_compare_spawns_and_completes(
+    authed_jobs_client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        "webapp.backend.app.services.job_service.build_compare_command",
+        _quick_command_factory(["compare-line"]),
+    )
+    _seed_compare_runs(monkeypatch, (_COMPARE_RUN_A, _COMPARE_RUN_B))
+    submission = {
+        "kind": "compare",
+        "compare_payload": {
+            "run_ids": [_COMPARE_RUN_A, _COMPARE_RUN_B],
+            "out_name": "wire_compare",
+        },
+    }
+
+    resp = authed_jobs_client.post(JOBS_PATH, json=submission)
+    assert resp.status_code == HTTPStatus.CREATED, resp.json()
+    body = resp.json()
+    assert body["kind"] == "compare"
+    assert body["experiment_id"] == "wire_compare"
+    final = _await_terminal(authed_jobs_client, body["id"])
+    assert final["status"] == JobStatus.COMPLETED.value
+
+
+def test_post_compare_rejects_unknown_run_id(
+    authed_jobs_client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _seed_compare_runs(monkeypatch, (_COMPARE_RUN_A,))
+    resp = authed_jobs_client.post(
+        JOBS_PATH,
+        json={
+            "kind": "compare",
+            "compare_payload": {
+                "run_ids": [_COMPARE_RUN_A, "ghost_id"],
+                "out_name": "bad_compare",
+            },
+        },
+    )
+    assert resp.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+    detail = resp.json()["detail"]
+    assert any("ghost_id" in err["msg"] for err in detail)
+
+
+def test_post_holdout_from_run_spawns_and_completes(
+    authed_jobs_client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from src.core import json_io
+    from src.core.persistence import EXPERIMENT_MANIFEST_JSON
+
+    monkeypatch.setattr(
+        "webapp.backend.app.services.job_service.build_holdout_command",
+        _quick_command_factory(["holdout-line"]),
+    )
+    run_id = "20260301_080000_AdaptiveBollinger_aaa0000_bbbb1111"
+    store_root = _seed_compare_runs(monkeypatch, (run_id,))
+    # Backfill a non-null holdout_start so the source is eligible.
+    manifest_path = store_root / "runs" / run_id / EXPERIMENT_MANIFEST_JSON
+    manifest = json_io.read_dict(manifest_path)
+    manifest["holdout_start"] = "2024-01-01T00:00:00"
+    json_io.write(manifest_path, manifest)
+
+    submission = {
+        "kind": "holdout",
+        "holdout_payload": {
+            "source_kind": "run",
+            "source_id": run_id,
+            "out_name": "wire_holdout",
+        },
+    }
+
+    resp = authed_jobs_client.post(JOBS_PATH, json=submission)
+    assert resp.status_code == HTTPStatus.CREATED, resp.json()
+    body = resp.json()
+    assert body["kind"] == "holdout"
+    assert body["experiment_id"] == "wire_holdout"
+    final = _await_terminal(authed_jobs_client, body["id"])
+    assert final["status"] == JobStatus.COMPLETED.value
+
+
+def test_post_holdout_rejects_run_without_holdout_start(
+    authed_jobs_client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    run_id = "20260401_080000_AdaptiveBollinger_ccc1111_dddd2222"
+    _seed_compare_runs(monkeypatch, (run_id,))
+    resp = authed_jobs_client.post(
+        JOBS_PATH,
+        json={
+            "kind": "holdout",
+            "holdout_payload": {"source_kind": "run", "source_id": run_id},
+        },
+    )
+    assert resp.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+    detail = resp.json()["detail"]
+    assert any("no holdout boundary" in err["msg"] for err in detail)

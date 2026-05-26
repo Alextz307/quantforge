@@ -14,7 +14,14 @@ from pathlib import Path
 
 from src.core import json_io
 from src.core.fs import ensure_parent_dir
-from src.core.persistence import EXPERIMENT_MANIFEST_JSON, HPO_SUBDIR
+from src.core.persistence import (
+    COMPARISONS_SUBDIR,
+    EXPERIMENT_MANIFEST_JSON,
+    HOLDOUT_EVALS_SUBDIR,
+    HPO_SUBDIR,
+)
+from src.orchestration.comparison import SignificanceTest
+from src.orchestration.holdout_eval import SourceKind
 from webapp.backend.app.infrastructure.event_broker import EventBroker
 from webapp.backend.app.infrastructure.log_tailer import tail_log
 from webapp.backend.app.infrastructure.store import iter_run_dirs
@@ -92,6 +99,76 @@ def build_tune_command(
     )
 
 
+def build_compare_command(
+    *,
+    config_paths: tuple[Path, ...],
+    reuse_run_dirs: tuple[Path, ...],
+    out_name: str,
+    significance_test: SignificanceTest,
+    n_jobs: int,
+    write_report: bool,
+    publish_label: str | None,
+    store_root: Path,
+) -> tuple[str, ...]:
+    """``experiment compare`` invocation in ``--reuse-runs`` mode.
+
+    ``config_paths`` and ``reuse_run_dirs`` must be the same length and in
+    matching order — the CLI pairs them positionally.
+    """
+    cmd: list[str] = [
+        sys.executable,
+        "-m",
+        "scripts.experiment",
+        "compare",
+        "--out-name",
+        out_name,
+        "--significance-test",
+        significance_test.value,
+        "--n-jobs",
+        str(n_jobs),
+        "--store-root",
+        str(store_root),
+        "--report" if write_report else "--no-report",
+        "--reuse-runs",
+        ",".join(str(p) for p in reuse_run_dirs),
+    ]
+    for cp in config_paths:
+        cmd.extend(("--config", str(cp)))
+    if publish_label is not None:
+        cmd.extend(("--publish-label", publish_label))
+    return tuple(cmd)
+
+
+def build_holdout_command(
+    *,
+    source_kind: SourceKind,
+    source_path: Path,
+    out_name: str | None,
+    write_report: bool,
+    publish_label: str | None,
+    store_root: Path,
+) -> tuple[str, ...]:
+    """``experiment holdout-eval`` invocation; source picks ``--run-dir`` vs ``--hpo-best``."""
+    cmd: list[str] = [
+        sys.executable,
+        "-m",
+        "scripts.experiment",
+        "holdout-eval",
+        "--store-root",
+        str(store_root),
+        "--report" if write_report else "--no-report",
+    ]
+    if source_kind == "run":
+        cmd.extend(("--run-dir", str(source_path)))
+    else:
+        cmd.extend(("--hpo-best", str(source_path)))
+    if out_name is not None:
+        cmd.extend(("--out-name", out_name))
+    if publish_label is not None:
+        cmd.extend(("--publish-label", publish_label))
+    return tuple(cmd)
+
+
 def _resolve_run_experiment_id(store_root: Path, job_id: str) -> str | None:
     """Scan run manifests for ``manifest.name == job_id``."""
     for run_dir in iter_run_dirs(store_root):
@@ -104,10 +181,21 @@ def _resolve_run_experiment_id(store_root: Path, job_id: str) -> str | None:
     return None
 
 
-def _resolve_tune_experiment_id(store_root: Path, study_name: str) -> str | None:
-    """For TUNE jobs the experiment_id IS the study_name once the dir exists."""
-    if (store_root / HPO_SUBDIR / study_name).is_dir():
-        return study_name
+# Kinds whose artifact directory name is known at submission time. The watch
+# task confirms the directory actually materialised once the subprocess exits
+# (a CLI crash before the artifact lands leaves experiment_id = None).
+_ARTIFACT_SUBDIR_BY_KIND: dict[JobKind, str] = {
+    JobKind.TUNE: HPO_SUBDIR,
+    JobKind.COMPARE: COMPARISONS_SUBDIR,
+    JobKind.HOLDOUT: HOLDOUT_EVALS_SUBDIR,
+}
+
+
+def _resolve_named_artifact_id(
+    store_root: Path, subdir: str, artifact_name: str
+) -> str | None:
+    if (store_root / subdir / artifact_name).is_dir():
+        return artifact_name
     return None
 
 
@@ -115,16 +203,21 @@ def _resolve_experiment_id(
     kind: JobKind,
     store_root: Path,
     job_id: str,
-    study_name: str | None,
+    artifact_name: str | None,
 ) -> str | None:
-    """Single dispatch for "which artifact directory belongs to this finished job?"."""
+    """Single dispatch for "which artifact directory belongs to this finished job?".
+
+    RUN jobs need a manifest walk because the run dir's basename is the
+    auto-generated experiment_id, not the job_id. TUNE/COMPARE/HOLDOUT
+    pre-commit their artifact name at submission time so the resolver is a
+    cheap stat.
+    """
     if kind is JobKind.RUN:
         return _resolve_run_experiment_id(store_root, job_id)
-    if kind is JobKind.TUNE:
-        if study_name is None:
-            return None
-        return _resolve_tune_experiment_id(store_root, study_name)
-    return None
+    subdir = _ARTIFACT_SUBDIR_BY_KIND.get(kind)
+    if subdir is None or artifact_name is None:
+        return None
+    return _resolve_named_artifact_id(store_root, subdir, artifact_name)
 
 
 class ProcessManager:
@@ -150,6 +243,7 @@ class ProcessManager:
         store_root: Path,
         cwd: Path | None = None,
         trial_tail: TrialTailSpec | None = None,
+        artifact_id: str | None = None,
     ) -> int:
         # buffering=0 + dup'd FD: child writes raw, parent closes immediately so
         # the tailer sees lines as soon as the child flushes.
@@ -165,9 +259,14 @@ class ProcessManager:
         finally:
             log_handle.close()
         stop_event = asyncio.Event()
-        study_name = trial_tail.study_name if trial_tail is not None else None
+        hpo_study_name = trial_tail.study_name if trial_tail is not None else None
+        # TUNE pre-commits its artifact name as the study name; COMPARE/HOLDOUT
+        # supply it via ``artifact_id``. RUN resolves post-completion by manifest scan.
+        artifact_name = artifact_id if artifact_id is not None else hpo_study_name
         watch_task = asyncio.create_task(
-            self._watch(job_id, kind, process, stop_event, store_root, study_name)
+            self._watch(
+                job_id, kind, process, stop_event, store_root, artifact_name, hpo_study_name
+            )
         )
         log_tail_task = asyncio.create_task(self._tail(job_id, log_path, stop_event))
         tail_tasks: list[asyncio.Task[None]] = [log_tail_task]
@@ -235,7 +334,8 @@ class ProcessManager:
         process: subprocess.Popen[bytes],
         stop_event: asyncio.Event,
         store_root: Path,
-        study_name: str | None,
+        artifact_name: str | None,
+        hpo_study_name: str | None,
     ) -> None:
         try:
             exit_code = await asyncio.to_thread(process.wait)
@@ -254,7 +354,7 @@ class ProcessManager:
                 except asyncio.CancelledError:
                     pass
         experiment_id = await asyncio.to_thread(
-            _resolve_experiment_id, kind, store_root, job_id, study_name
+            _resolve_experiment_id, kind, store_root, job_id, artifact_name
         )
         status = self._classify_exit(exit_code)
         try:
@@ -266,8 +366,8 @@ class ProcessManager:
             JobStatusFrame(status=status, exit_code=exit_code, experiment_id=experiment_id),
         )
         await self._broker.close(job_id)
-        if study_name is not None and self._hpo_broker is not None:
-            await self._hpo_broker.close(study_name)
+        if hpo_study_name is not None and self._hpo_broker is not None:
+            await self._hpo_broker.close(hpo_study_name)
         self._running.pop(job_id, None)
 
     async def _tail(self, job_id: str, log_path: Path, stop_event: asyncio.Event) -> None:
