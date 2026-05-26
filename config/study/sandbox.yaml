@@ -1,0 +1,15 @@
+name: sandbox
+description: >
+  One-leg smoke test for the webapp study launcher. Targets a distinct
+  output_dir so it never collides with the main study sweep on disk.
+  Cheap enough to launch + cancel + re-launch from the UI without
+  committing to a real sweep.
+seed: 42
+output_dir: studies/sandbox
+
+legs:
+  - strategy: AdaptiveBollinger
+    strategy_config: config/strategies/adaptive_bollinger.yaml
+    hpo_config: config/hpo/adaptive_bollinger.yaml
+    universes:
+      - spy_daily_5y

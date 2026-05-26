@@ -199,8 +199,8 @@ def _sort_key(sort_by: RunSortBy) -> Callable[[RunSummary], float]:
     if sort_by is RunSortBy.CREATED_AT:
         return lambda r: r.created_at.timestamp()
     if sort_by is RunSortBy.SHARPE_MEAN:
-        return lambda r: (r.sharpe_mean if r.sharpe_mean is not None else float("-inf"))
-    return lambda r: (r.calmar_mean if r.calmar_mean is not None else float("-inf"))
+        return lambda r: r.sharpe_mean if r.sharpe_mean is not None else float("-inf")
+    return lambda r: r.calmar_mean if r.calmar_mean is not None else float("-inf")
 
 
 def _ensure_plots(run_dir: Path) -> None:
@@ -228,10 +228,19 @@ def get_run(root: Path, experiment_id: str) -> RunDetail:
     which renders lazily on the first plot fetch. The detail page returns
     immediately; the matplotlib startup + render cost only pays itself when
     the user actually clicks a plot link.
+
+    In-flight HPO trial runs land ``config.yaml + manifest.json`` first and
+    write ``metrics.json`` only after the walk-forward completes; surface them
+    with empty ``metrics`` rather than 500-ing so the detail page agrees with
+    the listing.
     """
     run_dir = _lookup_run_dir(root, experiment_id)
     manifest = read_experiment_manifest(run_dir)
     config = load_experiment_config_from_run(run_dir)
+    try:
+        metrics = _read_metrics(run_dir)
+    except FileNotFoundError:
+        metrics = {}
     return RunDetail(
         experiment_id=manifest.experiment_id,
         name=manifest.name,
@@ -245,7 +254,7 @@ def get_run(root: Path, experiment_id: str) -> RunDetail:
         data_hash=manifest.data_hash,
         slippage_scenario=manifest.slippage_scenario,
         holdout_start=manifest.holdout_start,
-        metrics=_read_metrics(run_dir),
+        metrics=metrics,
         plots=list_plots(run_dir),
     )
 

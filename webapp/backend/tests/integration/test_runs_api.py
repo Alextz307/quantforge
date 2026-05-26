@@ -43,9 +43,7 @@ def test_list_runs_sorted_newest_first(webapp_store: Path, authed_client: TestCl
     assert items[1]["experiment_id"] == FLAT_ID
 
 
-def test_list_runs_pagination_clips_to_limit(
-    webapp_store: Path, authed_client: TestClient
-) -> None:
+def test_list_runs_pagination_clips_to_limit(webapp_store: Path, authed_client: TestClient) -> None:
     payload = authed_client.get(f"{RUNS_PATH}?limit=1&offset=0").json()
     assert payload["total"] == EXPECTED_RUN_COUNT
     assert len(payload["items"]) == 1

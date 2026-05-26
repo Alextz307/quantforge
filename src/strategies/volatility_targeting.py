@@ -189,9 +189,7 @@ class VolatilityTargetingStrategy(IStrategy):
         # slice) so the GARCH AIC cache key is fold-invariant across
         # trials; the hybrid drops NaN-target rows internally.
         realized_vol = self._compute_realized_vol(train_data)
-        self._hybrid_vol.fit(
-            train_data, realized_vol, checkpoint_path=checkpoint_path, **kwargs
-        )
+        self._hybrid_vol.fit(train_data, realized_vol, checkpoint_path=checkpoint_path, **kwargs)
 
         self._set_fitted_with_metadata(
             TrainingMetadata.from_fit(
@@ -310,9 +308,12 @@ class VolatilityTargetingStrategy(IStrategy):
 
     def get_all_training_metadata(self) -> tuple[TrackedMetadata, ...]:
         """Expose strategy + recursively-owned hybrid-vol leaves (garch + lstm)."""
-        return collect_metadata(
-            ("strategy", self.training_metadata),
-        ) + self._hybrid_vol.get_all_training_metadata()
+        return (
+            collect_metadata(
+                ("strategy", self.training_metadata),
+            )
+            + self._hybrid_vol.get_all_training_metadata()
+        )
 
     def get_fold_diagnostics(self) -> Mapping[str, float]:
         """Surface HybridVolatility's σ_min floor-saturation rate for this fold.

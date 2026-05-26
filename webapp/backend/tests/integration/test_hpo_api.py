@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 
 LIST_PATH = "/api/hpo"
 EXPECTED_NAME = "AdaptiveBollinger__spy_daily_5y"
+EXPECTED_WIRE_ID = "studies~main~hpo~AdaptiveBollinger__spy_daily_5y"
 EXPECTED_STORE = "studies/main/hpo"
 EXPECTED_HPO_COUNT = 1
 EXPECTED_N_TRIALS = 3
@@ -33,7 +34,7 @@ def test_list_returns_hpo_summary(authed_client: TestClient, webapp_store: Path)
 
 
 def test_detail_returns_best_config(authed_client: TestClient, webapp_store: Path) -> None:
-    response = authed_client.get(f"{LIST_PATH}/{EXPECTED_NAME}")
+    response = authed_client.get(f"{LIST_PATH}/{EXPECTED_WIRE_ID}")
 
     assert response.status_code == HTTPStatus.OK
     detail = response.json()
@@ -50,7 +51,7 @@ def test_detail_404_for_unknown_name(authed_client: TestClient, webapp_store: Pa
 
 
 def test_trials_returns_all_by_default(authed_client: TestClient, webapp_store: Path) -> None:
-    response = authed_client.get(f"{LIST_PATH}/{EXPECTED_NAME}/trials")
+    response = authed_client.get(f"{LIST_PATH}/{EXPECTED_WIRE_ID}/trials")
 
     assert response.status_code == HTTPStatus.OK
     rows = response.json()
@@ -59,7 +60,7 @@ def test_trials_returns_all_by_default(authed_client: TestClient, webapp_store: 
 
 def test_trials_filters_by_after_trial(authed_client: TestClient, webapp_store: Path) -> None:
     response = authed_client.get(
-        f"{LIST_PATH}/{EXPECTED_NAME}/trials", params={"after_trial": AFTER_TRIAL_FILTER}
+        f"{LIST_PATH}/{EXPECTED_WIRE_ID}/trials", params={"after_trial": AFTER_TRIAL_FILTER}
     )
 
     assert response.status_code == HTTPStatus.OK
@@ -77,7 +78,7 @@ def test_param_importance_returns_200_with_message_when_db_missing(
     authed_client: TestClient, webapp_store: Path
 ) -> None:
     """Synthetic fixture has no optuna_study.db — endpoint must NOT 500."""
-    response = authed_client.get(f"{LIST_PATH}/{EXPECTED_NAME}/param-importance")
+    response = authed_client.get(f"{LIST_PATH}/{EXPECTED_WIRE_ID}/param-importance")
 
     assert response.status_code == HTTPStatus.OK
     payload = response.json()
@@ -94,6 +95,6 @@ def test_param_importance_404_for_unknown_name(
 
 
 def test_param_importance_requires_auth(client: TestClient, webapp_store: Path) -> None:
-    response = client.get(f"{LIST_PATH}/{EXPECTED_NAME}/param-importance")
+    response = client.get(f"{LIST_PATH}/{EXPECTED_WIRE_ID}/param-importance")
 
     assert response.status_code == HTTPStatus.UNAUTHORIZED

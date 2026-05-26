@@ -1,0 +1,13 @@
+name: sandbox2
+description: >
+  Second sandbox study for re-testing the webapp study launcher.
+  Distinct output_dir from sandbox.yaml so both can coexist on disk.
+seed: 42
+output_dir: studies/sandbox2
+
+legs:
+  - strategy: AdaptiveBollinger
+    strategy_config: config/strategies/adaptive_bollinger.yaml
+    hpo_config: config/hpo/adaptive_bollinger.yaml
+    universes:
+      - spy_daily_5y

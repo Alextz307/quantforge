@@ -1,5 +1,5 @@
 import { lazy, Suspense } from "react";
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Route, Routes } from "react-router-dom";
 import { useMe } from "@/api/auth";
 import { AppShell } from "@/components/layout/AppShell";
 import { RequireAdmin } from "@/components/auth/RequireAdmin";
@@ -7,6 +7,7 @@ import { RequireAuth } from "@/components/auth/RequireAuth";
 import { AdminPage } from "@/pages/AdminPage";
 import { ComparisonsPage } from "@/pages/ComparisonsPage";
 import { HoldoutPage } from "@/pages/HoldoutPage";
+import { HomePage } from "@/pages/HomePage";
 import { HpoPage } from "@/pages/HpoPage";
 import { JobsPage } from "@/pages/JobsPage";
 import { LoginPage } from "@/pages/LoginPage";
@@ -45,6 +46,9 @@ const ConfigureComparePage = lazy(() =>
 const ConfigureHoldoutPage = lazy(() =>
   import("@/pages/ConfigureHoldoutPage").then((m) => ({ default: m.ConfigureHoldoutPage })),
 );
+const ConfigureStudyPage = lazy(() =>
+  import("@/pages/ConfigureStudyPage").then((m) => ({ default: m.ConfigureStudyPage })),
+);
 const JobDetailPage = lazy(() =>
   import("@/pages/JobDetailPage").then((m) => ({ default: m.JobDetailPage })),
 );
@@ -70,7 +74,7 @@ export function App() {
           </RequireAuth>
         }
       >
-        <Route index element={<Navigate to={ROUTES.runs} replace />} />
+        <Route index element={<HomePage />} />
         <Route
           path={ROUTES.configure}
           element={
@@ -108,6 +112,14 @@ export function App() {
           element={
             <Suspense fallback={<ChartFallback />}>
               <ConfigureHoldoutPage />
+            </Suspense>
+          }
+        />
+        <Route
+          path={ROUTES.configureStudy}
+          element={
+            <Suspense fallback={<ChartFallback />}>
+              <ConfigureStudyPage />
             </Suspense>
           }
         />

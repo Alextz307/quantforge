@@ -263,9 +263,12 @@ class ReturnForecastStrategy(IStrategy):
 
     def get_all_training_metadata(self) -> tuple[TrackedMetadata, ...]:
         """Expose strategy + recursively-owned hybrid-return leaves (arma + lstm)."""
-        return collect_metadata(
-            ("strategy", self.training_metadata),
-        ) + self._hybrid_return.get_all_training_metadata()
+        return (
+            collect_metadata(
+                ("strategy", self.training_metadata),
+            )
+            + self._hybrid_return.get_all_training_metadata()
+        )
 
     @staticmethod
     def suggest_params(trial: optuna.trial.BaseTrial) -> dict[str, object]:

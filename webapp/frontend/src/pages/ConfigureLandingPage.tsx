@@ -1,33 +1,6 @@
-import { Link } from "react-router-dom";
-import { Beaker, GitCompareArrows, PlayCircle, ShieldCheck, type LucideIcon } from "lucide-react";
-import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Beaker, GitCompareArrows, LayoutGrid, PlayCircle, ShieldCheck } from "lucide-react";
+import { NavCard } from "@/components/NavCard";
 import { ROUTES } from "@/lib/routes";
-
-interface KindCardProps {
-  to: string;
-  icon: LucideIcon;
-  title: string;
-  description: string;
-}
-
-function KindCard({ to, icon: Icon, title, description }: KindCardProps) {
-  return (
-    <Link
-      to={to}
-      className="group block focus:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-lg"
-    >
-      <Card className="h-full transition-colors group-hover:border-foreground/40">
-        <CardHeader>
-          <div className="flex items-center gap-3">
-            <Icon className="h-6 w-6 text-muted-foreground" />
-            <CardTitle>{title}</CardTitle>
-          </div>
-          <CardDescription>{description}</CardDescription>
-        </CardHeader>
-      </Card>
-    </Link>
-  );
-}
 
 export function ConfigureLandingPage() {
   return (
@@ -40,29 +13,35 @@ export function ConfigureLandingPage() {
         </p>
       </div>
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <KindCard
+        <NavCard
           to={ROUTES.configureRun}
           icon={PlayCircle}
           title="New run"
           description="Single experiment with walk-forward folds. Lands on /jobs once spawned."
         />
-        <KindCard
+        <NavCard
           to={ROUTES.configureTune}
           icon={Beaker}
           title="New tune"
           description="Optuna study over the strategy's suggest_params space. Live-monitors trials as they land."
         />
-        <KindCard
+        <NavCard
           to={ROUTES.configureCompare}
           icon={GitCompareArrows}
           title="New comparison"
           description="Rank 2-8 completed runs head-to-head with paired Sharpe-differential bootstrap."
         />
-        <KindCard
+        <NavCard
           to={ROUTES.configureHoldout}
           icon={ShieldCheck}
           title="New holdout eval"
           description="Refit on full dev, evaluate once on the reserved holdout — honest OOS metrics."
+        />
+        <NavCard
+          to={ROUTES.configureStudy}
+          icon={LayoutGrid}
+          title="New study"
+          description="Sweep a spec across strategies and universes; live leg grid as legs land."
         />
       </div>
     </div>

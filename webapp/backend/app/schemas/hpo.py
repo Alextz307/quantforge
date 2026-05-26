@@ -32,6 +32,11 @@ class TrialRow(BaseModel):
 
 
 class HpoSummary(BaseModel):
+    # Store-relative POSIX path (e.g. ``"hpo/X"`` or ``"studies/main/hpo/X"``).
+    # Disambiguates nested studies that share a basename so the listing key,
+    # the detail URL, and the holdout flow can route deterministically.
+    wire_id: str
+    # Display-only basename. Two rows can share ``name`` but never ``wire_id``.
     name: str
     store: str
     created_at: datetime
@@ -50,6 +55,7 @@ class HpoSummary(BaseModel):
 
 
 class HpoDetail(BaseModel):
+    wire_id: str
     name: str
     store: str
     created_at: datetime

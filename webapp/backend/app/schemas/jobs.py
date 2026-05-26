@@ -26,6 +26,7 @@ class JobKind(StrEnum):
     TUNE = "tune"
     COMPARE = "compare"
     HOLDOUT = "holdout"
+    STUDY = "study"
 
 
 class JobStatus(StrEnum):
@@ -76,6 +77,22 @@ class HoldoutPayload(BaseModel):
     publish_label: str | None = Field(default=None, pattern=_SLUG_PATTERN)
 
 
+class StudyPayload(BaseModel):
+    """Inputs for ``experiment study run`` (cross-strategy × cross-universe sweep).
+
+    ``spec_name`` resolves to ``config/study/<spec_name>.yaml``; the
+    job_service parses it via ``StudySpec.model_validate`` and surfaces a
+    422 with structured ``loc`` on schema errors. ``only_legs`` entries
+    are validated against the spec's expanded leg ids in the handler.
+    """
+
+    spec_name: str = Field(min_length=1, pattern=_SLUG_PATTERN)
+    force_rerun: bool = False
+    only_legs: list[str] = Field(default_factory=list, max_length=128)
+    skip_compares: bool = False
+    skip_holdout_eval: bool = False
+
+
 # Per-kind payload contract: every kind owns exactly one set of payload fields,
 # enforced by ``JobSubmission._validate_payload_per_kind``. Keeping this table
 # next to the model makes the contract explicit at one glance.
@@ -84,12 +101,14 @@ _PAYLOAD_FIELDS: tuple[str, ...] = (
     "hpo_payload",
     "compare_payload",
     "holdout_payload",
+    "study_payload",
 )
 _REQUIRED_PAYLOADS: dict[JobKind, frozenset[str]] = {
     JobKind.RUN: frozenset({"config_payload"}),
     JobKind.TUNE: frozenset({"config_payload", "hpo_payload"}),
     JobKind.COMPARE: frozenset({"compare_payload"}),
     JobKind.HOLDOUT: frozenset({"holdout_payload"}),
+    JobKind.STUDY: frozenset({"study_payload"}),
 }
 
 
@@ -99,6 +118,7 @@ class JobSubmission(BaseModel):
     hpo_payload: dict[str, object] | None = Field(default=None, min_length=1)
     compare_payload: ComparePayload | None = None
     holdout_payload: HoldoutPayload | None = None
+    study_payload: StudyPayload | None = None
     overrides: list[str] = Field(default_factory=list, max_length=64)
 
     @model_validator(mode="after")

@@ -8,10 +8,12 @@ import {
 import { BackLink } from "@/components/BackLink";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ConnectionIndicator } from "@/components/ConnectionIndicator";
 import { ConsolidatedReportPanel } from "@/components/studies/ConsolidatedReportPanel";
 import { LegStatusGrid } from "@/components/studies/LegStatusGrid";
 import { MetadataField } from "@/components/MetadataField";
 import { QueryRenderer } from "@/components/QueryRenderer";
+import { useStudyStream } from "@/hooks/useStudyStream";
 import { formatDateTime, formatPercent, shortHash } from "@/lib/format";
 import { ROUTES } from "@/lib/routes";
 
@@ -33,14 +35,15 @@ function IdentityCard({ study }: { study: StudyDetail }) {
   );
 }
 
-function ConsolidatedSection({ name }: { name: string }) {
-  const query = useStudyConsolidated(name);
+function ConsolidatedSection({ name, hasReport }: { name: string; hasReport: boolean }) {
+  // ``hasReport`` short-circuits the consolidated query: the backend already
+  // told us via StudyDetail.has_consolidated_report whether manifest.json
+  // exists, so we skip the GET entirely on the first-time-generate branch
+  // instead of relying on a 404 to drive the UI.
+  const query = useStudyConsolidated(name, { enabled: hasReport });
   const mutation = useGenerateStudyConsolidated(name);
 
-  if (query.isPending) {
-    return <p className="text-sm text-muted-foreground">Loading consolidated report…</p>;
-  }
-  if (query.isError) {
+  if (!hasReport) {
     return (
       <Card>
         <CardHeader>
@@ -71,6 +74,16 @@ function ConsolidatedSection({ name }: { name: string }) {
       </Card>
     );
   }
+  if (query.isPending) {
+    return <p className="text-sm text-muted-foreground">Loading consolidated report…</p>;
+  }
+  if (query.isError) {
+    return (
+      <p className="text-sm text-destructive">
+        Failed to load consolidated report: {query.error.message}
+      </p>
+    );
+  }
   return (
     <div className="flex flex-col gap-2">
       <ConsolidatedReportPanel dto={query.data} studyDirName={name} />
@@ -97,26 +110,31 @@ function ConsolidatedSection({ name }: { name: string }) {
 export function StudyDetailPage() {
   const { name = "" } = useParams<{ name: string }>();
   const query = useStudy(name);
+  const stream = useStudyStream(name);
 
   return (
     <QueryRenderer query={query} errorTitle="Failed to load study" loadingMessage="Loading study…">
-      {(study) => (
-        <div className="flex flex-col gap-4">
-          <BackLink to={ROUTES.studies}>All studies</BackLink>
-          <IdentityCard study={study} />
+      {(study) => {
+        const isLive = study.completed_legs < study.total_legs;
+        return (
+          <div className="flex flex-col gap-4">
+            <BackLink to={ROUTES.studies}>All studies</BackLink>
+            {isLive && <ConnectionIndicator state={stream.connection} className="self-start" />}
+            <IdentityCard study={study} />
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Leg status</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <LegStatusGrid legs={study.legs} />
-            </CardContent>
-          </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle>Leg status</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <LegStatusGrid legs={study.legs} />
+              </CardContent>
+            </Card>
 
-          <ConsolidatedSection name={study.name} />
-        </div>
-      )}
+            <ConsolidatedSection name={study.name} hasReport={study.has_consolidated_report} />
+          </div>
+        );
+      }}
     </QueryRenderer>
   );
 }

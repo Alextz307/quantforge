@@ -130,11 +130,11 @@ function HpoBody({ rows, store, since, onStore, onSince, sortState, onSortToggle
           <FilterDate id="filter-since" label="Since" value={since} onChange={onSince} />
         </>
       }
-      rowKey={(r) => r.name}
+      rowKey={(r) => r.wire_id}
       rowName={(r) => r.name}
-      rowHref={(r) => hpoDetailPath(r.name)}
+      rowHref={(r) => hpoDetailPath(r.wire_id)}
       rowOnHover={(r) => {
-        prefetchHpo(r.name);
+        prefetchHpo(r.wire_id);
       }}
       tableTestId="hpo-table"
       emptyMessage="No HPO studies match the current filters."

@@ -4,6 +4,7 @@ import {
   holdoutDetailPath,
   hpoDetailPath,
   runDetailPath,
+  studyDetailPath,
 } from "@/lib/routes";
 
 export interface JobArtifactLink {
@@ -22,5 +23,7 @@ export function jobArtifactLink(job: JobRow): JobArtifactLink | null {
       return { to: holdoutDetailPath(job.experiment_id), label: "View holdout →" };
     case "run":
       return { to: runDetailPath(job.experiment_id), label: "View run →" };
+    case "study":
+      return { to: studyDetailPath(job.experiment_id), label: "View study →" };
   }
 }

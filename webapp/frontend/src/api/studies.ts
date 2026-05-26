@@ -8,7 +8,7 @@ import {
   type components,
 } from "./client";
 import { extractApiError } from "./errors";
-import { API_PATHS, fillPath } from "./paths";
+import { API_PATHS, fillPath, wsUrlFor } from "./paths";
 import { queryKeys } from "./queryKeys";
 
 export type StudySummary = components["schemas"]["StudySummary"];
@@ -54,8 +54,11 @@ export function useStudy(name: string): UseQueryResult<StudyDetail> {
   return useApiQuery(studyConfig(name));
 }
 
-export function useStudyConsolidated(name: string): UseQueryResult<StudyConsolidatedDTO> {
-  return useApiQuery(studyConsolidatedConfig(name));
+export function useStudyConsolidated(
+  name: string,
+  { enabled = true }: { enabled?: boolean } = {},
+): UseQueryResult<StudyConsolidatedDTO> {
+  return useApiQuery({ ...studyConsolidatedConfig(name), enabled });
 }
 
 export function useGenerateStudyConsolidated(name: string) {
@@ -71,8 +74,8 @@ export function useGenerateStudyConsolidated(name: string) {
     },
     onSuccess: (data) => {
       queryClient.setQueryData(queryKeys.studyConsolidated(name), data);
-      // The study summary/detail caches may render stale leg counts now that
-      // the report has refreshed leg artifacts; force a refetch on next read.
+      // Refresh useStudy so ``has_consolidated_report`` flips from false to true
+      // and the page swaps the Generate-button branch for the report panel.
       void queryClient.invalidateQueries({ queryKey: queryKeys.study(name) });
     },
   });
@@ -94,4 +97,8 @@ export function studyConsolidatedPlotUrl(name: string, plotName: string): string
 
 export function studyConsolidatedTableUrl(name: string, tableName: string): string {
   return fillPath(API_PATHS.studyConsolidatedTable, { name, table_name: tableName });
+}
+
+export function studyStreamUrl(name: string): string {
+  return wsUrlFor(API_PATHS.studyStream, { name });
 }

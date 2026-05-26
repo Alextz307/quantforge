@@ -40,6 +40,9 @@ class StudyDetail(BaseModel):
     completion_pct: float
     cross_strategy_compares_done: list[str]
     legs: list[LegStateRow]
+    # Pre-flight signal so the frontend skips the consolidated-report fetch
+    # (a 404 round-trip) when no report has been generated yet.
+    has_consolidated_report: bool
 
 
 class StudyConsolidatedDTO(BaseModel):

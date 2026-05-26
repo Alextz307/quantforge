@@ -32,11 +32,22 @@ __all__ = [
 ]
 
 
+def _optional_metric(metrics: object, key: str) -> float | None:
+    """Pull a numeric metric from a ``metrics`` block tolerant of missing/typed-wrong entries."""
+    if not isinstance(metrics, dict):
+        return None
+    value = metrics.get(key)
+    if not isinstance(value, int | float):
+        return None
+    return float(value)
+
+
 def list_holdout_evals(root: Path) -> list[HoldoutEvalSummary]:
     """List every holdout eval under ``root``, newest first."""
     summaries: list[HoldoutEvalSummary] = []
     for eval_dir in cached_artifact_dirs(root, "holdout", iter_holdout_eval_dirs):
         payload = json_io.read_dict(eval_dir / HOLDOUT_EVAL_JSON)
+        sharpe = _optional_metric(payload.get("metrics"), "sharpe_ratio")
         summaries.append(
             HoldoutEvalSummary(
                 name=json_io.get_str(payload, "out_name"),
@@ -45,6 +56,7 @@ def list_holdout_evals(root: Path) -> list[HoldoutEvalSummary]:
                 source_kind=cast(SourceKind, json_io.get_str(payload, "source_kind")),
                 source_id=json_io.get_str(payload, "source_id"),
                 holdout_start=json_io.get_timestamp(payload, "holdout_start"),
+                sharpe_ratio=sharpe,
             )
         )
     summaries.sort(key=lambda s: s.created_at, reverse=True)

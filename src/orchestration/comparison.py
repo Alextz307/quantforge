@@ -120,9 +120,7 @@ def run_comparison(
     ``manifest.name``.
     """
     if configs is None and reused_results is None:
-        raise ValueError(
-            "run_comparison requires either configs or reused_results."
-        )
+        raise ValueError("run_comparison requires either configs or reused_results.")
     if configs is not None:
         inputs = _validate_inputs(configs)
     else:

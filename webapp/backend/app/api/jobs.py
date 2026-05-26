@@ -71,6 +71,7 @@ async def post_job(
             user=user,
             submission=submission,
             store_root=settings.store_root,
+            config_root=settings.config_root,
             job_temp_dir=settings.job_temp_dir,
         )
     except JobConfigInvalidError as exc:
@@ -88,9 +89,7 @@ def get_jobs(
     settings: WebappSettings = Depends(get_settings),
 ) -> list[JobRow]:
     try:
-        return list_jobs_for(
-            conn, user=user, store_root=settings.store_root, all_users=all_users
-        )
+        return list_jobs_for(conn, user=user, store_root=settings.store_root, all_users=all_users)
     except JobNotOwnedError as exc:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
 

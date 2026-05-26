@@ -1,10 +1,12 @@
 export const ROUTES = {
+  home: "/",
   login: "/login",
   configure: "/configure",
   configureRun: "/configure/run",
   configureTune: "/configure/tune",
   configureCompare: "/configure/compare",
   configureHoldout: "/configure/holdout",
+  configureStudy: "/configure/study",
   jobs: "/jobs",
   jobDetail: "/jobs/:jobId",
   runs: "/runs",
@@ -16,7 +18,7 @@ export const ROUTES = {
   studies: "/studies",
   studyDetail: "/studies/:name",
   hpo: "/hpo",
-  hpoDetail: "/hpo/:name",
+  hpoDetail: "/hpo/:wireId",
   admin: "/admin",
 } as const;
 
@@ -36,8 +38,8 @@ export function studyDetailPath(name: string): string {
   return `/studies/${encodeURIComponent(name)}`;
 }
 
-export function hpoDetailPath(name: string): string {
-  return `/hpo/${encodeURIComponent(name)}`;
+export function hpoDetailPath(wireId: string): string {
+  return `/hpo/${encodeURIComponent(wireId)}`;
 }
 
 export function jobDetailPath(jobId: string): string {
@@ -48,5 +50,5 @@ export const FROM_QUERY_PARAM = "from";
 
 export function resolveFromParam(params: URLSearchParams): string {
   const from = params.get(FROM_QUERY_PARAM);
-  return from && from.startsWith("/") ? from : ROUTES.runs;
+  return from && from.startsWith("/") ? from : ROUTES.home;
 }

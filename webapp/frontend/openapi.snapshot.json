@@ -468,6 +468,17 @@
             "title": "Name",
             "type": "string"
           },
+          "sharpe_ratio": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sharpe Ratio"
+          },
           "source_id": {
             "title": "Source Id",
             "type": "string"
@@ -491,7 +502,8 @@
           "created_at",
           "source_kind",
           "source_id",
-          "holdout_start"
+          "holdout_start",
+          "sharpe_ratio"
         ],
         "title": "HoldoutEvalSummary",
         "type": "object"
@@ -617,9 +629,14 @@
           "store": {
             "title": "Store",
             "type": "string"
+          },
+          "wire_id": {
+            "title": "Wire Id",
+            "type": "string"
           }
         },
         "required": [
+          "wire_id",
           "name",
           "store",
           "created_at",
@@ -690,9 +707,14 @@
           "store": {
             "title": "Store",
             "type": "string"
+          },
+          "wire_id": {
+            "title": "Wire Id",
+            "type": "string"
           }
         },
         "required": [
+          "wire_id",
           "name",
           "store",
           "created_at",
@@ -712,7 +734,8 @@
           "run",
           "tune",
           "compare",
-          "holdout"
+          "holdout",
+          "study"
         ],
         "title": "JobKind",
         "type": "string"
@@ -879,6 +902,16 @@
             "maxItems": 64,
             "title": "Overrides",
             "type": "array"
+          },
+          "study_payload": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/StudyPayload"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
@@ -1647,6 +1680,10 @@
             "title": "Cross Strategy Compares Done",
             "type": "array"
           },
+          "has_consolidated_report": {
+            "title": "Has Consolidated Report",
+            "type": "boolean"
+          },
           "legs": {
             "items": {
               "$ref": "#/components/schemas/LegStateRow"
@@ -1685,7 +1722,8 @@
           "completed_legs",
           "completion_pct",
           "cross_strategy_compares_done",
-          "legs"
+          "legs",
+          "has_consolidated_report"
         ],
         "title": "StudyDetail",
         "type": "object"
@@ -1698,6 +1736,45 @@
         ],
         "title": "StudyDirection",
         "type": "string"
+      },
+      "StudyPayload": {
+        "description": "Inputs for ``experiment study run`` (cross-strategy \u00d7 cross-universe sweep).\n\n``spec_name`` resolves to ``config/study/<spec_name>.yaml``; the\njob_service parses it via ``StudySpec.model_validate`` and surfaces a\n422 with structured ``loc`` on schema errors. ``only_legs`` entries\nare validated against the spec's expanded leg ids in the handler.",
+        "properties": {
+          "force_rerun": {
+            "default": false,
+            "title": "Force Rerun",
+            "type": "boolean"
+          },
+          "only_legs": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 128,
+            "title": "Only Legs",
+            "type": "array"
+          },
+          "skip_compares": {
+            "default": false,
+            "title": "Skip Compares",
+            "type": "boolean"
+          },
+          "skip_holdout_eval": {
+            "default": false,
+            "title": "Skip Holdout Eval",
+            "type": "boolean"
+          },
+          "spec_name": {
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9_\\-:]+$",
+            "title": "Spec Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "spec_name"
+        ],
+        "title": "StudyPayload",
+        "type": "object"
       },
       "StudySummary": {
         "properties": {
@@ -2482,16 +2559,16 @@
         ]
       }
     },
-    "/api/hpo/{name}": {
+    "/api/hpo/{wire_id}": {
       "get": {
-        "operationId": "get_hpo_study_detail_api_hpo__name__get",
+        "operationId": "get_hpo_study_detail_api_hpo__wire_id__get",
         "parameters": [
           {
             "in": "path",
-            "name": "name",
+            "name": "wire_id",
             "required": true,
             "schema": {
-              "title": "Name",
+              "title": "Wire Id",
               "type": "string"
             }
           }
@@ -2524,16 +2601,16 @@
         ]
       }
     },
-    "/api/hpo/{name}/param-importance": {
+    "/api/hpo/{wire_id}/param-importance": {
       "get": {
-        "operationId": "get_hpo_param_importance_api_hpo__name__param_importance_get",
+        "operationId": "get_hpo_param_importance_api_hpo__wire_id__param_importance_get",
         "parameters": [
           {
             "in": "path",
-            "name": "name",
+            "name": "wire_id",
             "required": true,
             "schema": {
-              "title": "Name",
+              "title": "Wire Id",
               "type": "string"
             }
           }
@@ -2566,16 +2643,16 @@
         ]
       }
     },
-    "/api/hpo/{name}/trials": {
+    "/api/hpo/{wire_id}/trials": {
       "get": {
-        "operationId": "get_hpo_trials_api_hpo__name__trials_get",
+        "operationId": "get_hpo_trials_api_hpo__wire_id__trials_get",
         "parameters": [
           {
             "in": "path",
-            "name": "name",
+            "name": "wire_id",
             "required": true,
             "schema": {
-              "title": "Name",
+              "title": "Wire Id",
               "type": "string"
             }
           },
@@ -2604,7 +2681,7 @@
                   "items": {
                     "$ref": "#/components/schemas/TrialRow"
                   },
-                  "title": "Response Get Hpo Trials Api Hpo  Name  Trials Get",
+                  "title": "Response Get Hpo Trials Api Hpo  Wire Id  Trials Get",
                   "type": "array"
                 }
               }

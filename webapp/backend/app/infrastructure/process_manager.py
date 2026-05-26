@@ -1,9 +1,8 @@
-"""Spawn + supervise CLI subprocesses; fan-out log + status + trial frames to WS clients."""
+"""Spawn + supervise CLI subprocesses; fan-out log + status frames to WS clients."""
 
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
 import signal
 import subprocess
@@ -24,8 +23,7 @@ from src.orchestration.comparison import SignificanceTest
 from src.orchestration.holdout_eval import SourceKind
 from webapp.backend.app.infrastructure.event_broker import EventBroker
 from webapp.backend.app.infrastructure.log_tailer import tail_log
-from webapp.backend.app.infrastructure.store import iter_run_dirs
-from webapp.backend.app.schemas.hpo import TrialFrame
+from webapp.backend.app.infrastructure.store import STUDIES_SUBDIR, iter_run_dirs
 from webapp.backend.app.schemas.jobs import (
     JobKind,
     JobLogFrame,
@@ -40,18 +38,9 @@ logger = logging.getLogger(__name__)
 
 
 JobEventBroker = EventBroker[JobStreamFrame]
-HpoEventBroker = EventBroker[TrialFrame]
 
 
 OnCompleteCallback = Callable[[str, JobStatus, int | None, str | None], Awaitable[None]]
-
-
-@dataclass(frozen=True)
-class TrialTailSpec:
-    """Inputs the trials.jsonl tailer needs to publish ``TrialFrame``s."""
-
-    study_name: str
-    trial_jsonl_path: Path
 
 
 @dataclass
@@ -169,6 +158,38 @@ def build_holdout_command(
     return tuple(cmd)
 
 
+def build_study_command(
+    *,
+    spec_path: Path,
+    force_rerun: bool,
+    only_legs: tuple[str, ...],
+    skip_compares: bool,
+    skip_holdout_eval: bool,
+    store_root: Path,
+) -> tuple[str, ...]:
+    """``experiment study run`` invocation; drives the cross-strategy × cross-universe sweep."""
+    cmd: list[str] = [
+        sys.executable,
+        "-m",
+        "scripts.experiment",
+        "study",
+        "run",
+        "--spec",
+        str(spec_path),
+        "--store-root",
+        str(store_root),
+    ]
+    if force_rerun:
+        cmd.append("--force-rerun")
+    if skip_compares:
+        cmd.append("--skip-compares")
+    if skip_holdout_eval:
+        cmd.append("--skip-holdout-eval")
+    for leg_id in only_legs:
+        cmd.extend(("--only-leg", leg_id))
+    return tuple(cmd)
+
+
 def _resolve_run_experiment_id(store_root: Path, job_id: str) -> str | None:
     """Scan run manifests for ``manifest.name == job_id``."""
     for run_dir in iter_run_dirs(store_root):
@@ -188,12 +209,11 @@ _ARTIFACT_SUBDIR_BY_KIND: dict[JobKind, str] = {
     JobKind.TUNE: HPO_SUBDIR,
     JobKind.COMPARE: COMPARISONS_SUBDIR,
     JobKind.HOLDOUT: HOLDOUT_EVALS_SUBDIR,
+    JobKind.STUDY: STUDIES_SUBDIR,
 }
 
 
-def _resolve_named_artifact_id(
-    store_root: Path, subdir: str, artifact_name: str
-) -> str | None:
+def _resolve_named_artifact_id(store_root: Path, subdir: str, artifact_name: str) -> str | None:
     if (store_root / subdir / artifact_name).is_dir():
         return artifact_name
     return None
@@ -225,12 +245,9 @@ class ProcessManager:
         self,
         broker: JobEventBroker,
         on_complete: OnCompleteCallback,
-        *,
-        hpo_broker: HpoEventBroker | None = None,
     ) -> None:
         self._broker = broker
         self._on_complete = on_complete
-        self._hpo_broker = hpo_broker
         self._running: dict[str, _RunningProcess] = {}
 
     async def spawn(
@@ -242,7 +259,6 @@ class ProcessManager:
         log_path: Path,
         store_root: Path,
         cwd: Path | None = None,
-        trial_tail: TrialTailSpec | None = None,
         artifact_id: str | None = None,
     ) -> int:
         # buffering=0 + dup'd FD: child writes raw, parent closes immediately so
@@ -259,29 +275,14 @@ class ProcessManager:
         finally:
             log_handle.close()
         stop_event = asyncio.Event()
-        hpo_study_name = trial_tail.study_name if trial_tail is not None else None
-        # TUNE pre-commits its artifact name as the study name; COMPARE/HOLDOUT
-        # supply it via ``artifact_id``. RUN resolves post-completion by manifest scan.
-        artifact_name = artifact_id if artifact_id is not None else hpo_study_name
         watch_task = asyncio.create_task(
-            self._watch(
-                job_id, kind, process, stop_event, store_root, artifact_name, hpo_study_name
-            )
+            self._watch(job_id, kind, process, stop_event, store_root, artifact_id)
         )
         log_tail_task = asyncio.create_task(self._tail(job_id, log_path, stop_event))
-        tail_tasks: list[asyncio.Task[None]] = [log_tail_task]
-        if trial_tail is not None and self._hpo_broker is not None:
-            tail_tasks.append(
-                asyncio.create_task(
-                    self._tail_trials(
-                        trial_tail.study_name, trial_tail.trial_jsonl_path, stop_event
-                    )
-                )
-            )
         self._running[job_id] = _RunningProcess(
             process=process,
             watch_task=watch_task,
-            tail_tasks=tuple(tail_tasks),
+            tail_tasks=(log_tail_task,),
             stop_event=stop_event,
         )
         return process.pid
@@ -335,7 +336,6 @@ class ProcessManager:
         stop_event: asyncio.Event,
         store_root: Path,
         artifact_name: str | None,
-        hpo_study_name: str | None,
     ) -> None:
         try:
             exit_code = await asyncio.to_thread(process.wait)
@@ -366,8 +366,6 @@ class ProcessManager:
             JobStatusFrame(status=status, exit_code=exit_code, experiment_id=experiment_id),
         )
         await self._broker.close(job_id)
-        if hpo_study_name is not None and self._hpo_broker is not None:
-            await self._hpo_broker.close(hpo_study_name)
         self._running.pop(job_id, None)
 
     async def _tail(self, job_id: str, log_path: Path, stop_event: asyncio.Event) -> None:
@@ -378,40 +376,6 @@ class ProcessManager:
             raise
         except Exception:
             logger.exception("log tailer crashed for job %s", job_id)
-
-    async def _tail_trials(
-        self,
-        study_name: str,
-        trial_jsonl_path: Path,
-        stop_event: asyncio.Event,
-    ) -> None:
-        # Defer the import: hpo_service pulls in optuna + reporters via its
-        # transitive imports, and most processes don't tune.
-        from webapp.backend.app.services.hpo_service import trial_row_from_record
-
-        broker = self._hpo_broker
-        if broker is None:
-            return
-        try:
-            async for line in tail_log(trial_jsonl_path, stop=stop_event):
-                if not line.strip():
-                    continue
-                try:
-                    parsed = json.loads(line)
-                except json.JSONDecodeError:
-                    logger.warning("malformed trials.jsonl line for study %s: %r", study_name, line)
-                    continue
-                if not isinstance(parsed, dict):
-                    logger.warning(
-                        "non-object trials.jsonl line for study %s: %r", study_name, line
-                    )
-                    continue
-                row = trial_row_from_record(parsed)
-                await broker.publish(study_name, TrialFrame(trial=row))
-        except asyncio.CancelledError:
-            raise
-        except Exception:
-            logger.exception("trial tailer crashed for study %s", study_name)
 
     @staticmethod
     def _classify_exit(exit_code: int) -> JobStatus:

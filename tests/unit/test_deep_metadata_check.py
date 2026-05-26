@@ -160,7 +160,6 @@ class TestWalkForwardDeepCheck:
             validate_deep_metadata(stub, test_data=eval_df)  # type: ignore[arg-type]
         assert any("strategy" in r.message for r in caplog.records)
 
-
     def test_all_none_raises_runtime_error(
         self,
         eval_df: pd.DataFrame,
@@ -175,5 +174,3 @@ class TestWalkForwardDeepCheck:
         stub = _StubStrategy()
         with pytest.raises(RuntimeError, match="returned no populated metadata"):
             validate_deep_metadata(stub, test_data=eval_df)  # type: ignore[arg-type]
-
-

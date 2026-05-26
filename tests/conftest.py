@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import importlib.util
 from collections.abc import Iterable
-from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from types import ModuleType
@@ -16,7 +15,7 @@ import yaml
 
 from src.analysis.metrics_aggregator import AggregateStats
 from src.benchmarking.types import BenchmarkResult, BenchmarkRun, HardwareInfo
-from src.core.temporal import TrainingMetadata, WalkForwardValidator
+from src.core.temporal import WalkForwardValidator
 from src.core.types import BarData, Interval
 from src.engine.scenarios import SlippageScenario
 from src.orchestration.manifest import Manifest

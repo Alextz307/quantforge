@@ -35,12 +35,12 @@ function IdentityCard({ study }: { study: HpoDetail }) {
 }
 
 export function HpoDetailPage() {
-  const { name = "" } = useParams<{ name: string }>();
-  const studyQuery = useHpoStudy(name, { livePoll: true });
+  const { wireId = "" } = useParams<{ wireId: string }>();
+  const studyQuery = useHpoStudy(wireId, { livePoll: true });
   const isLive = studyQuery.data?.live_job_id != null;
-  const trialsQuery = useHpoTrials(name);
-  const importanceQuery = useHpoParamImportance(name, { isLive });
-  const stream = useHpoTrialStream(name, isLive);
+  const trialsQuery = useHpoTrials(wireId);
+  const importanceQuery = useHpoParamImportance(wireId, { isLive });
+  const stream = useHpoTrialStream(wireId);
 
   return (
     <QueryRenderer
@@ -55,7 +55,7 @@ export function HpoDetailPage() {
             {study.best_config_reserves_holdout && (
               <Button asChild variant="outline" size="sm">
                 <Link
-                  to={`${ROUTES.configureHoldout}?source_kind=${SOURCE_KIND_HPO}&source_id=${encodeURIComponent(study.name)}`}
+                  to={`${ROUTES.configureHoldout}?source_kind=${SOURCE_KIND_HPO}&source_id=${encodeURIComponent(study.wire_id)}`}
                   data-testid="hpo-detail-holdout-cta"
                 >
                   Run holdout eval

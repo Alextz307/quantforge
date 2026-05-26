@@ -29,10 +29,10 @@ function hpoStudiesConfig(): ApiQueryOptions<HpoSummary[]> {
   };
 }
 
-function hpoStudyConfig(name: string, livePoll: boolean): ApiQueryOptions<HpoDetail> {
+function hpoStudyConfig(wireId: string, livePoll: boolean): ApiQueryOptions<HpoDetail> {
   return {
-    queryKey: queryKeys.hpoStudy(name),
-    fetcher: () => apiClient.GET(API_PATHS.hpoStudy, { params: { path: { name } } }),
+    queryKey: queryKeys.hpoStudy(wireId),
+    fetcher: () => apiClient.GET(API_PATHS.hpoStudy, { params: { path: { wire_id: wireId } } }),
     errorMsg: "Failed to load HPO study",
     staleTime: Infinity,
     refetchInterval: livePoll
@@ -41,22 +41,23 @@ function hpoStudyConfig(name: string, livePoll: boolean): ApiQueryOptions<HpoDet
   };
 }
 
-function hpoTrialsConfig(name: string): ApiQueryOptions<TrialRow[]> {
+function hpoTrialsConfig(wireId: string): ApiQueryOptions<TrialRow[]> {
   return {
-    queryKey: queryKeys.hpoTrials(name),
-    fetcher: () => apiClient.GET(API_PATHS.hpoTrials, { params: { path: { name } } }),
+    queryKey: queryKeys.hpoTrials(wireId),
+    fetcher: () => apiClient.GET(API_PATHS.hpoTrials, { params: { path: { wire_id: wireId } } }),
     errorMsg: "Failed to load HPO trials",
     staleTime: Infinity,
   };
 }
 
 function hpoParamImportanceConfig(
-  name: string,
+  wireId: string,
   isLive: boolean,
 ): ApiQueryOptions<ParamImportanceResponse> {
   return {
-    queryKey: queryKeys.hpoParamImportance(name),
-    fetcher: () => apiClient.GET(API_PATHS.hpoParamImportance, { params: { path: { name } } }),
+    queryKey: queryKeys.hpoParamImportance(wireId),
+    fetcher: () =>
+      apiClient.GET(API_PATHS.hpoParamImportance, { params: { path: { wire_id: wireId } } }),
     errorMsg: "Failed to load param importance",
     staleTime: Infinity,
     refetchInterval: isLive ? IMPORTANCE_LIVE_REFETCH_MS : false,
@@ -68,37 +69,37 @@ export function useHpoStudies(): UseQueryResult<HpoSummary[]> {
 }
 
 export function useHpoStudy(
-  name: string,
+  wireId: string,
   opts: { livePoll?: boolean } = {},
 ): UseQueryResult<HpoDetail> {
-  return useApiQuery(hpoStudyConfig(name, opts.livePoll ?? false));
+  return useApiQuery(hpoStudyConfig(wireId, opts.livePoll ?? false));
 }
 
-export function useHpoTrials(name: string): UseQueryResult<TrialRow[]> {
-  return useApiQuery(hpoTrialsConfig(name));
+export function useHpoTrials(wireId: string): UseQueryResult<TrialRow[]> {
+  return useApiQuery(hpoTrialsConfig(wireId));
 }
 
 export function useHpoParamImportance(
-  name: string,
+  wireId: string,
   opts: { isLive?: boolean } = {},
 ): UseQueryResult<ParamImportanceResponse> {
-  return useApiQuery(hpoParamImportanceConfig(name, opts.isLive ?? false));
+  return useApiQuery(hpoParamImportanceConfig(wireId, opts.isLive ?? false));
 }
 
-export function usePrefetchHpoStudy(): (name: string) => void {
+export function usePrefetchHpoStudy(): (wireId: string) => void {
   const qc = useQueryClient();
   return useCallback(
-    (name: string) => {
-      void prefetchApiQuery(qc, hpoStudyConfig(name, false));
+    (wireId: string) => {
+      void prefetchApiQuery(qc, hpoStudyConfig(wireId, false));
     },
     [qc],
   );
 }
 
-export function hpoStreamUrl(name: string, afterTrial?: number): string {
+export function hpoStreamUrl(wireId: string, afterTrial?: number): string {
   return wsUrlFor(
     API_PATHS.hpoStream,
-    { name },
+    { wire_id: wireId },
     afterTrial !== undefined ? { after_trial: afterTrial } : undefined,
   );
 }

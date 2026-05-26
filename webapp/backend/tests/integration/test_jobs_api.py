@@ -320,9 +320,7 @@ _COMPARE_RUN_A = "20260101_120000_AdaptiveBollinger_abc1234_deadbeef"
 _COMPARE_RUN_B = "20260201_090000_AdaptiveBollinger_def5678_cafebabe"
 
 
-def _seed_compare_runs(
-    monkeypatch: pytest.MonkeyPatch, run_ids: tuple[str, ...]
-) -> Path:
+def _seed_compare_runs(monkeypatch: pytest.MonkeyPatch, run_ids: tuple[str, ...]) -> Path:
     """Provision a per-test store-root + synthetic runs at ``run_ids``."""
     from webapp.backend.app.core.settings import get_settings
 

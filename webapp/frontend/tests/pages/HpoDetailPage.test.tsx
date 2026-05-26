@@ -26,7 +26,7 @@ function Tree() {
 describe("HpoDetailPage", () => {
   it("renders the trial table, convergence chart, importance chart and best-config card", async () => {
     renderWithProviders(<Tree />, {
-      initialEntries: [`/hpo/${HPO_DEMO_SUMMARY.name}`],
+      initialEntries: [`/hpo/${HPO_DEMO_SUMMARY.wire_id}`],
     });
 
     expect(await screen.findByTestId("trial-table")).toBeInTheDocument();
@@ -37,7 +37,7 @@ describe("HpoDetailPage", () => {
 
   it("renders one row per trial and highlights the best trial number", async () => {
     renderWithProviders(<Tree />, {
-      initialEntries: [`/hpo/${HPO_DEMO_SUMMARY.name}`],
+      initialEntries: [`/hpo/${HPO_DEMO_SUMMARY.wire_id}`],
     });
 
     for (const t of HPO_DEMO_TRIALS) {
@@ -51,7 +51,7 @@ describe("HpoDetailPage", () => {
 
   it("renders the importance value count from the API response", async () => {
     renderWithProviders(<Tree />, {
-      initialEntries: [`/hpo/${HPO_DEMO_SUMMARY.name}`],
+      initialEntries: [`/hpo/${HPO_DEMO_SUMMARY.wire_id}`],
     });
 
     const importance = await screen.findByTestId("hpo-importance");
@@ -67,7 +67,7 @@ describe("HpoDetailPage", () => {
       ),
     );
     renderWithProviders(<Tree />, {
-      initialEntries: [`/hpo/${HPO_DEMO_SUMMARY.name}`],
+      initialEntries: [`/hpo/${HPO_DEMO_SUMMARY.wire_id}`],
     });
 
     const empty = await screen.findByTestId("hpo-importance-empty");
@@ -76,7 +76,7 @@ describe("HpoDetailPage", () => {
 
   it("hides the connection indicator when the study is not live", async () => {
     renderWithProviders(<Tree />, {
-      initialEntries: [`/hpo/${HPO_DEMO_SUMMARY.name}`],
+      initialEntries: [`/hpo/${HPO_DEMO_SUMMARY.wire_id}`],
     });
 
     await screen.findByTestId("hpo-convergence");
@@ -90,7 +90,7 @@ describe("HpoDetailPage", () => {
       ),
     );
     renderWithProviders(<Tree />, {
-      initialEntries: [`/hpo/${HPO_DEMO_SUMMARY.name}`],
+      initialEntries: [`/hpo/${HPO_DEMO_SUMMARY.wire_id}`],
     });
 
     await waitFor(() => {
@@ -100,12 +100,12 @@ describe("HpoDetailPage", () => {
 
   it("shows the 'Run holdout eval' CTA when best_config reserves a holdout region", async () => {
     renderWithProviders(<Tree />, {
-      initialEntries: [`/hpo/${HPO_DEMO_SUMMARY.name}`],
+      initialEntries: [`/hpo/${HPO_DEMO_SUMMARY.wire_id}`],
     });
     const cta = await screen.findByTestId("hpo-detail-holdout-cta");
     expect(cta).toHaveAttribute(
       "href",
-      `${ROUTES.configureHoldout}?source_kind=hpo&source_id=${HPO_DEMO_SUMMARY.name}`,
+      `${ROUTES.configureHoldout}?source_kind=hpo&source_id=${HPO_DEMO_SUMMARY.wire_id}`,
     );
   });
 
@@ -116,7 +116,7 @@ describe("HpoDetailPage", () => {
       ),
     );
     renderWithProviders(<Tree />, {
-      initialEntries: [`/hpo/${HPO_DEMO_SUMMARY.name}`],
+      initialEntries: [`/hpo/${HPO_DEMO_SUMMARY.wire_id}`],
     });
     await screen.findByTestId("hpo-convergence");
     expect(screen.queryByTestId("hpo-detail-holdout-cta")).not.toBeInTheDocument();

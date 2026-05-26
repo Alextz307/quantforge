@@ -123,4 +123,3 @@ class TestDegenerateFoldsAreSkippedIntegration:
             StrategyReporter().generate_full_report(result, tmp_path)
         assert (tmp_path / "plots" / "equity_curves.png").is_file()
         assert any("skipping from equity plot" in r.message for r in caplog.records)
-

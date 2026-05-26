@@ -23,6 +23,10 @@ class HoldoutEvalSummary(BaseModel):
     source_kind: SourceKind
     source_id: str
     holdout_start: datetime
+    # ``None`` for in-flight evals whose ``metrics`` block hasn't been written
+    # yet. Surfacing it on the listing lets the table render + sort on Sharpe
+    # without forcing a per-row detail fetch.
+    sharpe_ratio: float | None
 
 
 class HoldoutEvalDetail(BaseModel):

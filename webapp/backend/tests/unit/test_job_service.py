@@ -99,6 +99,7 @@ def test_submit_writes_yaml_and_persists_running(
             user=user,
             submission=submission,
             store_root=store_root,
+            config_root=tmp_path / "config",
             job_temp_dir=job_temp_dir,
         )
     )
@@ -135,6 +136,7 @@ def test_submit_auto_injects_features_for_strategies_that_need_them(
             user=user,
             submission=submission,
             store_root=tmp_path / "store",
+            config_root=tmp_path / "config",
             job_temp_dir=job_temp_dir,
         )
     )
@@ -161,6 +163,7 @@ def test_submit_does_not_inject_features_for_self_contained_strategies(
             user=user,
             submission=submission,
             store_root=tmp_path / "store",
+            config_root=tmp_path / "config",
             job_temp_dir=job_temp_dir,
         )
     )
@@ -191,6 +194,7 @@ def test_submit_respects_user_supplied_features_block(
             user=user,
             submission=submission,
             store_root=tmp_path / "store",
+            config_root=tmp_path / "config",
             job_temp_dir=job_temp_dir,
         )
     )
@@ -216,6 +220,7 @@ def test_submit_rejects_invalid_payload_before_persisting(
                 user=user,
                 submission=submission,
                 store_root=tmp_path / "store",
+                config_root=tmp_path / "config",
                 job_temp_dir=tmp_path / "jobs",
             )
         )
@@ -399,6 +404,7 @@ def test_submit_tune_writes_both_yamls_and_persists_study_name(
             user=user,
             submission=submission,
             store_root=tmp_path / "store",
+            config_root=tmp_path / "config",
             job_temp_dir=job_temp_dir,
         )
     )
@@ -436,6 +442,7 @@ def test_submit_tune_rejects_invalid_hpo_payload(
                 user=user,
                 submission=submission,
                 store_root=tmp_path / "store",
+                config_root=tmp_path / "config",
                 job_temp_dir=job_temp_dir,
             )
         )
@@ -469,6 +476,7 @@ _COMPARE_RUN_A = "20260101_120000_AdaptiveBollinger_abc1234_deadbeef"
 _COMPARE_RUN_B = "20260201_090000_AdaptiveBollinger_def5678_cafebabe"
 _HOLDOUT_RUN_ID = "20260301_080000_AdaptiveBollinger_aaa0000_bbbb1111"
 _HPO_STUDY = "demo_study"
+_HPO_STUDY_WIRE_ID = f"hpo~{_HPO_STUDY}"
 
 
 def _seed_run_with_holdout(store_root: Path, experiment_id: str, holdout_start: str) -> Path:
@@ -531,6 +539,7 @@ def test_submit_compare_spawns_with_reuse_runs_and_persists_out_name(
             user=user,
             submission=submission,
             store_root=store_root,
+            config_root=tmp_path / "config",
             job_temp_dir=tmp_path / "jobs",
         )
     )
@@ -555,9 +564,7 @@ def test_submit_compare_spawns_with_reuse_runs_and_persists_out_name(
     assert spawn_kwargs["artifact_id"] == "my_compare"
 
 
-def test_submit_compare_rejects_unknown_run_id(
-    db_conn: sqlite3.Connection, tmp_path: Path
-) -> None:
+def test_submit_compare_rejects_unknown_run_id(db_conn: sqlite3.Connection, tmp_path: Path) -> None:
     user = _user(db_conn, "alice")
     manager = _stub_manager()
     store_root = tmp_path / "store"
@@ -578,6 +585,7 @@ def test_submit_compare_rejects_unknown_run_id(
                 user=user,
                 submission=submission,
                 store_root=store_root,
+                config_root=tmp_path / "config",
                 job_temp_dir=tmp_path / "jobs",
             )
         )
@@ -620,6 +628,7 @@ def test_submit_holdout_from_run_spawns_with_run_dir_flag(
             user=user,
             submission=submission,
             store_root=store_root,
+            config_root=tmp_path / "config",
             job_temp_dir=tmp_path / "jobs",
         )
     )
@@ -645,7 +654,7 @@ def test_submit_holdout_from_hpo_spawns_with_hpo_best_flag(
     study_dir = _seed_hpo_study(store_root, _HPO_STUDY)
     submission = JobSubmission(
         kind=JobKind.HOLDOUT,
-        holdout_payload=HoldoutPayload(source_kind="hpo", source_id=_HPO_STUDY),
+        holdout_payload=HoldoutPayload(source_kind="hpo", source_id=_HPO_STUDY_WIRE_ID),
     )
 
     row = asyncio.run(
@@ -655,6 +664,7 @@ def test_submit_holdout_from_hpo_spawns_with_hpo_best_flag(
             user=user,
             submission=submission,
             store_root=store_root,
+            config_root=tmp_path / "config",
             job_temp_dir=tmp_path / "jobs",
         )
     )
@@ -690,6 +700,7 @@ def test_submit_holdout_rejects_run_without_holdout_start(
                 user=user,
                 submission=submission,
                 store_root=store_root,
+                config_root=tmp_path / "config",
                 job_temp_dir=tmp_path / "jobs",
             )
         )
@@ -709,7 +720,7 @@ def test_submit_holdout_rejects_hpo_without_best_config(
     _seed_hpo_study(store_root, _HPO_STUDY, write_best_config=False)
     submission = JobSubmission(
         kind=JobKind.HOLDOUT,
-        holdout_payload=HoldoutPayload(source_kind="hpo", source_id=_HPO_STUDY),
+        holdout_payload=HoldoutPayload(source_kind="hpo", source_id=_HPO_STUDY_WIRE_ID),
     )
 
     with pytest.raises(JobConfigInvalidError) as excinfo:
@@ -720,6 +731,7 @@ def test_submit_holdout_rejects_hpo_without_best_config(
                 user=user,
                 submission=submission,
                 store_root=store_root,
+                config_root=tmp_path / "config",
                 job_temp_dir=tmp_path / "jobs",
             )
         )
@@ -741,7 +753,7 @@ def test_submit_holdout_rejects_hpo_whose_best_config_reserves_no_holdout(
     _seed_hpo_study(store_root, _HPO_STUDY, holdout_pct=0.0)
     submission = JobSubmission(
         kind=JobKind.HOLDOUT,
-        holdout_payload=HoldoutPayload(source_kind="hpo", source_id=_HPO_STUDY),
+        holdout_payload=HoldoutPayload(source_kind="hpo", source_id=_HPO_STUDY_WIRE_ID),
     )
 
     with pytest.raises(JobConfigInvalidError) as excinfo:
@@ -752,6 +764,7 @@ def test_submit_holdout_rejects_hpo_whose_best_config_reserves_no_holdout(
                 user=user,
                 submission=submission,
                 store_root=store_root,
+                config_root=tmp_path / "config",
                 job_temp_dir=tmp_path / "jobs",
             )
         )
@@ -766,9 +779,7 @@ def test_job_submission_validator_rejects_compare_with_config_payload() -> None:
         JobSubmission(
             kind=JobKind.COMPARE,
             config_payload=make_valid_experiment_payload(),
-            compare_payload=ComparePayload(
-                run_ids=[_COMPARE_RUN_A, _COMPARE_RUN_B], out_name="x"
-            ),
+            compare_payload=ComparePayload(run_ids=[_COMPARE_RUN_A, _COMPARE_RUN_B], out_name="x"),
         )
 
 
@@ -786,8 +797,6 @@ def test_job_submission_validator_rejects_holdout_with_compare_payload() -> None
     with pytest.raises(ValueError, match="compare_payload must be omitted"):
         JobSubmission(
             kind=JobKind.HOLDOUT,
-            compare_payload=ComparePayload(
-                run_ids=[_COMPARE_RUN_A, _COMPARE_RUN_B], out_name="x"
-            ),
+            compare_payload=ComparePayload(run_ids=[_COMPARE_RUN_A, _COMPARE_RUN_B], out_name="x"),
             holdout_payload=HoldoutPayload(source_kind="run", source_id=_HOLDOUT_RUN_ID),
         )

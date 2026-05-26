@@ -1,4 +1,4 @@
-import { NavLink } from "react-router-dom";
+import { Link, NavLink } from "react-router-dom";
 import {
   BarChart3,
   Beaker,
@@ -40,7 +40,13 @@ export function Sidebar({ user }: SidebarProps) {
   return (
     <aside className="flex w-64 flex-col border-r bg-card">
       <div className="flex h-16 items-center border-b px-6">
-        <span className="text-lg font-semibold">QuantForge</span>
+        <Link
+          to={ROUTES.home}
+          className="text-lg font-semibold transition-colors hover:text-foreground/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
+          data-testid="brand-link"
+        >
+          QuantForge
+        </Link>
       </div>
       <nav className="flex-1 space-y-1 p-4">
         {items.map(({ to, label, icon: Icon }) => (

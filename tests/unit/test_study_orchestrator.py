@@ -116,9 +116,7 @@ class TestComposeLegConfig:
         assert cfg.data.tickers == ["QQQ"]
         assert cfg.validation.holdout_pct > 0.0
 
-    def test_universe_holdout_pct_overrides_strategy_default(
-        self, main_spec: StudySpec
-    ) -> None:
+    def test_universe_holdout_pct_overrides_strategy_default(self, main_spec: StudySpec) -> None:
         legs = expand_spec_into_legs(main_spec, repo_root=REPO_ROOT)
         ab_2008 = next(
             leg

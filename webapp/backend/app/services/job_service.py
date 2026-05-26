@@ -11,13 +11,14 @@ from typing import Protocol
 
 import yaml
 
+from src.core.config import StudyLeg, StudySpec
 from src.core.fs import ensure_parent_dir
 from src.core.persistence import (
     EXPERIMENT_CONFIG_YAML,
-    HPO_SUBDIR,
     read_experiment_manifest,
 )
-from src.optimization.checkpointing import BEST_CONFIG_YAML_NAME, TRIALS_JSONL_NAME
+from src.optimization.checkpointing import BEST_CONFIG_YAML_NAME
+from src.orchestration.study import make_leg_id
 from webapp.backend.app.core.types import Role
 from webapp.backend.app.infrastructure.job_store import (
     IllegalStatusTransitionError,
@@ -32,16 +33,16 @@ from webapp.backend.app.infrastructure.job_store import (
 )
 from webapp.backend.app.infrastructure.process_manager import (
     ProcessManager,
-    TrialTailSpec,
     build_compare_command,
     build_holdout_command,
     build_run_command,
+    build_study_command,
     build_tune_command,
 )
 from webapp.backend.app.infrastructure.store import (
     HpoStudyNotFoundError,
     RunNotFoundError,
-    find_hpo_study_dir,
+    find_hpo_study_dir_by_wire_id,
     find_run_dir,
     iter_hpo_study_dirs,
     iter_run_dirs,
@@ -55,12 +56,14 @@ from webapp.backend.app.schemas.jobs import (
     JobRow,
     JobStatus,
     JobSubmission,
+    StudyPayload,
 )
 from webapp.backend.app.schemas.users import UserPublic
 from webapp.backend.app.services._dir_cache import cached_artifact_dirs
 from webapp.backend.app.services.config_service import validate as validate_config
 from webapp.backend.app.services.hpo_service import best_config_reserves_holdout
 from webapp.backend.app.services.strategy_service import describe_strategy
+from webapp.backend.app.services.study_service import find_live_study_job_for
 
 logger = logging.getLogger(__name__)
 
@@ -99,10 +102,6 @@ def _hpo_config_path(job_temp_dir: Path, job_id: str) -> Path:
 
 def _log_path(job_temp_dir: Path, job_id: str) -> Path:
     return job_temp_dir / f"{job_id}.log"
-
-
-def _trial_jsonl_path(store_root: Path, study_name: str) -> Path:
-    return store_root / HPO_SUBDIR / study_name / TRIALS_JSONL_NAME
 
 
 def _write_config_yaml(path: Path, payload: dict[str, object]) -> None:
@@ -160,18 +159,25 @@ class _SpawnPlan:
     primary_config_path: Path
     configs_to_write: dict[Path, dict[str, object]] = field(default_factory=dict)
     experiment_id: str | None = None
-    trial_tail: TrialTailSpec | None = None
     artifact_id: str | None = None
 
 
 class _JobHandler(Protocol):
     """Per-kind submit_job hook: validate pre-insert, then build a SpawnPlan."""
 
-    def validate(self, submission: JobSubmission, store_root: Path) -> None:
+    def validate(
+        self,
+        submission: JobSubmission,
+        store_root: Path,
+        config_root: Path,
+        conn: sqlite3.Connection,
+    ) -> None:
         """Raise :class:`JobConfigInvalidError` on any pre-insert failure.
 
         Runs before the placeholder row is inserted so a rejected
-        submission leaves no orphan state behind.
+        submission leaves no orphan state behind. ``config_root`` and
+        ``conn`` are unused by most kinds; STUDY needs ``config_root`` to
+        resolve the spec YAML and ``conn`` to refuse colliding output dirs.
         """
 
     def plan(
@@ -180,6 +186,7 @@ class _JobHandler(Protocol):
         row: JobRow,
         job_temp_dir: Path,
         store_root: Path,
+        config_root: Path,
     ) -> _SpawnPlan: ...
 
 
@@ -243,9 +250,7 @@ def _resolve_compare_inputs(
     return tuple(config_paths), tuple(reuse_run_dirs)
 
 
-def _resolve_holdout_source(
-    payload: HoldoutPayload, store_root: Path
-) -> tuple[Path, str]:
+def _resolve_holdout_source(payload: HoldoutPayload, store_root: Path) -> tuple[Path, str]:
     """Resolve the source dir and derive the artifact (out_name) name.
 
     Returns ``(source_path, artifact_name)`` where ``artifact_name`` is
@@ -293,7 +298,7 @@ def _resolve_holdout_source(
             )
     else:
         try:
-            source_path = find_hpo_study_dir(store_root, payload.source_id)
+            source_path = find_hpo_study_dir_by_wire_id(store_root, payload.source_id)
         except HpoStudyNotFoundError as exc:
             raise JobConfigInvalidError(
                 [
@@ -336,8 +341,101 @@ def _resolve_holdout_source(
     return source_path, artifact_name
 
 
+_STUDY_CONFIG_SUBDIR = "study"
+
+
+def _study_spec_path(payload: StudyPayload, config_root: Path) -> Path:
+    return config_root / _STUDY_CONFIG_SUBDIR / f"{payload.spec_name}.yaml"
+
+
+def _resolve_study_spec(payload: StudyPayload, config_root: Path) -> StudySpec:
+    """Load and schema-validate ``config/study/<spec_name>.yaml``.
+
+    Raises :class:`JobConfigInvalidError` if the file is missing, the
+    YAML is malformed, or the parsed payload fails ``StudySpec``
+    validation. Schema errors are flattened into ``ValidationErrorItem``s
+    rooted at ``["study_payload", "spec_name", ...]`` so the form can
+    highlight the offending field.
+    """
+    spec_path = _study_spec_path(payload, config_root)
+    try:
+        raw = spec_path.read_text(encoding="utf-8")
+    except FileNotFoundError as exc:
+        raise JobConfigInvalidError(
+            [
+                ValidationErrorItem(
+                    loc=["study_payload", "spec_name"],
+                    msg=f"study spec not found: {payload.spec_name}",
+                    type="value_error",
+                )
+            ]
+        ) from exc
+    try:
+        parsed = yaml.safe_load(raw)
+    except yaml.YAMLError as exc:
+        raise JobConfigInvalidError(
+            [
+                ValidationErrorItem(
+                    loc=["study_payload", "spec_name"],
+                    msg=f"study spec is not valid YAML: {exc}",
+                    type="value_error",
+                )
+            ]
+        ) from exc
+    if not isinstance(parsed, dict):
+        raise JobConfigInvalidError(
+            [
+                ValidationErrorItem(
+                    loc=["study_payload", "spec_name"],
+                    msg="study spec must be a YAML mapping",
+                    type="value_error",
+                )
+            ]
+        )
+    result = validate_config(ConfigKind.STUDY, parsed)
+    if not result.valid:
+        raise JobConfigInvalidError(
+            [
+                ValidationErrorItem(
+                    loc=["study_payload", "spec_name", *err.loc],
+                    msg=err.msg,
+                    type=err.type,
+                )
+                for err in result.errors
+            ]
+        )
+    return StudySpec.model_validate(parsed)
+
+
+def _validate_only_legs(only_legs: list[str], spec_legs: list[StudyLeg]) -> None:
+    """Each ``only_legs`` entry must match a leg id derived from the spec."""
+    if not only_legs:
+        return
+    valid_ids: set[str] = {
+        make_leg_id(leg.strategy, universe) for leg in spec_legs for universe in leg.universes
+    }
+    errors: list[ValidationErrorItem] = []
+    for idx, leg_id in enumerate(only_legs):
+        if leg_id not in valid_ids:
+            errors.append(
+                ValidationErrorItem(
+                    loc=["study_payload", "only_legs", str(idx)],
+                    msg=f"unknown leg id: {leg_id}",
+                    type="value_error",
+                )
+            )
+    if errors:
+        raise JobConfigInvalidError(errors)
+
+
 class _RunHandler:
-    def validate(self, submission: JobSubmission, store_root: Path) -> None:
+    def validate(
+        self,
+        submission: JobSubmission,
+        store_root: Path,
+        config_root: Path,
+        conn: sqlite3.Connection,
+    ) -> None:
         assert submission.config_payload is not None  # JobSubmission validator-enforced
         result = validate_config(ConfigKind.EXPERIMENT, submission.config_payload)
         if not result.valid:
@@ -349,6 +447,7 @@ class _RunHandler:
         row: JobRow,
         job_temp_dir: Path,
         store_root: Path,
+        config_root: Path,
     ) -> _SpawnPlan:
         assert submission.config_payload is not None
         config_path = _config_path(job_temp_dir, row.id)
@@ -362,7 +461,13 @@ class _RunHandler:
 
 
 class _TuneHandler:
-    def validate(self, submission: JobSubmission, store_root: Path) -> None:
+    def validate(
+        self,
+        submission: JobSubmission,
+        store_root: Path,
+        config_root: Path,
+        conn: sqlite3.Connection,
+    ) -> None:
         assert submission.config_payload is not None
         assert submission.hpo_payload is not None
         exp_result = validate_config(ConfigKind.EXPERIMENT, submission.config_payload)
@@ -372,9 +477,7 @@ class _TuneHandler:
         if not hpo_result.valid:
             raise JobConfigInvalidError(
                 [
-                    ValidationErrorItem(
-                        loc=["hpo_payload", *err.loc], msg=err.msg, type=err.type
-                    )
+                    ValidationErrorItem(loc=["hpo_payload", *err.loc], msg=err.msg, type=err.type)
                     for err in hpo_result.errors
                 ]
             )
@@ -386,6 +489,7 @@ class _TuneHandler:
         row: JobRow,
         job_temp_dir: Path,
         store_root: Path,
+        config_root: Path,
     ) -> _SpawnPlan:
         assert submission.config_payload is not None
         assert submission.hpo_payload is not None
@@ -404,15 +508,17 @@ class _TuneHandler:
                 hpo_config_path: submission.hpo_payload,
             },
             experiment_id=study_name,
-            trial_tail=TrialTailSpec(
-                study_name=study_name,
-                trial_jsonl_path=_trial_jsonl_path(store_root, study_name),
-            ),
         )
 
 
 class _CompareHandler:
-    def validate(self, submission: JobSubmission, store_root: Path) -> None:
+    def validate(
+        self,
+        submission: JobSubmission,
+        store_root: Path,
+        config_root: Path,
+        conn: sqlite3.Connection,
+    ) -> None:
         assert submission.compare_payload is not None
         # Pre-insert file checks; the same resolver runs again in plan().
         # Cheap (stat-only) and isolating the call here keeps validate() and
@@ -425,6 +531,7 @@ class _CompareHandler:
         row: JobRow,
         job_temp_dir: Path,
         store_root: Path,
+        config_root: Path,
     ) -> _SpawnPlan:
         assert submission.compare_payload is not None
         payload = submission.compare_payload
@@ -450,7 +557,13 @@ class _CompareHandler:
 
 
 class _HoldoutHandler:
-    def validate(self, submission: JobSubmission, store_root: Path) -> None:
+    def validate(
+        self,
+        submission: JobSubmission,
+        store_root: Path,
+        config_root: Path,
+        conn: sqlite3.Connection,
+    ) -> None:
         assert submission.holdout_payload is not None
         _resolve_holdout_source(submission.holdout_payload, store_root)
 
@@ -460,6 +573,7 @@ class _HoldoutHandler:
         row: JobRow,
         job_temp_dir: Path,
         store_root: Path,
+        config_root: Path,
     ) -> _SpawnPlan:
         assert submission.holdout_payload is not None
         payload = submission.holdout_payload
@@ -479,11 +593,69 @@ class _HoldoutHandler:
         )
 
 
+class _StudyHandler:
+    def validate(
+        self,
+        submission: JobSubmission,
+        store_root: Path,
+        config_root: Path,
+        conn: sqlite3.Connection,
+    ) -> None:
+        assert submission.study_payload is not None
+        payload = submission.study_payload
+        spec = _resolve_study_spec(payload, config_root)
+        _validate_only_legs(payload.only_legs, spec.legs)
+        output_name = spec.output_dir.name
+        live = find_live_study_job_for(conn, output_name)
+        if live is not None:
+            raise JobConfigInvalidError(
+                [
+                    ValidationErrorItem(
+                        loc=["study_payload", "spec_name"],
+                        msg=(
+                            f"study '{output_name}' is already running under job "
+                            f"{live!r}; wait for it to finish or cancel it before "
+                            "launching another with the same output_dir."
+                        ),
+                        type="value_error",
+                    )
+                ]
+            )
+
+    def plan(
+        self,
+        submission: JobSubmission,
+        row: JobRow,
+        job_temp_dir: Path,
+        store_root: Path,
+        config_root: Path,
+    ) -> _SpawnPlan:
+        assert submission.study_payload is not None
+        payload = submission.study_payload
+        spec = _resolve_study_spec(payload, config_root)
+        spec_path = _study_spec_path(payload, config_root)
+        output_name = spec.output_dir.name
+        return _SpawnPlan(
+            command=build_study_command(
+                spec_path=spec_path,
+                force_rerun=payload.force_rerun,
+                only_legs=tuple(payload.only_legs),
+                skip_compares=payload.skip_compares,
+                skip_holdout_eval=payload.skip_holdout_eval,
+                store_root=store_root,
+            ),
+            primary_config_path=spec_path,
+            experiment_id=output_name,
+            artifact_id=output_name,
+        )
+
+
 _HANDLERS: dict[JobKind, _JobHandler] = {
     JobKind.RUN: _RunHandler(),
     JobKind.TUNE: _TuneHandler(),
     JobKind.COMPARE: _CompareHandler(),
     JobKind.HOLDOUT: _HoldoutHandler(),
+    JobKind.STUDY: _StudyHandler(),
 }
 
 
@@ -494,6 +666,7 @@ async def submit_job(
     user: UserPublic,
     submission: JobSubmission,
     store_root: Path,
+    config_root: Path,
     job_temp_dir: Path,
 ) -> JobRow:
     """Persist a queued row, write the config YAML(s), spawn the CLI, mark running.
@@ -503,7 +676,7 @@ async def submit_job(
     state behind.
     """
     handler = _HANDLERS[submission.kind]
-    handler.validate(submission, store_root)
+    handler.validate(submission, store_root, config_root, conn)
     if submission.kind in (JobKind.RUN, JobKind.TUNE):
         assert submission.config_payload is not None
         _maybe_inject_standard_features(submission.config_payload)
@@ -524,7 +697,7 @@ async def submit_job(
         ),
     )
     log_path = _log_path(job_temp_dir, row.id)
-    plan = handler.plan(submission, row, job_temp_dir, store_root)
+    plan = handler.plan(submission, row, job_temp_dir, store_root, config_root)
     return await _persist_and_spawn(
         conn=conn,
         manager=manager,
@@ -566,7 +739,6 @@ async def _persist_and_spawn(
         command=plan.command,
         log_path=log_path,
         store_root=store_root,
-        trial_tail=plan.trial_tail,
         artifact_id=plan.artifact_id,
     )
     return mark_running(conn, row.id, pid)
@@ -604,14 +776,10 @@ def list_jobs_for(
         return list(rows)
     valid_run_ids = {p.name for p in cached_artifact_dirs(store_root, "run", iter_run_dirs)}
     valid_hpo_ids = {p.name for p in cached_artifact_dirs(store_root, "hpo", iter_hpo_study_dirs)}
-    return [
-        row for row in rows if _job_artifact_present(row, valid_run_ids, valid_hpo_ids)
-    ]
+    return [row for row in rows if _job_artifact_present(row, valid_run_ids, valid_hpo_ids)]
 
 
-def _job_artifact_present(
-    job: JobRow, valid_run_ids: set[str], valid_hpo_ids: set[str]
-) -> bool:
+def _job_artifact_present(job: JobRow, valid_run_ids: set[str], valid_hpo_ids: set[str]) -> bool:
     if job.status not in TERMINAL_STATUSES:
         return True
     if job.experiment_id is None:

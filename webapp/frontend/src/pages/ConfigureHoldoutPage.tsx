@@ -323,18 +323,18 @@ function HpoSourcePicker({ rows, selectedId, onSelect }: HpoSourcePickerProps) {
         <tbody>
           {eligible.map((r) => (
             <tr
-              key={r.name}
+              key={r.wire_id}
               className="border-t last:border-b-0"
-              data-testid={`holdout-hpo-row-${r.name}`}
+              data-testid={`holdout-hpo-row-${r.wire_id}`}
             >
               <td className="py-2 pl-3">
                 <input
                   type="radio"
                   name="holdout-hpo-source"
                   aria-label={`Select ${r.name}`}
-                  checked={selectedId === r.name}
+                  checked={selectedId === r.wire_id}
                   onChange={() => {
-                    onSelect(r.name);
+                    onSelect(r.wire_id);
                   }}
                 />
               </td>

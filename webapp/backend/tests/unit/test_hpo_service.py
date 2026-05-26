@@ -74,7 +74,7 @@ def test_get_hpo_study_returns_best_config(tmp_path: Path) -> None:
         name=NEWER_NAME,
     )
 
-    detail = get_hpo_study(root, NEWER_NAME)
+    detail = get_hpo_study(root, f"studies~main~hpo~{NEWER_NAME}")
 
     assert detail.name == NEWER_NAME
     assert detail.best_config["name"] == "demo"
@@ -92,7 +92,7 @@ def test_get_hpo_study_handles_missing_best_config(tmp_path: Path) -> None:
         write_best_config=False,
     )
 
-    detail = get_hpo_study(root, NEWER_NAME)
+    detail = get_hpo_study(root, f"studies~main~hpo~{NEWER_NAME}")
 
     assert detail.best_config == {}
     assert detail.best_value is None
@@ -116,7 +116,7 @@ def test_list_trials_returns_all_by_default(tmp_path: Path) -> None:
         n_complete=EXPECTED_N_COMPLETE,
     )
 
-    rows = list_trials(root, NEWER_NAME)
+    rows = list_trials(root, f"studies~main~hpo~{NEWER_NAME}")
 
     assert [r.number for r in rows] == list(range(EXPECTED_N_TRIALS))
     assert sum(1 for r in rows if r.state == "COMPLETE") == EXPECTED_N_COMPLETE
@@ -130,7 +130,7 @@ def test_list_trials_filters_by_after_trial(tmp_path: Path) -> None:
         n_trials=EXPECTED_N_TRIALS,
     )
 
-    rows = list_trials(root, NEWER_NAME, after_trial=AFTER_TRIAL_FILTER)
+    rows = list_trials(root, f"studies~main~hpo~{NEWER_NAME}", after_trial=AFTER_TRIAL_FILTER)
 
     assert [r.number for r in rows] == list(range(AFTER_TRIAL_FILTER + 1, EXPECTED_N_TRIALS))
 
@@ -164,7 +164,7 @@ def test_get_param_importance_returns_message_when_too_few_completes(tmp_path: P
         n_complete=1,
     )
 
-    response = get_param_importance(root, _IMPORTANCE_STUDY_NAME)
+    response = get_param_importance(root, f"studies~main~hpo~{_IMPORTANCE_STUDY_NAME}")
 
     assert response.importance == {}
     assert response.message is not None
@@ -181,7 +181,7 @@ def test_get_param_importance_returns_message_when_db_missing(tmp_path: Path) ->
     )
     # Synthetic fixture writes trials.jsonl only — no optuna_study.db.
 
-    response = get_param_importance(root, _IMPORTANCE_STUDY_NAME)
+    response = get_param_importance(root, f"studies~main~hpo~{_IMPORTANCE_STUDY_NAME}")
 
     assert response.importance == {}
     assert response.message is not None
@@ -218,7 +218,7 @@ def test_get_param_importance_with_real_optuna_study(tmp_path: Path) -> None:
             )
         )
 
-    response = get_param_importance(root, _IMPORTANCE_STUDY_NAME)
+    response = get_param_importance(root, f"studies~main~hpo~{_IMPORTANCE_STUDY_NAME}")
 
     assert response.message is None
     assert set(response.importance.keys()) == {"window", "k"}
@@ -238,7 +238,7 @@ def test_find_live_job_for_returns_none_when_no_jobs(tmp_path: Path) -> None:
     conn: sqlite3.Connection = get_connection(tmp_path / "webapp.sqlite")
     try:
         bootstrap_schema(conn)
-        assert find_live_job_for(conn, "any_study") is None
+        assert find_live_job_for(conn, "hpo~any_study") is None
     finally:
         conn.close()
 
@@ -266,7 +266,7 @@ def test_find_live_job_for_returns_running_tune_job_id(tmp_path: Path) -> None:
         conn.commit()
         mark_running(conn, job.id, _FAKE_PID)
 
-        assert find_live_job_for(conn, "demo_study") == job.id
-        assert find_live_job_for(conn, "other_study") is None
+        assert find_live_job_for(conn, "hpo~demo_study") == job.id
+        assert find_live_job_for(conn, "hpo~other_study") is None
     finally:
         conn.close()

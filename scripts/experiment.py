@@ -28,7 +28,6 @@ from pathlib import Path
 import click
 from pydantic import ValidationError
 
-from src.core import json_io
 from src.core.config import (
     ExperimentConfig,
     load_experiment_config,
@@ -622,9 +621,7 @@ def _override_experiment(
     return ExperimentConfig.model_validate(payload)
 
 
-def _load_reused_runs(
-    raw: str | None, *, n_configs: int
-) -> list[ExperimentResult] | None:
+def _load_reused_runs(raw: str | None, *, n_configs: int) -> list[ExperimentResult] | None:
     """Resolve ``--reuse-runs <a,b,c>`` into the list ``run_comparison`` needs.
 
     Returns ``None`` when the flag is absent. Raises
@@ -651,9 +648,7 @@ def _load_reused_runs(
     return results
 
 
-def _apply_dotted_overrides(
-    cfg: ExperimentConfig, overrides: tuple[str, ...]
-) -> ExperimentConfig:
+def _apply_dotted_overrides(cfg: ExperimentConfig, overrides: tuple[str, ...]) -> ExperimentConfig:
     """Apply repeatable ``--override key.path=value`` flags via dict round-trip.
 
     Empty ``overrides`` is a no-op; otherwise we ``model_dump`` to JSON-safe

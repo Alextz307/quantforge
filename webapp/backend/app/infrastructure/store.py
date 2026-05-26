@@ -96,8 +96,12 @@ def store_label(artifact_dir: Path, root: Path) -> str:
 
     Includes the kind subdir so flat-rooted artefacts (default-store tunes
     submitted from the webapp) render as ``"hpo"`` rather than ``"."``.
+
+    Resolves both inputs so callers can mix relative roots (default
+    ``Path("experiment_results")``) with already-resolved artifact dirs
+    (returned by ``find_*_by_wire_id`` helpers).
     """
-    return artifact_dir.parent.relative_to(root).as_posix()
+    return artifact_dir.resolve().parent.relative_to(root.resolve()).as_posix()
 
 
 def iter_run_dirs(root: Path) -> Iterator[Path]:
@@ -170,7 +174,12 @@ def iter_hpo_study_dirs(root: Path) -> Iterator[Path]:
 
 
 def find_hpo_study_dir(root: Path, name: str) -> Path:
-    """Resolve an HPO-study ``name`` to its directory."""
+    """Resolve an HPO-study ``name`` to its directory.
+
+    Glob-by-basename — returns whichever matching dir is found first when two
+    studies share the same name. Use :func:`find_hpo_study_dir_by_wire_id`
+    for deterministic lookup against nested study trees.
+    """
     return find_artifact_dir(
         root,
         HPO_SUBDIR,
@@ -178,3 +187,46 @@ def find_hpo_study_dir(root: Path, name: str) -> Path:
         name,
         not_found=HpoStudyNotFoundError,
     )
+
+
+HPO_WIRE_DELIMITER = "~"
+
+
+def hpo_wire_id_from_dir(study_dir: Path, root: Path) -> str:
+    """Encode a store-relative HPO path with ``~`` as a URL-safe separator.
+
+    The slug pattern allowed in artifact basenames is ``[A-Za-z0-9_\\-:]``
+    (see ``_SLUG_PATTERN`` in jobs schemas), so ``~`` (RFC 3986 unreserved,
+    not in the slug set) can't collide with a basename. Avoiding ``/`` in
+    URL params lets the wire id stay a single path segment instead of
+    forcing FastAPI ``:path`` greedy matching everywhere.
+
+    Resolves both inputs before the relative computation so callers may
+    pass either a relative root (default settings) or an absolute root
+    (test fixtures) — the listing-glob path and the detail-resolver path
+    can disagree on which they hold.
+    """
+    return (
+        study_dir.resolve().relative_to(root.resolve()).as_posix().replace("/", HPO_WIRE_DELIMITER)
+    )
+
+
+def find_hpo_study_dir_by_wire_id(root: Path, wire_id: str) -> Path:
+    """Resolve an HPO-study by its ``~``-encoded store-relative path.
+
+    Decodes the wire id to a relative POSIX path, resolves against
+    ``root``, verifies the result is still under ``root`` (path-traversal
+    guard), and confirms it contains the HPO trials file.
+    """
+    if HPO_WIRE_DELIMITER not in wire_id and "/" in wire_id:
+        # Reject leaked slashes — wire ids must use the encoded form so
+        # routing stays single-segment.
+        raise HpoStudyNotFoundError(f"hpo study not found: {wire_id}")
+    relative = wire_id.replace(HPO_WIRE_DELIMITER, "/")
+    candidate = (root / relative).resolve()
+    root_resolved = root.resolve()
+    if root_resolved not in candidate.parents and candidate != root_resolved:
+        raise HpoStudyNotFoundError(f"hpo study not found: {wire_id}")
+    if not (candidate / TRIALS_JSONL_NAME).is_file():
+        raise HpoStudyNotFoundError(f"hpo study not found: {wire_id}")
+    return candidate

@@ -16,35 +16,30 @@ export interface HpoTrialStreamSnapshot {
 }
 
 /**
- * WebSocket subscription to /api/hpo/{name}/stream.
+ * WebSocket subscription to /api/hpo/{wire_id}/stream.
  *
  * The backend replays all existing trials on connect (filtered by
- * ``afterTrial`` when set) and then forwards live broker frames. We hold
- * the ordered ``trials`` array in local state and mirror it into the
- * static ``useHpoTrials`` cache so a brief unmount (e.g. tab switch)
- * doesn't drop already-arrived rows; the in-memory ``trials`` array is
- * the authoritative ordered view for the page.
+ * ``afterTrial`` when set) and then live-tails ``trials.jsonl`` for any
+ * new lines. Works uniformly across top-level webapp tune jobs, nested
+ * HPO studies inside a running study job, and CLI-launched studies —
+ * the source of truth is the on-disk file, not an in-process broker.
  *
- * ``isLive`` defers to the caller to know when the page is in
- * live-monitor mode (study.live_job_id != null) — keeps this hook a
- * pure WS consumer with no own data fetching.
+ * Always-enabled by design: completed studies see no new frames, which
+ * costs ~1s mtime polling on a static file. Earlier gating on
+ * ``live_job_id`` hid streams for nested + CLI studies that have no
+ * webapp job row but are still writing trials.
  */
-export function useHpoTrialStream(
-  name: string,
-  isLive: boolean,
-  afterTrial?: number,
-): HpoTrialStreamSnapshot {
+export function useHpoTrialStream(wireId: string, afterTrial?: number): HpoTrialStreamSnapshot {
   const qc = useQueryClient();
   const [trials, setTrials] = useState<TrialRow[]>([]);
 
   const { connection } = useEventStream<TrialFrame>({
-    url: hpoStreamUrl(name, afterTrial),
+    url: hpoStreamUrl(wireId, afterTrial),
     parseFrame,
-    enabled: isLive,
     onFrame: (frame) => {
       setTrials((prev) => {
         const next = mergeTrial(prev, frame.trial);
-        qc.setQueryData<TrialRow[]>(queryKeys.hpoTrials(name), next);
+        qc.setQueryData<TrialRow[]>(queryKeys.hpoTrials(wireId), next);
         return next;
       });
     },

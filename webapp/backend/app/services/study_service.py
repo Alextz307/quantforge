@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import sqlite3
 from pathlib import Path
 
 from src.core import json_io
@@ -16,6 +17,7 @@ from webapp.backend.app.infrastructure.store import (
     find_study_dir,
     iter_study_dirs,
 )
+from webapp.backend.app.schemas.jobs import TERMINAL_STATUSES, JobKind
 from webapp.backend.app.schemas.studies import (
     LegStateRow,
     StudyConsolidatedDTO,
@@ -38,6 +40,8 @@ __all__ = [
     "PlotNotFoundError",
     "StudyConsolidationError",
     "StudyNotFoundError",
+    "build_study_detail",
+    "find_live_study_job_for",
     "generate_consolidated",
     "get_consolidated",
     "get_study",
@@ -71,7 +75,16 @@ def list_studies(root: Path) -> list[StudySummary]:
 
 def get_study(root: Path, name: str) -> StudyDetail:
     """Read the full detail payload for one study."""
-    study_dir = find_study_dir(root, name)
+    return build_study_detail(find_study_dir(root, name))
+
+
+def build_study_detail(study_dir: Path) -> StudyDetail:
+    """Read the full detail payload from an already-resolved study directory.
+
+    Skips the recursive glob inside :func:`find_study_dir` — callers that
+    already hold the resolved path (e.g. the WS streamer) reuse it across
+    mtime ticks without re-globbing the store on every frame.
+    """
     state = read_study_state(study_dir / STUDY_STATE_FILENAME)
     completed, total = _completion_counts(state)
     return StudyDetail(
@@ -97,6 +110,7 @@ def get_study(root: Path, name: str) -> StudyDetail:
             )
             for leg in state.legs
         ],
+        has_consolidated_report=(study_dir / MANIFEST_FILENAME).is_file(),
     )
 
 
@@ -170,3 +184,24 @@ def _completion_counts(state: StudyState) -> tuple[int, int]:
 
 def _pct(completed: int, total: int) -> float:
     return (completed / total * 100.0) if total > 0 else 0.0
+
+
+def find_live_study_job_for(conn: sqlite3.Connection, output_dir_name: str) -> str | None:
+    """Return the id of a non-terminal STUDY job populating ``studies/<name>``.
+
+    Study jobs persist ``experiment_id = spec.output_dir.name`` at
+    submission time. At most one non-terminal STUDY job per output dir
+    is expected — submit_job rejects collisions; this helper powers the
+    rejection check.
+    """
+    terminal = tuple(s.value for s in TERMINAL_STATUSES)
+    placeholders = ",".join("?" * len(terminal))
+    row = conn.execute(
+        f"SELECT id FROM jobs "
+        f"WHERE kind = ? AND experiment_id = ? AND status NOT IN ({placeholders}) "
+        f"ORDER BY id DESC LIMIT 1",
+        (JobKind.STUDY.value, output_dir_name, *terminal),
+    ).fetchone()
+    if row is None:
+        return None
+    return str(row["id"])

@@ -191,6 +191,7 @@ export const HOLDOUT_DEMO_SUMMARY: HoldoutEvalSummary = {
   source_kind: "run",
   source_id: RUN_SPY.experiment_id,
   holdout_start: "2026-01-01T00:00:00Z",
+  sharpe_ratio: 1.42,
 };
 
 export const HOLDOUT_DEMO_DETAIL: HoldoutEvalDetail = {
@@ -239,6 +240,7 @@ export const STUDY_DEMO_DETAIL: StudyDetail = {
   completed_legs: STUDY_DEMO_SUMMARY.completed_legs,
   completion_pct: STUDY_DEMO_SUMMARY.completion_pct,
   cross_strategy_compares_done: ["spy_daily_5y"],
+  has_consolidated_report: true,
   legs: [
     {
       leg_id: "AdaptiveBollinger__spy_daily_5y",
@@ -304,6 +306,7 @@ export const STUDY_CONSOLIDATED_DEMO: StudyConsolidatedDTO = {
 export const SEED_STUDIES: StudySummary[] = [STUDY_DEMO_SUMMARY];
 
 export const HPO_DEMO_SUMMARY: HpoSummary = {
+  wire_id: "studies~main~hpo~AdaptiveBollinger__spy_daily_5y",
   name: "AdaptiveBollinger__spy_daily_5y",
   store: "studies/main/hpo",
   created_at: "2026-04-03T00:00:00Z",
@@ -508,15 +511,15 @@ export const handlers = [
   }),
   http.get(API_PATHS.hpoStudies, () => HttpResponse.json(SEED_HPO_STUDIES)),
   http.get(toMswPath(API_PATHS.hpoStudy), ({ params }) => {
-    if (params.name === HPO_DEMO_SUMMARY.name) return HttpResponse.json(HPO_DEMO_DETAIL);
+    if (params.wire_id === HPO_DEMO_SUMMARY.wire_id) return HttpResponse.json(HPO_DEMO_DETAIL);
     return new HttpResponse(null, { status: 404 });
   }),
   http.get(toMswPath(API_PATHS.hpoTrials), ({ params }) => {
-    if (params.name === HPO_DEMO_SUMMARY.name) return HttpResponse.json(HPO_DEMO_TRIALS);
+    if (params.wire_id === HPO_DEMO_SUMMARY.wire_id) return HttpResponse.json(HPO_DEMO_TRIALS);
     return new HttpResponse(null, { status: 404 });
   }),
   http.get(toMswPath(API_PATHS.hpoParamImportance), ({ params }) => {
-    if (params.name === HPO_DEMO_SUMMARY.name) return HttpResponse.json(HPO_DEMO_IMPORTANCE);
+    if (params.wire_id === HPO_DEMO_SUMMARY.wire_id) return HttpResponse.json(HPO_DEMO_IMPORTANCE);
     return new HttpResponse(null, { status: 404 });
   }),
   http.get(API_PATHS.strategies, () => HttpResponse.json(SEED_STRATEGIES)),

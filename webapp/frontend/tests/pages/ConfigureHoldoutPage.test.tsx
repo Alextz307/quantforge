@@ -84,7 +84,7 @@ describe("ConfigureHoldoutPage", () => {
   it("prefills the source kind + id from query params", async () => {
     renderWithProviders(<ConfigureHoldoutPage />, {
       initialEntries: [
-        `${ROUTES.configureHoldout}?source_kind=hpo&source_id=${HPO_DEMO_SUMMARY.name}`,
+        `${ROUTES.configureHoldout}?source_kind=hpo&source_id=${HPO_DEMO_SUMMARY.wire_id}`,
       ],
     });
 

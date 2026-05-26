@@ -36,15 +36,9 @@ function buildWrapper(qc: QueryClient): (props: { children: ReactNode }) => Reac
 }
 
 describe("useHpoTrialStream", () => {
-  it("does not connect when isLive=false", () => {
-    const qc = new QueryClient();
-    renderHook(() => useHpoTrialStream(STUDY_NAME, false), { wrapper: buildWrapper(qc) });
-    expect(MockWebSocket.instances.length).toBe(0);
-  });
-
   it("appends arriving trials and seeds the trials cache append-merge", async () => {
     const qc = new QueryClient();
-    const { result } = renderHook(() => useHpoTrialStream(STUDY_NAME, true), {
+    const { result } = renderHook(() => useHpoTrialStream(STUDY_NAME), {
       wrapper: buildWrapper(qc),
     });
     await waitFor(() => {
@@ -70,7 +64,7 @@ describe("useHpoTrialStream", () => {
   it("ignores duplicate trial numbers in the cache merge", async () => {
     const qc = new QueryClient();
     qc.setQueryData<TrialRow[]>(queryKeys.hpoTrials(STUDY_NAME), [makeTrial(TRIAL_NUMBER_FIRST)]);
-    renderHook(() => useHpoTrialStream(STUDY_NAME, true), { wrapper: buildWrapper(qc) });
+    renderHook(() => useHpoTrialStream(STUDY_NAME), { wrapper: buildWrapper(qc) });
     await waitFor(() => {
       expect(MockWebSocket.instances.length).toBeGreaterThan(0);
     });
@@ -86,7 +80,7 @@ describe("useHpoTrialStream", () => {
 
   it("rejects malformed frames", async () => {
     const qc = new QueryClient();
-    const { result } = renderHook(() => useHpoTrialStream(STUDY_NAME, true), {
+    const { result } = renderHook(() => useHpoTrialStream(STUDY_NAME), {
       wrapper: buildWrapper(qc),
     });
     await waitFor(() => {
