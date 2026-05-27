@@ -50,6 +50,7 @@ class UserNotFoundNonInteractiveError(click.ClickException):
 
 def resolve_user_id(conn: sqlite3.Connection, username: str) -> int | None:
     """Return the active user_id for ``username``, or ``None`` if missing/deleted."""
+
     row = conn.execute(
         "SELECT id FROM users WHERE username = ? AND deleted_at IS NULL",
         (username,),
@@ -59,6 +60,7 @@ def resolve_user_id(conn: sqlite3.Connection, username: str) -> int | None:
 
 def stdin_is_tty(stream: TextIO | None = None) -> bool:
     """``True`` iff ``stream`` (default ``sys.stdin``) is attached to a TTY."""
+
     target = stream if stream is not None else sys.stdin
     return bool(getattr(target, "isatty", lambda: False)())
 
@@ -73,6 +75,7 @@ def insert_synthetic_job(
     timestamp_iso: str,
 ) -> None:
     """Insert one synthetic ``jobs`` row. Caller is responsible for ``commit()``."""
+
     conn.execute(
         "INSERT INTO jobs ("
         "id, user_id, kind, command, config_path, log_path, "
@@ -99,6 +102,7 @@ def _prompt_and_create(conn: sqlite3.Connection, username: str) -> int:
     Raises ``click.ClickException`` on confirm decline, mismatched
     passwords, or too-short passwords.
     """
+
     click.echo(f"webapp user '{username}' not found.")
     if not click.confirm(f"Create new webapp user '{username}'?", default=False):
         raise click.ClickException(f"webapp user '{username}' does not exist and was not created")
@@ -127,6 +131,7 @@ def resolve_or_create_attributing_user(conn: sqlite3.Connection, username: str) 
     missing and stdin can't drive a password prompt (CI, cron, piped
     invocations).
     """
+
     existing = resolve_user_id(conn, username)
     if existing is not None:
         return existing
@@ -153,6 +158,7 @@ def attribute_artifact(
     deterministic compare/holdout out_name) leaves the existing owner in
     place rather than duplicating the row.
     """
+
     existing = conn.execute(
         "SELECT 1 FROM jobs WHERE experiment_id = ? LIMIT 1",
         (experiment_id,),
@@ -187,6 +193,7 @@ def attribute_via_username(
     lazy-create ``webapp/data/webapp.sqlite`` for users who haven't bootstrapped
     the webapp, and pytest fixtures use a missing path to opt out.
     """
+
     if not get_settings().db_path.exists():
         return
     try:
@@ -206,4 +213,5 @@ def attribute_via_username(
 
 def default_username() -> str:
     """The OS username — the default value for ``--user`` flags."""
+
     return getpass.getuser()

@@ -163,6 +163,7 @@ class TestHoldoutPublishLabel:
         """Invalid slugs raise from the validator, regardless of which
         reporter receives the value — covers the shared codepath without
         materialising heavy fixtures for every reporter."""
+
         from src.visualization.strategy_reporter import StrategyReporter
         from tests.conftest import make_stub_experiment_result, make_stub_fold_record
 

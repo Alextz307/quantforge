@@ -47,6 +47,7 @@ def validate_universe_spec_text(yaml_text: str) -> ValidateResponse:
     so the editor can mark the offending line. Empty / non-mapping YAML is
     rejected at the root.
     """
+
     parsed, parse_errors = parse_yaml_mapping(yaml_text)
     if parsed is None:
         return ValidateResponse(valid=False, errors=parse_errors)

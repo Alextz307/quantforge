@@ -140,6 +140,7 @@ class TestMomentumGatekeeperStrategy:
         self, fitted_strategy: MomentumGatekeeperStrategy
     ) -> None:
         """In a monotone decline, the trend gate must suppress all long signals."""
+
         df = make_declining_close_df()
         signals = fitted_strategy.generate_signals(df)
         non_nan = signals.dropna()
@@ -147,6 +148,7 @@ class TestMomentumGatekeeperStrategy:
 
     def test_explicit_feature_subset_honored(self, train_df: pd.DataFrame) -> None:
         """Configured feature_columns subset is passed to DirectionalClassifier."""
+
         subset = ["return_1d", "vol_20", "rsi_14"]
         s = MomentumGatekeeperStrategy(
             feature_columns=subset,

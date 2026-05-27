@@ -45,6 +45,7 @@ def _ensure_registries_populated() -> None:
     ``FoldRecord`` as types pay zero ML-framework cost. Python caches module
     imports in ``sys.modules``, so repeat calls are effectively free.
     """
+
     import src.data  # noqa: F401
     import src.features  # noqa: F401
     import src.models  # noqa: F401
@@ -122,6 +123,7 @@ class DataConfig(BaseModel):
                 f"data.start ({self.start.isoformat()}) must be strictly before "
                 f"data.end ({self.end.isoformat()}); swap the dates or widen the range."
             )
+
         _ensure_registries_populated()
         if self.source.name not in data_source_registry:
             raise ValueError(
@@ -287,6 +289,7 @@ class ExperimentConfig(BaseModel):
     @model_validator(mode="after")
     def _validate_component_names(self) -> Self:
         _ensure_registries_populated()
+
         if self.strategy.name not in strategy_registry:
             raise ValueError(
                 f"unknown strategy '{self.strategy.name}'; "
@@ -302,6 +305,7 @@ class ExperimentConfig(BaseModel):
 
 def _find_duplicates[T](items: list[T]) -> list[T]:
     """Return items that occur more than once, in first-occurrence order."""
+
     return [item for item, count in Counter(items).items() if count > 1]
 
 
@@ -412,6 +416,7 @@ def write_frozen_yaml(path: str | Path, cfg: BaseModel, *, sort_keys: bool = Tru
     JSON-safe primitives ``yaml.safe_dump`` accepts. Used by the experiment
     runner to write the frozen ``config.yaml`` alongside ``manifest.json``.
     """
+
     payload = cfg.model_dump(mode="json")
     with Path(path).open("w", encoding="utf-8") as f:
         yaml.safe_dump(payload, f, sort_keys=sort_keys)
@@ -424,6 +429,7 @@ def load_yaml_config[T: BaseModel](path: str | Path, cls: type[T], kind: str) ->
     for missing / empty / invalid config files — extracting the common
     logic avoids drift in the error messages users actually see.
     """
+
     config_path = Path(path)
     try:
         with open(config_path) as f:
@@ -450,6 +456,7 @@ def load_experiment_config(path: str | Path) -> ExperimentConfig:
         FileNotFoundError: If ``path`` does not exist.
         ValueError: If the file is empty or pydantic validation fails.
     """
+
     return load_yaml_config(path, ExperimentConfig, "experiment")
 
 
@@ -460,6 +467,7 @@ def load_universe_profile(path: str | Path) -> UniverseProfile:
         FileNotFoundError: If ``path`` does not exist.
         ValueError: If the file is empty or pydantic validation fails.
     """
+
     return load_yaml_config(path, UniverseProfile, "universe profile")
 
 
@@ -470,4 +478,5 @@ def load_study_spec(path: str | Path) -> StudySpec:
         FileNotFoundError: If ``path`` does not exist.
         ValueError: If the file is empty or pydantic validation fails.
     """
+
     return load_yaml_config(path, StudySpec, "study spec")

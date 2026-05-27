@@ -53,6 +53,7 @@ def _run_study_with_callback(tmp_path: Path, values: list[float]) -> optuna.Stud
     refresh replays via :class:`FixedTrial` — sees the same parameter
     surface it would see in a live tuner.
     """
+
     from src.optimization.sampling import sample_trial_params
 
     cfg = _base_cfg()
@@ -118,6 +119,7 @@ class TestNonCompleteStatesSkipBestRefresh:
         Uses ``catch=(RuntimeError,)`` so Optuna marks the trial FAILED
         (vs. re-raising out of optimize entirely) and the callback fires.
         """
+
         from src.optimization.sampling import sample_trial_params
 
         cfg = _base_cfg()
@@ -220,6 +222,7 @@ class TestBestValueCache:
         without touching ``study.best_trial`` — we detect this by patching
         the study with a ``best_trial`` that raises if accessed.
         """
+
         callback = _make_callback(tmp_path)
         _run_study_with_callback_from(tmp_path, [0.5], callback=callback)
         assert callback._last_best_value == 0.5
@@ -247,6 +250,7 @@ def _run_study_with_callback_from(
     """Variant of ``_run_study_with_callback`` that takes a pre-built
     callback — needed by tracker tests that read callback state after.
     """
+
     from src.optimization.sampling import sample_trial_params
 
     cfg = _base_cfg()

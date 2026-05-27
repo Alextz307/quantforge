@@ -69,6 +69,7 @@ def _write_fake_run(
     :class:`ExperimentResult`. Skips ``config.yaml`` and per-fold
     artifacts — the consolidator doesn't read those.
     """
+
     run_dir = runs_dir / run_id
     run_dir.mkdir(parents=True)
     folds = tuple(
@@ -97,6 +98,7 @@ def _write_fake_holdout(
     holdout_dir: Path, *, leg_id: str, sharpe: float, dev_bars: int = 1000, holdout_bars: int = 250
 ) -> None:
     """Match ``HoldoutEvalResult.to_dict()`` schema for the consolidator's needs."""
+
     out_dir = holdout_dir / leg_id
     out_dir.mkdir(parents=True)
     payload: dict[str, object] = {
@@ -135,6 +137,7 @@ def _write_fake_comparison(
     pairwise: tuple[PairwiseSignificance, ...],
 ) -> None:
     """Write the comparison manifest with the pairwise list the consolidator reads."""
+
     out_dir = comparisons_dir / universe
     out_dir.mkdir(parents=True)
     payload: dict[str, object] = {
@@ -163,6 +166,7 @@ def _build_study_dir(
     marks legs whose state stays ``is_complete=False``; their run dir is
     NOT written (mirrors a mid-leg failure).
     """
+
     study_dir = tmp_path / "study"
     study_dir.mkdir()
     runs_dir = study_dir / RUNS_SUBDIR
@@ -210,6 +214,7 @@ def _build_study_dir(
 
 def test_consolidate_study_full_tree(tmp_path: Path) -> None:
     """All artifact kinds present → all maps populated."""
+
     legs = [
         ("StratA__uni1", "StratA", "uni1", (1.2, 1.3, 1.1)),
         ("StratA__uni2", "StratA", "uni2", (0.5, 0.6, 0.7)),
@@ -254,6 +259,7 @@ def test_consolidate_study_full_tree(tmp_path: Path) -> None:
 
 def test_consolidate_study_skips_incomplete_legs(tmp_path: Path) -> None:
     """Incomplete legs surface in ``incomplete_leg_ids`` and don't pollute aggregates."""
+
     legs = [
         ("StratA__uni1", "StratA", "uni1", (1.0, 1.1)),
         ("StratA__uni2", "StratA", "uni2", (0.5,)),
@@ -267,6 +273,7 @@ def test_consolidate_study_skips_incomplete_legs(tmp_path: Path) -> None:
 
 def test_consolidate_study_no_holdout_no_compare(tmp_path: Path) -> None:
     """Sparse tree: only runs/, no auxiliary artifacts."""
+
     legs = [("StratA__uni1", "StratA", "uni1", (1.0, 1.1, 1.2))]
     study_dir = _build_study_dir(tmp_path, legs=legs)
     report = consolidate_study(study_dir)
@@ -284,6 +291,7 @@ def test_consolidate_study_missing_state_raises(tmp_path: Path) -> None:
 
 def test_holdout_snapshot_round_trip(tmp_path: Path) -> None:
     """Round-trip a real ``HoldoutEvalResult.to_dict()`` payload."""
+
     leg_dir = tmp_path / "holdout"
     _write_fake_holdout(leg_dir, leg_id="x", sharpe=0.42)
     snapshot = HoldoutSnapshot.from_holdout_json(leg_dir / "x" / HOLDOUT_EVAL_JSON)
@@ -294,6 +302,7 @@ def test_holdout_snapshot_round_trip(tmp_path: Path) -> None:
 
 def test_holdout_snapshot_rejects_non_holdout_payload(tmp_path: Path) -> None:
     """A regular run manifest must NOT be parsed as a holdout snapshot."""
+
     bad = tmp_path / "bad.json"
     json_io.write(bad, {"is_holdout_eval": False, "metrics": {}})
     with pytest.raises(ValueError, match="not a holdout-eval payload"):
@@ -302,6 +311,7 @@ def test_holdout_snapshot_rejects_non_holdout_payload(tmp_path: Path) -> None:
 
 def _load_folds(study_dir: Path, run_id: str) -> tuple[FoldRecord, ...]:
     """Re-read fold records from a fake run dir for direct AggregateStats comparison."""
+
     from src.orchestration.run_loader import load_experiment_result
 
     return load_experiment_result(study_dir / RUNS_SUBDIR / run_id).folds

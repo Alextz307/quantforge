@@ -33,6 +33,7 @@ async def tail_study_state(
     A read that races with an in-flight write — partial JSON — is
     silently skipped; the next tick retries.
     """
+
     state_path = study_dir / STUDY_STATE_FILENAME
     last_mtime: float | None = None
     while not stop.is_set():

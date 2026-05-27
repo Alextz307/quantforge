@@ -100,6 +100,7 @@ class TestReturnForecastStrategy:
         self, fitted_strategy: ReturnForecastStrategy, train_df: pd.DataFrame
     ) -> None:
         """Position sign must agree with the underlying return-forecast sign."""
+
         signals = fitted_strategy.generate_signals(train_df).dropna()
         forecast = fitted_strategy._hybrid_return.predict(train_df).dropna()
         aligned = signals.align(forecast, join="inner")

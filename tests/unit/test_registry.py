@@ -146,6 +146,7 @@ class TestComponentRegistry:
         dropdowns) must use ``list_public()`` so registered stubs from
         ``tests/_strategy_stubs.py`` never leak into the surface.
         """
+
         registry: ComponentRegistry[DummyBase] = ComponentRegistry()
 
         @registry.register("alpha")
@@ -220,6 +221,7 @@ class TestEnumCoercion:
 
 def _count_non_interface_modules(pkg: ModuleType) -> int:
     """Non-private modules in ``pkg`` excluding ``interface``."""
+
     return sum(
         1
         for info in iter_modules(pkg.__path__)

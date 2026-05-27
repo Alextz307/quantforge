@@ -34,6 +34,7 @@ _RISK_FREE = 0.01
 
 def _minimal_config_dict() -> dict[str, Any]:
     """Smallest valid config dict — every required field set, defaults elsewhere."""
+
     return {
         "name": "test_run",
         "seed": _SEED,
@@ -228,6 +229,7 @@ class TestValidationConfigHoldout:
 
     def test_both_holdout_fields_raises_exclusivity(self) -> None:
         """Tripwire #1: config-level exclusivity between pct and start."""
+
         d = _minimal_config_dict()
         d["validation"]["holdout_pct"] = _HOLDOUT_PCT
         d["validation"]["holdout_start"] = _HOLDOUT_START_ISO

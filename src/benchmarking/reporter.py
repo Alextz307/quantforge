@@ -164,12 +164,14 @@ class BenchmarkReporter:
             for r in report.reports
         ]
         df = pd.DataFrame(rows)
+
         latex = df.to_latex(
             index=False,
             float_format=LATEX_FLOAT_FORMAT,
             caption=(f"Regression report: {report.current_run_id} vs {report.baseline_run_id}"),
             label=f"tab:bench_regression_{report.current_run_id}",
         )
+
         ensure_parent_dir(out_path)
         out_path.write_text(latex, encoding="utf-8")
         return out_path

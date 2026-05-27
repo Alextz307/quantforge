@@ -75,6 +75,7 @@ class TestGenerateFullReport:
     def test_empty_folds_produces_metrics_but_no_plots(self, tmp_path: Path) -> None:
         """A zero-fold ExperimentResult (pathological config) still writes the
         table skeleton so the consuming command sees a predictable layout."""
+
         StrategyReporter().generate_full_report(_make_result(n_folds=0), tmp_path)
         assert (tmp_path / "tables" / "metrics_summary.tex").is_file()
         assert not (tmp_path / "plots" / "equity_curves.png").exists()
@@ -97,6 +98,7 @@ class TestNormaliseCurve:
         """Every class of degenerate first-value that the integration path
         defensively rejects: NaN (zero-trade fold), ±inf (overflow), zero
         (catastrophic exit at bar 0), negative (debt-at-start)."""
+
         assert normalise_to_unit_base((bad_base, 100.0, 200.0)) is None
 
 

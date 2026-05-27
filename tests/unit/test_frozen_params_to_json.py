@@ -67,5 +67,6 @@ class TestFrozenParamsToJson:
 
     def test_rejects_dataclass_class(self) -> None:
         """Passing the CLASS instead of an instance is a common mistake — catch it."""
+
         with pytest.raises(TypeError, match="dataclass INSTANCE"):
             frozen_params_to_json(_SampleParams)

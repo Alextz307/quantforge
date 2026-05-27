@@ -95,6 +95,7 @@ def test_fold_indices_are_sequential(orchestrator_results: list[FoldResult]) -> 
 
 def test_folds_are_temporally_ordered(orchestrator_results: list[FoldResult]) -> None:
     """Each fold's test window starts strictly after the previous one's."""
+
     for prev, curr in zip(
         orchestrator_results[:-1],
         orchestrator_results[1:],
@@ -105,6 +106,7 @@ def test_folds_are_temporally_ordered(orchestrator_results: list[FoldResult]) ->
 
 def test_train_strictly_precedes_test(orchestrator_results: list[FoldResult]) -> None:
     """The orchestrator's tripwire would fire otherwise — sanity check."""
+
     for r in orchestrator_results:
         assert r.train_end < r.test_start
 
@@ -121,6 +123,7 @@ def test_two_runs_are_bit_identical(wf_bars: pd.DataFrame) -> None:
     Intentionally NOT using ``orchestrator_results`` — needs two
     independent runs to verify reproducibility.
     """
+
     a = _run_orchestrator(wf_bars, SlippageScenario.NORMAL)
     b = _run_orchestrator(wf_bars, SlippageScenario.NORMAL)
     for ra, rb in zip(a, b, strict=True):
@@ -136,12 +139,14 @@ def test_orchestrator_runs_for_every_scenario(
     scenario: SlippageScenario,
 ) -> None:
     """Each predefined scenario can drive a full walk-forward without errors."""
+
     results = _run_orchestrator(wf_bars, scenario)
     assert len(results) == WF_N_SPLITS
 
 
 def test_risk_free_rate_lowers_sharpe(wf_bars: pd.DataFrame) -> None:
     """Non-zero rfr threads through MetricsCalculator and dampens Sharpe per fold."""
+
     baseline = evaluate_walk_forward(
         _FlatLongStrategy(),
         wf_bars,

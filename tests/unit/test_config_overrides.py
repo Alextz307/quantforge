@@ -106,6 +106,7 @@ def test_deep_nested_replace() -> None:
 
 def test_pydantic_round_trip_via_overrides() -> None:
     """Overrides survive pydantic re-validation when types match the schema."""
+
     from src.core.config import ExperimentConfig, load_experiment_config
 
     cfg = load_experiment_config("config/strategies/adaptive_bollinger.yaml")

@@ -49,6 +49,7 @@ def validate_study_spec_text(
     "<field>"]`` so the editor can mark the offending line. Empty /
     non-mapping YAML is rejected at the root.
     """
+
     parsed, parse_errors = parse_yaml_mapping(yaml_text)
     if parsed is None:
         return ValidateResponse(valid=False, errors=parse_errors)
@@ -69,6 +70,7 @@ def _check_referenced_paths(
     Universe slugs are stored as bare names; the canonical layout is
     ``config/universes/<slug>.yaml``.
     """
+
     errors: list[ValidationErrorItem] = []
     universes_dir = config_root / "universes"
     for leg_idx, leg in enumerate(spec.legs):

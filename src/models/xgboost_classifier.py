@@ -119,6 +119,7 @@ class DirectionalClassifier(IClassifier):
                 "should consume (e.g. ['rsi_14', 'macd_hist'])."
             )
         validate_open_unit_interval(val_split_ratio, "val_split_ratio")
+
         self._n_estimators = n_estimators
         self._learning_rate = learning_rate
         self._max_depth = max_depth
@@ -156,6 +157,7 @@ class DirectionalClassifier(IClassifier):
                 too short for a validation split.
             **kwargs: Unused (reserved for Optuna Trial passthrough).
         """
+
         if checkpoint_path is not None:
             checkpoint_path = Path(checkpoint_path)
             checkpoint_path.mkdir(parents=True, exist_ok=True)
@@ -198,6 +200,7 @@ class DirectionalClassifier(IClassifier):
                 eval_set=[(x_val, y_val)],
                 verbose=False,
             )
+
             try:
                 self._best_iteration = int(self._model.best_iteration)
             except AttributeError:
@@ -218,6 +221,7 @@ class DirectionalClassifier(IClassifier):
         Returns:
             Series of probabilities in [0, 1].
         """
+
         self._assert_fitted_with_metadata()
         if self._model is None:
             raise RuntimeError(
@@ -237,6 +241,7 @@ class DirectionalClassifier(IClassifier):
         Returns:
             Series of binary predictions.
         """
+
         self._assert_fitted_with_metadata()
         if self._model is None:
             raise RuntimeError(
@@ -254,6 +259,7 @@ class DirectionalClassifier(IClassifier):
         the most version-stable option available. Device is NOT persisted; it
         is re-resolved on load via ``select_xgboost_device()``.
         """
+
         metadata = self._assert_fitted_with_metadata()
         assert self._model is not None
         model = self._model
@@ -287,6 +293,7 @@ class DirectionalClassifier(IClassifier):
         other hyperparameter is baked into the booster UBJ and re-setting them
         on the wrapper would just be discarded the moment ``load_model`` runs.
         """
+
         root = Path(path)
         config = json_io.read_dict(root / CONFIG_JSON)
         metadata = json_io.read_dict(root / METADATA_JSON)
@@ -303,8 +310,10 @@ class DirectionalClassifier(IClassifier):
             val_split_ratio=json_io.get_float(config, "val_split_ratio"),
             interval=Interval(json_io.get_str(config, "interval")),
         )
+
         model = xgb.XGBClassifier(device=instance._device)
         model.load_model(str(root / MODEL_UBJ))
+
         instance._model = model
         instance._best_iteration = (
             int(model.best_iteration)
@@ -317,6 +326,7 @@ class DirectionalClassifier(IClassifier):
     @staticmethod
     def suggest_params(trial: optuna.Trial) -> dict[str, object]:
         """Optuna search space for XGBoost hyperparameters."""
+
         return {
             "n_estimators": trial.suggest_int("xgb_n_estimators", 50, 500),
             "learning_rate": trial.suggest_float("xgb_learning_rate", 0.01, 0.3, log=True),

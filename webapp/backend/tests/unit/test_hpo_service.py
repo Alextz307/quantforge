@@ -244,6 +244,7 @@ def test_get_param_importance_with_real_optuna_study(
     tmp_path: Path, db_conn: sqlite3.Connection
 ) -> None:
     """Seeds a real Optuna SQLite with multiple completed trials."""
+
     import optuna
     from optuna.distributions import FloatDistribution, IntDistribution
     from optuna.trial import create_trial

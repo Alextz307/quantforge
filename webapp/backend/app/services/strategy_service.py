@@ -45,6 +45,7 @@ def _peel_optional(annotation: object) -> tuple[object, bool]:
 
     Multi-member unions (``int | str``) are not Optional and stay as-is.
     """
+
     origin = typing.get_origin(annotation)
     if origin is typing.Union or origin is types.UnionType:
         non_none = [arg for arg in typing.get_args(annotation) if arg is not type(None)]
@@ -67,6 +68,7 @@ def _is_str_list_annotation(annotation: object) -> bool:
     Used to render the comma/space-separated text input instead of forcing
     the user to hand-write a JSON list for ``feature_columns`` etc.
     """
+
     origin = typing.get_origin(annotation)
     args = typing.get_args(annotation)
     if origin is tuple and len(args) == 2 and args[0] is str and args[1] is Ellipsis:
@@ -98,6 +100,7 @@ def _classify(annotation: object) -> tuple[ParamKind, list[str] | None, bool]:
 
 def _enum_choices(enum_cls: type[enum.Enum]) -> list[str]:
     """Materialise an Enum's values as wire strings, host-aware for ``Device``."""
+
     if enum_cls is Device:
         usable = {d.value for d in available_devices()}
         return [str(member.value) for member in enum_cls if member.value in usable]
@@ -116,6 +119,7 @@ def _default_for_wire(value: object, kind: ParamKind) -> object | None:
 
 def _strategy_yaml_stem(name: str) -> str:
     """``CrossAssetMomentum`` → ``cross_asset_momentum``."""
+
     return re.sub(r"(?<!^)(?=[A-Z])", "_", name).lower()
 
 
@@ -125,23 +129,27 @@ def get_canonical_strategy_params(config_root: Path, name: str) -> dict[str, obj
     strips ``_HIDDEN_PARAMS`` so the form never receives framework-managed
     keys it would have to filter again.
     """
+
     yaml_path = config_root / "strategies" / f"{_strategy_yaml_stem(name)}.yaml"
     try:
         raw = yaml_path.read_text(encoding="utf-8")
     except FileNotFoundError:
         return None
+
     try:
         parsed = yaml.safe_load(raw)
     except yaml.YAMLError:
         return None
     if not isinstance(parsed, dict):
         return None
+
     strategy = parsed.get("strategy")
     if not isinstance(strategy, dict):
         return None
     params = strategy.get("params")
     if not isinstance(params, dict):
         return None
+
     return {k: v for k, v in params.items() if k not in _HIDDEN_PARAMS}
 
 
@@ -151,6 +159,7 @@ def describe_strategy(name: str) -> StrategySchema:
     Raises ``KeyError`` (with the registry's "available: [...]" hint) if
     ``name`` is not registered.
     """
+
     cls = strategy_registry.get(name)
     uses_xgboost = bool(getattr(cls, "uses_xgboost", False))
     hints: dict[str, object] = {}

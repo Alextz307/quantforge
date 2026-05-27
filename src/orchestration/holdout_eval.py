@@ -107,6 +107,7 @@ class HoldoutEvalResult:
         (study orchestrator, future ``experiment study`` consolidator)
         uses it to refuse feeding this bundle back into HPO.
         """
+
         return {
             "is_holdout_eval": True,
             "out_name": self.out_name,
@@ -171,6 +172,7 @@ def resolve_source(
     study-level manifest writer in the tuner would supersede this, but
     today walking the trial dirs avoids cross-module surgery.
     """
+
     if (run_dir is None) == (hpo_dir is None):
         raise ValueError(
             "resolve_source requires exactly one of run_dir / hpo_dir; "
@@ -237,6 +239,7 @@ def run_holdout_eval(
     in-memory result + the artifact directory so the CLI layer can echo
     the path without recomputing it.
     """
+
     out_dir = store_root / HOLDOUT_EVALS_SUBDIR / out_name
     cfg = load_experiment_config(source.config_path)
     manifest = read_experiment_manifest(source.manifest_dir)

@@ -113,5 +113,6 @@ def test_consolidated_plot_blocks_traversal(authed_client: TestClient, webapp_st
 
 def test_consolidated_subdirs_match_constants(authed_client: TestClient) -> None:
     """Pin the well-known subdir constants the router URLs rely on."""
+
     assert PLOTS_DIRNAME == "plots"
     assert TABLES_DIRNAME == "tables"

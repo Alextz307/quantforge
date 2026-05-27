@@ -50,6 +50,7 @@ class CointegrationTester:
         Returns:
             CointegrationResult with hedge ratio, p-value, and spread stats.
         """
+
         y = series_a.values
         x = add_constant(series_b.values)
         model = OLS(y, x).fit()
@@ -81,6 +82,7 @@ class CointegrationTester:
         Returns:
             List of (col_a, col_b, result) tuples for cointegrated pairs.
         """
+
         columns = list(price_matrix.columns)
         results: list[tuple[str, str, CointegrationResult]] = []
 

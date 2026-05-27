@@ -69,6 +69,7 @@ class TemporalDataset(Dataset[tuple[torch.Tensor, torch.Tensor]]):
         feature_window: shape (lookback_window, n_features)
         target: scalar tensor
         """
+
         feature_window = self._features[idx : idx + self._lookback]
         target = self._targets[idx + self._lookback]
         return feature_window, target

@@ -75,6 +75,7 @@ def list_studies(
     all_users: bool,
 ) -> list[StudySummary]:
     """List every study under ``root`` visible to ``user``, newest first."""
+
     summaries: list[StudySummary] = []
     for study_dir in cached_artifact_dirs(root, "study", iter_study_dirs):
         try:
@@ -102,6 +103,7 @@ def get_study(
     Raises :class:`ArtifactAccessDeniedError` when ``user`` is neither owner
     nor admin; the router maps that to 404.
     """
+
     check_artifact_access(conn, experiment_id=name, user=user)
     detail = build_study_detail(find_study_dir(root, name))
     usernames = resolve_owner_usernames(conn, experiment_ids=[name])
@@ -115,6 +117,7 @@ def build_study_detail(study_dir: Path) -> StudyDetail:
     already hold the resolved path (e.g. the WS streamer) reuse it across
     mtime ticks without re-globbing the store on every frame.
     """
+
     state = read_study_state(study_dir / STUDY_STATE_FILENAME)
     completed, total = _completion_counts(state)
     return StudyDetail(
@@ -152,13 +155,16 @@ def get_consolidated(
     user: UserPublic,
 ) -> StudyConsolidatedDTO:
     """Read the consolidated-report manifest + tables/plots index for one study."""
+
     check_artifact_access(conn, experiment_id=name, user=user)
     study_dir = find_study_dir(root, name)
     manifest_path = study_dir / MANIFEST_FILENAME
+
     try:
         raw = json_io.read_dict(manifest_path)
     except FileNotFoundError as exc:
         raise ConsolidatedReportNotFoundError(name) from exc
+
     return StudyConsolidatedDTO(
         study_name=json_io.get_str(raw, "study_name"),
         publish_label=json_io.get_str(raw, "publish_label"),
@@ -189,6 +195,7 @@ def generate_consolidated(
     artifacts are missing or malformed (e.g. running against a study that
     hasn't completed any legs yet).
     """
+
     check_artifact_access(conn, experiment_id=name, user=user)
     study_dir = find_study_dir(root, name)
     try:
@@ -208,6 +215,7 @@ def resolve_consolidated_plot(
     user: UserPublic,
 ) -> Path:
     """Resolve a consolidated plot filename to an absolute path, blocking traversal."""
+
     check_artifact_access(conn, experiment_id=name, user=user)
     return resolve_file_under(find_study_dir(root, name), PLOTS_DIRNAME, plot_name)
 
@@ -221,6 +229,7 @@ def resolve_consolidated_table(
     user: UserPublic,
 ) -> Path:
     """Resolve a consolidated table filename to an absolute path, blocking traversal."""
+
     check_artifact_access(conn, experiment_id=name, user=user)
     return resolve_file_under(find_study_dir(root, name), TABLES_DIRNAME, table_name)
 
@@ -254,6 +263,7 @@ def find_live_study_job_for(conn: sqlite3.Connection, output_dir_name: str) -> s
     is expected — submit_job rejects collisions; this helper powers the
     rejection check.
     """
+
     terminal = tuple(s.value for s in TERMINAL_STATUSES)
     placeholders = ",".join("?" * len(terminal))
     row = conn.execute(

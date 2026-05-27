@@ -20,6 +20,7 @@ from tests.conftest import make_synthetic_close_df
 @pytest.fixture
 def unfitted_template() -> tuple[_TemplateStrategy, pd.DataFrame]:
     """Unfitted template + a tiny synthetic close frame, shared by the stub-and-guard tests."""
+
     return _TemplateStrategy(), make_synthetic_close_df()
 
 
@@ -35,6 +36,7 @@ def test_template_module_does_not_register() -> None:
     cost (torch / xgboost / statsmodels / pmdarima) doesn't get charged to
     the other six tests, which only need ``_TemplateStrategy``.
     """
+
     import src.strategies  # noqa: F401 — populates strategy_registry via autoload side-effect
     from src.core.registry import strategy_registry
 
@@ -50,6 +52,7 @@ def test_template_train_raises_not_implemented(
     unfitted_template: tuple[_TemplateStrategy, pd.DataFrame],
 ) -> None:
     """``train()`` is stubbed; calling it must surface a clear remediation message."""
+
     s, df = unfitted_template
     with pytest.raises(NotImplementedError, match="train"):
         s.train(df)
@@ -64,6 +67,7 @@ def test_template_generate_signals_before_train_raises_runtime_error(
     ``NotImplementedError`` would require a working ``train()`` call, which
     the template doesn't have — that branch is left unexercised by design.
     """
+
     s, df = unfitted_template
     with pytest.raises(RuntimeError, match="before train"):
         s.generate_signals(df)
@@ -71,12 +75,14 @@ def test_template_generate_signals_before_train_raises_runtime_error(
 
 def test_template_invalid_window_raises() -> None:
     """Ctor validation fires — readers see the same error shape as real strategies."""
+
     with pytest.raises(ValueError, match="window"):
         _TemplateStrategy(window=1)
 
 
 def test_template_invalid_threshold_raises() -> None:
     """Ctor validation fires — readers see the same error shape as real strategies."""
+
     with pytest.raises(ValueError, match="threshold"):
         _TemplateStrategy(threshold=0.0)
 
@@ -88,6 +94,7 @@ def test_template_suggest_params_keys_match_ctor() -> None:
     StrategyTuner would raise ``TypeError`` at trial-build time — this test
     catches that drift at unit-test time.
     """
+
     import inspect
 
     import optuna

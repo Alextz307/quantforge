@@ -65,6 +65,7 @@ def create_user(
     user re-creates it, which keeps the cleanup view honest about
     provenance.
     """
+
     # Reactivate a soft-deleted row with the same username instead of raising:
     # the column-level UNIQUE constraint covers tombstones too, so a fresh INSERT
     # would trip on a previously-deleted user that the admin can no longer see.
@@ -102,6 +103,7 @@ def upsert_user(
     conn: sqlite3.Connection, *, username: str, password: str, role: Role
 ) -> UserPublic:
     """Create-or-overwrite — used by the bootstrap CLI."""
+
     existing = conn.execute("SELECT id FROM users WHERE username = ?", (username,)).fetchone()
     password_hash = hash_password(password)
     if existing is None:

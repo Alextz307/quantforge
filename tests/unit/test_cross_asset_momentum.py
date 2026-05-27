@@ -41,6 +41,7 @@ def _wide_frame(
     tickers: Sequence[str], *, n_rows: int = _N_BARS, seed: int = GLOBAL_NUMPY_SEED
 ) -> pd.DataFrame:
     """Build a wide ``<col>_<TICKER>`` frame with ``n_rows`` rows per ticker."""
+
     suffixed = [
         make_synthetic_ohlcv_df(n_rows=n_rows, seed=seed + offset).add_suffix(f"_{ticker}")
         for offset, ticker in enumerate(tickers)
@@ -58,6 +59,7 @@ def wide_df() -> pd.DataFrame:
 
 def _make_strategy(**overrides: object) -> CrossAssetMomentumStrategy:
     """Construct a strategy with compact XGBoost params and the test defaults."""
+
     kwargs: dict[str, object] = {
         "primary_ticker": _PRIMARY,
         "feature_tickers": _FEATURE_TICKERS,
@@ -90,6 +92,7 @@ def _strategy_with_fake_classifier(
     directly — the threshold tests only exercise ``generate_signals`` and
     don't care about booster weights.
     """
+
     s = _make_strategy()
     s._classifier = _FakeClassifier(proba)  # type: ignore[assignment]
     s._set_fitted_with_metadata(
@@ -178,6 +181,7 @@ class TestTrainGenerate:
 
     def test_mid_p_up_yields_flat(self, wide_df: pd.DataFrame) -> None:
         """``1 - threshold < proba < threshold`` lands in the dead zone (signal=0)."""
+
         s = _strategy_with_fake_classifier(proba=0.5, wide_df=wide_df)
         signals = s.generate_signals(wide_df).dropna()
         assert (signals == 0.0).all()
@@ -227,6 +231,7 @@ class TestSuggestParams:
 
     def test_lags_and_feature_tickers_not_tuned(self) -> None:
         """Lag schedule + ticker basket stay fixed at YAML level — see docstring."""
+
         import optuna
 
         study = optuna.create_study()

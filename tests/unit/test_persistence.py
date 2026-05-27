@@ -82,6 +82,7 @@ class TestStandardScalerRoundTrip:
         on a named DataFrame doesn't trip sklearn's "fit without feature
         names" warning.
         """
+
         rng = np.random.default_rng(SCALER_MEAN_SEED)
         frame = pd.DataFrame(
             rng.normal(0.0, 1.0, size=(N_SAMPLES, N_FEATURES)),
@@ -108,6 +109,7 @@ class TestStandardScalerRoundTrip:
         The production feature pipeline produces leading warmup NaNs, so this
         is the live path — the round-trip must serialize the array shape.
         """
+
         rng = np.random.default_rng(SCALER_MEAN_SEED)
         data = rng.normal(0.0, 1.0, size=(N_SAMPLES, N_FEATURES))
         # Different NaN counts per column force sklearn into the per-feature
@@ -136,6 +138,7 @@ class TestStandardScalerRoundTrip:
         persisted JSON must omit the key (not write a null) and the loaded
         scaler must likewise lack the attribute.
         """
+
         rng = np.random.default_rng(SCALER_MEAN_SEED)
         scaler = StandardScaler().fit(rng.normal(0.0, 1.0, size=(N_SAMPLES, N_FEATURES)))
 

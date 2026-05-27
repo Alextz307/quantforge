@@ -45,6 +45,7 @@ TEST_SECRET_KEY = secrets.token_urlsafe(48)
 
 def make_valid_experiment_payload() -> dict[str, object]:
     """Canonical fully-populated ExperimentConfig payload for B2 validate tests."""
+
     return {
         "name": "test_run",
         "seed": 42,
@@ -65,11 +66,13 @@ def make_valid_experiment_payload() -> dict[str, object]:
 
 def make_valid_job_submission() -> dict[str, object]:
     """Canonical ``JobSubmission`` payload (run kind) for jobs API tests."""
+
     return {"kind": "run", "config_payload": make_valid_experiment_payload()}
 
 
 def make_valid_hpo_payload(study_name: str = "test_hpo_study") -> dict[str, object]:
     """Canonical ``HPOConfig`` payload for tune-submission tests."""
+
     return {
         "study_name": study_name,
         "n_trials": 2,
@@ -83,6 +86,7 @@ def make_valid_hpo_payload(study_name: str = "test_hpo_study") -> dict[str, obje
 
 def make_valid_tune_submission(study_name: str = "test_hpo_study") -> dict[str, object]:
     """Canonical ``JobSubmission`` payload (tune kind) for jobs API tests."""
+
     return {
         "kind": "tune",
         "config_payload": make_valid_experiment_payload(),
@@ -153,12 +157,14 @@ def make_viewer_user(
     the helper's identity rarely matters — pass an alternate ``username``
     only when the test explicitly needs a second user.
     """
+
     return create_user(conn, username=username, password=VIEWER_PASSWORD, role=role)
 
 
 @pytest.fixture
 def authed_client(client: TestClient, db_conn: sqlite3.Connection) -> TestClient:
     """A TestClient with an authenticated session cookie for a regular user."""
+
     create_user(db_conn, username=TEST_USERNAME, password=TEST_PASSWORD, role=Role.USER)
     response = client.post(
         "/api/auth/login", json={"username": TEST_USERNAME, "password": TEST_PASSWORD}
@@ -175,6 +181,7 @@ def _isolated_job_paths(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iter
     Must run before any TestClient is constructed (lifespan reads settings on
     create_app). Tests requesting ``jobs_client`` get this fixture transitively.
     """
+
     monkeypatch.setenv("WEBAPP_JOB_TEMP_DIR", str(tmp_path / "jobs"))
     monkeypatch.setenv("WEBAPP_STORE_ROOT", str(tmp_path / "experiment_results"))
     monkeypatch.setenv(
@@ -191,6 +198,7 @@ def _isolated_job_paths(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iter
 @pytest.fixture
 def jobs_client(_isolated_job_paths: None) -> Iterator[TestClient]:
     """A TestClient whose job artifacts live under a per-test scratch dir."""
+
     with TestClient(create_app()) as test_client:
         yield test_client
 
@@ -211,6 +219,7 @@ def _create_user_and_login(
 @pytest.fixture
 def authed_jobs_client(jobs_client: TestClient, db_conn: sqlite3.Connection) -> TestClient:
     """``jobs_client`` authenticated as a regular user."""
+
     _create_user_and_login(
         jobs_client,
         db_conn,
@@ -224,6 +233,7 @@ def authed_jobs_client(jobs_client: TestClient, db_conn: sqlite3.Connection) -> 
 @pytest.fixture
 def admin_jobs_client(jobs_client: TestClient, db_conn: sqlite3.Connection) -> TestClient:
     """``jobs_client`` authenticated as an admin."""
+
     _create_user_and_login(
         jobs_client,
         db_conn,
@@ -255,6 +265,7 @@ def make_synthetic_run(
     ``manifest.json`` + ``metrics.json`` + ``config.yaml`` + ``fold_results.jsonl``
     + ``plots/equity.png``. Toggles let tests probe degenerate runs.
     """
+
     run_dir = parent_runs_dir / experiment_id
     run_dir.mkdir(parents=True, exist_ok=True)
     ts = (created_at or datetime(2026, 1, 1, tzinfo=UTC)).isoformat()
@@ -331,6 +342,7 @@ def make_synthetic_run(
 
 def _aggregate_stats(sharpe_mean: float = 0.5) -> dict[str, object]:
     """Synthetic per-strategy aggregate-stats payload."""
+
     return {
         "n_folds": 3,
         "sharpe_mean": sharpe_mean,
@@ -363,6 +375,7 @@ def make_synthetic_comparison(
     write_plot: bool = True,
 ) -> Path:
     """Materialize a minimal valid comparison directory under ``parent_dir``."""
+
     cmp_dir = parent_dir / name
     cmp_dir.mkdir(parents=True, exist_ok=True)
     ts = (created_at or datetime(2026, 4, 1, tzinfo=UTC)).isoformat()
@@ -401,6 +414,7 @@ def make_synthetic_holdout_eval(
     write_plot: bool = True,
 ) -> Path:
     """Materialize a minimal valid holdout-eval directory under ``parent_dir``."""
+
     eval_dir = parent_dir / name
     eval_dir.mkdir(parents=True, exist_ok=True)
     ts = (created_at or datetime(2026, 4, 3, tzinfo=UTC)).isoformat()
@@ -463,6 +477,7 @@ def make_synthetic_study(
     ``run_experiment_id`` and a ``completed_at``; incomplete legs match the
     ``LegState.initial`` shape.
     """
+
     study_dir = parent_studies_dir / name
     study_dir.mkdir(parents=True, exist_ok=True)
     ts = started_at or datetime(2026, 4, 1, tzinfo=UTC)
@@ -508,6 +523,7 @@ def make_synthetic_consolidated_report(
     n_universes_with_pairwise: int = 1,
 ) -> Path:
     """Materialize a minimal valid consolidated-report tree under ``study_dir``."""
+
     from src.visualization.plots import MANIFEST_FILENAME
 
     plots_dir = study_dir / PLOTS_DIRNAME
@@ -553,6 +569,7 @@ def make_synthetic_hpo_study(
     The trials.jsonl mtime is stamped to ``created_at`` so summary tests
     can assert deterministic ordering.
     """
+
     if n_complete is None:
         n_complete = n_trials
     if best_trial_number is None:
@@ -602,6 +619,7 @@ def make_synthetic_hpo_study(
 @pytest.fixture
 def webapp_store(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     """Synthetic store with two runs: one flat layout, one study-nested layout."""
+
     root = tmp_path / "experiment_results"
     flat_runs = root / "thesis_demo" / "runs"
     study_runs = root / "studies" / "main" / "runs"

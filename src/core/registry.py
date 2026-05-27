@@ -37,6 +37,7 @@ def _enum_type_in_annotation(annotation: object) -> type[Enum] | None:
 
     Handles direct ``E``, ``Optional[E]``, ``E | None``, and ``Union[E, ...]``.
     """
+
     origin = get_origin(annotation)
     if origin is Union or origin is UnionType:
         for arg in get_args(annotation):
@@ -63,6 +64,7 @@ def _coerce_enum_kwargs(cls: type, kwargs: dict[str, object]) -> dict[str, objec
     The registry is the YAML/dict→ctor boundary: ``ComponentConfig.params``
     is dict-typed, so Enum coercion lives here rather than in leaf ctors.
     """
+
     hints = _ctor_hints(cls)
     out: dict[str, object] = {}
     for name, value in kwargs.items():
@@ -102,6 +104,7 @@ class ComponentRegistry[T]:
 
     def get(self, name: str) -> type[T]:
         """Get a registered component class by name."""
+
         if name not in self._registry:
             raise KeyError(
                 f"Component '{name}' not found; available: "
@@ -116,6 +119,7 @@ class ComponentRegistry[T]:
 
         Use ``list_public()`` for the production-facing surface.
         """
+
         return list(self._registry.keys())
 
     def list_public(self) -> list[str]:
@@ -128,6 +132,7 @@ class ComponentRegistry[T]:
         production-facing introspector should use this method so a stub
         never leaks into a list, dropdown, or external response.
         """
+
         return [name for name in self._registry if not name.startswith("_")]
 
     def create(self, name: str, **kwargs: object) -> T:
@@ -137,6 +142,7 @@ class ComponentRegistry[T]:
         coerced to Enum members before the call so YAML/dict params don't
         force leaf ctors to accept ``Enum | str`` unions.
         """
+
         cls = self.get(name)
         return cls(**_coerce_enum_kwargs(cls, kwargs))
 
@@ -147,6 +153,7 @@ class ComponentRegistry[T]:
         callers a single uniform entry point when dispatching pluggable
         components from validated YAML.
         """
+
         return self.create(config.name, **config.params)
 
     def __contains__(self, name: str) -> bool:
@@ -173,6 +180,7 @@ def autoload_package(
     but are not themselves registrable (typically ``interface`` holding an
     ABC / Protocol).
     """
+
     for info in iter_modules(pkg_path):
         if not info.name.startswith("_") and info.name not in skip:
             import_module(f"{pkg_name}.{info.name}")

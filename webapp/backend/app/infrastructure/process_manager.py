@@ -104,6 +104,7 @@ def build_compare_command(
     ``config_paths`` and ``reuse_run_dirs`` must be the same length and in
     matching order — the CLI pairs them positionally.
     """
+
     cmd: list[str] = [
         sys.executable,
         "-m",
@@ -138,6 +139,7 @@ def build_holdout_command(
     store_root: Path,
 ) -> tuple[str, ...]:
     """``experiment holdout-eval`` invocation; source picks ``--run-dir`` vs ``--hpo-best``."""
+
     cmd: list[str] = [
         sys.executable,
         "-m",
@@ -168,6 +170,7 @@ def build_study_command(
     store_root: Path,
 ) -> tuple[str, ...]:
     """``experiment study run`` invocation; drives the cross-strategy × cross-universe sweep."""
+
     cmd: list[str] = [
         sys.executable,
         "-m",
@@ -192,6 +195,7 @@ def build_study_command(
 
 def _resolve_run_experiment_id(store_root: Path, job_id: str) -> str | None:
     """Scan run manifests for ``manifest.name == job_id``."""
+
     for run_dir in iter_run_dirs(store_root):
         try:
             manifest = json_io.read_dict(run_dir / EXPERIMENT_MANIFEST_JSON)
@@ -232,6 +236,7 @@ def _resolve_experiment_id(
     pre-commit their artifact name at submission time so the resolver is a
     cheap stat.
     """
+
     if kind is JobKind.RUN:
         return _resolve_run_experiment_id(store_root, job_id)
     subdir = _ARTIFACT_SUBDIR_BY_KIND.get(kind)
@@ -274,11 +279,13 @@ class ProcessManager:
             )
         finally:
             log_handle.close()
+
         stop_event = asyncio.Event()
         watch_task = asyncio.create_task(
             self._watch(job_id, kind, process, stop_event, store_root, artifact_id)
         )
         log_tail_task = asyncio.create_task(self._tail(job_id, log_path, stop_event))
+
         self._running[job_id] = _RunningProcess(
             process=process,
             watch_task=watch_task,
@@ -293,6 +300,7 @@ class ProcessManager:
 
     async def cancel(self, job_id: str) -> bool:
         """Send SIGTERM, escalate to SIGKILL after the grace period."""
+
         proc = self._running.get(job_id)
         if proc is None or proc.process.poll() is not None:
             return False
@@ -318,6 +326,7 @@ class ProcessManager:
                 except ProcessLookupError:
                     pass
             proc.stop_event.set()
+
             for task in (proc.watch_task, *proc.tail_tasks):
                 task.cancel()
             for task in (proc.watch_task, *proc.tail_tasks):
@@ -325,6 +334,7 @@ class ProcessManager:
                     await task
                 except (asyncio.CancelledError, Exception):  # noqa: BLE001
                     pass
+
             await self._broker.close(job_id)
         self._running.clear()
 
@@ -342,10 +352,12 @@ class ProcessManager:
         except asyncio.CancelledError:
             stop_event.set()
             raise
+
         # One extra tick lets the tail loop flush lines that landed between
         # the last poll and process exit.
         await asyncio.sleep(0)
         stop_event.set()
+
         running = self._running.get(job_id)
         if running is not None:
             for task in running.tail_tasks:
@@ -353,14 +365,17 @@ class ProcessManager:
                     await task
                 except asyncio.CancelledError:
                     pass
+
         experiment_id = await asyncio.to_thread(
             _resolve_experiment_id, kind, store_root, job_id, artifact_name
         )
         status = self._classify_exit(exit_code)
+
         try:
             await self._on_complete(job_id, status, exit_code, experiment_id)
         except Exception:
             logger.exception("on_complete callback raised for job %s", job_id)
+
         await self._broker.publish(
             job_id,
             JobStatusFrame(status=status, exit_code=exit_code, experiment_id=experiment_id),

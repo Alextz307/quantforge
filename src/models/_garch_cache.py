@@ -67,6 +67,7 @@ class GarchGridCache:
     @staticmethod
     def hash_returns(scaled: np.ndarray[tuple[int], np.dtype[np.float64]]) -> bytes:
         """SHA-256 of the scaled-returns bytes — stable across processes."""
+
         return hashlib.sha256(scaled.tobytes()).digest()
 
     def lookup_or_compute(
@@ -89,6 +90,7 @@ class GarchGridCache:
         ``best_result`` is ``None`` only when every cell failed (caller
         falls back to the GARCH(1,1) hard-coded path).
         """
+
         best_aic = math.inf
         best_p, best_q = 1, 1
         best_result: ARCHModelResult | None = None
@@ -126,6 +128,7 @@ def garch_cache_context(cache: GarchGridCache) -> Iterator[GarchGridCache]:
     inside the block doesn't leave a stale cache visible to subsequent
     code on the same thread.
     """
+
     token = _CACHE_CTX.set(cache)
     try:
         yield cache
@@ -135,4 +138,5 @@ def garch_cache_context(cache: GarchGridCache) -> Iterator[GarchGridCache]:
 
 def active_cache() -> GarchGridCache | None:
     """Return the cache bound by the innermost enclosing ``garch_cache_context``."""
+
     return _CACHE_CTX.get()

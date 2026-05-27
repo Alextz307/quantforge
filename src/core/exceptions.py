@@ -30,6 +30,7 @@ def guard_scaler_fit_once(scaler: object | None, component: str) -> None:
     composite models so a second ``fit()`` call on training data is caught
     instead of silently re-fitting on (potentially) test data.
     """
+
     if scaler is not None:
         raise LeakageError(
             f"{component}.fit() called twice; the scaler must only be fit on "

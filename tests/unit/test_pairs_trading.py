@@ -51,6 +51,7 @@ def fitted_strategy(pair_df: pd.DataFrame) -> PairsTradingStrategy:
 
 def _make_independent_random_walks() -> pd.DataFrame:
     """Two independent random walks — not cointegrated."""
+
     idx = pd.bdate_range(start=RW_START_DATE, periods=RW_ROW_COUNT, freq="B")
     rng_a = np.random.default_rng(RW_SEED_A)
     rng_b = np.random.default_rng(RW_SEED_B)
@@ -118,6 +119,7 @@ class TestPairsTradingStrategy:
         inputs and cannot recover once the NaN slides out — unlike pandas'
         rolling std. Inject a NaN / inf and expect a loud boundary error
         instead of silently-NaN signals."""
+
         with_nan = pair_df.copy()
         with_nan.loc[with_nan.index[10], "close_a"] = np.nan
         with pytest.raises(ValueError, match="finite"):
@@ -175,6 +177,7 @@ class TestPairsTradingStrategy:
         self, fitted_strategy: PairsTradingStrategy, pair_df: pd.DataFrame
     ) -> None:
         """Signals are a pure function of data once trained."""
+
         np.random.seed(GLOBAL_NUMPY_SEED)
         s1 = fitted_strategy.generate_signals(pair_df)
         s2 = fitted_strategy.generate_signals(pair_df)

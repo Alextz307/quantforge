@@ -35,6 +35,7 @@ class Interval(StrEnum):
 
     def annualization_factor(self) -> int:
         """Return the number of bars per year for this interval."""
+
         return _ANNUALIZATION_FACTORS[self]
 
 
@@ -89,6 +90,7 @@ class BarData(BaseModel):
     @model_validator(mode="after")
     def validate_hloc_ordering(self) -> Self:
         """Ensure high >= low and high/low bound open/close."""
+
         if self.high < self.low:
             raise ValueError(
                 f"high ({self.high}) must be >= low ({self.low}); fix by checking "
@@ -131,6 +133,7 @@ class PairSignal(BaseModel):
     @model_validator(mode="after")
     def validate_total_leverage(self) -> Self:
         """Ensure combined absolute leverage does not exceed maximum."""
+
         total_abs = abs(self.leg_a_position) + abs(self.leg_b_position)
         if total_abs > MAX_LEVERAGE:
             raise ValueError(

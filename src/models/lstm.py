@@ -64,6 +64,7 @@ class MarketLSTM(nn.Module):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Forward pass: (batch, lookback, features) -> (batch, 1)."""
+
         lstm_out, _ = self.lstm(x)
         last_hidden = lstm_out[:, -1, :]
         out: torch.Tensor = self.fc(last_hidden)
@@ -145,6 +146,7 @@ class LSTMPredictor(IPredictor):
                 dataset is too short for a validation split.
             **kwargs: If 'trial' key present, used for Optuna pruning.
         """
+
         trial = cast("optuna.Trial | None", kwargs.get("trial"))
         if checkpoint_path is not None:
             checkpoint_path = Path(checkpoint_path)
@@ -305,6 +307,7 @@ class LSTMPredictor(IPredictor):
         Returns:
             Series of predictions aligned with data index.
         """
+
         self._assert_fitted_with_metadata()
         if self._model is None:
             raise RuntimeError(
@@ -334,6 +337,7 @@ class LSTMPredictor(IPredictor):
 
     def predict_single(self, recent_window: pd.DataFrame) -> float:
         """Predict single value from a recent data window."""
+
         self._assert_fitted_with_metadata()
         if self._model is None:
             raise RuntimeError(
@@ -368,6 +372,7 @@ class LSTMPredictor(IPredictor):
         via ``select_device()`` on load. ``torch.save`` writes CPU tensors to
         guarantee portability across CUDA / MPS / CPU.
         """
+
         metadata = self._assert_fitted_with_metadata()
         assert self._model is not None
         model = self._model
@@ -404,6 +409,7 @@ class LSTMPredictor(IPredictor):
         Device is re-resolved at load time (``Device.AUTO`` preference) so a
         model trained on CUDA loads cleanly on a CPU-only machine.
         """
+
         root = Path(path)
         config = json_io.read_dict(root / CONFIG_JSON)
         metadata = json_io.read_dict(root / METADATA_JSON)
@@ -438,6 +444,7 @@ class LSTMPredictor(IPredictor):
     @staticmethod
     def suggest_params(trial: optuna.Trial) -> dict[str, object]:
         """Optuna search space for LSTM hyperparameters."""
+
         return {
             "hidden_dim": trial.suggest_int("lstm_hidden_dim", 32, 128),
             "num_layers": trial.suggest_int("lstm_num_layers", 1, 3),

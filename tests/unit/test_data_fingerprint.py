@@ -54,6 +54,7 @@ class TestFingerprintColumnSetGuard:
     def test_extra_column_does_not_affect_ohlcv_bytes_but_changes_column_set(self) -> None:
         """Adding a non-OHLCV column changes the hash (column set enters
         the digest) but doesn't leak bytes through the OHLCV sub-hash."""
+
         a = make_synthetic_ohlcv_df()
         b = a.copy()
         b["extra"] = np.arange(len(b), dtype=np.float64)

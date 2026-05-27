@@ -25,6 +25,7 @@ _FEATURE_COLUMNS = ["return_5d", "rsi_14", "vol_20"]
 
 def _fresh_trial() -> optuna.Trial:
     """One-shot Optuna Trial that accepts arbitrary ``suggest_*`` calls."""
+
     study = optuna.create_study(direction="maximize")
     return study.ask()
 

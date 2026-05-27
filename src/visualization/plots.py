@@ -50,6 +50,7 @@ def normalise_to_unit_base(curve: Sequence[float]) -> list[float] | None:
     narrative). Callers downgrade to a placeholder (skip the plot, log a
     warning) on ``None``.
     """
+
     if not curve:
         return None
     base = curve[0]
@@ -66,6 +67,7 @@ def save_png_and_svg(fig: Figure, png_path: Path) -> Path:
     Why both formats: PNG for README previews + GitHub rendering, SVG for
     vector-quality inclusion in LaTeX via ``\\includegraphics``.
     """
+
     ensure_parent_dir(png_path)
     fig.savefig(png_path)
     fig.savefig(png_path.with_suffix(".svg"))
@@ -90,6 +92,7 @@ def render_value_heatmap(
     appears in the warning when every cell is non-finite — keeps the call
     site identifiable in logs.
     """
+
     fig, ax = plt.subplots(figsize=(FIGURE_WIDTH_IN, FIGURE_HEIGHT_IN), dpi=FIGURE_DPI)
     cmap = plt.get_cmap("viridis").copy()
     cmap.set_bad(color="lightgrey")

@@ -82,6 +82,7 @@ def _make_experiment_id(strategy_name: str, created_at: datetime, git_sha: str) 
     invocations in the same second + same strategy + same sha — matters for
     HPO parallelism and ``experiment compare`` subprocess fan-out.
     """
+
     ts = created_at.strftime("%Y%m%d_%H%M%S")
     suffix = secrets.token_hex(_EXPERIMENT_ID_SUFFIX_BYTES)
     return f"{ts}_{strategy_name}_{git_sha}_{suffix}"
@@ -108,6 +109,7 @@ def fetch_bars(
     at N=2 unambiguous — the strategy class is the source of truth, not a
     bool flag the caller has to remember to pass.
     """
+
     tickers = cfg.data.tickers
     if len(tickers) == 0:
         raise ValueError(
@@ -136,6 +138,7 @@ def _fetch_pair_bars(
     ticker_b: str,
 ) -> pd.DataFrame:
     """Fetch both legs of a pair, inner-join, suffix the OHLCV columns."""
+
     bars_a = data_source.fetch(ticker_a, cfg.data.start, cfg.data.end, cfg.data.interval)
     bars_b = data_source.fetch(ticker_b, cfg.data.start, cfg.data.end, cfg.data.interval)
     suffix_a, suffix_b = PAIRS_LEG_SUFFIXES
@@ -166,6 +169,7 @@ def _fetch_multi_bars(
     suffix is the literal ticker name — strategies read e.g. ``close_SPY``
     directly, which is more readable than ``_a / _b`` once N exceeds two.
     """
+
     suffixed = [
         data_source.fetch(ticker, cfg.data.start, cfg.data.end, cfg.data.interval).add_suffix(
             f"_{ticker}"
@@ -192,6 +196,7 @@ def compute_data_hash(strategy: IStrategy, bars: pd.DataFrame, tickers: Sequence
     ``Experiment.run`` and ``holdout_eval`` route through this so a future
     fourth shape only adds one branch here, not three.
     """
+
     if strategy.is_multi_feature_strategy:
         return fingerprint_multi_bars(bars, tickers)
     if strategy.is_pairs_strategy:
@@ -205,6 +210,7 @@ def _slice_dev(bars: pd.DataFrame, boundary: pd.Timestamp | None) -> pd.DataFram
     ``boundary`` is the first bar OF the holdout (see
     ``resolve_holdout_boundary``). ``None`` disables the reservation.
     """
+
     if boundary is None:
         return bars
     return bars.loc[bars.index < boundary]
@@ -281,6 +287,7 @@ class Experiment:
         downgraded to a warning so the rest of the artifact tree still
         lands on disk.
         """
+
         opts = options if options is not None else RunOptions()
         store = opts.store_root if opts.store_root is not None else _DEFAULT_STORE_ROOT
         created_at = datetime.now(UTC)
@@ -382,6 +389,7 @@ def _maybe_save_strategy(strategy: IStrategy, path: Path) -> None:
     The full strategy state is never the user's only handle — fold_results
     + config are enough to reproduce via ``experiment run``.
     """
+
     try:
         strategy.save(path)
     except NotImplementedError:

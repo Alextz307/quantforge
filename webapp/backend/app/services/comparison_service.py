@@ -50,6 +50,7 @@ def list_comparisons(
     all_users: bool,
 ) -> list[ComparisonSummary]:
     """List every comparison under ``root`` visible to ``user``, newest first."""
+
     summaries: list[ComparisonSummary] = []
     for cmp_dir in cached_artifact_dirs(root, "comparison", iter_comparison_dirs):
         manifest = json_io.read_dict(cmp_dir / EXPERIMENT_MANIFEST_JSON)
@@ -62,6 +63,7 @@ def list_comparisons(
                 strategies=sorted(per_strategy.keys()),
             )
         )
+
     scoped = scope_and_stamp_summaries(
         summaries, key_fn=lambda s: s.name, conn=conn, user=user, all_users=all_users
     )
@@ -82,6 +84,7 @@ def get_comparison(
     nor admin; the router maps that to 404 so the response doesn't disclose
     that the comparison exists.
     """
+
     check_artifact_access(conn, experiment_id=name, user=user)
     cmp_dir = find_comparison_dir(root, name)
     manifest = json_io.read_dict(cmp_dir / EXPERIMENT_MANIFEST_JSON)
@@ -121,5 +124,6 @@ def resolve_plot(
     user: UserPublic,
 ) -> Path:
     """Resolve a comparison plot filename to an absolute path, blocking traversal."""
+
     check_artifact_access(conn, experiment_id=name, user=user)
     return resolve_plot_path(find_comparison_dir(root, name), plot_name)

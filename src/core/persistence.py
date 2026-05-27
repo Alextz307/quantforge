@@ -87,6 +87,7 @@ def ensure_model_dir(path: str | Path) -> Path:
     silent overwrite of an existing save. If ``path`` exists and is empty it is
     reused as-is.
     """
+
     p = Path(path)
     # Create atomically; on collision disambiguate. Collapses the old
     # exists()/is_dir()/iterdir()/mkdir() check-then-act into one syscall
@@ -126,6 +127,7 @@ def frozen_params_to_json(
     * Accepts any dataclass instance by duck-typing (``is_dataclass``);
       raises ``TypeError`` on anything else so misuse surfaces loudly.
     """
+
     if not is_dataclass(params) or isinstance(params, type):
         raise TypeError(
             f"frozen_params_to_json requires a dataclass INSTANCE, "
@@ -149,6 +151,7 @@ def write_experiment_manifest(path: str | Path, manifest: Manifest) -> None:
     part of its own save skeleton). Centralised here so a future manifest
     format change touches one function, not every caller.
     """
+
     p = Path(path)
     if not p.is_dir():
         raise FileNotFoundError(
@@ -166,6 +169,7 @@ def read_experiment_manifest(path: str | Path) -> Manifest:
     Raises :class:`FileNotFoundError` if the manifest is missing — partial
     run dirs (mid-crash) shouldn't be silently treated as analysable.
     """
+
     from src.orchestration.manifest import Manifest as _Manifest
 
     p = Path(path)
@@ -192,6 +196,7 @@ def save_model_skeleton(
     weights write → write ``metadata.json``. The caller validates preconditions
     (fitted, internal handles non-None) before invoking.
     """
+
     root = ensure_model_dir(path)
     json_io.write(root / CONFIG_JSON, config)
     write_weights(root)
@@ -212,6 +217,7 @@ def save_standard_scaler(scaler: StandardScaler, path: str | Path) -> None:
 
     Raises ``RuntimeError`` if the scaler hasn't been fitted.
     """
+
     if not hasattr(scaler, "mean_"):
         raise RuntimeError(
             "cannot save an unfitted StandardScaler; fix by calling scaler.fit() "
@@ -242,6 +248,7 @@ def load_standard_scaler(path: str | Path) -> StandardScaler:
     restored as the ``dtype=object`` numpy array sklearn expects when
     present in the payload.
     """
+
     raw = json_io.read_dict(path)
     scaler = StandardScaler(
         with_mean=json_io.get_bool(raw, "with_mean"),

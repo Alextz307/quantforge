@@ -69,6 +69,7 @@ _LEG_B_RENAME: dict[str, str] = {f"{c}{PAIRS_LEG_SUFFIXES[1]}": c for c in OHLCV
 
 def split_pairs_frame(bars: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Split a wide-format pairs frame into two single-leg OHLCV frames."""
+
     missing_a = [c for c in _LEG_A_RENAME if c not in bars.columns]
     missing_b = [c for c in _LEG_B_RENAME if c not in bars.columns]
     if missing_a or missing_b:
@@ -78,6 +79,7 @@ def split_pairs_frame(bars: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
             f"{sorted(missing_a + missing_b)}; fix by ensuring the multi-ticker "
             f"fetch path produced both legs before invoking walk-forward."
         )
+
     bars_a = bars[list(_LEG_A_RENAME)].rename(columns=_LEG_A_RENAME)
     bars_b = bars[list(_LEG_B_RENAME)].rename(columns=_LEG_B_RENAME)
     return bars_a, bars_b
@@ -91,6 +93,7 @@ def slice_primary_ohlcv(bars: pd.DataFrame, primary_ticker: str) -> pd.DataFrame
     columns are dropped — they were only there to feed the strategy's signal
     computation, never the engine.
     """
+
     rename = {f"{c}_{primary_ticker}": c for c in OHLCV_COLUMNS}
     missing = [c for c in rename if c not in bars.columns]
     if missing:
@@ -116,6 +119,7 @@ def dispatch_engine_run(
     walk-forward loop and the holdout-eval one-shot share this so a future
     fourth shape only adds one branch here, not two.
     """
+
     if strategy.is_pairs_strategy:
         bars_a, bars_b = split_pairs_frame(bars)
         return engine.run_pairs(bars_a, bars_b, signals, strategy.hedge_ratio, slippage)
@@ -143,9 +147,11 @@ def validate_deep_metadata(
     level and skipped, so the remaining tracked entries still provide
     partial coverage rather than swallowing the whole check.
     """
+
     strategy_cls = type(strategy).__name__
     test_start: pd.Timestamp = test_data.index[0]
     saw_any = False
+
     for tracked in strategy.get_all_training_metadata():
         meta = tracked.metadata
         if meta is None:
@@ -164,6 +170,7 @@ def validate_deep_metadata(
                 f"embargo gap or by ensuring the leaf was trained on a window "
                 f"strictly preceding the test fold."
             )
+
     if not saw_any:
         raise RuntimeError(
             f"{strategy_cls}.get_all_training_metadata() returned no populated "
@@ -224,9 +231,11 @@ def evaluate_walk_forward(
         RuntimeError: If a strategy fails to populate any training
             metadata after ``train()`` (contract violation).
     """
+
     annualization = interval.annualization_factor()
     n_folds = validator.n_splits
     results: list[FoldResult] = []
+
     fold_iter: Iterable[TemporalSplit] = validator.split(bars)
     if progress:
         from tqdm.auto import tqdm
@@ -234,6 +243,7 @@ def evaluate_walk_forward(
         # ``disable=None`` lets tqdm auto-detect non-TTY environments
         # (CI logs, redirected output) and silently no-op.
         fold_iter = tqdm(fold_iter, total=n_folds, desc="folds", disable=None)
+
     for fold in fold_iter:
         fold_logger = get_logger(__name__, fold=f"{fold.fold_index + 1}/{n_folds}")
         fold_logger.info(
@@ -243,6 +253,7 @@ def evaluate_walk_forward(
             fold.test.index[0],
             fold.test.index[-1],
         )
+
         if feature_pipeline_factory is not None:
             pipeline = feature_pipeline_factory()
             # fit_transform does fit + train-window transform in one pass
@@ -257,6 +268,7 @@ def evaluate_walk_forward(
             fold_ckpt: Path | None = checkpoint_root / f"{FOLD_DIR_PREFIX}{fold.fold_index + 1}"
         else:
             fold_ckpt = None
+
         strategy.train(train_frame, checkpoint_path=fold_ckpt)
         validate_deep_metadata(strategy, test_data=test_frame)
 
@@ -274,6 +286,7 @@ def evaluate_walk_forward(
             metrics.annualized_return,
             metrics.max_drawdown,
         )
+
         results.append(
             FoldResult(
                 fold_index=fold.fold_index,
@@ -286,4 +299,5 @@ def evaluate_walk_forward(
                 strategy_diagnostics=diagnostics,
             )
         )
+
     return results

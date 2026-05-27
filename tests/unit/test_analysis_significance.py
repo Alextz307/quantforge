@@ -44,6 +44,7 @@ def _daily_returns_with_known_sharpe(n: int, *, sharpe: float, seed: int) -> _Fl
     Sharpe is within ~10% of the population value at 95% confidence —
     enough headroom for the CI test below.
     """
+
     rng = np.random.default_rng(seed)
     return rng.normal(loc=sharpe * _DAILY_VOL, scale=_DAILY_VOL, size=n)
 
@@ -60,6 +61,7 @@ class TestBootstrapSharpeCI:
         bootstrap 95% CI should include 0.05 with very high probability —
         the test uses a fixed seed so the outcome is deterministic.
         """
+
         rets = _daily_returns_with_known_sharpe(_N_BARS, sharpe=_EXPECTED_SHARPE, seed=101)
         ci = bootstrap_sharpe_ci(rets, n_resamples=_SHARPE_CI_RESAMPLES, rng=_make_rng())
         assert ci.lower <= _EXPECTED_SHARPE <= ci.upper
@@ -86,6 +88,7 @@ class TestPairedBootstrapDifferential:
         """Series a has higher mean return than b at the same volatility —
         the Sharpe differential is positive and the 95% CI should exclude 0.
         """
+
         rng = np.random.default_rng(303)
         n = _N_BARS
         a = rng.normal(loc=0.002, scale=_DAILY_VOL, size=n)
@@ -116,6 +119,7 @@ class TestDieboldMariano:
         """Forecaster a has a large additive bias; b has zero error.
         DM should reject equality with direction=B (b forecasts better).
         """
+
         rng = np.random.default_rng(505)
         y = rng.normal(size=_N_BARS)
         b = y.copy()  # perfect forecaster
@@ -141,6 +145,7 @@ class TestDieboldMariano:
         the bias is large — the HLN-corrected statistic flips sign with
         the mean loss differential, independent of the loss choice.
         """
+
         rng = np.random.default_rng(606)
         y = rng.normal(size=_N_BARS)
         a = y + 0.5

@@ -129,6 +129,7 @@ class TemporalTripleSplit:
             holdout_pct: Fraction of data for holdout (default 15%).
             gap: Embargo bars between each region (default 5).
         """
+
         if not isinstance(df.index, pd.DatetimeIndex):
             raise TypeError(
                 "DataFrame must have a DatetimeIndex; fix by setting df.index "
@@ -200,6 +201,7 @@ def collect_metadata(
     tuple-of-constructors. Centralises the ``None`` passthrough and keeps
     callers from reinventing the shape.
     """
+
     return tuple(TrackedMetadata(origin=o, metadata=m) for o, m in pairs)
 
 
@@ -225,6 +227,7 @@ class TrainingMetadata:
         Assumes eval_data has a chronologically sorted DatetimeIndex
         (enforced throughout the framework).
         """
+
         if not isinstance(eval_data.index, pd.DatetimeIndex):
             raise TypeError(
                 "eval_data must have a DatetimeIndex; fix by setting df.index "
@@ -241,6 +244,7 @@ class TrainingMetadata:
 
     def to_dict(self) -> dict[str, object]:
         """Serialize to JSON-friendly dict. Timestamps become ISO strings."""
+
         return {
             "train_start": self.train_start.isoformat(),
             "train_end": self.train_end.isoformat(),
@@ -257,6 +261,7 @@ class TrainingMetadata:
         feature_columns: tuple[str, ...],
     ) -> TrainingMetadata:
         """Create metadata from a completed fit() call."""
+
         return TrainingMetadata(
             train_start=pd.Timestamp(train_data.index[0]),
             train_end=pd.Timestamp(train_data.index[-1]),
@@ -269,6 +274,7 @@ class TrainingMetadata:
     @staticmethod
     def from_dict(d: dict[str, object]) -> TrainingMetadata:
         """Deserialize from dict. Used when loading a saved model."""
+
         from src.core import json_io
         from src.core.types import Interval
 
@@ -289,6 +295,7 @@ def _snap_train_end_backward(dates: pd.DatetimeIndex, train_end: int) -> int:
     bar of its calendar date and bar ``train_end`` (if present) is the first
     bar of a later date. Already-at-boundary indices are returned unchanged.
     """
+
     if train_end <= 0 or train_end >= len(dates):
         return train_end
     prefix = dates[:train_end].values
@@ -306,6 +313,7 @@ def _first_bar_after_gap_days(dates: pd.DatetimeIndex, train_end: int, gap_days:
     ``gap_days=k`` skips ``k`` distinct dates of embargo. Trading days are the
     distinct normalized dates observed — holiday gaps are handled naturally.
     """
+
     if train_end < 1:
         raise ValueError(f"_first_bar_after_gap_days requires train_end >= 1, got {train_end}.")
     prev = dates[train_end - 1 : -1].values
@@ -379,6 +387,7 @@ class WalkForwardValidator:
                 or if ``snap_to_day=True`` and fewer than 2 distinct dates are
                 present.
         """
+
         if not isinstance(df.index, pd.DatetimeIndex):
             raise TypeError("DataFrame must have a DatetimeIndex")
 
@@ -473,6 +482,7 @@ class PurgedGroupTimeSeriesSplit:
     @property
     def n_folds(self) -> int:
         """Number of folds yielded by split() (always n_groups - 1)."""
+
         return self.n_groups - 1
 
     def split(self, df: pd.DataFrame) -> Iterator[TemporalSplit]:
@@ -490,6 +500,7 @@ class PurgedGroupTimeSeriesSplit:
         Yields:
             ``n_groups - 1`` TemporalSplit instances (group 0 has no training data).
         """
+
         if not isinstance(df.index, pd.DatetimeIndex):
             raise TypeError("DataFrame must have a DatetimeIndex")
 
@@ -580,6 +591,7 @@ def resolve_holdout_boundary(
         of the split boundary across runs — the exact leakage path ValidationConfig
         tripwire #2 defends against.
     """
+
     if not isinstance(df.index, pd.DatetimeIndex):
         raise TypeError(
             "resolve_holdout_boundary requires a DataFrame with a DatetimeIndex; "

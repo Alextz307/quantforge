@@ -53,6 +53,7 @@ class FoldRecord:
     @classmethod
     def from_fold_result(cls, fr: FoldResult) -> FoldRecord:
         """Flatten a :class:`FoldResult` into scalars + an equity tuple."""
+
         return cls(
             fold_index=fr.fold_index,
             train_start=pd.Timestamp(fr.train_start),
@@ -100,6 +101,7 @@ class FoldRecord:
                 f"strategy_diagnostics must be a dict, got {type(diagnostics_raw).__name__}"
             )
         diagnostics: dict[str, float] = {k: float(v) for k, v in diagnostics_raw.items()}
+
         return cls(
             fold_index=json_io.get_int(d, "fold_index"),
             train_start=json_io.get_timestamp(d, "train_start"),
@@ -231,6 +233,7 @@ class StrategyComparisonReport:
             "per_strategy_experiment_id",
             MappingProxyType(dict(self.per_strategy_experiment_id)),
         )
+
         object.__setattr__(
             self,
             "per_strategy_stats",

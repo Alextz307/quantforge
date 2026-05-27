@@ -110,6 +110,7 @@ def _ensure_column(conn: sqlite3.Connection, table: str, column: str, definition
     regexes so a future caller that pipes user input into a migration call
     fails loudly here rather than executing an arbitrary statement.
     """
+
     if not _IDENTIFIER_RE.match(table):
         raise ValueError(f"invalid table name: {table!r}")
     if not _IDENTIFIER_RE.match(column):

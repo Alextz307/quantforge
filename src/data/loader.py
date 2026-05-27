@@ -70,6 +70,7 @@ class YFinanceSource(IDataSource):
         interval: Interval = Interval.DAILY,
     ) -> pd.DataFrame:
         """Fetch OHLCV data from Yahoo Finance with retry + exponential backoff."""
+
         yf_interval = _INTERVAL_MAP[interval]
         last_exc: Exception | None = None
 
@@ -114,4 +115,5 @@ class YFinanceSource(IDataSource):
 
     def available_tickers(self) -> list[str]:
         """YFinance supports any ticker — return empty list."""
+
         return []

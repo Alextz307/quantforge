@@ -49,6 +49,7 @@ pytestmark = pytest.mark.skipif(
 
 def test_pairs_run_produces_full_artifact_tree(tmp_path: Path) -> None:
     """Happy path: pairs CLI run → wide-format hash + cointegration weights on disk."""
+
     config_path = make_pair_mini_experiment_fixture(tmp_path, n_splits=_N_SPLITS)
     store = tmp_path / "experiment_results"
 

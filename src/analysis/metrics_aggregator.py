@@ -78,6 +78,7 @@ class AggregateStats:
         pre-refactor behavior that the HPO objectives rely on for clear
         error messages ("missing ``sharpe_mean``: most likely zero folds").
         """
+
         if self.n_folds == 0:
             return {"n_folds": 0}
         return {
@@ -111,6 +112,7 @@ class AggregateStats:
         but in-process callers that read attributes directly will see NaN
         and should treat that as "no aggregate available."
         """
+
         nan = float("nan")
         return cls(
             n_folds=0,
@@ -153,6 +155,7 @@ def aggregate_folds(
     propagating ``NaN`` so ``AggregateStats`` stays comparable via ``==``
     in tests.
     """
+
     if not folds:
         return AggregateStats.empty()
 
@@ -209,6 +212,7 @@ def _mean_std_ci(
     point — bootstrapping a one-element sample just re-draws the same
     value every time and is wasted work.
     """
+
     n = len(values)
     point = float(np.mean(values))
     if n == 1:

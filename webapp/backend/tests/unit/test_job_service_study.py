@@ -200,6 +200,7 @@ def test_submit_study_rejects_malformed_yaml(db_conn: sqlite3.Connection, tmp_pa
 
 def test_submit_study_rejects_schema_invalid(db_conn: sqlite3.Connection, tmp_path: Path) -> None:
     """A spec missing ``legs`` surfaces the Pydantic error under ``study_payload.spec_name``."""
+
     user = _user(db_conn, "alice")
     manager = _stub_manager()
     config_root = tmp_path / "config"
@@ -259,6 +260,7 @@ def test_submit_study_rejects_when_running_collision_exists(
     db_conn: sqlite3.Connection, tmp_path: Path
 ) -> None:
     """A non-terminal STUDY job with the same ``experiment_id`` blocks resubmission."""
+
     user = _user(db_conn, "alice")
     manager = _stub_manager()
     config_root = tmp_path / "config"
@@ -301,6 +303,7 @@ def test_submit_study_resolves_user_upload_when_present(
     db_conn: sqlite3.Connection, tmp_path: Path
 ) -> None:
     """An upload owned by the submitting user takes precedence over the library."""
+
     user = _user(db_conn, "alice")
     manager = _stub_manager()
     config_root = tmp_path / "config"
@@ -362,6 +365,7 @@ def test_submit_study_falls_back_to_library_when_no_upload(
     db_conn: sqlite3.Connection, tmp_path: Path
 ) -> None:
     """No matching upload for caller → resolver uses ``config/study/<slug>.yaml``."""
+
     user = _user(db_conn, "alice")
     manager = _stub_manager()
     config_root = tmp_path / "config"

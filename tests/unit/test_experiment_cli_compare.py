@@ -80,6 +80,7 @@ class _StubExperiment:
 @pytest.fixture
 def patched_build(monkeypatch: pytest.MonkeyPatch) -> None:
     """Map each config's ``name`` to a deterministic sharpe for the stub."""
+
     name_to_sharpe = {"Alpha": 1.2, "Bravo": 0.7, "Charlie": 1.8}
 
     def _fake_build(cfg: ExperimentConfig) -> _StubExperiment:
@@ -176,6 +177,7 @@ def _materialise_run_dir(run_dir: Path, name: str, *, data_hash: str | None = No
     rebuild from. ``data_hash`` defaults to the conftest stub hash;
     pass an alternate value to exercise the cross-run alignment guard.
     """
+
     import json as _json
 
     from src.core import json_io

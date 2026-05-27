@@ -64,6 +64,7 @@ class TestSelectXGBoostDevice:
 
     def test_auto_never_picks_mps(self) -> None:
         """Even on Apple Silicon with MPS available, XGBoost must fall back to CPU."""
+
         with (
             patch("torch.cuda.is_available", return_value=False),
             patch("src.core.device._mps_available", return_value=True),

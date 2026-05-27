@@ -94,6 +94,7 @@ class IStrategy(ABC):
         misconfigured single-leg strategy doesn't silently report a 0.0
         hedge to the pairs engine.
         """
+
         raise NotImplementedError(
             f"{type(self).__name__}.hedge_ratio is only defined for pairs "
             f"strategies; fix by setting is_pairs_strategy=True and "
@@ -111,6 +112,7 @@ class IStrategy(ABC):
         MUST appear in the experiment's ``data.tickers`` list (validated in
         :func:`src.orchestration.builder._validate_strategy_data_shape`).
         """
+
         raise NotImplementedError(
             f"{type(self).__name__}.primary_ticker is only defined for "
             f"multi-feature strategies; fix by setting "
@@ -134,6 +136,7 @@ class IStrategy(ABC):
     @property
     def training_metadata(self) -> TrainingMetadata | None:
         """Training period metadata, populated after train()."""
+
         return getattr(self, "_training_metadata", None)
 
     def _assert_fitted_with_metadata(self, *, caller: str | None = None) -> TrainingMetadata:
@@ -149,6 +152,7 @@ class IStrategy(ABC):
         invoked from an inner closure or a wrapper whose name is not
         what you want surfaced in tracebacks.
         """
+
         meta = self.training_metadata
         if meta is None:
             actual_caller = caller or sys._getframe(1).f_code.co_name
@@ -171,6 +175,7 @@ class IStrategy(ABC):
         no separate boolean flag exists, so atomicity reduces to "the slot is
         either ``None`` or a complete :class:`TrainingMetadata`".
         """
+
         if metadata is None:
             raise ValueError(
                 f"{type(self).__name__}._set_fitted_with_metadata() requires a "
@@ -187,6 +192,7 @@ class IStrategy(ABC):
         ``origin`` label so a ``LeakageError`` names the exact component
         that drifted (strategy vs garch vs lstm vs classifier).
         """
+
         return collect_metadata(("strategy", self.training_metadata))
 
     def get_fold_diagnostics(self) -> Mapping[str, float]:
@@ -199,6 +205,7 @@ class IStrategy(ABC):
         diagnostics (e.g. ``VolatilityTargeting``'s ``floor_bind_fraction``)
         override to return them.
         """
+
         return MappingProxyType({})
 
     def save(self, path: str | Path) -> None:
@@ -213,6 +220,7 @@ class IStrategy(ABC):
         strategies must override explicitly — a silent no-op would let tests
         pass without actually persisting anything.
         """
+
         raise NotImplementedError(
             f"{type(self).__name__}.save() not implemented; fix by overriding "
             f"save() in the concrete strategy subclass."
@@ -226,6 +234,7 @@ class IStrategy(ABC):
         immediately, ``training_metadata`` is populated from the saved
         ``metadata.json``.
         """
+
         raise NotImplementedError(
             f"{cls.__name__}.load() not implemented; fix by overriding load() "
             f"in the concrete strategy subclass."

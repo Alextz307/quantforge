@@ -110,6 +110,7 @@ class TestSlippageConfig:
 class TestBacktestEngineRun:
     def test_flat_signal_no_trades(self) -> None:
         """All-NaN signals → no fill ever → equity stays at initial_capital."""
+
         ts, o, h, lo, c, v = _flat_bars(N_BARS_LONG)
         sig = np.full(N_BARS_LONG, np.nan, dtype=np.float64)
         eng = qe.BacktestEngine(initial_capital=INITIAL_CAPITAL)
@@ -130,6 +131,7 @@ class TestBacktestEngineRun:
 
     def test_equity_curve_is_numpy_float64(self) -> None:
         """equity_curve marshals back as a float64 1-D numpy array."""
+
         ts, o, h, lo, c, v = _flat_bars(N_BARS_SHORT)
         sig = np.full(N_BARS_SHORT, np.nan, dtype=np.float64)
         eng = qe.BacktestEngine()
@@ -149,6 +151,7 @@ class TestBacktestEngineRun:
 
     def test_hand_calculated_single_trade(self) -> None:
         """Zero-slip one-way trade on flat prices → equity = initial * (1 - fee)."""
+
         ts, o, h, lo, c, v = _flat_bars(N_BARS_MIN)
         sig = np.array([1.0, 1.0], dtype=np.float64)
         eng = qe.BacktestEngine(
@@ -175,6 +178,7 @@ class TestBacktestEngineRun:
 
     def test_accepts_float32_arrays_via_forcecast(self) -> None:
         """`c_style | forcecast` on the binding coerces f32 inputs to f64."""
+
         n = N_BARS_SHORT
         ts = np.arange(n, dtype=np.int64)
         flat32 = cast(F64Array, np.full(n, FLAT_PRICE, dtype=np.float32))
@@ -230,6 +234,7 @@ class TestBacktestEngineRun:
 
     def test_allow_short_false_clips_negative_signals(self) -> None:
         """allow_short=False clips -1 to 0 (no trade); allow_short=True opens a short."""
+
         ts, o, h, lo, c, v = _flat_bars(N_BARS_MIN)
         short_sig = np.array([-1.0, -1.0], dtype=np.float64)
         no_slip = qe.SlippageConfig(model=qe.SlippageModel.NoSlippage)
@@ -270,6 +275,7 @@ class TestBacktestEngineRun:
 
     def test_volume_scaled_slippage_propagates(self) -> None:
         """VolumeScaled with impact > 0 produces strictly worse fills than plain Fixed."""
+
         rng = np.random.default_rng(GLOBAL_NUMPY_SEED)
         n = N_BARS_LONG
         ts = np.arange(n, dtype=np.int64)
@@ -315,6 +321,7 @@ class TestRunScenarios:
 
     def test_order_preserved_and_matches_individual_runs(self) -> None:
         """bulk[i] must equal a standalone run(..., slippage=scenarios[i])."""
+
         ts, o, h, lo, c, v, sig = self._alternating_sample()
         scenarios = [
             qe.SlippageConfig(model=qe.SlippageModel.NoSlippage),
@@ -350,6 +357,7 @@ class TestRunScenarios:
 
     def test_higher_slippage_monotonically_lowers_return(self) -> None:
         """Heavier slippage on an actively-trading strategy can only hurt PnL."""
+
         ts, o, h, lo, c, v, sig = self._alternating_sample()
         eng = qe.BacktestEngine()
         results = eng.run_scenarios(
@@ -560,6 +568,7 @@ class TestMetricsCalculatorBindings:
 class TestEngineMetricsHandoff:
     def test_compute_accepts_engine_equity_curve(self) -> None:
         """engine.run().equity_curve feeds directly into MetricsCalculator.compute."""
+
         rng = np.random.default_rng(GLOBAL_NUMPY_SEED)
         n = N_BARS_LONG
         ts = np.arange(n, dtype=np.int64)

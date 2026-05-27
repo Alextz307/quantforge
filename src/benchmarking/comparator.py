@@ -48,6 +48,7 @@ class BenchmarkComparator:
         pct_threshold: float = DEFAULT_PCT_THRESHOLD,
     ) -> dict[str, ComparisonReport]:
         """Compare every run in ``runs`` against ``runs[reference_label]``."""
+
         if reference_label not in runs:
             raise KeyError(
                 f"reference_label {reference_label!r} not in runs; available: "

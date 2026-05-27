@@ -67,10 +67,12 @@ class BenchmarkRunner:
             filter_regex=cpp_filter, min_time_s=min_time_s, timeout_s=cpp_timeout_s
         )
         py_results = self._run_hybrid()
+
         timestamp = datetime.now(UTC).isoformat(timespec="seconds").replace("+00:00", "Z")
         sha7 = hw.git_sha[:7] if hw.git_sha else "nosha"
         safe_ts = timestamp.replace(":", "-")
         run_id = f"{safe_ts}_{sha7}"
+
         return BenchmarkRun(
             run_id=run_id,
             timestamp=timestamp,
@@ -130,6 +132,7 @@ def parse_gbench_json(stdout: str) -> list[BenchmarkResult]:
     ``--benchmark_repetitions`` is used) are skipped — summary aggregation
     is the analyzer's job so we keep the raw iterations here.
     """
+
     parsed = json.loads(stdout)
     if not isinstance(parsed, dict):
         raise ValueError(
@@ -229,8 +232,10 @@ def _to_ns(value: float, unit: str) -> float:
 
 def collect_hardware_info(repo_root: Path) -> HardwareInfo:
     """Collect CPU brand, RAM, OS, Python version, and git state."""
+
     vm = psutil.virtual_memory()
     sha, dirty = _git_state(repo_root)
+
     return HardwareInfo(
         cpu_brand=_cpu_brand(),
         cpu_count=os.cpu_count() or 1,
@@ -245,6 +250,7 @@ def collect_hardware_info(repo_root: Path) -> HardwareInfo:
 
 def _cpu_brand() -> str:
     system = platform.system()
+
     if system == "Darwin":
         sysctl = shutil.which("sysctl")
         if sysctl is None:
@@ -258,6 +264,7 @@ def _cpu_brand() -> str:
         if proc.returncode == 0:
             return proc.stdout.strip()
         return platform.processor() or "unknown"
+
     if system == "Linux":
         cpuinfo = Path("/proc/cpuinfo")
         if cpuinfo.exists():
@@ -266,6 +273,7 @@ def _cpu_brand() -> str:
                     _, _, value = line.partition(":")
                     return value.strip()
         return platform.processor() or "unknown"
+
     return platform.processor() or "unknown"
 
 
@@ -273,6 +281,7 @@ def _git_state(repo_root: Path) -> tuple[str, bool]:
     git = shutil.which("git")
     if git is None:
         return "", False
+
     sha_proc = subprocess.run(
         [git, "-C", str(repo_root), "rev-parse", "HEAD"],
         capture_output=True,
@@ -282,6 +291,7 @@ def _git_state(repo_root: Path) -> tuple[str, bool]:
     if sha_proc.returncode != 0:
         return "", False
     sha = sha_proc.stdout.strip()
+
     # Exclude untracked files so a fresh baseline JSONL written by this run
     # doesn't self-flag the tree as dirty.
     dirty_proc = subprocess.run(

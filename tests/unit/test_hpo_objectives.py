@@ -26,6 +26,7 @@ _DRAWDOWN_VALUE = -0.15  # aggregate_metrics reports max_drawdown_worst negative
 
 def _aggregate_fixture() -> dict[str, object]:
     """Sample aggregate_metrics dict shaped like the experiment runner's."""
+
     return {
         "n_folds": 4,
         "sharpe_mean": _SHARPE_VALUE,
@@ -74,6 +75,7 @@ class TestSortinoMinusDrawdownPenaltyObjective:
     def test_penalty_uses_abs_of_drawdown(self) -> None:
         """Whether drawdown is stored negative or positive, the penalty
         should land on the same number."""
+
         obj = SortinoMinusDrawdownPenaltyObjective(penalty=1.0)
         negative_dd = {"sortino_mean": 1.0, "max_drawdown_worst": -0.2}
         positive_dd = {"sortino_mean": 1.0, "max_drawdown_worst": 0.2}

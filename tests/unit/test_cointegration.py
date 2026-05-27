@@ -42,6 +42,7 @@ def _random_walk(
     sigma: float = RW_DEFAULT_RETURN_STD,
 ) -> pd.Series[float]:
     """Generate a random-walk price series for testing."""
+
     np.random.seed(seed)
     idx = pd.bdate_range(start=start, periods=n, freq="B")
     prices = RW_BASE_PRICE * np.cumprod(1 + np.random.normal(mu, sigma, n))
@@ -51,6 +52,7 @@ def _random_walk(
 @pytest.fixture
 def cointegrated_pair() -> tuple[pd.Series[float], pd.Series[float]]:
     """Two synthetic cointegrated series: B is a random walk, A = HEDGE*B + noise."""
+
     b = _random_walk(seed=COINT_BASE_SEED)
     np.random.seed(COINT_NOISE_SEED)
     noise = np.random.normal(0, COINT_NOISE_STD, len(b))
@@ -66,6 +68,7 @@ def cointegrated_pair() -> tuple[pd.Series[float], pd.Series[float]]:
 @pytest.fixture
 def independent_pair() -> tuple[pd.Series[float], pd.Series[float]]:
     """Two independent random walks — should NOT be cointegrated."""
+
     a = _random_walk(seed=INDEP_SEED_A)
     a.name = "X"
     b = _random_walk(seed=INDEP_SEED_B)
@@ -88,6 +91,7 @@ class TestCointegrationTester:
         cointegrated_pair: tuple[pd.Series[float], pd.Series[float]],
     ) -> None:
         """Recovered hedge ratio should be close to the true ratio."""
+
         a, b = cointegrated_pair
         result = CointegrationTester.engle_granger(a, b)
         assert abs(result.hedge_ratio - COINT_HEDGE_RATIO_TRUE) < HEDGE_RATIO_TOLERANCE
@@ -144,6 +148,7 @@ class TestFindCointegratedPairs:
 
     def test_multi_column_screening(self) -> None:
         """Screen 4 columns — only the planted pair should be found."""
+
         c = _random_walk(seed=MULTI_INDEP_C_SEED, mu=0.0)
         d = _random_walk(seed=MULTI_INDEP_D_SEED, mu=0.0)
         p = _random_walk(seed=MULTI_PLANTED_P_SEED)

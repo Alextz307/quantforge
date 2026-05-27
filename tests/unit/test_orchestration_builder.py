@@ -83,6 +83,7 @@ class TestBuildExperiment:
     def test_strategy_params_flow_through_ctor(self) -> None:
         """Garbage params must surface as the ctor's own ValueError, proving
         they travel through the registry dispatch untouched."""
+
         d = _cfg_dict()
         d["strategy"]["params"]["k"] = _INVALID_K
         cfg = ExperimentConfig.model_validate(d)
@@ -131,6 +132,7 @@ class TestBuildExperiment:
     def test_feature_factory_yields_fresh_instance_each_call(self) -> None:
         """Per-fold fit_once contract: each factory call MUST return a new
         pipeline so the scaler fit_once guard doesn't fire across folds."""
+
         d = _cfg_dict()
         d["features"] = {"name": "standard", "params": {"rsi_period": _RSI_PERIOD}}
         cfg = ExperimentConfig.model_validate(d)
@@ -147,6 +149,7 @@ class TestBuildExperiment:
         This builder-level check only asserts the method isn't a leftover
         ``NotImplementedError`` stub.
         """
+
         cfg = ExperimentConfig.model_validate(_cfg_dict())
         exp = build_experiment(cfg)
         assert callable(exp.run)

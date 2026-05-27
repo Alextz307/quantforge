@@ -116,6 +116,7 @@ def run_comparison(
     on the reuse path; strategy names are then read from each result's
     ``manifest.name``.
     """
+
     if configs is None and reused_results is None:
         raise ValueError("run_comparison requires either configs or reused_results.")
     if configs is not None:
@@ -198,6 +199,7 @@ def _run_one_experiment(cfg: ExperimentConfig, cmp_dir: Path) -> ExperimentResul
     is self-contained — a user can zip the comparison directory and
     everything travels together.
     """
+
     experiment = build_experiment(cfg)
     return experiment.run(RunOptions(store_root=cmp_dir, write_report=False))
 
@@ -208,6 +210,7 @@ def _validate_inputs(configs: Sequence[ExperimentConfig]) -> _ComparisonInputs:
             f"run_comparison needs at least 2 configs to compare, got {len(configs)}; "
             f"fix by passing two or more distinct configs."
         )
+
     names = tuple(cfg.name for cfg in configs)
     if len(set(names)) != len(names):
         duplicates = sorted({n for n in names if names.count(n) > 1})
@@ -225,6 +228,7 @@ def _validate_reused_inputs(reused_results: Sequence[ExperimentResult]) -> _Comp
     names come from each result's ``manifest.name`` (which was set from
     ``cfg.name`` at the original write time).
     """
+
     if len(reused_results) < 2:
         raise ValueError(
             f"run_comparison needs at least 2 reused_results to compare, "
@@ -285,6 +289,7 @@ def _compute_pairwise_bootstrap(
     two strategies — that's an alignment violation and pairing the
     bootstrap indices would produce meaningless results.
     """
+
     _validate_fold_alignment(strategy_names, results)
     per_strategy_returns = {
         name: _concatenated_log_returns(result.folds)
@@ -321,6 +326,7 @@ def _concatenated_log_returns(
     returns (a single-bar fold can't define a return); they're skipped
     so a degenerate edge fold doesn't NaN-pollute the whole series.
     """
+
     pieces: list[npt.NDArray[np.float64]] = []
     for fold in folds:
         curve = np.asarray(fold.equity_curve, dtype=np.float64)
@@ -356,6 +362,7 @@ def _validate_reused_results_alignment(
       bootstrap pairs bar-aligned per-fold returns; differing data hashes
       mean differing underlying bars and the pairing is meaningless.
     """
+
     if len(reused_results) != len(inputs.strategy_names):
         raise ValueError(
             f"reused_results count ({len(reused_results)}) does not match "
@@ -391,6 +398,7 @@ def _validate_fold_alignment(
     requires the underlying bar index to match 1-to-1 across strategies,
     which in practice means same data / same validator / same holdout.
     """
+
     reference_fold_count = len(results[0].folds)
     reference_curve_lengths = tuple(len(fold.equity_curve) for fold in results[0].folds)
     for name, result in zip(strategy_names[1:], results[1:], strict=True):

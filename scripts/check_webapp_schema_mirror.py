@@ -46,6 +46,7 @@ def _build_mirror_shape() -> dict[str, dict[str, dict[str, Any]]]:
     fastapi installed (e.g. the unit-test path that exercises the diff function
     directly with a fixture model).
     """
+
     from webapp.backend.app.schemas.auth import LoginRequest
     from webapp.backend.app.schemas.users import UserCreate
 
@@ -59,6 +60,7 @@ def extract_field_shape(model: type) -> dict[str, dict[str, Any]]:
     Constraints are introspected from the field's ``metadata`` (pydantic v2
     moves ``min_length``/``max_length`` etc into annotated metadata).
     """
+
     fields_attr = getattr(model, "model_fields", None)
     if fields_attr is None:
         raise TypeError(f"{model!r} is not a pydantic v2 model")
@@ -70,6 +72,7 @@ def extract_field_shape(model: type) -> dict[str, dict[str, Any]]:
 
 def _field_to_shape(info: object) -> dict[str, Any]:
     """Convert a single pydantic v2 ``FieldInfo`` into a canonical dict."""
+
     annotation = getattr(info, "annotation", None)
     out: dict[str, Any] = {"type": _annotation_to_type(annotation)}
     metadata = getattr(info, "metadata", []) or []
@@ -87,6 +90,7 @@ def _field_to_shape(info: object) -> dict[str, Any]:
 
 def _annotation_to_type(annotation: Any) -> str:
     """Render a python annotation as a stable string the frontend can match."""
+
     if annotation is str:
         return "string"
     if annotation is int:
@@ -109,6 +113,7 @@ def _serialize_default(default: object) -> str | int | float | bool:
     Currently only StrEnum-like defaults appear in the mirrored set; extend
     when a new default type lands rather than silently falling back.
     """
+
     value: object = getattr(default, "value", None)
     if isinstance(value, (str, int, float, bool)):
         return value

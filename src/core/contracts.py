@@ -18,6 +18,7 @@ def _find_max_timestamp_in_args(
     args: tuple[object, ...], kwargs: dict[str, object]
 ) -> pd.Timestamp | None:
     """Extract the maximum timestamp from any DataFrame arguments."""
+
     max_ts: pd.Timestamp | None = None
     for arg in (*args, *kwargs.values()):
         if isinstance(arg, pd.DataFrame) and isinstance(arg.index, pd.DatetimeIndex):

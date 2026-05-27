@@ -58,6 +58,7 @@ def rank_strategies(
     ``rank`` is 1-indexed and reflects the sort order above (no "dense" or
     "min" rank handling — ties are broken, so each row gets a unique rank).
     """
+
     if not per_strategy_stats:
         return pd.DataFrame(columns=list(_DISPLAY_COLUMNS))
 

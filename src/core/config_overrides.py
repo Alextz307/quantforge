@@ -43,6 +43,7 @@ def apply_overrides(payload: dict[str, object], overrides: Sequence[str]) -> dic
         ValueError: malformed override (no ``=``, empty key, missing or
             non-dict intermediate key on the path).
     """
+
     for raw in overrides:
         if "=" not in raw:
             raise ValueError(

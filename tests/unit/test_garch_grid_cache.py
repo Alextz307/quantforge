@@ -109,6 +109,7 @@ class TestGarchGridCache:
         fire when the cache is active — the cache is pure memoisation
         and must not weaken any anti-leakage invariant.
         """
+
         cache = GarchGridCache()
         df = make_synthetic_close_df()
         with garch_cache_context(cache):

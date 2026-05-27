@@ -82,6 +82,7 @@ class StudyReportReporter:
         artifacts referenced from thesis prose so a re-run doesn't churn
         citation slugs.
         """
+
         out_dir.mkdir(parents=True, exist_ok=True)
         plots_dir = out_dir / PLOTS_SUBDIR
         tables_dir = out_dir / TABLES_SUBDIR
@@ -123,6 +124,7 @@ class StudyReportReporter:
         if ranking_df.empty:
             _logger.info("no completed legs — skipping master_ranking")
             return
+
         df = ranking_df.sort_values("sharpe_mean", ascending=False).reset_index(drop=True)
         _write_table_pair(
             df,
@@ -137,6 +139,7 @@ class StudyReportReporter:
     ) -> None:
         if ranking_df.empty:
             return
+
         df = ranking_df.sort_values(["universe", "sharpe_mean"], ascending=[True, False])
         df = df.reset_index(drop=True)
         _write_table_pair(
@@ -196,6 +199,7 @@ class StudyReportReporter:
     ) -> None:
         if not report.per_leg_aggregate:
             return
+
         strategies = report.strategies
         universes = report.universes
         matrix = np.full((len(strategies), len(universes)), np.nan, dtype=np.float64)
@@ -205,6 +209,7 @@ class StudyReportReporter:
                 if stats is None or stats.n_folds == 0:
                     continue
                 matrix[i, j] = stats.sharpe_mean
+
         render_value_heatmap(
             matrix,
             row_labels=strategies,
@@ -219,6 +224,7 @@ class StudyReportReporter:
     def _plot_holdout_dev_scatter(self, report: ConsolidatedStudyReport, plots_dir: Path) -> None:
         if not report.per_leg_holdout:
             return
+
         out_path = plots_dir / _HOLDOUT_DEV_SCATTER_FILENAME
         out_path.parent.mkdir(parents=True, exist_ok=True)
         fig, ax = plt.subplots(figsize=(FIGURE_WIDTH_IN, FIGURE_HEIGHT_IN), dpi=FIGURE_DPI)
@@ -250,6 +256,7 @@ class StudyReportReporter:
             finite_hi = max(max(all_xs), max(all_ys))
         else:
             finite_lo, finite_hi = -1.0, 1.0
+
         ax.plot(
             [finite_lo, finite_hi],
             [finite_lo, finite_hi],
@@ -284,6 +291,7 @@ class StudyReportReporter:
     def _copy_holdout_equity_curves(self, report: ConsolidatedStudyReport, plots_dir: Path) -> None:
         if not report.per_leg_holdout:
             return
+
         dest_dir = plots_dir / _HOLDOUT_EQUITY_CURVES_SUBDIR
         for strategy, universe in sorted(report.per_leg_holdout):
             leg_id = make_leg_id(strategy, universe)
@@ -311,6 +319,7 @@ def _write_table_pair(
     inclusion in the writeup; ``.csv`` for re-pivoting in pandas at
     writeup time without re-running the consolidator.
     """
+
     tables_dir.mkdir(parents=True, exist_ok=True)
     write_booktabs_table(df, tables_dir / f"{stem}.tex", caption=caption, label=label)
     df.to_csv(tables_dir / f"{stem}.csv", index=False)
@@ -320,6 +329,7 @@ def _build_ranking_df(
     per_leg_aggregate: Mapping[tuple[str, str], AggregateStats],
 ) -> pd.DataFrame:
     """Build a long-form DataFrame: one row per (strategy, universe) leg."""
+
     rows: list[dict[str, object]] = []
     for (strategy, universe), stats in per_leg_aggregate.items():
         if stats.n_folds == 0:
@@ -398,6 +408,7 @@ def _build_pairwise_matrix_df(pairs: tuple[PairwiseSignificance, ...]) -> pd.Dat
     consolidated per-universe ``.tex`` matches the per-comparison
     ``.tex`` already under ``comparisons/<universe>/tables/`` cell-for-cell.
     """
+
     names = list(dict.fromkeys(name for p in pairs for name in (p.name_a, p.name_b)))
     df = pd.DataFrame("", index=names, columns=names)
     lookup = {(p.name_a, p.name_b): p for p in pairs}
@@ -421,6 +432,7 @@ def _copy_per_leg_artifact(src_png: Path, dst_png: Path, *, missing_label: str) 
     Skips with an info log when ``src_png`` does not exist — single-strategy
     universes have no equity overlay; older runs may lack the SVG twin.
     """
+
     try:
         dst_png.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(src_png, dst_png)
@@ -441,6 +453,7 @@ def _build_manifest_dict(report: ConsolidatedStudyReport, *, slug: str) -> dict[
     Lists let a reader sanity-check coverage without walking the per-leg
     tree; ``per_leg_run_id`` maps leg ids back to their source run dirs.
     """
+
     return {
         "study_name": report.study_name,
         "publish_label": slug,

@@ -49,6 +49,7 @@ def hybrid_train_df(synthetic_feature_columns: list[str]) -> pd.DataFrame:
 @pytest.fixture
 def log_return_target(hybrid_train_df: pd.DataFrame) -> pd.Series:
     """Log returns target — leading NaN dropped internally by HybridReturnModel."""
+
     return compute_log_returns(hybrid_train_df["close"])
 
 
@@ -110,6 +111,7 @@ class TestHybridReturnModel:
         scaler + LSTM see them. Otherwise sklearn's StandardScaler propagates
         NaN through ``transform`` and the LSTM's first forward pass produces
         NaN gradients that corrupt every subsequent epoch."""
+
         df = hybrid_train_df.copy()
         first_feature = synthetic_feature_columns[0]
         nan_warmup_rows = 15

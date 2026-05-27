@@ -51,6 +51,7 @@ def _write_universe(
     path: Path, ticker: str, csv_dir: Path, holdout_pct: float = _HOLDOUT_PCT
 ) -> None:
     """Render a universe profile YAML pointing at a CSV fixture."""
+
     payload: dict[str, object] = {
         "data": {
             "source": {"name": "csv", "params": {"data_dir": str(csv_dir)}},
@@ -78,6 +79,7 @@ def _write_strategy(path: Path) -> None:
     a ``data`` block at parse time, so we leave a placeholder that the
     deep-merge always overrides.
     """
+
     payload: dict[str, object] = {
         "name": "_placeholder",
         "seed": 42,
@@ -109,6 +111,7 @@ def _write_strategy(path: Path) -> None:
 
 def _write_hpo(path: Path) -> None:
     """Tiny HPO config — n_trials=2 to keep the smoke under a minute."""
+
     payload: dict[str, object] = {
         "study_name": "_placeholder_will_be_overridden",
         "n_trials": _N_TRIALS,
@@ -123,6 +126,7 @@ def _write_hpo(path: Path) -> None:
 
 def _write_csv(csv_dir: Path, ticker: str, *, seed_offset: int) -> None:
     """Synthesise a 300-bar OHLCV CSV under ``csv_dir/<ticker>.csv``."""
+
     df = make_synthetic_ohlcv_df(n_rows=_N_BARS, start="2020-01-02", seed=42 + seed_offset)
     df.index.name = "date"
     df.to_csv(csv_dir / f"{ticker}.csv")
@@ -146,6 +150,7 @@ def _build_smoke_workspace(tmp_path: Path) -> tuple[Path, Path]:
 
     Returns ``(spec_path, store_root)`` ready to feed to the CLI.
     """
+
     csv_dir = tmp_path / "csv_data"
     csv_dir.mkdir()
     _write_csv(csv_dir, _TICKER_A, seed_offset=0)
@@ -190,6 +195,7 @@ def test_study_run_produces_complete_leg_state(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Happy path: 2 legs run, both complete, state file round-trips."""
+
     spec_path, store = _build_smoke_workspace(tmp_path)
     monkeypatch.chdir(tmp_path)
 
@@ -231,6 +237,7 @@ def test_study_run_resume_skips_complete_legs(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Second invocation against the same store skips legs flagged complete."""
+
     spec_path, store = _build_smoke_workspace(tmp_path)
     monkeypatch.chdir(tmp_path)
     from scripts.experiment import cli as experiment_cli
@@ -255,6 +262,7 @@ def test_study_report_consolidates_completed_run(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """After a happy-path study run, ``study report`` produces the consolidated tree."""
+
     spec_path, store = _build_smoke_workspace(tmp_path)
     monkeypatch.chdir(tmp_path)
     from scripts.experiment import cli as experiment_cli

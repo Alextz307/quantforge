@@ -77,6 +77,7 @@ def test_param_importance_returns_200_with_message_when_db_missing(
     authed_client: TestClient, webapp_store: Path
 ) -> None:
     """Synthetic fixture has no optuna_study.db — endpoint must NOT 500."""
+
     response = authed_client.get(f"{LIST_PATH}/{EXPECTED_WIRE_ID}/param-importance")
 
     assert response.status_code == HTTPStatus.OK

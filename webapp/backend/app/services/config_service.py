@@ -73,6 +73,7 @@ def get_study_spec_schema() -> dict[str, object]:
     Cached: the schema is derived from a static Pydantic class, so the
     walk is pure CPU work that repeats identically on every request.
     """
+
     return StudySpec.model_json_schema()
 
 
@@ -84,6 +85,7 @@ def get_universe_spec_schema() -> dict[str, object]:
     upload editor's autocomplete + hover docs from the same Pydantic
     source of truth the framework uses at load time.
     """
+
     return UniverseProfile.model_json_schema()
 
 
@@ -93,11 +95,13 @@ def _kind_dir(config_root: Path, kind: ConfigKind) -> Path:
 
 def list_configs(config_root: Path, kind: ConfigKind) -> list[ConfigEntry]:
     """List every ``*.yaml`` under ``config_root/<kind>/``, sorted by stem."""
+
     return [ConfigEntry(name=p.stem) for p in sorted(_kind_dir(config_root, kind).glob("*.yaml"))]
 
 
 def read_config(config_root: Path, kind: ConfigKind, name: str) -> ConfigDetail:
     """Return the raw YAML text + best-effort parse for ``<name>.yaml``."""
+
     path = _kind_dir(config_root, kind) / f"{name}.yaml"
     try:
         raw = path.read_text(encoding="utf-8")
@@ -133,6 +137,7 @@ def validate(kind: ConfigKind, payload: dict[str, object]) -> ValidateResponse:
     generic mapping, so a missing ctor kwarg would otherwise only blow
     up at strategy-build time as a TypeError after the subprocess spawn.
     """
+
     model_cls = _KIND_TO_MODEL[kind]
     if model_cls is None:
         return ValidateResponse(valid=True, errors=[])
@@ -166,6 +171,7 @@ def _strategy_param_completeness_errors(
     Pydantic) and for strategies whose ctor requires nothing the user
     hasn't supplied.
     """
+
     strategy = payload.get("strategy")
     if not isinstance(strategy, dict):
         return []

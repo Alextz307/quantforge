@@ -55,6 +55,7 @@ pytestmark = pytest.mark.skipif(
 
 def test_cross_asset_momentum_run_produces_full_artifact_tree(tmp_path: Path) -> None:
     """Happy path: production multi-feature run → wide-format hash + classifier on disk."""
+
     config_path = make_multi_feature_mini_experiment_fixture(
         tmp_path,
         strategy_name=_STRATEGY_NAME,

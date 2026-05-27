@@ -211,6 +211,7 @@ class TestDataCache:
         ``df[col]`` returns a DataFrame instead of a Series. Atomic
         tmp-file + ``os.replace`` keeps the reader's view all-or-nothing.
         """
+
         cache = DataCache(cache_dir=tmp_path)
         idx = pd.DatetimeIndex([datetime(2024, 1, i) for i in range(1, CACHE_DAY_COUNT + 1)])
         df = pd.DataFrame({"close": CACHE_VALUES}, index=idx)

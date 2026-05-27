@@ -17,12 +17,14 @@ from src.visualization.plots import (
 def test_agg_backend_is_active() -> None:
     """Importing the module must force the Agg backend before any pyplot
     import touches the GUI — otherwise CI jobs crash on the headless box."""
+
     assert matplotlib.get_backend().lower() == "agg"
 
 
 def test_dimensions_are_thesis_sized() -> None:
     """Figure geometry matches the BenchmarkReporter convention so every
     PNG / SVG across subsystems renders identically in thesis margins."""
+
     assert FIGURE_WIDTH_IN == 6.5
     assert FIGURE_HEIGHT_IN == 4.0
     assert FIGURE_DPI == 150

@@ -41,6 +41,7 @@ def xgb_data() -> tuple[pd.DataFrame, pd.Series]:
     plus a one-bar lagged direction provides enough autocorrelation that
     val log-loss improves several times across 30 boosting rounds.
     """
+
     seed_globally()
     base = make_synthetic_close_df()
     close = base["close"]
@@ -111,6 +112,7 @@ def test_checkpoint_survives_mid_fit_interrupt(
     rounds. The on-disk booster from the first improvement should still be
     loadable.
     """
+
     features, target = xgb_data
     c = DirectionalClassifier(xgb_features, n_estimators=COMPACT_N_ESTIMATORS)
     ckpt_dir = tmp_path / "xgb_ckpt"

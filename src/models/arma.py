@@ -59,6 +59,7 @@ class _StatsmodelsARMAAdapter:
         self.trend = trend
         self.endog = endog
         self.params = params
+
         model = SMARIMA(endog, order=order, trend=trend)
         self._results = model.filter(params)
 
@@ -97,6 +98,7 @@ class ARMAPredictor(IPredictor):
 
     def _run_auto_arima(self, values: np.ndarray[tuple[int], np.dtype[np.float64]]) -> ARIMA:
         """Run auto_arima with configured parameters."""
+
         model: ARIMA = pm.auto_arima(
             values,
             start_p=0,
@@ -121,6 +123,7 @@ class ARMAPredictor(IPredictor):
         Returns:
             Best (p, q) pair.
         """
+
         model = self._run_auto_arima(np.asarray(returns, dtype=np.float64))
         order = model.order
         return order[0], order[2]
@@ -140,6 +143,7 @@ class ARMAPredictor(IPredictor):
             target: Log returns series to fit on.
             **kwargs: Unused (reserved for Optuna Trial passthrough).
         """
+
         endog = np.asarray(target, dtype=np.float64)
         pm_model = self._run_auto_arima(endog)
         order = pm_model.order
@@ -182,6 +186,7 @@ class ARMAPredictor(IPredictor):
         Returns:
             Series of one-step-ahead return forecasts.
         """
+
         self._assert_fitted_with_metadata()
         if self._model is None:
             raise RuntimeError(
@@ -219,6 +224,7 @@ class ARMAPredictor(IPredictor):
 
     def predict_single(self, recent_window: pd.DataFrame) -> float:
         """Predict single one-step-ahead return forecast."""
+
         self._assert_fitted_with_metadata()
         if self._model is None:
             raise RuntimeError(
@@ -238,6 +244,7 @@ class ARMAPredictor(IPredictor):
         (binary, pickle-free for float arrays) rather than JSON to keep the
         on-disk size manageable on large training windows.
         """
+
         metadata = self._assert_fitted_with_metadata()
         assert self._model is not None
         adapter = self._model
@@ -273,6 +280,7 @@ class ARMAPredictor(IPredictor):
         The loaded ``_model`` is a ``_StatsmodelsARMAAdapter`` — same shape
         as the post-fit path.
         """
+
         root = Path(path)
         config = json_io.read_dict(root / CONFIG_JSON)
         weights = json_io.read_dict(root / WEIGHTS_JSON)
@@ -306,6 +314,7 @@ class ARMAPredictor(IPredictor):
     @staticmethod
     def suggest_params(trial: optuna.Trial) -> dict[str, object]:
         """Optuna search space for ARMA hyperparameters."""
+
         return {
             "p_max": trial.suggest_int("arma_p_max", 1, 5),
             "q_max": trial.suggest_int("arma_q_max", 1, 5),

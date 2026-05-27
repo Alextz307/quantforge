@@ -34,12 +34,14 @@ def arma_df() -> pd.DataFrame:
 @pytest.fixture
 def arma_target(arma_df: pd.DataFrame) -> pd.Series:
     """Log returns target for ARMA."""
+
     return compute_log_returns(arma_df["close"]).dropna()
 
 
 @pytest.fixture
 def fitted_arma(arma_df: pd.DataFrame, arma_target: pd.Series) -> ARMAPredictor:
     """ARMAPredictor already fitted."""
+
     a = ARMAPredictor(p_max=COMPACT_P_MAX, q_max=COMPACT_Q_MAX)
     a.fit(arma_df.iloc[1:], arma_target)
     return a
@@ -103,6 +105,7 @@ class TestARMAPredictor:
 
     def test_hourly_interval(self) -> None:
         """Verify ARMA works with non-daily data."""
+
         np.random.seed(NUMPY_SEED)
         idx = pd.date_range(start=HOURLY_START, periods=HOURLY_ROW_COUNT, freq="h")
         returns = np.random.normal(0, HOURLY_RETURN_STD, HOURLY_ROW_COUNT)

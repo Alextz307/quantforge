@@ -55,6 +55,7 @@ class IPredictor(ABC):
         models must override explicitly — a silent no-op would let tests pass
         without actually persisting anything.
         """
+
         raise NotImplementedError(
             f"{type(self).__name__}.save() not implemented; fix by overriding "
             f"save() in the concrete predictor subclass."
@@ -67,6 +68,7 @@ class IPredictor(ABC):
         Must return a fully-fitted instance: ``predict()`` works immediately,
         ``training_metadata`` is populated from the saved ``metadata.json``.
         """
+
         raise NotImplementedError(
             f"{cls.__name__}.load() not implemented; fix by overriding load() "
             f"in the concrete predictor subclass."
@@ -81,6 +83,7 @@ class IPredictor(ABC):
         **kwargs: object,
     ) -> pd.Series:
         """Convenience: fit + predict on training data."""
+
         self.fit(train_data, target, checkpoint_path=checkpoint_path, **kwargs)
         return self.predict(train_data)
 
@@ -89,6 +92,7 @@ class IPredictor(ABC):
     @property
     def training_metadata(self) -> TrainingMetadata | None:
         """Training period metadata, populated after fit()."""
+
         return getattr(self, "_training_metadata", None)
 
     def _assert_fitted_with_metadata(self, *, caller: str | None = None) -> TrainingMetadata:
@@ -106,6 +110,7 @@ class IPredictor(ABC):
         inner closure or a wrapper whose name is not the right traceback
         anchor.
         """
+
         meta = self.training_metadata
         if meta is None:
             actual_caller = caller or sys._getframe(1).f_code.co_name
@@ -127,6 +132,7 @@ class IPredictor(ABC):
         ``get_all_training_metadata`` return a ``None`` slot and the deep
         check would silently short-circuit.
         """
+
         if metadata is None:
             raise ValueError(
                 f"{type(self).__name__}._set_fitted_with_metadata() requires a "
@@ -144,6 +150,7 @@ class IPredictor(ABC):
         origin label so a caller's deep leakage check surfaces the exact
         component that drifted.
         """
+
         return collect_metadata((type(self).__name__, self.training_metadata))
 
 
@@ -183,6 +190,7 @@ class IClassifier(ABC):
         The base implementation raises ``NotImplementedError``; concrete
         classifiers must override.
         """
+
         raise NotImplementedError(
             f"{type(self).__name__}.save() not implemented; fix by overriding "
             f"save() in the concrete classifier subclass."
@@ -191,6 +199,7 @@ class IClassifier(ABC):
     @classmethod
     def load(cls, path: str | Path) -> Self:
         """Reconstruct a fitted classifier from a directory at ``path``."""
+
         raise NotImplementedError(
             f"{cls.__name__}.load() not implemented; fix by overriding load() "
             f"in the concrete classifier subclass."
@@ -205,6 +214,7 @@ class IClassifier(ABC):
         **kwargs: object,
     ) -> pd.Series:
         """Convenience: fit + predict on training data."""
+
         self.fit(train_data, target, checkpoint_path=checkpoint_path, **kwargs)
         return self.predict(train_data)
 
@@ -213,10 +223,12 @@ class IClassifier(ABC):
     @property
     def training_metadata(self) -> TrainingMetadata | None:
         """Training period metadata, populated after fit()."""
+
         return getattr(self, "_training_metadata", None)
 
     def _assert_fitted_with_metadata(self, *, caller: str | None = None) -> TrainingMetadata:
         """Mirror of :meth:`IPredictor._assert_fitted_with_metadata` for classifiers."""
+
         meta = self.training_metadata
         if meta is None:
             actual_caller = caller or sys._getframe(1).f_code.co_name
@@ -228,6 +240,7 @@ class IClassifier(ABC):
 
     def _set_fitted_with_metadata(self, metadata: TrainingMetadata) -> None:
         """Mirror of :meth:`IPredictor._set_fitted_with_metadata` for classifiers."""
+
         if metadata is None:
             raise ValueError(
                 f"{type(self).__name__}._set_fitted_with_metadata() requires a "
@@ -238,4 +251,5 @@ class IClassifier(ABC):
 
     def get_all_training_metadata(self) -> tuple[TrackedMetadata, ...]:
         """Every metadata object this classifier and its owned leaves expose."""
+
         return collect_metadata((type(self).__name__, self.training_metadata))

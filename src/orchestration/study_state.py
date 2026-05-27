@@ -84,6 +84,7 @@ class LegState:
     @classmethod
     def initial(cls, leg_id: str, strategy: str, universe: str) -> Self:
         """Construct a fresh, never-started leg state."""
+
         return cls(
             leg_id=leg_id,
             strategy=strategy,
@@ -98,6 +99,7 @@ class LegState:
 
     def with_step_completed(self, step: LegStep) -> Self:
         """Return a copy with ``step`` appended (idempotent on re-add)."""
+
         if step in self.steps_completed:
             return self
         return replace(self, steps_completed=(*self.steps_completed, step))
@@ -148,6 +150,7 @@ class StudyState:
 
     def with_leg(self, updated: LegState) -> Self:
         """Return a copy with ``updated`` replacing the leg of the same ``leg_id``."""
+
         new_legs = tuple(updated if leg.leg_id == updated.leg_id else leg for leg in self.legs)
         if not any(leg.leg_id == updated.leg_id for leg in self.legs):
             raise KeyError(f"leg_id '{updated.leg_id}' not in StudyState")
@@ -191,6 +194,7 @@ class StudyState:
 
 def compute_spec_hash(spec_path: Path) -> str:
     """SHA-256 of the spec YAML bytes — pins which spec the state belongs to."""
+
     return hashlib.sha256(spec_path.read_bytes()).hexdigest()
 
 
@@ -201,10 +205,12 @@ def write_study_state(path: Path, state: StudyState) -> None:
     JSON) — the orchestrator may take days to complete and routinely
     survives Ctrl+C between legs.
     """
+
     with atomic_write_path(path) as tmp:
         json_io.write(tmp, state.to_dict())
 
 
 def read_study_state(path: Path) -> StudyState:
     """Load and validate a previously-written :class:`StudyState`."""
+
     return StudyState.from_dict(json_io.read_dict(path))

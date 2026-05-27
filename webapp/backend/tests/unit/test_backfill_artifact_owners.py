@@ -34,6 +34,7 @@ def test_backfill_attributes_every_artifact(
     db_conn: sqlite3.Connection, webapp_store: Path
 ) -> None:
     """A fresh DB + the canonical synthetic store → every artifact gets one row."""
+
     admin_id = _seed_admin(db_conn)
     plans = backfill(
         db_conn, username=_ADMIN_USERNAME, store_root=webapp_store, dry_run=False
@@ -117,6 +118,7 @@ def test_existing_jobs_row_is_preserved(
     db_conn: sqlite3.Connection, webapp_store: Path
 ) -> None:
     """An artifact that already has an owner is not overwritten."""
+
     admin_id = _seed_admin(db_conn)
     bob = create_user(
         db_conn, username="bob", password="bob-password", role=Role.USER

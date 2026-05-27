@@ -45,6 +45,7 @@ def _write_experiment_config(tmp_path: Path, *, name: str = "cli_tune") -> Path:
     accepts. Data source / walk-forward knobs are never actually touched —
     the tune test monkeypatches ``build_experiment`` + ``aggregate_folds``.
     """
+
     payload = {
         "name": name,
         "seed": _CONFIG_SEED,
@@ -224,6 +225,7 @@ class TestOverrideHelpers:
         no-op. Uses a minimal config that doesn't hit a registry to
         avoid conftest-level fixture needs.
         """
+
         payload = {
             "name": "n",
             "seed": 1,
@@ -300,6 +302,7 @@ class TestDottedOverride:
         re-raises through pydantic and gets wrapped as a ClickException
         with a re-validation prefix.
         """
+
         cfg = self._minimal_cfg()
         with pytest.raises(click.ClickException, match="re-validation failed"):
             _apply_dotted_overrides(cfg, ("seed=[not, an, int]",))

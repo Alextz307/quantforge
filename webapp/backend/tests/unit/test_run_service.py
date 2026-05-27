@@ -110,6 +110,7 @@ def test_get_run_does_not_render_plots_on_mount(
     tmp_path: Path, db_conn: sqlite3.Connection
 ) -> None:
     """Detail-page mount returns immediately; plot rendering is deferred to resolve_plot."""
+
     root = tmp_path / "experiment_results"
     nested_runs_dir = (
         root / "studies" / "main" / "hpo" / "AdaptiveBollinger" / "trials_artifacts" / "runs"
@@ -126,6 +127,7 @@ def test_resolve_plot_lazy_renders_when_missing(
     tmp_path: Path, db_conn: sqlite3.Connection
 ) -> None:
     """Direct plot fetch triggers lazy rendering once."""
+
     root = tmp_path / "experiment_results"
     nested_runs_dir = (
         root / "studies" / "main" / "hpo" / "AdaptiveBollinger" / "trials_artifacts" / "runs"

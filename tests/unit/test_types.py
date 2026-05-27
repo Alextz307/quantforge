@@ -55,6 +55,7 @@ PAIR_MAX_COMBINED_LEVERAGE = 3.0
 
 def _valid_bar(**overrides: object) -> BarData:
     """Build a BarData with valid OHLCV defaults, overridable per-test."""
+
     fields: dict[str, object] = {
         "timestamp": SAMPLE_TIMESTAMP,
         "open": VALID_OPEN,
@@ -86,6 +87,7 @@ class TestInterval:
 
     def test_intraday_consistency(self) -> None:
         """Verify that intraday intervals are consistent with each other."""
+
         assert (
             Interval.MINUTE.annualization_factor()
             == Interval.DAILY.annualization_factor() * EXPECTED_MINUTES_PER_TRADING_DAY

@@ -81,6 +81,7 @@ def users() -> None:
 )
 def list_cmd(auto_created: bool) -> None:
     """List active webapp users, optionally filtered to CLI auto-creates."""
+
     with open_db() as conn:
         bootstrap_schema(conn)
         rows = _query_users(conn, auto_created_only=auto_created)
@@ -111,6 +112,7 @@ def delete_cmd(username: str, yes: bool) -> None:
     resolve to a current account in subsequent ``resolve_owner_usernames``
     lookups, which the frontend renders as the ``"system"`` fallback.
     """
+
     with open_db() as conn:
         bootstrap_schema(conn)
         user_id = resolve_user_id(conn, username)

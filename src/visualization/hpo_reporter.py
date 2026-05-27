@@ -50,6 +50,7 @@ class HPOReporter:
 
     def generate_full_report(self, study: optuna.Study, out_dir: Path) -> Path:
         """Write every artifact under ``out_dir/{plots,tables}/`` and return ``out_dir``."""
+
         out_dir.mkdir(parents=True, exist_ok=True)
         plots_dir = out_dir / PLOTS_SUBDIR
         tables_dir = out_dir / TABLES_SUBDIR
@@ -147,5 +148,6 @@ class HPOReporter:
 
 def _format_params(params: dict[str, object]) -> str:
     """Compact key=val,key=val rendering for a LaTeX table cell."""
+
     parts = [f"{k}={v}" for k, v in sorted(params.items())]
     return ", ".join(parts)

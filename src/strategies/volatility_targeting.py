@@ -171,6 +171,7 @@ class VolatilityTargetingStrategy(IStrategy):
 
     def _compute_realized_vol(self, bars: pd.DataFrame) -> pd.Series:
         """Annualized Garman-Klass realized volatility at the strategy's interval."""
+
         return annualized_garman_klass(
             bars, window=self._realized_vol_window, interval=self._interval
         )
@@ -183,6 +184,7 @@ class VolatilityTargetingStrategy(IStrategy):
         **kwargs: object,
     ) -> None:
         """Fit HybridVolatilityModel on an internally-computed realized-vol target."""
+
         logger.info("%s train: %d bars", type(self).__name__, len(train_data))
         self._hybrid_vol = self._build_hybrid_vol()
         # Pass the full training window (not the realized-vol-trimmed
@@ -199,6 +201,7 @@ class VolatilityTargetingStrategy(IStrategy):
 
     def generate_signals(self, data: pd.DataFrame) -> pd.Series:
         """Produce leverage signals in ``[0, max_leverage]``. Warmup bars are NaN."""
+
         self._assert_fitted_with_metadata()
 
         forecast_vol = self._hybrid_vol.predict(data)
@@ -219,6 +222,7 @@ class VolatilityTargetingStrategy(IStrategy):
         ``max_leverage``, ``bearish_exposure``, ``realized_vol_window``) are
         written alongside every passthrough ``_HybridVolParams`` field.
         """
+
         metadata = self._assert_fitted_with_metadata()
 
         def write_weights(root: Path) -> None:
@@ -233,6 +237,7 @@ class VolatilityTargetingStrategy(IStrategy):
 
     def _ctor_kwargs_as_json(self) -> dict[str, object]:
         """Snapshot of this strategy's constructor kwargs as JSON-ready values."""
+
         p = self._hybrid_params
         return {
             "target_vol": self._target_vol,
@@ -267,6 +272,7 @@ class VolatilityTargetingStrategy(IStrategy):
         fast-fails with a named-field error, without wasting I/O on the
         HybridVolatilityModel's nested GARCH + LSTM + scaler loads.
         """
+
         root = Path(path)
         config = json_io.read_dict(root / CONFIG_JSON)
         metadata = json_io.read_dict(root / METADATA_JSON)
@@ -294,6 +300,7 @@ class VolatilityTargetingStrategy(IStrategy):
             min_vol=json_io.get_float(config, "min_vol"),
             interval=Interval(json_io.get_str(config, "interval")),
         )
+
         instance._hybrid_vol = HybridVolatilityModel.load(root / HYBRID_VOL_SUBDIR)
         instance._set_fitted_with_metadata(TrainingMetadata.from_dict(metadata))
         return instance
@@ -308,6 +315,7 @@ class VolatilityTargetingStrategy(IStrategy):
 
     def get_all_training_metadata(self) -> tuple[TrackedMetadata, ...]:
         """Expose strategy + recursively-owned hybrid-vol leaves (garch + lstm)."""
+
         return (
             collect_metadata(
                 ("strategy", self.training_metadata),
@@ -325,6 +333,7 @@ class VolatilityTargetingStrategy(IStrategy):
         the GARCH+LSTM forecast is too pessimistic. Persisted per-fold in
         the experiment manifest for the thesis §3.6 floor-saturation table.
         """
+
         frac = self._hybrid_vol.last_floor_bind_fraction
         if frac is None:
             return MappingProxyType({})
@@ -333,6 +342,7 @@ class VolatilityTargetingStrategy(IStrategy):
     @staticmethod
     def suggest_params(trial: optuna.trial.BaseTrial) -> dict[str, object]:
         """Optuna search space for VolatilityTargeting hyperparameters."""
+
         return {
             "target_vol": trial.suggest_float("volt_target_vol", 0.05, 0.30),
             "trend_window": trial.suggest_int("volt_trend_window", 50, 200),

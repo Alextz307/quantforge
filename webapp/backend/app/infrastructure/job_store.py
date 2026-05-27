@@ -93,6 +93,7 @@ def list_jobs(conn: sqlite3.Connection, *, user_id: int | None = None) -> list[J
     though the subprocess hasn't spawned — and ``id`` breaks ties for stable
     pagination across the polling refetch.
     """
+
     order_clause = "ORDER BY j.started_at DESC NULLS FIRST, j.id DESC"
     if user_id is None:
         rows = conn.execute(f"{_JOB_SELECT} {order_clause}").fetchall()
@@ -106,6 +107,7 @@ def list_jobs(conn: sqlite3.Connection, *, user_id: int | None = None) -> list[J
 
 def list_running_jobs(conn: sqlite3.Connection) -> list[JobRow]:
     """Used by lifespan-startup orphan reconcile."""
+
     rows = conn.execute(
         f"{_JOB_SELECT} WHERE j.status = ?",
         (JobStatus.RUNNING.value,),
@@ -139,11 +141,13 @@ def mark_terminal(
         raise IllegalStatusTransitionError(
             f"mark_terminal called with non-terminal status {status.value}"
         )
+
     job = get_job(conn, job_id)
     if job.status in TERMINAL_STATUSES:
         raise IllegalStatusTransitionError(
             f"job {job_id} already terminal at status {job.status.value}"
         )
+
     conn.execute(
         "UPDATE jobs SET status = ?, exit_code = ?, finished_at = ?, experiment_id = ? "
         "WHERE id = ?",

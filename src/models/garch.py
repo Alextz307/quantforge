@@ -72,6 +72,7 @@ class GARCHPredictor(IPredictor):
         Returns:
             Best (p, q) pair.
         """
+
         _, best_p, best_q = self._grid_search(returns * _SCALE_FACTOR)
         return best_p, best_q
 
@@ -145,6 +146,7 @@ class GARCHPredictor(IPredictor):
             target: Log returns series to fit on.
             **kwargs: Unused (reserved for Optuna Trial passthrough).
         """
+
         scaled = target * _SCALE_FACTOR
 
         result, self._best_p, self._best_q = self._grid_search(scaled)
@@ -189,6 +191,7 @@ class GARCHPredictor(IPredictor):
         Returns:
             Series of annualized volatility forecasts.
         """
+
         self._assert_fitted_with_metadata()
 
         caller_returns = returns
@@ -215,6 +218,7 @@ class GARCHPredictor(IPredictor):
 
     def predict_single(self, recent_window: pd.DataFrame) -> float:
         """Predict a single annualized volatility value from recent data."""
+
         vol_series = self.predict(recent_window)
         return float(vol_series.iloc[-1])
 
@@ -227,6 +231,7 @@ class GARCHPredictor(IPredictor):
         Returns:
             Annualized conditional volatility series.
         """
+
         self._assert_fitted_with_metadata()
 
         scaled = returns * _SCALE_FACTOR
@@ -245,6 +250,7 @@ class GARCHPredictor(IPredictor):
         self, scaled_returns: np.ndarray[tuple[int], np.dtype[np.float64]]
     ) -> np.ndarray[tuple[int], np.dtype[np.float64]]:
         """Run the GARCH(p,q) recursion via the C++ filter on the cached params."""
+
         params = cast(quant_engine.GarchParams, self._garch_params)
         return quant_engine.garch_filter(scaled_returns, params)
 
@@ -255,6 +261,7 @@ class GARCHPredictor(IPredictor):
         ``len(alpha)`` and ``len(beta)`` respectively, so storing them would
         introduce a silent consistency failure point.
         """
+
         metadata = self._assert_fitted_with_metadata()
 
         def write_weights(root: Path) -> None:
@@ -283,6 +290,7 @@ class GARCHPredictor(IPredictor):
     @classmethod
     def load(cls, path: str | Path) -> Self:
         """Reconstruct a fitted GARCHPredictor from ``path``."""
+
         root = Path(path)
         config = json_io.read_dict(root / CONFIG_JSON)
         weights = json_io.read_dict(root / WEIGHTS_JSON)
@@ -318,6 +326,7 @@ class GARCHPredictor(IPredictor):
     @staticmethod
     def suggest_params(trial: optuna.Trial) -> dict[str, object]:
         """Optuna search space for GARCH hyperparameters."""
+
         return {
             "p_max": trial.suggest_int("garch_p_max", 1, 5),
             "q_max": trial.suggest_int("garch_q_max", 1, 5),

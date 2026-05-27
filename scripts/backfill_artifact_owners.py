@@ -56,6 +56,7 @@ def _hpo_top_level_dirs(root: Path) -> Iterator[Path]:
     Nested HPO studies (under ``studies/<x>/hpo/<name>``) inherit ownership
     from the enclosing study's row, so the backfill leaves them alone.
     """
+
     hpo_root = root / "hpo"
     if not hpo_root.is_dir():
         return
@@ -75,6 +76,7 @@ _ARTIFACT_KINDS: tuple[_ArtifactKind, ...] = (
 
 def _require_user_id(conn: sqlite3.Connection, username: str) -> int:
     """Return the active user_id for ``username`` or raise ``click.ClickException``."""
+
     user_id = resolve_user_id(conn, username)
     if user_id is None:
         raise click.ClickException(
@@ -86,6 +88,7 @@ def _require_user_id(conn: sqlite3.Connection, username: str) -> int:
 
 def _existing_experiment_ids(conn: sqlite3.Connection) -> set[str]:
     """One pass over jobs.experiment_id to skip already-owned artifacts."""
+
     rows = conn.execute("SELECT experiment_id FROM jobs WHERE experiment_id IS NOT NULL").fetchall()
     return {str(r["experiment_id"]) for r in rows}
 
@@ -151,6 +154,7 @@ def backfill(
     inspect what would change. A return list of length 0 means every
     artifact already has an owner.
     """
+
     user_id = _require_user_id(conn, username)
     existing = _existing_experiment_ids(conn)
     plans = _plan(store_root, existing=existing)

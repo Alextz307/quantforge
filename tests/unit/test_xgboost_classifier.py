@@ -31,6 +31,7 @@ EARLY_STOP_ROUNDS = 5
 @pytest.fixture
 def xgb_data() -> tuple[pd.DataFrame, pd.Series]:
     """Feature DataFrame and binary target for XGBoost testing."""
+
     np.random.seed(SYNTH_FIXTURE_SEED)
     idx = pd.bdate_range(start=SYNTH_START_DATE, periods=SYNTH_ROW_COUNT, freq="B")
     close = SYNTH_BASE_PRICE * np.cumprod(
@@ -56,6 +57,7 @@ def xgb_data() -> tuple[pd.DataFrame, pd.Series]:
 @pytest.fixture
 def xgb_features() -> list[str]:
     """Feature column list matching xgb_data."""
+
     return ["return_1d", "return_5d", "vol_20", "rsi_14"]
 
 
@@ -167,6 +169,7 @@ class TestDirectionalClassifier:
         self, xgb_data: tuple[pd.DataFrame, pd.Series], xgb_features: list[str]
     ) -> None:
         """End-to-end fit → predict with device='cpu' pinned (portable on CI)."""
+
         features, target = xgb_data
         c = DirectionalClassifier(
             xgb_features, n_estimators=COMPACT_N_ESTIMATORS, device=Device.CPU
@@ -182,6 +185,7 @@ class TestDirectionalClassifier:
 
     def test_feature_columns_honored(self, xgb_data: tuple[pd.DataFrame, pd.Series]) -> None:
         """Explicit feature_columns restricts which columns XGBoost trains on."""
+
         features, target = xgb_data
         subset = ["return_1d", "vol_20"]
         c = DirectionalClassifier(subset, n_estimators=COMPACT_N_ESTIMATORS)

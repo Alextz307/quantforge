@@ -92,6 +92,7 @@ class AdaptiveBollingerStrategy(IStrategy):
         **kwargs: object,
     ) -> None:
         """Fit the GARCH volatility model on training log returns."""
+
         logger.info("%s train: %d bars", type(self).__name__, len(train_data))
         log_returns = compute_log_returns(train_data["close"]).dropna()
         aligned = train_data.loc[log_returns.index]
@@ -103,6 +104,7 @@ class AdaptiveBollingerStrategy(IStrategy):
 
     def generate_signals(self, data: pd.DataFrame) -> pd.Series:
         """Produce {-1, 0, +1} position signals. Leading warmup bars are NaN."""
+
         self._assert_fitted_with_metadata()
 
         close = data["close"]
@@ -118,6 +120,7 @@ class AdaptiveBollingerStrategy(IStrategy):
 
     def save(self, path: str | Path) -> None:
         """Persist AdaptiveBollinger config + nested GARCH to ``path``."""
+
         metadata = self._assert_fitted_with_metadata()
 
         def write_weights(root: Path) -> None:
@@ -132,6 +135,7 @@ class AdaptiveBollingerStrategy(IStrategy):
 
     def _ctor_kwargs_as_json(self) -> dict[str, object]:
         """Snapshot of this strategy's constructor kwargs as JSON-ready values."""
+
         return {
             "window": self._window,
             "k": self._k,
@@ -149,6 +153,7 @@ class AdaptiveBollingerStrategy(IStrategy):
         the GARCH subdir — a corrupt composite config fast-fails with a
         named-field error rather than crashing deep inside ``GARCH.load()``.
         """
+
         root = Path(path)
         config = json_io.read_dict(root / CONFIG_JSON)
         metadata = json_io.read_dict(root / METADATA_JSON)
@@ -161,6 +166,7 @@ class AdaptiveBollingerStrategy(IStrategy):
             garch_q_max=json_io.get_int(config, "garch_q_max"),
             interval=Interval(json_io.get_str(config, "interval")),
         )
+
         instance._garch = GARCHPredictor.load(root / GARCH_SUBDIR)
         instance._set_fitted_with_metadata(TrainingMetadata.from_dict(metadata))
         return instance
@@ -175,6 +181,7 @@ class AdaptiveBollingerStrategy(IStrategy):
 
     def get_all_training_metadata(self) -> tuple[TrackedMetadata, ...]:
         """Expose strategy + owned GARCH metadata for the deep leakage check."""
+
         return collect_metadata(
             ("strategy", self._training_metadata),
             ("garch", self._garch.training_metadata),
@@ -183,6 +190,7 @@ class AdaptiveBollingerStrategy(IStrategy):
     @staticmethod
     def suggest_params(trial: optuna.trial.BaseTrial) -> dict[str, object]:
         """Optuna search space for AdaptiveBollinger hyperparameters."""
+
         return {
             "window": trial.suggest_int("bollinger_window", 10, 50),
             "k": trial.suggest_float("bollinger_k", 1.0, 3.0),

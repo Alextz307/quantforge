@@ -147,6 +147,7 @@ class ReturnForecastStrategy(IStrategy):
         **kwargs: object,
     ) -> None:
         """Fit HybridReturnModel on training log returns."""
+
         logger.info("%s train: %d bars", type(self).__name__, len(train_data))
         self._hybrid_return = self._build_hybrid_return()
         log_returns = compute_log_returns(train_data["close"]).dropna()
@@ -161,6 +162,7 @@ class ReturnForecastStrategy(IStrategy):
 
     def generate_signals(self, data: pd.DataFrame) -> pd.Series:
         """Produce signed positions in ``[-max_leverage, +max_leverage]``."""
+
         self._assert_fitted_with_metadata()
 
         forecast = self._hybrid_return.predict(data)
@@ -178,6 +180,7 @@ class ReturnForecastStrategy(IStrategy):
         device preference is NOT persisted (the hybrid subdir carries the
         fitted state; device re-resolves on load).
         """
+
         metadata = self._assert_fitted_with_metadata()
 
         def write_weights(root: Path) -> None:
@@ -192,6 +195,7 @@ class ReturnForecastStrategy(IStrategy):
 
     def _ctor_kwargs_as_json(self) -> dict[str, object]:
         """Snapshot of this strategy's constructor kwargs as JSON-ready values."""
+
         p = self._hybrid_params
         return {
             "position_scale": self._position_scale,
@@ -223,6 +227,7 @@ class ReturnForecastStrategy(IStrategy):
         fast-fails with a named-field error, without wasting I/O on the
         HybridReturnModel's nested ARMA + LSTM + scaler loads.
         """
+
         root = Path(path)
         config = json_io.read_dict(root / CONFIG_JSON)
         metadata = json_io.read_dict(root / METADATA_JSON)
@@ -249,6 +254,7 @@ class ReturnForecastStrategy(IStrategy):
             lstm_amp=json_io.get_bool(config, "lstm_amp"),
             interval=Interval(json_io.get_str(config, "interval")),
         )
+
         instance._hybrid_return = HybridReturnModel.load(root / HYBRID_RETURN_SUBDIR)
         instance._set_fitted_with_metadata(TrainingMetadata.from_dict(metadata))
         return instance
@@ -263,6 +269,7 @@ class ReturnForecastStrategy(IStrategy):
 
     def get_all_training_metadata(self) -> tuple[TrackedMetadata, ...]:
         """Expose strategy + recursively-owned hybrid-return leaves (arma + lstm)."""
+
         return (
             collect_metadata(
                 ("strategy", self.training_metadata),
@@ -273,6 +280,7 @@ class ReturnForecastStrategy(IStrategy):
     @staticmethod
     def suggest_params(trial: optuna.trial.BaseTrial) -> dict[str, object]:
         """Optuna search space for ReturnForecast hyperparameters."""
+
         return {
             "position_scale": trial.suggest_float("retf_position_scale", 5.0, 50.0),
             "max_leverage": trial.suggest_float("retf_max_leverage", 1.0, 3.0),

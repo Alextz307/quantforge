@@ -46,6 +46,7 @@ class DataNormalizer:
         Returns:
             DataFrame with standardized column names and DatetimeIndex.
         """
+
         result = df.copy()
 
         # yfinance returns a (metric, ticker) MultiIndex even for single-ticker

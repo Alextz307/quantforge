@@ -144,6 +144,7 @@ class TestSnapToDayDaily:
     def test_noop_on_daily_data(self) -> None:
         """Every daily bar is already at a day close; snap must produce the
         same splits as the default path."""
+
         df = make_daily_df(DAILY_ROWS, start=DAILY_START)
         default_splits = list(
             WalkForwardValidator(
@@ -182,6 +183,7 @@ class TestSnapToDayErrors:
     def test_last_fold_test_window_overrun_raises(self) -> None:
         """Snap pushes the last fold's test window past end-of-frame — must
         raise rather than silently truncate."""
+
         df = _make_hourly_close_df(n_rows=4 * HOURLY_BARS_PER_DAY)
         wf = WalkForwardValidator(n_splits=1, test_size=50, gap=1, snap_to_day=True)
         with pytest.raises(ValueError, match="past end-of-frame"):

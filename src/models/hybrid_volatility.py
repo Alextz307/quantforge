@@ -158,6 +158,7 @@ class HybridVolatilityModel(IPredictor):
         ``VolatilityTargetingStrategy.get_fold_diagnostics()`` so each fold's
         floor-saturation rate is recoverable from saved artifacts.
         """
+
         return self._last_floor_bind_fraction
 
     def fit(
@@ -179,6 +180,7 @@ class HybridVolatilityModel(IPredictor):
                 checkpointing of the residual-correction leaf.
             **kwargs: Forwarded to LSTM fit — supports Optuna ``trial``.
         """
+
         guard_scaler_fit_once(self._scaler, "HybridVolatilityModel")
 
         log_returns = compute_log_returns(train_data["close"]).dropna()
@@ -219,6 +221,7 @@ class HybridVolatilityModel(IPredictor):
         First ``lstm_lookback`` rows inherit NaN from the LSTM component.
         Output is clipped to ``min_vol``.
         """
+
         self._assert_fitted_with_metadata()
         if self._scaler is None:
             raise RuntimeError(
@@ -251,12 +254,14 @@ class HybridVolatilityModel(IPredictor):
         is set first (the ``cast`` is safe under that precondition; ``_scaler``
         is assigned alongside the metadata commit inside ``fit()``).
         """
+
         scaler = cast(StandardScaler, self._scaler)
         scaled = scaler.transform(feature_frame)
         return pd.DataFrame(scaled, index=feature_frame.index, columns=self._feature_columns)
 
     def predict_single(self, recent_window: pd.DataFrame) -> float:
         """Single hybrid-vol forecast from a recent window."""
+
         self._assert_fitted_with_metadata()
         return float(self.predict(recent_window).iloc[-1])
 
@@ -269,6 +274,7 @@ class HybridVolatilityModel(IPredictor):
         black-box-composition rule). The leaf directories exist solely to
         round-trip the fitted weights.
         """
+
         metadata = self._assert_fitted_with_metadata()
         assert self._scaler is not None
 
@@ -295,6 +301,7 @@ class HybridVolatilityModel(IPredictor):
         drift guard in ``tests/integration/test_strategy_save_load.py``
         verifies the output keys match ``__init__``'s parameter names.
         """
+
         return frozen_params_to_json(self._params, omit=("lstm_device",))
 
     @classmethod
@@ -305,6 +312,7 @@ class HybridVolatilityModel(IPredictor):
         loading sub-models — a corrupt composite config fast-fails with a
         named-field error, without wasting I/O on the GARCH/LSTM subdirs.
         """
+
         root = Path(path)
         config = json_io.read_dict(root / CONFIG_JSON)
         metadata = json_io.read_dict(root / METADATA_JSON)
@@ -327,6 +335,7 @@ class HybridVolatilityModel(IPredictor):
             min_vol=json_io.get_float(config, "min_vol"),
             interval=Interval(json_io.get_str(config, "interval")),
         )
+
         instance._garch = GARCHPredictor.load(root / GARCH_SUBDIR)
         instance._lstm = LSTMPredictor.load(root / LSTM_SUBDIR)
         instance._scaler = load_standard_scaler(root / SCALER_JSON)
@@ -335,6 +344,7 @@ class HybridVolatilityModel(IPredictor):
 
     def get_all_training_metadata(self) -> tuple[TrackedMetadata, ...]:
         """Expose hybrid + owned GARCH + LSTM metadata for the deep leakage check."""
+
         return collect_metadata(
             ("hybrid_volatility", self._training_metadata),
             ("garch", self._garch.training_metadata),
@@ -344,6 +354,7 @@ class HybridVolatilityModel(IPredictor):
     @staticmethod
     def suggest_params(trial: optuna.Trial) -> dict[str, object]:
         """Optuna search space combining GARCH and LSTM hyperparameters."""
+
         return {
             "garch_p_max": trial.suggest_int("hybrid_vol_garch_p_max", 1, 5),
             "garch_q_max": trial.suggest_int("hybrid_vol_garch_q_max", 1, 5),

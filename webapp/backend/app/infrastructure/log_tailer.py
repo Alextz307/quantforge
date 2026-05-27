@@ -16,6 +16,7 @@ async def tail_log(
     poll_interval: float = DEFAULT_POLL_INTERVAL,
 ) -> AsyncIterator[str]:
     """Yield each line from ``log_path``; replays from byte 0, stops when ``stop`` is set."""
+
     pos = 0
     pending = ""
     while True:
@@ -26,13 +27,16 @@ async def tail_log(
                 pos = fh.tell()
         except FileNotFoundError:
             chunk = ""
+
         if chunk:
             pending += chunk
             while "\n" in pending:
                 line, pending = pending.split("\n", 1)
                 yield line
+
         if stop.is_set():
             break
         await asyncio.sleep(poll_interval)
+
     if pending:
         yield pending

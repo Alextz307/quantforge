@@ -61,10 +61,12 @@ class TrialCallback:
             return
         if self._last_best_value is not None and trial.value <= self._last_best_value:
             return
+
         try:
             best = study.best_trial
         except ValueError:
             return
+
         self._last_best_value = best.value
         if best.number != trial.number:
             return
@@ -97,6 +99,7 @@ class TrialCallback:
         also reruns so pinned-leaf keys stay out of the best config,
         identical to how the HPO sampler produced them.
         """
+
         fixed = optuna.trial.FixedTrial(best.params)
         resolved = sample_trial_params(self.experiment_cfg, fixed)
         materialized = _merge_params(self.experiment_cfg, resolved)
@@ -116,6 +119,7 @@ def _merge_params(base: ExperimentConfig, sampled: dict[str, object]) -> Experim
     user who loads the file should see their original config name, not
     ``"<name>_trial"``).
     """
+
     payload = base.model_dump(mode="json")
     strategy_payload = dict(payload["strategy"])
     current_params = dict(strategy_payload.get("params", {}))

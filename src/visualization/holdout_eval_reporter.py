@@ -63,6 +63,7 @@ class HoldoutEvalReporter:
         pass it when committed holdout artifacts are referenced from
         prose so a re-run doesn't churn the citation slug.
         """
+
         out_dir.mkdir(parents=True, exist_ok=True)
         plots_dir = out_dir / PLOTS_SUBDIR
         tables_dir = out_dir / TABLES_SUBDIR
@@ -96,6 +97,7 @@ class HoldoutEvalReporter:
         per-fold reporter uses (NaN propagates through matplotlib silently
         and a non-positive base inverts the visual narrative).
         """
+
         fig, ax = plt.subplots(figsize=(FIGURE_WIDTH_IN, FIGURE_HEIGHT_IN), dpi=FIGURE_DPI)
         normalised = normalise_to_unit_base(result.equity_curve)
         if normalised is None:
@@ -125,6 +127,7 @@ def _build_metrics_df(result: HoldoutEvalResult) -> pd.DataFrame:
     .3f); the two-column form reads top-to-bottom and fits inside a
     half-text-width float.
     """
+
     rows: list[tuple[str, str]] = [
         ("Sharpe", f"{result.sharpe_ratio:+.3f}"),
         ("Sortino", f"{result.sortino_ratio:+.3f}"),

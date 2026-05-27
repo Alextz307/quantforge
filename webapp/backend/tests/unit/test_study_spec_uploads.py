@@ -36,6 +36,7 @@ def _user(db_conn: sqlite3.Connection, username: str) -> UserPublic:
 
 def _seed_library_files(config_root: Path) -> None:
     """Plant the strategy/hpo/universe files a valid 1-leg spec references."""
+
     (config_root / "strategies").mkdir(parents=True)
     (config_root / "hpo").mkdir()
     (config_root / "universes").mkdir()
@@ -60,6 +61,7 @@ legs:
 
 def _valid_yaml(config_root: Path) -> str:
     """Render the canonical 1-leg spec with absolute leg paths under ``config_root``."""
+
     return VALID_YAML.replace(
         "STRAT_PATH", str(config_root / "strategies" / "adaptive_bollinger.yaml")
     ).replace("HPO_PATH", str(config_root / "hpo" / "adaptive_bollinger.yaml"))
@@ -296,6 +298,7 @@ def test_save_after_soft_delete_reactivates_row(
     partial unique index plus the UPDATE-on-existing branch in save_upload
     together make this work; this test pins the contract.
     """
+
     _seed_library_files(tmp_path)
     user = _user(db_conn, "alice")
     uploads_root = tmp_path / "uploads"

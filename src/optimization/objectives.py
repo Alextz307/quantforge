@@ -39,6 +39,7 @@ def _read_float_metric(aggregate_metrics: Mapping[str, object], key: str) -> flo
     and the aggregator short-circuited — the error message points that
     out so the user doesn't go hunting for a bug in the objective itself.
     """
+
     if key not in aggregate_metrics:
         raise KeyError(
             f"objective needs aggregate_metrics['{key}'] but the experiment did "
@@ -94,6 +95,7 @@ class SortinoMinusDrawdownPenaltyObjective:
 
 def build_objective(kind: ObjectiveKind) -> IObjective:
     """Dispatch :class:`ObjectiveKind` to a concrete objective instance."""
+
     match kind:
         case ObjectiveKind.SHARPE:
             return SharpeObjective()

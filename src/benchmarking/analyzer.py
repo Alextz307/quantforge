@@ -49,6 +49,7 @@ class BenchmarkAnalyzer:
         benchmark; repeated rows appear when the user passes
         ``--benchmark_repetitions``. The summarizer handles both.
         """
+
         grouped: dict[str, list[float]] = defaultdict(list)
         for r in results:
             grouped[r.name].append(r.real_time_ns)
@@ -68,6 +69,7 @@ class BenchmarkAnalyzer:
         vice versa) are silently skipped — the caller decides whether the
         universe mismatch matters.
         """
+
         current_by_name = _results_by_name(current.results)
         baseline_by_name = _results_by_name(baseline.results)
         shared = sorted(set(current_by_name) & set(baseline_by_name))
@@ -89,6 +91,7 @@ class BenchmarkAnalyzer:
         (e.g., ``BM_RSI`` for ``BM_RSI/10000``). The size is read from
         ``result.params['n']`` which the runner parses from the name.
         """
+
         members = [r for r in run.results if r.family == family]
         if len(members) < 2:
             raise ValueError(
@@ -151,12 +154,14 @@ def _compare_pair(
     base_mean, base_var, base_n = _mean_var_n([r.real_time_ns for r in baseline])
     pct = 100.0 * (cur_mean - base_mean) / base_mean
     pooled = math.sqrt((cur_var / cur_n) + (base_var / base_n))
+
     if pooled > 0:
         z = (cur_mean - base_mean) / pooled
     elif pct == 0.0:
         z = 0.0
     else:
         z = math.copysign(math.inf, pct)
+
     is_regression = pct >= pct_threshold and abs(z) >= z_threshold
     is_improvement = pct <= -pct_threshold and abs(z) >= z_threshold
     return RegressionReport(
@@ -173,6 +178,7 @@ def _compare_pair(
 def _mean_var_n(samples: list[float]) -> tuple[float, float, int]:
     """Return (mean, variance, n). Fast path avoids a numpy array allocation
     for the common one-run-per-bench case where n == 1."""
+
     n = len(samples)
     if n == 0:
         raise ValueError("cannot compare empty sample list")
@@ -186,6 +192,7 @@ def _log_log_fit(
     sizes: npt.NDArray[np.int64 | np.float64], times: npt.NDArray[np.float64]
 ) -> tuple[float, float, float]:
     """Returns (slope, intercept, r_squared) of ``log(times) ~ slope*log(sizes) + intercept``."""
+
     xs = np.log(sizes.astype(np.float64))
     ys = np.log(times.astype(np.float64))
     slope, intercept = np.polyfit(xs, ys, 1)

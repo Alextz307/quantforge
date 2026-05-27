@@ -37,6 +37,7 @@ EQUITY_TIE_TOL = 1e-9
 @pytest.fixture(scope="module")
 def roundtrip_inputs() -> tuple[pd.DataFrame, pd.Series]:
     """One-shot bars + signals (GARCH fit happens here, once per module)."""
+
     bars = make_synthetic_ohlcv_df(n_rows=ROUNDTRIP_N_ROWS)
     strategy = AdaptiveBollingerStrategy(
         window=BOLLINGER_WINDOW,

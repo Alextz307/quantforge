@@ -238,6 +238,7 @@ def test_resave_after_soft_delete_reactivates_tombstone(
     """Re-saving a previously soft-deleted slug must reactivate the
     tombstoned row rather than collide on the unique index.
     """
+
     alice = _user(db_conn, "alice")
     save_upload(
         db_conn,

@@ -55,6 +55,7 @@ def test_stream_unknown_study_closes(authed_client: TestClient, webapp_store: Pa
 
 def test_stream_forwards_appended_trial(authed_client: TestClient, webapp_store: Path) -> None:
     """A trial appended to ``trials.jsonl`` mid-WS must arrive after the replay phase."""
+
     trials_path = _trials_jsonl_path(webapp_store)
     live_record = {
         "number": LIVE_TRIAL_NUMBER,

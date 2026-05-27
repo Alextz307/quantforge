@@ -50,6 +50,7 @@ def main_spec() -> StudySpec:
 
 def _write_minimal_spec(tmp_path: Path, output_dir: str = "studies/test") -> Path:
     """Produce a tiny 2-strategy x 2-universe StudySpec on disk."""
+
     payload: dict[str, Any] = {
         "name": "test_study",
         "output_dir": output_dir,
@@ -172,6 +173,7 @@ class TestLegStateRoundTrip:
     def test_unknown_step_in_persisted_json_is_dropped(self) -> None:
         """Legacy state files may carry discontinued sub-step names; they must
         be silently dropped so the studies listing stays loadable."""
+
         d = LegState.initial("X__y", "X", "y").to_dict()
         d["steps_completed"] = [LEG_STEP_TUNE.value, "regime", LEG_STEP_RUN.value]
         recovered = LegState.from_dict(d)

@@ -62,6 +62,7 @@ class StrategyReporter:
         placeholder metrics table with zero rows and no plots, so the
         consuming command doesn't silently produce an empty directory.
         """
+
         out_dir.mkdir(parents=True, exist_ok=True)
         plots_dir = out_dir / PLOTS_SUBDIR
         tables_dir = out_dir / TABLES_SUBDIR
@@ -129,6 +130,7 @@ class StrategyReporter:
         a negative base inverts the visual narrative; either produces a
         plot that mis-tells Chapter 7's story.
         """
+
         fig, ax = plt.subplots(figsize=(FIGURE_WIDTH_IN, FIGURE_HEIGHT_IN), dpi=FIGURE_DPI)
         plotted = 0
         for fold in folds:

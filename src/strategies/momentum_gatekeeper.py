@@ -164,6 +164,7 @@ class MomentumGatekeeperStrategy(IStrategy):
         self, data: pd.DataFrame, resolved: list[str]
     ) -> tuple[pd.DataFrame, pd.Series]:
         """Compute valid-row features + next-bar direction target from ``data``."""
+
         features = self._pipeline.transform(data)[resolved]
         return align_features_for_directional_target(features, data["close"])
 
@@ -175,7 +176,9 @@ class MomentumGatekeeperStrategy(IStrategy):
         **kwargs: object,
     ) -> None:
         """Fit feature pipeline + directional classifier on training data."""
+
         logger.info("%s train: %d bars", type(self).__name__, len(train_data))
+
         self._pipeline = self._build_pipeline()
         self._pipeline.fit(train_data)
         features = self._pipeline.transform(train_data)
@@ -215,6 +218,7 @@ class MomentumGatekeeperStrategy(IStrategy):
 
     def generate_signals(self, data: pd.DataFrame) -> pd.Series:
         """Produce {0, 1} long-only signals. Bars with NaN features stay NaN."""
+
         self._assert_fitted_with_metadata()
         if self._classifier is None:
             raise RuntimeError(
@@ -248,6 +252,7 @@ class MomentumGatekeeperStrategy(IStrategy):
         resolved at fit time, and on load we defer to the classifier's own
         device re-resolution.
         """
+
         metadata = self._assert_fitted_with_metadata()
         assert self._classifier is not None
 
@@ -281,6 +286,7 @@ class MomentumGatekeeperStrategy(IStrategy):
         resolves to the pipeline's full column set at ``train()`` time).
         Post-fit the two are equivalent.
         """
+
         d = frozen_params_to_json(self._params, omit=("device",))
         d["feature_columns"] = list(self._resolved_feature_columns)
         return d
@@ -294,6 +300,7 @@ class MomentumGatekeeperStrategy(IStrategy):
         fast-fails with a named-field error rather than crashing deep inside
         a sub-loader.
         """
+
         root = Path(path)
         config = json_io.read_dict(root / CONFIG_JSON)
         metadata = json_io.read_dict(root / METADATA_JSON)
@@ -319,6 +326,7 @@ class MomentumGatekeeperStrategy(IStrategy):
             val_split_ratio=json_io.get_float(config, "val_split_ratio"),
             interval=Interval(json_io.get_str(config, "interval")),
         )
+
         instance._classifier = DirectionalClassifier.load(root / CLASSIFIER_SUBDIR)
         # Replace the pipeline's unfitted scaler with the loaded fitted one.
         # The pipeline is stateless aside from this scaler — reusing the
@@ -338,6 +346,7 @@ class MomentumGatekeeperStrategy(IStrategy):
 
     def get_all_training_metadata(self) -> tuple[TrackedMetadata, ...]:
         """Expose strategy + owned classifier metadata for the deep leakage check."""
+
         classifier_meta = (
             self._classifier.training_metadata if self._classifier is not None else None
         )
@@ -349,6 +358,7 @@ class MomentumGatekeeperStrategy(IStrategy):
     @staticmethod
     def suggest_params(trial: optuna.trial.BaseTrial) -> dict[str, object]:
         """Optuna search space for MomentumGatekeeper hyperparameters."""
+
         macd_fast = trial.suggest_int("momentum_macd_fast", 8, 16)
         macd_slow = trial.suggest_int("momentum_macd_slow", macd_fast + 4, 40)
         short_return_period = trial.suggest_int("momentum_short_return_period", 3, 10)

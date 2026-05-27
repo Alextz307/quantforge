@@ -33,6 +33,7 @@ def list_files_under(artifact_dir: Path, subdir: str) -> list[str]:
     scatter) are filtered out so legacy run/study directories don't surface
     artifacts the rest of the framework no longer supports.
     """
+
     target = artifact_dir / subdir
     if not target.is_dir():
         return []
@@ -47,6 +48,7 @@ def resolve_file_under(artifact_dir: Path, subdir: str, name: str) -> Path:
     on traversal attempts, on missing files, and on filenames produced
     by retired features (so stale URLs cannot bypass the list filter).
     """
+
     if _is_retired(name):
         raise PlotNotFoundError(f"file not found: {artifact_dir.name}/{subdir}/{name}")
     base = (artifact_dir / subdir).resolve()
@@ -58,9 +60,11 @@ def resolve_file_under(artifact_dir: Path, subdir: str, name: str) -> Path:
 
 def list_plots(artifact_dir: Path) -> list[str]:
     """Return the sorted filenames under ``<artifact_dir>/plots/``."""
+
     return list_files_under(artifact_dir, PLOTS_DIRNAME)
 
 
 def resolve_plot_path(artifact_dir: Path, plot_name: str) -> Path:
     """Resolve ``plot_name`` to an absolute path under ``<artifact_dir>/plots/``."""
+
     return resolve_file_under(artifact_dir, PLOTS_DIRNAME, plot_name)

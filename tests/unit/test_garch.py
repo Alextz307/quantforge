@@ -32,6 +32,7 @@ def garch_df() -> pd.DataFrame:
 @pytest.fixture
 def fitted_garch(garch_df: pd.DataFrame) -> GARCHPredictor:
     """GARCHPredictor already fitted on garch_df returns."""
+
     g = GARCHPredictor(p_max=COMPACT_P_MAX, q_max=COMPACT_Q_MAX)
     target = compute_log_returns(garch_df["close"]).dropna()
     g.fit(garch_df.iloc[1:], target)

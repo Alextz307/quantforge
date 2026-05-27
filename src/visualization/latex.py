@@ -32,6 +32,7 @@ def validate_publish_label(slug: str) -> str:
     Used by every reporter that accepts a ``publish_label`` override —
     one regex, one error message, no per-reporter drift.
     """
+
     if not _PUBLISH_LABEL_RE.fullmatch(slug):
         raise ValueError(
             f"invalid publish_label '{slug}': must start with a letter "
@@ -59,6 +60,7 @@ def build_booktabs_table(
     this builder is deliberately thin so the thesis-wide LaTeX conventions
     live in one place.
     """
+
     return df.to_latex(
         index=index,
         escape=False,
@@ -78,6 +80,7 @@ def write_booktabs_table(
     index: bool = False,
 ) -> Path:
     """Convenience wrapper: build table + write UTF-8 bytes, ensuring parent dir."""
+
     latex = build_booktabs_table(
         df, caption=caption, label=label, float_format=float_format, index=index
     )

@@ -43,6 +43,7 @@ def _seed_job(
     experiment_id: str,
 ) -> JobRow:
     """Insert a queued job row with the given experiment_id link."""
+
     job = insert_job(
         db_conn,
         NewJob(

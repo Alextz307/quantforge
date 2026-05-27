@@ -105,6 +105,7 @@ class StudyRunResult:
 
 def make_leg_id(strategy: str, universe: str) -> str:
     """Canonical leg identifier — also the directory-name suffix on artifacts."""
+
     return f"{strategy}__{universe}"
 
 
@@ -116,6 +117,7 @@ def expand_spec_into_legs(spec: StudySpec, *, repo_root: Path) -> list[StudyLegR
     can list bare names. Strategy-config and hpo-config paths from the
     spec are resolved against ``repo_root`` if relative.
     """
+
     universes_dir = repo_root / "config" / "universes"
     out: list[StudyLegRun] = []
     for leg in spec.legs:
@@ -146,6 +148,7 @@ def compose_leg_config(leg: StudyLegRun) -> ExperimentConfig:
     the strategy YAML's ``n_splits``/``test_size``/``gap`` intact unless
     the universe overrides them).
     """
+
     base = _read_yaml(leg.strategy_config_path)
     profile = load_universe_profile(leg.universe_profile_path)
     base["name"] = leg.leg_id
@@ -170,6 +173,7 @@ def compose_hpo_config(leg: StudyLegRun) -> HPOConfig:
     12 AdaptiveBollinger universes) would write into the same Optuna
     SQLite study and contaminate one another's trials.
     """
+
     raw = _read_yaml(leg.hpo_config_path)
     raw["study_name"] = leg.leg_id
     return HPOConfig.model_validate(raw)
@@ -190,6 +194,7 @@ def run_leg(
     on the returned state — the caller decides whether to stop or
     continue with the next leg.
     """
+
     from src.optimization.tuner import StrategyTuner
 
     started_at = prior_state.started_at if prior_state.started_at is not None else datetime.now(UTC)
@@ -280,6 +285,7 @@ def resolve_study_dir(spec: StudySpec, store_root: Path) -> Path:
     unless it's already absolute. Centralising the rule here keeps the
     orchestrator and tests in lockstep.
     """
+
     return spec.output_dir if spec.output_dir.is_absolute() else store_root / spec.output_dir
 
 
@@ -300,6 +306,7 @@ def run_study(
     state's ``spec_hash`` must match the current spec — a mismatch
     raises rather than silently running against a mutated spec.
     """
+
     repo = repo_root if repo_root is not None else Path.cwd()
     spec = load_study_spec(spec_path)
     study_dir = resolve_study_dir(spec, store_root)
@@ -406,6 +413,7 @@ def _run_per_universe_compares(
     only pairs universe) are silently skipped — pairwise ranking against
     one strategy is undefined.
     """
+
     by_universe: dict[str, list[StudyLegRun]] = {}
     for leg in legs:
         leg_state = state.get_leg(leg.leg_id)

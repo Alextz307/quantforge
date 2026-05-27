@@ -35,6 +35,7 @@ pytestmark = pytest.mark.skipif(
 @pytest.fixture
 def mini_experiment_fixture(tmp_path: Path) -> Path:
     """Wrap the shared fixture factory at its baseline (15% holdout)."""
+
     return make_mini_experiment_fixture(tmp_path)
 
 

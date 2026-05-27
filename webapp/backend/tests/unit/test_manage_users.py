@@ -93,6 +93,7 @@ def test_delete_cmd_refuses_non_tty_without_yes(
     db_conn: sqlite3.Connection, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     """Scripts/CI calling ``users delete`` MUST pass ``--yes`` — never silently drop."""
+
     _user(db_conn, "alxe", auto=True)
     runner = CliRunner()
     with patch("scripts.manage_users.stdin_is_tty", return_value=False):

@@ -95,6 +95,7 @@ def cfg_dict(csv_dir: Path) -> dict[str, Any]:
 @pytest.fixture
 def run_result(cfg_dict: dict[str, Any], tmp_path: Path) -> tuple[Path, ExperimentResult]:
     """Execute a single run once per test — GARCH fit is the slow step."""
+
     cfg = ExperimentConfig.model_validate(cfg_dict)
     exp = build_experiment(cfg)
     store = tmp_path / "experiment_results"
@@ -151,6 +152,7 @@ class TestExperimentRun:
         run_result: tuple[Path, ExperimentResult],
     ) -> None:
         """Walk-forward never sees bars at or past holdout_start."""
+
         _, result = run_result
         boundary = result.manifest.holdout_start
         assert boundary is not None
@@ -221,6 +223,7 @@ class TestExperimentIdUniqueness:
         tmp_path: Path,
     ) -> None:
         """Suffix disambiguates two invocations in the same second."""
+
         cfg = ExperimentConfig.model_validate(cfg_dict)
         store = tmp_path / "experiment_results"
         r1 = build_experiment(cfg).run(RunOptions(store_root=store))
@@ -236,6 +239,7 @@ class TestTickerCountValidation:
         tmp_path: Path,  # noqa: ARG002
     ) -> None:
         """Single-asset strategy + two tickers must fail at build time."""
+
         df = make_synthetic_ohlcv_df(n_rows=_N_ROWS, start="2020-01-02", seed=99)
         df.index.name = "date"
         df.to_csv(csv_dir / "OTHER.csv")
@@ -256,6 +260,7 @@ class TestTickerCountValidation:
         tmp_path: Path,  # noqa: ARG002
     ) -> None:
         """Three-ticker configs are not in scope for any registered strategy."""
+
         for extra in ("OTHER", "THIRD"):
             df = make_synthetic_ohlcv_df(n_rows=_N_ROWS, start="2020-01-02", seed=99)
             df.index.name = "date"
@@ -288,6 +293,7 @@ def pairs_csv_dir(tmp_path: Path) -> Path:
     needs cointegration to *exist*, not to be high-quality — these fixtures
     pass the default p-value threshold (0.05) on every seed we've tried.
     """
+
     import numpy as np
 
     rng = np.random.default_rng(seed=2026)
@@ -329,6 +335,7 @@ class TestPairsExperimentEndToEnd:
         → walk-forward dispatch to ``engine.run_pairs`` → equity curve
         consumes both legs.
         """
+
         cfg_dict = {
             "name": "pairs_smoke",
             "seed": 7,
@@ -373,6 +380,7 @@ class TestFetchPairBars:
         pairs_csv_dir: Path,
     ) -> None:
         """`fetch_bars` for two tickers returns a wide-format frame."""
+
         from src.core.config import ExperimentConfig
         from src.core.registry import data_source_registry
         from src.orchestration.experiment import fetch_bars
@@ -411,6 +419,7 @@ class TestFetchPairBars:
 class TestWalkForwardPairsSplit:
     def test_split_pairs_frame_extracts_leg_subframes(self) -> None:
         """The wide → two-OHLCV split helper round-trips."""
+
         from src.engine.walk_forward import split_pairs_frame
 
         n = 6

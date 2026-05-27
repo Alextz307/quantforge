@@ -33,6 +33,7 @@ def validate_bars(df: pd.DataFrame) -> None:
     for those preconditions run first so a caller bypassing the normalizer gets
     a ``DataQualityError`` rather than an obscure KeyError downstream.
     """
+
     if df.empty:
         raise DataQualityError("bars: empty DataFrame")
 

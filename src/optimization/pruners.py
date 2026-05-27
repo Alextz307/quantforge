@@ -29,6 +29,7 @@ _DEFAULT_PERCENTILE_PRUNER_VALUE = 25.0
 
 def build_pruner(kind: PrunerKind) -> BasePruner:
     """Instantiate the requested Optuna pruner."""
+
     match kind:
         case PrunerKind.MEDIAN:
             return MedianPruner()

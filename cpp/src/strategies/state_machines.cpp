@@ -95,6 +95,7 @@ void run_pairs_state_machine(
     const auto n = zscore.size();
     detail::check_out_size(n, out.size(), "run_pairs_state_machine");
     std::fill(out.begin(), out.end(), kNaN);
+
     double position = 0.0;
     for (std::size_t t = 0; t < n; ++t) {
         const double z = zscore[t];

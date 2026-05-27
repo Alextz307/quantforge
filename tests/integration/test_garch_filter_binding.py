@@ -50,6 +50,7 @@ def _python_garch_filter(scaled_returns: F64Array, params: qe.GarchParams) -> F6
     Kept inlined here (not imported) so the test remains valid even if the
     Python implementation is later deleted.
     """
+
     n = len(scaled_returns)
     sigma2 = np.empty(n)
     alpha = list(params.alpha)
@@ -152,6 +153,7 @@ class TestGarchFilterGILRelease:
         would serialize inside the C++ loop; the test only asserts correctness
         under concurrency (timing varies too much for a strict bound).
         """
+
         returns = _make_returns(GIL_STRESS_SERIES_LEN)
         params = _ref_params()
         expected = qe.garch_filter(returns, params)

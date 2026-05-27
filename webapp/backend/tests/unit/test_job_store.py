@@ -80,6 +80,7 @@ def test_list_jobs_orders_queued_first_then_started_newest_first(
 
     Pins the SQL ORDER BY contract so the UI doesn't need a sort widget.
     """
+
     uid = _create_user(db_conn, "alice")
     earliest = insert_job(db_conn, _new_job(uid, command="earliest"))
     middle = insert_job(db_conn, _new_job(uid, command="middle"))

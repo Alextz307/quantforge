@@ -17,16 +17,19 @@ _XGBOOST_ALLOWED = (Device.AUTO.value, Device.CUDA.value, Device.CPU.value)
 
 def _cuda_available() -> bool:
     """True iff torch was built with CUDA support AND a CUDA device is visible."""
+
     return torch.cuda.is_available()
 
 
 def _mps_available() -> bool:
     """True iff torch was built with MPS support AND Apple Silicon hardware is present."""
+
     return hasattr(torch.backends, "mps") and torch.backends.mps.is_available()
 
 
 def _require_cuda() -> None:
     """Raise ``RuntimeError`` if CUDA is unavailable — shared by both selectors."""
+
     if not _cuda_available():
         raise RuntimeError(
             "device preference='cuda' but CUDA is not available; fix by setting "
@@ -43,6 +46,7 @@ def available_devices() -> tuple[Device, ...]:
     Tests that monkeypatch ``_cuda_available`` / ``_mps_available`` must
     call ``available_devices.cache_clear()`` before asserting.
     """
+
     devices: list[Device] = [Device.AUTO, Device.CPU]
     if _cuda_available():
         devices.append(Device.CUDA)
@@ -63,6 +67,7 @@ def select_device(preference: Device | None = None) -> torch.device:
         ValueError: if ``preference`` is an unrecognized value.
         RuntimeError: if an explicitly-named backend is unavailable on this host.
     """
+
     if preference is None or preference == Device.AUTO:
         if _cuda_available():
             device = torch.device(Device.CUDA)
@@ -108,6 +113,7 @@ def select_xgboost_device(preference: Device | None = None) -> str:
         ValueError: unrecognized value, including ``Device.MPS``.
         RuntimeError: ``Device.CUDA`` requested but CUDA is not available.
     """
+
     if preference is None or preference == Device.AUTO:
         device = Device.CUDA.value if _cuda_available() else Device.CPU.value
         logger.info("auto-selected XGBoost device: %s", device)

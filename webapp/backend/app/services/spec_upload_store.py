@@ -116,6 +116,7 @@ def find_upload_path(uploads_root: Path, user_id: int, slug: str) -> Path | None
     on the spawn path where the row has already been verified by a prior
     validate() call.
     """
+
     path = _upload_path(uploads_root, user_id, slug)
     return path if path.is_file() else None
 
@@ -129,6 +130,7 @@ def parse_yaml_mapping(
     error, empty body, or non-mapping top level. Caller chains its own
     schema validation onto the returned mapping.
     """
+
     try:
         parsed = yaml.safe_load(yaml_text)
     except yaml.YAMLError as exc:
@@ -160,6 +162,7 @@ def validate_against_pydantic(
     Returns ``[]`` on success or a list of editor-friendly
     ``ValidationErrorItem`` rows on failure.
     """
+
     try:
         model_cls.model_validate(parsed)
     except ValidationError as exc:
@@ -341,11 +344,13 @@ class SpecUploadStore(Generic[SummaryT, DetailT]):
             ).fetchone()
         if row is None:
             raise self.not_found_error(slug)
+
         conn.execute(
             f"UPDATE {self.table_name} SET deleted_at = ? WHERE id = ?",  # noqa: S608
             (_now_iso(), int(row["id"])),
         )
         conn.commit()
+
         path = _upload_path(uploads_root, int(row["user_id"]), slug)
         path.unlink(missing_ok=True)
 

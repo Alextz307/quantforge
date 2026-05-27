@@ -106,6 +106,7 @@ def list_runs(
     surface with ``None`` aggregates. The walker keys on
     ``manifest.json``, so partial runs without one never appear at all.
     """
+
     summaries = scope_and_stamp_summaries(
         _summarize_all(root),
         key_fn=lambda s: s.experiment_id,
@@ -125,6 +126,7 @@ def _summarize_all(root: Path) -> list[RunSummary]:
     so threading gives a near-linear speedup on the cold pass over thousands
     of runs.
     """
+
     run_dirs, _ = cached_artifact_index(root, _RUN_KIND, iter_run_dirs)
     with ThreadPoolExecutor(max_workers=_LIST_WORKER_COUNT) as pool:
         results = pool.map(lambda d: _safe_summarize(d, root), run_dirs)
@@ -146,6 +148,7 @@ def _lookup_run_dir(root: Path, experiment_id: str) -> Path:
     pre-dates. On hit, the id-index is warmed in place so successive
     lookups within the same TTL window skip the glob.
     """
+
     _, id_index = cached_artifact_index(root, _RUN_KIND, iter_run_dirs)
     hit = id_index.get(experiment_id)
     if hit is not None and hit.is_dir():
@@ -164,6 +167,7 @@ def _cached_summarize(run_dir: Path, root: Path) -> RunSummary:
     rewritten after a holdout eval). New runs always miss the cache on first
     visit.
     """
+
     manifest_path = run_dir / EXPERIMENT_MANIFEST_JSON
     key = str(run_dir)
     mtime = manifest_path.stat().st_mtime_ns
@@ -196,6 +200,7 @@ def list_runs_page(
     Filters and sort happen in-memory over the summary list; ``limit``/``offset``
     pick the page that is returned to the client.
     """
+
     all_rows = scope_and_stamp_summaries(
         _summarize_all(root),
         key_fn=lambda s: s.experiment_id,
@@ -205,6 +210,7 @@ def list_runs_page(
     )
     filtered = [r for r in all_rows if _matches_filters(r, strategy, ticker, since)]
     filtered.sort(key=_sort_key(sort_by), reverse=(order is SortOrder.DESC))
+
     page = filtered[offset : offset + limit]
     return RunsPage(items=page, total=len(filtered), limit=limit, offset=offset)
 
@@ -239,6 +245,7 @@ def _ensure_plots(run_dir: Path) -> None:
     Idempotent: no-op if any plot file already exists, or if fold data is
     unavailable (partial/aborted runs surface via the empty PlotIndex).
     """
+
     plots_dir = run_dir / PLOTS_DIRNAME
     if plots_dir.is_dir() and any(plots_dir.iterdir()):
         return
@@ -270,15 +277,18 @@ def get_run(
     with empty ``metrics`` rather than 500-ing so the detail page agrees with
     the listing.
     """
+
     check_artifact_access(conn, experiment_id=experiment_id, user=user)
     run_dir = _lookup_run_dir(root, experiment_id)
     manifest = read_experiment_manifest(run_dir)
     config = load_experiment_config_from_run(run_dir)
+
     try:
         metrics = _read_metrics(run_dir)
     except FileNotFoundError:
         metrics = {}
     usernames = resolve_owner_usernames(conn, experiment_ids=[experiment_id])
+
     return RunDetail(
         experiment_id=manifest.experiment_id,
         name=manifest.name,
@@ -306,9 +316,11 @@ def get_folds(
     user: UserPublic,
 ) -> list[FoldRow]:
     """Read per-fold metric rows for one run."""
+
     check_artifact_access(conn, experiment_id=experiment_id, user=user)
     run_dir = _lookup_run_dir(root, experiment_id)
     result = load_experiment_result(run_dir)
+
     return [
         FoldRow(
             fold_index=f.fold_index,
@@ -344,6 +356,7 @@ def resolve_plot(
     Lazily renders missing plots on first access (covers direct/bookmarked
     plot URLs that bypass ``get_run``).
     """
+
     check_artifact_access(conn, experiment_id=experiment_id, user=user)
     run_dir = _lookup_run_dir(root, experiment_id)
     try:
@@ -356,10 +369,12 @@ def resolve_plot(
 def _summarize(run_dir: Path, root: Path) -> RunSummary:
     manifest = read_experiment_manifest(run_dir)
     strategy, tickers, interval = _read_config_summary(run_dir)
+
     try:
         metrics = _read_metrics(run_dir)
     except FileNotFoundError:
         metrics = {}
+
     return RunSummary(
         experiment_id=manifest.experiment_id,
         name=manifest.name,
@@ -384,6 +399,7 @@ def _read_config_summary(run_dir: Path) -> tuple[str, list[str], str]:
     the validated path on any structural surprise so a single legacy or
     partially-written ``config.yaml`` cannot 500 the entire list endpoint.
     """
+
     try:
         with (run_dir / EXPERIMENT_CONFIG_YAML).open(encoding="utf-8") as f:
             raw = yaml.load(f, Loader=_SafeLoader)  # noqa: S506 — _SafeLoader is the safe loader

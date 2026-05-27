@@ -98,6 +98,7 @@ class BootstrapCI:
         """``True`` if ``value`` falls outside ``[lower, upper]`` — common
         significance check for a differential CI against zero.
         """
+
         return value < self.lower or value > self.upper
 
 
@@ -136,6 +137,7 @@ def bootstrap_sharpe_ci(
     the raw series, so whatever scale goes in, the CI is in the same
     scale out.
     """
+
     arr = _as_1d_float(returns, "returns")
     if len(arr) < 2:
         raise ValueError(
@@ -183,6 +185,7 @@ def paired_bootstrap_sharpe_differential(
     independent) test. The CI is on the Sharpe DIFFERENTIAL; it excludes
     zero when the two strategies' Sharpe ratios differ significantly.
     """
+
     a = _as_1d_float(returns_a, "returns_a")
     b = _as_1d_float(returns_b, "returns_b")
     if a.shape != b.shape:
@@ -244,6 +247,7 @@ def diebold_mariano_test(
     variance; we return ``statistic=0, p_value=1.0, direction="tie"``
     rather than a divide-by-zero.
     """
+
     a = _as_1d_float(forecast_a, "forecast_a")
     b = _as_1d_float(forecast_b, "forecast_b")
     y = _as_1d_float(actual, "actual")
@@ -314,6 +318,7 @@ def _run_block_bootstrap(
     underlying return arrays). Returning a 1-D float array lets callers
     pipe straight into :func:`percentile_ci`.
     """
+
     out = np.empty(n_resamples, dtype=np.float64)
     for r in range(n_resamples):
         idx = _stationary_bootstrap_indices(n, block, rng)
@@ -330,6 +335,7 @@ def _stationary_bootstrap_indices(n: int, block_size: int, rng: np.random.Genera
     stationarity condition that distinguishes the Politis-Romano bootstrap
     from the fixed-block variant (which breaks stationarity at the seams).
     """
+
     p = 1.0 / block_size
     out = np.empty(n, dtype=np.int64)
     i = 0
@@ -357,6 +363,7 @@ def _sharpe(returns: _FloatArray) -> float:
     remain finite. The aggregate CI still correctly widens when many
     resamples hit this branch.
     """
+
     std = float(np.std(returns, ddof=1))
     if std == 0.0:
         return 0.0
@@ -370,6 +377,7 @@ def _newey_west_long_run_var(d: _FloatArray, mean_d: float, *, lag: int) -> floa
     ``h=1`` wants); ``lag > 0`` sums weighted autocovariances up to ``lag``
     with Bartlett weights ``1 - k/(lag+1)``.
     """
+
     centered = d - mean_d
     gamma_0 = float(np.mean(centered * centered))
     long_run = gamma_0
@@ -382,6 +390,7 @@ def _newey_west_long_run_var(d: _FloatArray, mean_d: float, *, lag: int) -> floa
 
 def percentile_ci(samples: _FloatArray, confidence: float) -> tuple[float, float]:
     """Symmetric percentile CI from a bootstrap sample distribution."""
+
     alpha = 1.0 - confidence
     lo = float(np.percentile(samples, 100 * alpha / 2.0))
     hi = float(np.percentile(samples, 100 * (1.0 - alpha / 2.0)))
@@ -390,6 +399,7 @@ def percentile_ci(samples: _FloatArray, confidence: float) -> tuple[float, float
 
 def _resolve_block_size(block_size: int | None, n: int) -> int:
     """Heuristic default: ``max(1, round(2 * sqrt(n)))``."""
+
     if block_size is not None:
         if block_size < 1:
             raise ValueError(
@@ -402,6 +412,7 @@ def _resolve_block_size(block_size: int | None, n: int) -> int:
 
 def _as_1d_float(arr: _FloatArray, name: str) -> _FloatArray:
     """Coerce to contiguous 1-D float64, raising on wrong shape."""
+
     out = np.asarray(arr, dtype=np.float64)
     if out.ndim != 1:
         raise ValueError(

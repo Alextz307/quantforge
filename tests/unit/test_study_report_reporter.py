@@ -30,6 +30,7 @@ def _make_report(study_dir: Path) -> ConsolidatedStudyReport:
     Includes holdout data on two legs so the full set of conditional
     sections fires under one assertion sweep.
     """
+
     return ConsolidatedStudyReport(
         study_name="test_study",
         study_dir=study_dir,
@@ -87,6 +88,7 @@ def _holdout(sharpe: float) -> HoldoutSnapshot:
 
 def test_generate_full_report_writes_full_tree(tmp_path: Path) -> None:
     """One-shot: every expected artifact path exists after a happy-path run."""
+
     report = _make_report(study_dir=tmp_path)
     out = StudyReportReporter().generate_full_report(report, tmp_path, publish_label=_PUBLISH_LABEL)
     assert out == tmp_path
@@ -115,6 +117,7 @@ def test_generate_full_report_writes_full_tree(tmp_path: Path) -> None:
 
 def test_master_ranking_sorts_by_sharpe_desc(tmp_path: Path) -> None:
     """StratB__uni2 has the highest Sharpe (1.50) and should rank #1."""
+
     report = _make_report(study_dir=tmp_path)
     StudyReportReporter().generate_full_report(report, tmp_path)
 
@@ -156,6 +159,7 @@ def test_pairwise_long_csv_records_one_row_per_pair(tmp_path: Path) -> None:
 
 def test_publish_label_appears_in_tex_caption(tmp_path: Path) -> None:
     """``publish_label`` should land in every emitted .tex caption / label."""
+
     report = _make_report(study_dir=tmp_path)
     StudyReportReporter().generate_full_report(report, tmp_path, publish_label=_PUBLISH_LABEL)
 
@@ -165,6 +169,7 @@ def test_publish_label_appears_in_tex_caption(tmp_path: Path) -> None:
 
 def test_skips_sections_when_no_input_data(tmp_path: Path) -> None:
     """Sparse report: no holdout / no pairwise → those tables not written."""
+
     sparse = ConsolidatedStudyReport(
         study_name="sparse",
         study_dir=tmp_path,
@@ -186,6 +191,7 @@ def test_skips_sections_when_no_input_data(tmp_path: Path) -> None:
 
 def test_copies_per_universe_equity_overlay_when_source_exists(tmp_path: Path) -> None:
     """Reporter copies ``comparisons/<universe>/plots/equity_overlay.{png,svg}`` if present."""
+
     report = _make_report(study_dir=tmp_path)
     src_dir = tmp_path / "comparisons" / "uni1" / "plots"
     src_dir.mkdir(parents=True)

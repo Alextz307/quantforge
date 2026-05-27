@@ -42,6 +42,7 @@ RESIDUAL_DIVERGENCE_ATOL = 1e-12
 @pytest.fixture
 def hybrid_train_df(synthetic_feature_columns: list[str]) -> pd.DataFrame:
     """Close + two synthetic feature columns."""
+
     df = make_synthetic_close_df(n_rows=SYNTH_ROW_COUNT)
     rng = np.random.default_rng(FEATURE_RNG_SEED)
     for col in synthetic_feature_columns:
@@ -56,6 +57,7 @@ def realized_vol_target(hybrid_train_df: pd.DataFrame) -> pd.Series:
     Leading NaN from the rolling window is preserved; the hybrid drops them
     via ``residuals.dropna()`` during fit.
     """
+
     log_ret = compute_log_returns(hybrid_train_df["close"])
     rolling_std = log_ret.rolling(REALIZED_VOL_WINDOW, min_periods=REALIZED_VOL_WINDOW).std()
     rv: pd.Series = rolling_std * np.sqrt(Interval.DAILY.annualization_factor())
@@ -120,6 +122,7 @@ class TestHybridVolatilityModel:
         20-bar warmup usually absorbs feature warmup in practice, but a future
         config with longer-warmup features (or shorter-warmup target) would
         otherwise expose the same NaN-loss path."""
+
         df = hybrid_train_df.copy()
         first_feature = synthetic_feature_columns[0]
         nan_warmup_rows = 15
@@ -172,6 +175,7 @@ class TestHybridVolatilityModel:
     ) -> None:
         """min_vol set far above any plausible volatility forecast forces
         every bar to clip; the tracked fraction should saturate at 1.0."""
+
         from src.models.hybrid_volatility import HybridVolatilityModel
 
         # 1e6 sits far above any realised-vol value the synthetic frame

@@ -76,6 +76,7 @@ def _new_job_for(user: UserPublic) -> NewJob:
 
 def _stub_manager() -> ProcessManager:
     """Real ProcessManager with spawn + cancel replaced by AsyncMock."""
+
     manager = ProcessManager(JobEventBroker(), on_complete=AsyncMock())
     manager.spawn = AsyncMock(return_value=FAKE_PID)  # type: ignore[method-assign]
     manager.cancel = AsyncMock(return_value=True)  # type: ignore[method-assign]
@@ -120,6 +121,7 @@ def test_submit_auto_injects_features_for_strategies_that_need_them(
     feature columns. The webapp form has no features-block UI, so the
     submitted payload is missing it; ``submit_job`` injects the canonical
     standard pipeline so the run doesn't crash with KeyError."""
+
     user = _user(db_conn, "alice")
     manager = _stub_manager()
     payload = make_valid_experiment_payload()
@@ -152,6 +154,7 @@ def test_submit_does_not_inject_features_for_self_contained_strategies(
 ) -> None:
     """``AdaptiveBollinger`` / ``MomentumGatekeeper`` engineer features
     internally — no top-level ``features:`` block needed, none injected."""
+
     user = _user(db_conn, "alice")
     manager = _stub_manager()
     payload = make_valid_experiment_payload()  # AdaptiveBollinger by default
@@ -269,6 +272,7 @@ def test_list_jobs_hides_terminal_jobs_with_missing_artifacts(
     db_conn: sqlite3.Connection, tmp_path: Path
 ) -> None:
     """Completed jobs whose experiment_id no longer resolves on disk are filtered."""
+
     alice = _user(db_conn, "alice")
     store_root = tmp_path / "store"
     store_root.mkdir()
@@ -380,6 +384,7 @@ def test_reconcile_leaves_alive_pid_running(db_conn: sqlite3.Connection) -> None
 
 def _dead_pid() -> int:
     """A PID well above any plausible PID_MAX (Linux ~32k, macOS ~99k)."""
+
     return 99_999_999
 
 
@@ -389,6 +394,7 @@ def test_submit_tune_writes_both_yamls_and_persists_study_name(
     """TUNE jobs split the payload across ``<id>.exp.yaml`` + ``<id>.hpo.yaml``
     and stamp ``experiment_id = study_name`` immediately so ``find_live_job_for``
     can resolve in-flight studies before the subprocess exits."""
+
     user = _user(db_conn, "alice")
     manager = _stub_manager()
     exp_payload = make_valid_experiment_payload()
@@ -427,6 +433,7 @@ def test_submit_tune_rejects_invalid_hpo_payload(
 ) -> None:
     """An HPOConfig with a path-separator in ``study_name`` is rejected
     before any DB row or YAML lands on disk."""
+
     user = _user(db_conn, "alice")
     manager = _stub_manager()
     submission = JobSubmission(
@@ -480,6 +487,7 @@ _HPO_STUDY_WIRE_ID = f"hpo~{_HPO_STUDY}"
 
 def _seed_run_with_holdout(store_root: Path, experiment_id: str, holdout_start: str) -> Path:
     """Synthetic run whose ``manifest.holdout_start`` is non-null."""
+
     run_dir = make_synthetic_run(
         store_root / RUNS_SUBDIR,
         experiment_id=experiment_id,
@@ -679,6 +687,7 @@ def test_submit_holdout_rejects_run_without_holdout_start(
     db_conn: sqlite3.Connection, tmp_path: Path
 ) -> None:
     """A run with ``manifest.holdout_start == null`` cannot be evaluated."""
+
     user = _user(db_conn, "alice")
     manager = _stub_manager()
     store_root = tmp_path / "store"
@@ -711,6 +720,7 @@ def test_submit_holdout_rejects_hpo_without_best_config(
     db_conn: sqlite3.Connection, tmp_path: Path
 ) -> None:
     """HPO study with no completed trials → no ``best_config.yaml`` → rejected."""
+
     user = _user(db_conn, "alice")
     manager = _stub_manager()
     store_root = tmp_path / "store"
@@ -745,6 +755,7 @@ def test_submit_holdout_rejects_hpo_whose_best_config_reserves_no_holdout(
     Mirrors the CLI's manifest-level guard but fires at the API boundary so the
     user doesn't pay a "submit → wait → fail" round trip.
     """
+
     user = _user(db_conn, "alice")
     manager = _stub_manager()
     store_root = tmp_path / "store"

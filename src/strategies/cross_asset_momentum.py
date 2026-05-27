@@ -82,6 +82,7 @@ def _derive_feature_columns(feature_tickers: Sequence[str], lags: Sequence[int])
     construction cannot drift. Order: outer loop over tickers (input
     order), inner loop over lags (input order).
     """
+
     return [f"lag{lag}_{ticker}" for ticker in feature_tickers for lag in lags]
 
 
@@ -186,6 +187,7 @@ class CrossAssetMomentumStrategy(IStrategy):
         :func:`_derive_feature_columns`. Leading rows are NaN (warmup) — the
         caller drops them before training and ignores them at inference.
         """
+
         cols: dict[str, pd.Series[float]] = {}
         for ticker in self._params.feature_tickers:
             log_ret = compute_log_returns(data[f"close_{ticker}"])
@@ -201,6 +203,7 @@ class CrossAssetMomentumStrategy(IStrategy):
         **kwargs: object,
     ) -> None:
         """Fit the directional classifier on lagged cross-asset returns."""
+
         logger.info("%s train: %d bars", type(self).__name__, len(train_data))
         features = self._build_feature_frame(train_data)
         primary_close = train_data[f"close_{self._params.primary_ticker}"]
@@ -229,6 +232,7 @@ class CrossAssetMomentumStrategy(IStrategy):
 
     def generate_signals(self, data: pd.DataFrame) -> pd.Series:
         """Produce {-1, 0, +1} signals; warmup bars (any lag still NaN) stay NaN."""
+
         self._assert_fitted_with_metadata()
         if self._classifier is None:
             raise RuntimeError(
@@ -249,6 +253,7 @@ class CrossAssetMomentumStrategy(IStrategy):
 
     def save(self, path: str | Path) -> None:
         """Persist strategy config + nested DirectionalClassifier under ``path``."""
+
         metadata = self._assert_fitted_with_metadata()
         assert self._classifier is not None
         classifier = self._classifier
@@ -270,11 +275,13 @@ class CrossAssetMomentumStrategy(IStrategy):
         ``frozen_params_to_json``; ``device`` is dropped (re-resolved on load
         via ``select_xgboost_device()`` inside ``DirectionalClassifier``).
         """
+
         return frozen_params_to_json(self._params, omit=("device",))
 
     @classmethod
     def load(cls, path: str | Path) -> Self:
         """Reconstruct a trained CrossAssetMomentumStrategy from ``path``."""
+
         root = Path(path)
         config = json_io.read_dict(root / CONFIG_JSON)
         metadata = json_io.read_dict(root / METADATA_JSON)
@@ -310,6 +317,7 @@ class CrossAssetMomentumStrategy(IStrategy):
 
     def get_all_training_metadata(self) -> tuple[TrackedMetadata, ...]:
         """Expose strategy + owned classifier metadata for the deep leakage check."""
+
         classifier_meta = (
             self._classifier.training_metadata if self._classifier is not None else None
         )
@@ -326,6 +334,7 @@ class CrossAssetMomentumStrategy(IStrategy):
         lag schedule per trial would change the classifier's input dimension,
         producing cross-trial Sharpe comparisons that aren't apples-to-apples.
         """
+
         return {
             "direction_threshold": trial.suggest_float(
                 "cross_asset_direction_threshold", 0.50, 0.70

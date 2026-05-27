@@ -27,6 +27,7 @@ class TestBuildBooktabsTable:
     def test_output_is_brace_balanced(self) -> None:
         """Malformed LaTeX tables break thesis compilation with cryptic errors;
         the brace count is the cheapest structural invariant."""
+
         out = build_booktabs_table(_sample_df(), caption="x", label="tab:x")
         assert out.count("{") == out.count("}")
 
@@ -39,6 +40,7 @@ class TestBuildBooktabsTable:
         """Styled via ``to_latex(..., escape=False)`` which emits toprule /
         midrule / bottomrule under the hood — sanity check the styling
         actually kicked in."""
+
         out = build_booktabs_table(_sample_df(), caption="x", label="tab:x")
         assert "toprule" in out
         assert "bottomrule" in out

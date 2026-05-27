@@ -88,6 +88,7 @@ class TestRSIBinding:
 
     def test_hand_computed_reference(self) -> None:
         """Mirrors the C++ KnownReferenceValue test — Wilder's smoothing."""
+
         prices = np.array(RSI_HAND_PRICES, dtype=np.float64)
         out = qe.RSI(RSI_HAND_PERIOD).compute(prices)
         assert np.isnan(out[:RSI_HAND_PERIOD]).all()
@@ -120,6 +121,7 @@ def _pandas_macd(
     MACD series would seed at ``macd[0]`` and drift from C++ — so we
     slice to the valid range before running the signal EMA.
     """
+
     s = pd.Series(close)
     macd_series = s.ewm(span=fast, adjust=False).mean() - s.ewm(span=slow, adjust=False).mean()
 
@@ -260,6 +262,7 @@ class TestParkinsonBinding:
 
     def test_single_bar_hand_reference(self) -> None:
         """Closed-form: PK_daily = (1/(4*ln2)) * ln(H/L)^2, annualized with sqrt(252)."""
+
         o = np.array([SINGLE_BAR_OPEN], dtype=np.float64)
         h = np.array([SINGLE_BAR_HIGH], dtype=np.float64)
         lo = np.array([SINGLE_BAR_LOW], dtype=np.float64)
@@ -307,6 +310,7 @@ class TestGarmanKlassBinding:
 
     def test_single_bar_hand_reference(self) -> None:
         """Closed-form: GK_daily = 0.5*ln(H/L)^2 - (2ln2-1)*ln(C/O)^2."""
+
         o = np.array([SINGLE_BAR_OPEN], dtype=np.float64)
         h = np.array([SINGLE_BAR_HIGH], dtype=np.float64)
         lo = np.array([SINGLE_BAR_LOW], dtype=np.float64)
@@ -475,6 +479,7 @@ def _backtest_equity_curve(_field: str) -> npt.NDArray[np.float64]:
 def test_zero_copy_view_survives_parent_gc(view_factory: object, field: str) -> None:
     """The numpy view's base must keep the C++ parent alive after the factory
     drops its local handle — otherwise forcing GC would dangle the storage."""
+
     import gc
 
     assert callable(view_factory)

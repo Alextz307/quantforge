@@ -92,6 +92,7 @@ def plan_clean(
     ``store_root``'s parent (so a typical ``experiment_results/`` under
     a repo root works without an explicit override).
     """
+
     if not store_root.is_dir():
         return CleanPlan(
             store_root=store_root,
@@ -135,6 +136,7 @@ def apply_clean(plan: CleanPlan) -> tuple[Path, ...]:
     them re-run with ``--keep <name>`` after they've inspected the
     refused entries.
     """
+
     refused = plan.refused
     if refused:
         names = ", ".join(c.path.name for c in refused)
@@ -153,6 +155,7 @@ def apply_clean(plan: CleanPlan) -> tuple[Path, ...]:
 
 def _empty_directory(directory: Path) -> None:
     """Remove every entry inside ``directory`` while keeping ``directory`` itself."""
+
     for entry in directory.iterdir():
         if entry.is_dir() and not entry.is_symlink():
             shutil.rmtree(entry)
@@ -162,11 +165,13 @@ def _empty_directory(directory: Path) -> None:
 
 def format_plan(plan: CleanPlan) -> str:
     """Human-readable rendering of a :class:`CleanPlan` for the dry-run output."""
+
     if not plan.candidates:
         return (
             f"experiment clean: nothing to wipe under {plan.store_root} "
             f"(preserved: {', '.join(plan.preserved) or '<none>'})"
         )
+
     lines = [f"experiment clean: candidates under {plan.store_root}"]
     wipeable_total_bytes = 0
     for c in plan.candidates:
@@ -180,6 +185,7 @@ def format_plan(plan: CleanPlan) -> str:
                 f"  REFUSE  {c.path.name:40s}  {size_mb:8.1f} MB  "
                 f"({tracked_count} tracked file{'s' if tracked_count != 1 else ''})"
             )
+
     lines.append(f"preserved: {', '.join(plan.preserved) or '<none>'}")
     lines.append(
         f"would free {wipeable_total_bytes / (1024 * 1024):.1f} MB across "
@@ -197,6 +203,7 @@ def _git_tracked_by_child(store_root: Path, *, git_root: Path) -> dict[str, tupl
     so a dirty results store with N child dirs costs one subprocess
     instead of N.
     """
+
     try:
         result = subprocess.run(
             ["git", "ls-files", "-z", "--", str(store_root)],
@@ -232,6 +239,7 @@ def _dir_size_bytes(directory: Path) -> int:
     symlinks and permission errors are skipped silently — a wrong size
     in the dry-run output is preferable to crashing the planner.
     """
+
     total = 0
     for path in directory.rglob("*"):
         try:

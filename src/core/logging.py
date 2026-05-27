@@ -63,6 +63,7 @@ def get_logger(name: str, **context: object) -> logging.LoggerAdapter:  # type: 
     Python 3.12 made ``LoggerAdapter`` generic but the version-portable
     parameterisation isn't stable in typeshed yet.
     """
+
     base = logging.getLogger(name)
     extra: Mapping[str, object] = dict(context)
     return _ContextAdapter(base, extra)
@@ -94,6 +95,7 @@ def attach_cli_log_file(root_dir: Path, command_name: str) -> Iterator[Path]:
     second concurrent call in the same process would tee both files'
     output to each other. Single-shot CLI invocation only.
     """
+
     log_dir = root_dir / CLI_LOGS_SUBDIR
     log_dir.mkdir(parents=True, exist_ok=True)
     timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
@@ -128,6 +130,7 @@ def log_stage(
     file. Avoid for sub-second hot-loop work — the two extra log
     records per call dwarf the work itself.
     """
+
     if fields:
         ctx = " ".join(f"{k}={v}" for k, v in fields.items())
         logger.info("%s starting (%s)", label, ctx)

@@ -21,6 +21,7 @@ def _run_study(n_trials: int, *, two_params: bool = False) -> optuna.Study:
     ``two_params=True`` adds a second param so Optuna's fANOVA importance
     calculation doesn't degenerate into a single-axis trivial answer.
     """
+
     study = optuna.create_study(direction="maximize", sampler=optuna.samplers.RandomSampler(seed=1))
 
     def objective(trial: optuna.Trial) -> float:

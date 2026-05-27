@@ -28,6 +28,7 @@ _KEEP_OVERRIDE_NAME = "studies"
 
 def _populate_store(store_root: Path, dirs: tuple[str, ...]) -> None:
     """Create a few empty subdirs under ``store_root`` for the planner to walk."""
+
     store_root.mkdir(parents=True, exist_ok=True)
     for name in dirs:
         (store_root / name).mkdir()
@@ -36,6 +37,7 @@ def _populate_store(store_root: Path, dirs: tuple[str, ...]) -> None:
 
 def test_plan_clean_lists_every_subdir_except_thesis_demo(tmp_path: Path) -> None:
     """``thesis_demo`` is hard-preserved; everything else is a candidate."""
+
     store = tmp_path / "experiment_results"
     _populate_store(store, ("thesis_demo", "_profile_a", "_profile_b", _KEEP_OVERRIDE_NAME))
     plan = plan_clean(store)
@@ -46,6 +48,7 @@ def test_plan_clean_lists_every_subdir_except_thesis_demo(tmp_path: Path) -> Non
 
 def test_plan_clean_extends_preserve_set_with_keep(tmp_path: Path) -> None:
     """``--keep`` adds to the preserve set; the matching dir drops out of candidates."""
+
     store = tmp_path / "experiment_results"
     _populate_store(store, ("thesis_demo", "_profile_a", _KEEP_OVERRIDE_NAME))
     plan = plan_clean(store, keep=(_KEEP_OVERRIDE_NAME,))
@@ -56,6 +59,7 @@ def test_plan_clean_extends_preserve_set_with_keep(tmp_path: Path) -> None:
 
 def test_apply_clean_wipes_safe_candidates_keeping_empty_dirs(tmp_path: Path) -> None:
     """Happy path: candidate dirs survive as empty placeholders; only their contents go."""
+
     store = tmp_path / "experiment_results"
     _populate_store(store, ("thesis_demo", "_profile_a", "_profile_b"))
     plan = plan_clean(store)
@@ -70,6 +74,7 @@ def test_apply_clean_wipes_safe_candidates_keeping_empty_dirs(tmp_path: Path) ->
 
 def test_apply_clean_refuses_when_tracked_files_present(tmp_path: Path) -> None:
     """A directory with a git-tracked file forces a hard error from ``apply``."""
+
     subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)
     subprocess.run(["git", "config", "user.email", "x@y.z"], cwd=tmp_path, check=True)
     subprocess.run(["git", "config", "user.name", "x"], cwd=tmp_path, check=True)
@@ -102,6 +107,7 @@ def test_apply_clean_refuses_when_tracked_files_present(tmp_path: Path) -> None:
 
 def test_format_plan_empty_store(tmp_path: Path) -> None:
     """Missing or empty store → human-readable 'nothing to wipe' line."""
+
     store = tmp_path / "nonexistent"
     plan = plan_clean(store)
     output = format_plan(plan)
@@ -110,6 +116,7 @@ def test_format_plan_empty_store(tmp_path: Path) -> None:
 
 def test_format_plan_lists_size_and_action(tmp_path: Path) -> None:
     """Dry-run text shows WIPE / REFUSE markers + a tally line."""
+
     store = tmp_path / "experiment_results"
     _populate_store(store, ("thesis_demo", "_profile_a"))
     plan = plan_clean(store)
@@ -121,6 +128,7 @@ def test_format_plan_lists_size_and_action(tmp_path: Path) -> None:
 
 def test_plan_clean_ignores_files_at_top_level(tmp_path: Path) -> None:
     """A stray top-level file (e.g., README) is left alone — only dirs are candidates."""
+
     store = tmp_path / "experiment_results"
     store.mkdir()
     (store / "README.md").write_text("notes", encoding="utf-8")

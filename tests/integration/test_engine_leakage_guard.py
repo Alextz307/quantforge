@@ -105,6 +105,7 @@ def test_orchestrator_raises_when_training_metadata_missing() -> None:
     component that never completed fit() produces a ``None`` entry in the
     tracked-metadata list; if every entry is ``None`` the check raises.
     """
+
     bars = make_synthetic_ohlcv_df(n_rows=LEAKAGE_N_ROWS)
 
     with pytest.raises(RuntimeError, match="no populated metadata"):

@@ -31,6 +31,7 @@ def build_openapi_spec() -> dict[str, Any]:
     Webapp imports are lazy so importers that only need ``DEFAULT_SNAPSHOT_PATH``
     (e.g. the drift-guard unit test) don't pay for fastapi at import time.
     """
+
     # WebappSettings rejects secret_key shorter than 32 chars at construction time;
     # this script only needs the OpenAPI shape, so seed a dummy before the import below.
     os.environ.setdefault("WEBAPP_SECRET_KEY", DUMMY_SECRET)

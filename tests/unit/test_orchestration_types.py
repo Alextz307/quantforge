@@ -132,6 +132,7 @@ class TestFoldRecordFromFoldResult:
         """``.tolist()`` must yield native Python floats, not numpy scalars —
         otherwise JSON serialisation downstream produces numpy-specific
         literals that don't round-trip."""
+
         rec = FoldRecord.from_fold_result(_StubFoldResult())  # type: ignore[arg-type]
         assert isinstance(rec.equity_curve, tuple)
         for value in rec.equity_curve:
@@ -169,6 +170,7 @@ class TestFoldRecordRoundTrip:
     def test_diagnostics_missing_in_dict_defaults_to_empty(self) -> None:
         """Backwards-compat: existing JSONL files (no strategy_diagnostics
         key) deserialize cleanly to an empty mapping."""
+
         d = _make_record().to_dict()
         del d["strategy_diagnostics"]
         revived = FoldRecord.from_dict(d)
@@ -227,6 +229,7 @@ class TestExperimentResultRoundTrip:
     def test_to_dict_folds_are_plain_dicts(self) -> None:
         """JSON-compatibility sanity check: every fold in ``.to_dict()`` is
         a JSON object (dict), not a dataclass instance."""
+
         result = ExperimentResult(
             experiment_id=_EXPERIMENT_ID,
             folds=(_make_record(),),

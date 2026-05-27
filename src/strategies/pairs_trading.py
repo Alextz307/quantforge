@@ -114,6 +114,7 @@ class PairsTradingStrategy(IStrategy):
         **kwargs: object,
     ) -> None:
         """Run Engle-Granger cointegration and cache hedge ratio / spread stats."""
+
         if "close_a" not in train_data.columns or "close_b" not in train_data.columns:
             raise ValueError(
                 "PairsTradingStrategy.train() requires 'close_a' and 'close_b' "
@@ -153,6 +154,7 @@ class PairsTradingStrategy(IStrategy):
 
     def generate_signals(self, data: pd.DataFrame) -> pd.Series:
         """Produce {-1, 0, +1} leg_a position. Leading lookback bars are NaN."""
+
         self._assert_fitted_with_metadata()
         if self._cpp_coint is None:
             raise RuntimeError(
@@ -195,6 +197,7 @@ class PairsTradingStrategy(IStrategy):
 
     def save(self, path: str | Path) -> None:
         """Persist PairsTrading config + cointegration stats to ``path``."""
+
         metadata = self._assert_fitted_with_metadata()
 
         def write_weights(root: Path) -> None:
@@ -222,6 +225,7 @@ class PairsTradingStrategy(IStrategy):
         the same keys back. Exercised by a parametrized drift test that
         compares these keys against ``__init__``'s parameter set.
         """
+
         return {
             "entry_zscore": self._entry_zscore,
             "exit_zscore": self._exit_zscore,
@@ -234,6 +238,7 @@ class PairsTradingStrategy(IStrategy):
     @classmethod
     def load(cls, path: str | Path) -> Self:
         """Reconstruct a trained PairsTradingStrategy from ``path``."""
+
         root = Path(path)
         config = json_io.read_dict(root / CONFIG_JSON)
         weights = json_io.read_dict(root / WEIGHTS_JSON)
@@ -258,6 +263,7 @@ class PairsTradingStrategy(IStrategy):
     @property
     def hedge_ratio(self) -> float:
         """Cointegration hedge ratio (slope of OLS regression of a on b)."""
+
         self._assert_fitted_with_metadata()
         return self._hedge_ratio
 
@@ -272,6 +278,7 @@ class PairsTradingStrategy(IStrategy):
     @staticmethod
     def suggest_params(trial: optuna.trial.BaseTrial) -> dict[str, object]:
         """Optuna search space for PairsTrading hyperparameters."""
+
         return {
             "entry_zscore": trial.suggest_float("pairs_entry_z", 1.5, 3.0),
             "exit_zscore": trial.suggest_float("pairs_exit_z", 0.0, 1.0),

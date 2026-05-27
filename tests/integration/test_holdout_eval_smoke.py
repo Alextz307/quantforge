@@ -41,6 +41,7 @@ pytestmark = pytest.mark.skipif(
 
 def _write_fixture(tmp_path: Path) -> Path:
     """Wrap the shared fixture factory with the holdout-eval-specific holdout_pct."""
+
     return make_mini_experiment_fixture(
         tmp_path, name="holdout_eval_smoke", holdout_pct=_HOLDOUT_PCT
     )
@@ -48,6 +49,7 @@ def _write_fixture(tmp_path: Path) -> Path:
 
 def _invoke_run(config_path: Path, store: Path) -> Path:
     """Run ``experiment run`` and return the produced run directory."""
+
     runner = CliRunner()
     result = runner.invoke(
         cli,
@@ -62,6 +64,7 @@ def _invoke_run(config_path: Path, store: Path) -> Path:
 
 def test_holdout_eval_produces_full_artifact_tree(tmp_path: Path) -> None:
     """End-to-end happy path: dev run → holdout-eval → bundle on disk."""
+
     config_path = _write_fixture(tmp_path)
     store = tmp_path / "experiment_results"
 
@@ -109,6 +112,7 @@ def test_holdout_eval_produces_full_artifact_tree(tmp_path: Path) -> None:
 
 def test_holdout_eval_refuses_when_data_hash_drifts(tmp_path: Path) -> None:
     """Mutating the cached CSV between run and holdout-eval trips the data_hash check."""
+
     config_path = _write_fixture(tmp_path)
     store = tmp_path / "experiment_results"
 
@@ -141,6 +145,7 @@ def test_holdout_eval_refuses_when_data_hash_drifts(tmp_path: Path) -> None:
 
 def test_holdout_eval_refuses_when_source_has_no_holdout(tmp_path: Path) -> None:
     """A dev run with holdout_pct=0 has manifest.holdout_start=None — the eval must refuse."""
+
     config_path = _write_fixture(tmp_path)
     payload = yaml.safe_load(config_path.read_text())
     payload["validation"]["holdout_pct"] = 0.0
@@ -166,6 +171,7 @@ def test_holdout_eval_refuses_when_source_has_no_holdout(tmp_path: Path) -> None
 
 def test_holdout_eval_requires_exactly_one_source(tmp_path: Path) -> None:
     """The CLI guard must reject zero sources or both sources at once."""
+
     runner = CliRunner()
     result_zero = runner.invoke(cli, ["holdout-eval", "--store-root", str(tmp_path / "out")])
     assert result_zero.exit_code != 0

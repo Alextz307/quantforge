@@ -74,6 +74,7 @@ class TestEmptyFolds:
         """Equality would fail on NaN scalars — check the sentinel via the
         discriminator field instead.
         """
+
         stats = aggregate_folds(())
         assert stats.n_folds == 0
         assert stats.trade_count_total == 0
@@ -161,6 +162,7 @@ class TestNanPropagation:
         rather than silently hiding the degenerate fold — callers can then
         decide whether to treat the run as invalid.
         """
+
         folds = (
             _make_fold(0, sharpe=float("nan")),
             _make_fold(1, sharpe=_FOLD_B_SHARPE),

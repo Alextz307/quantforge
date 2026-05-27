@@ -100,6 +100,7 @@ def run_cmd(
     Per-leg failures are isolated (one bad leg does not abort the
     sweep); rerun the same command to retry only the failed legs.
     """
+
     with attach_cli_log_file(store_root, "study_run") as log_path:
         click.echo(
             f"running study from spec '{spec_path}' "
@@ -171,6 +172,7 @@ def report_cmd(study_dir: Path, publish_label: str | None) -> None:
     plot copies. Read-only with respect to the per-leg tree — safe to
     rerun.
     """
+
     with attach_cli_log_file(study_dir, "study_report") as log_path:
         click.echo(f"consolidating study at {study_dir} → log: {log_path}")
         try:

@@ -89,6 +89,7 @@ class _TemplateStrategy(IStrategy):
         **kwargs: object,
     ) -> None:
         """Fit any per-strategy state on ``train_data``. Called once before backtesting."""
+
         # Fill in this method by following the two numbered steps below, then
         # delete the trailing ``raise NotImplementedError`` that marks the stub.
         #
@@ -115,6 +116,7 @@ class _TemplateStrategy(IStrategy):
 
     def generate_signals(self, data: pd.DataFrame) -> pd.Series:
         """Return position signals at time t (the engine shifts to t+1 — do NOT shift here)."""
+
         # Read-side guard: raises a descriptive RuntimeError if train() was
         # not called. Returns the metadata narrowed to non-None for use
         # below if you need it (e.g. comparing intervals).
@@ -156,6 +158,7 @@ class _TemplateStrategy(IStrategy):
         prefix-namespace them by strategy (e.g. ``"template_window"``) so a
         shared study running multiple strategies doesn't collide.
         """
+
         return {
             "window": trial.suggest_int("template_window", 10, 50),
             "threshold": trial.suggest_float("template_threshold", 0.5, 2.0),

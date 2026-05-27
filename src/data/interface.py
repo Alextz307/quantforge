@@ -60,6 +60,7 @@ class IDataSource(ABC):
         Returns:
             Normalized DataFrame with DatetimeIndex and standard columns.
         """
+
         cache_key = self._cache_key(ticker, start, end, interval)
 
         if self.cache is not None:
@@ -97,4 +98,5 @@ class IDataSource(ABC):
         interval: Interval,
     ) -> str:
         """Generate a deterministic cache key."""
+
         return f"{self.name}_{ticker}_{start.isoformat()}_{end.isoformat()}_{interval.value}"

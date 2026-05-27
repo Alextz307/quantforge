@@ -71,6 +71,7 @@ def resolve_artifact_owner(
     row) and artifacts that predate ownership tracking. Either way the
     artifact has no webapp owner and is treated as shared.
     """
+
     row = conn.execute(
         "SELECT user_id FROM jobs WHERE experiment_id = ? LIMIT 1",
         (experiment_id,),
@@ -92,6 +93,7 @@ def check_artifact_access(
     pre-filter via :func:`filter_visible_experiment_ids` instead — calling
     this in a loop is an N+1 trap.
     """
+
     if user.role is Role.ADMIN:
         return
     owner_id = resolve_artifact_owner(conn, experiment_id=experiment_id)
@@ -112,6 +114,7 @@ def filter_visible_experiment_ids(
     Drives list endpoints: scope to owned + ownerless by default; admins
     with ``all_users=True`` see everything.
     """
+
     if not experiment_ids:
         return set()
     if user.role is Role.ADMIN and all_users:
@@ -147,6 +150,7 @@ def resolve_owner_usernames(
     lookup. Callers must first restrict ``experiment_ids`` to the visible
     set via :func:`filter_visible_experiment_ids` before resolving names.
     """
+
     if not experiment_ids:
         return {}
     result: dict[str, str] = {}
@@ -187,6 +191,7 @@ def scope_and_stamp_summaries(
     The caller is responsible for the final sort; this helper preserves
     input order for survivors.
     """
+
     keys_per_summary = [key_fn(s) for s in summaries]
     keys_to_query = [k for k in keys_per_summary if k is not None]
     owners: dict[str, tuple[int, str | None]] = {}

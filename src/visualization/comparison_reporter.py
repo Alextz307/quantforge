@@ -83,6 +83,7 @@ class ComparisonReporter:
         under a fresh ``--out-name`` that should still ``\\ref`` to the
         original label in thesis prose).
         """
+
         out_dir.mkdir(parents=True, exist_ok=True)
         plots_dir = out_dir / PLOTS_SUBDIR
         tables_dir = out_dir / TABLES_SUBDIR
@@ -133,6 +134,7 @@ class ComparisonReporter:
         excludes zero). Lower triangle + diagonal are blank so the
         asymmetric ``row - col`` semantics are unambiguous.
         """
+
         names = _unique_names(pairwise)
         df = pd.DataFrame("", index=names, columns=names)
         lookup = {(p.name_a, p.name_b): p for p in pairwise}
@@ -163,6 +165,7 @@ class ComparisonReporter:
         otherwise dominate the y-axis and collapse the interesting
         visual comparison.
         """
+
         fig, ax = plt.subplots(figsize=(FIGURE_WIDTH_IN, FIGURE_HEIGHT_IN), dpi=FIGURE_DPI)
         plotted = 0
         for name, folds in sorted(folds_by_strategy.items()):
@@ -195,6 +198,7 @@ def _build_manifest_dict(report: StrategyComparisonReport) -> dict[str, object]:
     by ``ranking.tex`` and fold-level data belongs under ``runs/``.
     Pairwise records round-trip via ``to_dict`` / ``from_dict``.
     """
+
     payload: dict[str, object] = {
         "out_name": report.out_name,
         "created_at": report.created_at.isoformat(),
@@ -210,6 +214,7 @@ def _build_manifest_dict(report: StrategyComparisonReport) -> dict[str, object]:
 
 def _unique_names(pairwise: tuple[PairwiseSignificance, ...]) -> list[str]:
     """Preserve first-seen order from the pairwise list (matches comparison order)."""
+
     return list(dict.fromkeys(name for p in pairwise for name in (p.name_a, p.name_b)))
 
 
@@ -222,6 +227,7 @@ def _concatenated_equity_normalised(
     value is non-finite / non-positive — matplotlib would silently NaN
     through a bad divisor and produce a misleading overlay.
     """
+
     pieces = [
         np.asarray(fold.equity_curve, dtype=np.float64)
         for fold in folds

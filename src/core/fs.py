@@ -28,6 +28,7 @@ def ensure_parent_dir(path: str | Path) -> Path:
         p = ensure_parent_dir(out_dir / "plots" / "foo.png")
         fig.savefig(p)
     """
+
     p = Path(path)
     p.parent.mkdir(parents=True, exist_ok=True)
     return p
@@ -55,6 +56,7 @@ def atomic_write_path(target: str | Path) -> Iterator[Path]:
     fires on ``KeyboardInterrupt`` during a long write — important for
     multi-day HPO runs where the user may Ctrl+C mid-trial.
     """
+
     target_path = Path(target)
     target_path.parent.mkdir(parents=True, exist_ok=True)
     tmp = target_path.with_name(

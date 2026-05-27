@@ -37,6 +37,7 @@ async def tail_hpo_trials(
     ``after_trial`` filters out trial numbers ``<= after_trial``
     symmetrically with the REST endpoint.
     """
+
     trial_jsonl_path = study_dir / TRIALS_JSONL_NAME
     # Defer the import: hpo_service pulls in optuna + reporters transitively
     # and the WS endpoint is hit far less often than the main HTTP routes.

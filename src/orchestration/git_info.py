@@ -23,6 +23,7 @@ def read_git_sha() -> str:
     verbatim — consumers that want to detect the unknown case compare to
     ``"unknown"`` or to a known non-empty SHA.
     """
+
     try:
         out = subprocess.run(
             ["git", "rev-parse", f"--short={_GIT_SHORT_LENGTH}", "HEAD"],

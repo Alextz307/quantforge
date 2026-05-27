@@ -79,6 +79,7 @@ class HoldoutSnapshot:
         mis-pointed path against a regular run manifest fails loud
         rather than silently zero-filling the table.
         """
+
         d = json_io.read_dict(path)
         is_holdout = d.get("is_holdout_eval")
         if is_holdout is not True:
@@ -141,11 +142,13 @@ class ConsolidatedStudyReport:
     @property
     def strategies(self) -> tuple[str, ...]:
         """Sorted tuple of every strategy seen across completed legs."""
+
         return tuple(sorted({s for (s, _) in self.per_leg_aggregate}))
 
     @property
     def universes(self) -> tuple[str, ...]:
         """Sorted tuple of every universe seen across completed legs."""
+
         return tuple(sorted({u for (_, u) in self.per_leg_aggregate}))
 
 
@@ -163,6 +166,7 @@ def consolidate_study(study_dir: Path) -> ConsolidatedStudyReport:
     legs are surfaced via :attr:`ConsolidatedStudyReport.incomplete_leg_ids`
     so the reporter can flag them in the consolidated manifest.
     """
+
     state_path = study_dir / STUDY_STATE_FILENAME
     if not state_path.is_file():
         raise FileNotFoundError(
@@ -228,6 +232,7 @@ def _try_read_comparison_pairwise(
     that had no compare run, or studies that were launched with
     ``--skip-compares``).
     """
+
     manifest_path = study_dir / COMPARISONS_SUBDIR / universe / MANIFEST_FILENAME
     if not manifest_path.is_file():
         return None

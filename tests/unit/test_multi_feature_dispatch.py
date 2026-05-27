@@ -45,6 +45,7 @@ _FAKE_SOURCE_SEED_MASK = 0xFFFF
 
 def _wide_frame(tickers: Sequence[str], *, seed: int = GLOBAL_NUMPY_SEED) -> pd.DataFrame:
     """Build a wide ``<col>_<TICKER>`` frame for ``tickers``."""
+
     suffixed = [
         make_synthetic_ohlcv_df(n_rows=_N_BARS, seed=seed + offset).add_suffix(f"_{ticker}")
         for offset, ticker in enumerate(tickers)
@@ -193,6 +194,7 @@ class TestFetchBarsMultiFeature:
 
     def test_single_ticker_multi_feature_path(self) -> None:
         """N=1 multi-feature is degenerate but legal — only the primary is fetched."""
+
         source = _FakeDataSource()
         cfg = _build_cfg(
             strategy_name="_MultiFeatureTestStub",
@@ -206,6 +208,7 @@ class TestFetchBarsMultiFeature:
 
     def test_two_ticker_multi_feature_uses_ticker_suffix_not_pairs_suffix(self) -> None:
         """Critical: 2-ticker multi-feature ≠ pairs at the data layer."""
+
         source = _FakeDataSource()
         cfg = _build_cfg(
             strategy_name="_MultiFeatureTestStub",
@@ -293,6 +296,7 @@ class TestWalkForwardDispatch:
         frame, that lookup would KeyError. Successful equity-curve return proves
         both halves of the dispatch — strategy got wide, engine got sliced.
         """
+
         bars = _wide_frame((_PRIMARY, _FEATURE))
         validator = WalkForwardValidator(n_splits=_N_SPLITS, test_size=_TEST_SIZE, gap=_GAP)
         strategy = _multi_feature_strategy(feature_tickers=(_FEATURE,))

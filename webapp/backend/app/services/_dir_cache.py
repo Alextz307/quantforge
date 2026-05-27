@@ -26,6 +26,7 @@ def cached_artifact_dirs(
     root: Path, kind: str, walker: Callable[[Path], Iterator[Path]]
 ) -> tuple[Path, ...]:
     """Return the artifact directories under ``root`` for ``kind``, TTL-cached."""
+
     paths, _ = _get_or_refresh(root, kind, walker)
     return paths
 
@@ -34,6 +35,7 @@ def cached_artifact_index(
     root: Path, kind: str, walker: Callable[[Path], Iterator[Path]]
 ) -> tuple[tuple[Path, ...], dict[str, Path]]:
     """Return paths plus a ``{dir.name: dir}`` index, TTL-cached together."""
+
     return _get_or_refresh(root, kind, walker)
 
 
@@ -44,6 +46,7 @@ def warm_index(root: Path, kind: str, name: str, path: Path) -> None:
     items written after the last snapshot) so successive lookups in the
     same TTL window skip the glob.
     """
+
     hit = _CACHE.get((str(root), kind))
     if hit is not None:
         hit[2][name] = path
@@ -65,4 +68,5 @@ def _get_or_refresh(
 
 def clear() -> None:
     """Drop every cached entry. Test fixture hook."""
+
     _CACHE.clear()

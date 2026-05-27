@@ -14,6 +14,7 @@ import numpy as np
 
 def seed_all(seed: int) -> None:
     """Seed numpy + stdlib random + torch (if available) from one scalar."""
+
     np.random.seed(seed)
     random.seed(seed)
     try:

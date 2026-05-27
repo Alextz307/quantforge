@@ -43,6 +43,7 @@ __all__ = [
 
 def _optional_metric(metrics: object, key: str) -> float | None:
     """Pull a numeric metric from a ``metrics`` block tolerant of missing/typed-wrong entries."""
+
     if not isinstance(metrics, dict):
         return None
     value = metrics.get(key)
@@ -59,6 +60,7 @@ def list_holdout_evals(
     all_users: bool,
 ) -> list[HoldoutEvalSummary]:
     """List every holdout eval under ``root`` visible to ``user``, newest first."""
+
     summaries: list[HoldoutEvalSummary] = []
     for eval_dir in cached_artifact_dirs(root, "holdout", iter_holdout_eval_dirs):
         payload = json_io.read_dict(eval_dir / HOLDOUT_EVAL_JSON)
@@ -74,6 +76,7 @@ def list_holdout_evals(
                 sharpe_ratio=sharpe,
             )
         )
+
     scoped = scope_and_stamp_summaries(
         summaries, key_fn=lambda s: s.name, conn=conn, user=user, all_users=all_users
     )
@@ -93,6 +96,7 @@ def get_holdout_eval(
     Raises :class:`ArtifactAccessDeniedError` when ``user`` is neither owner
     nor admin; the router maps that to 404.
     """
+
     check_artifact_access(conn, experiment_id=name, user=user)
     eval_dir = find_holdout_eval_dir(root, name)
     payload = json_io.read_dict(eval_dir / HOLDOUT_EVAL_JSON)
@@ -135,5 +139,6 @@ def resolve_plot(
     user: UserPublic,
 ) -> Path:
     """Resolve a holdout-eval plot filename to an absolute path, blocking traversal."""
+
     check_artifact_access(conn, experiment_id=name, user=user)
     return resolve_plot_path(find_holdout_eval_dir(root, name), plot_name)

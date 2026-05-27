@@ -107,4 +107,5 @@ def load_hpo_config(path: str | Path) -> HPOConfig:
     "not found / empty / validation failed" framing stays identical
     across every ``experiment`` subcommand.
     """
+
     return load_yaml_config(path, HPOConfig, "hpo")

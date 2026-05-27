@@ -33,6 +33,7 @@ def _make_feature_pipeline_factory(
     Split out so the closure binds ``features_cfg`` once, not a loop variable —
     avoids the late-binding trap if this ever ends up inside a loop.
     """
+
     return lambda: feature_registry.create_from_config(features_cfg)
 
 
@@ -49,6 +50,7 @@ def _validate_strategy_data_shape(cfg: ExperimentConfig) -> None:
 
     Any mismatch is rejected here, before any data fetch.
     """
+
     n_tickers = len(cfg.data.tickers)
     strategy_cls = strategy_registry.get(cfg.strategy.name)
     if not issubclass(strategy_cls, IStrategy):
@@ -119,6 +121,7 @@ def _validate_strategy_data_shape(cfg: ExperimentConfig) -> None:
 
 def build_experiment(cfg: ExperimentConfig) -> Experiment:
     """Instantiate every component referenced by ``cfg`` and bundle into an :class:`Experiment`."""
+
     _validate_strategy_data_shape(cfg)
     data_source = data_source_registry.create_from_config(cfg.data.source)
     strategy = strategy_registry.create_from_config(cfg.strategy)

@@ -18,12 +18,14 @@ def compute_log_returns(close: pd.Series[float]) -> pd.Series[float]:
     Equivalent to ``log(close[t] / close[t-1])``.  The first value is
     NaN (no prior close).  Callers should ``.dropna()`` when needed.
     """
+
     result: pd.Series[float] = np.log1p(close.pct_change())  # type: ignore[assignment]
     return result
 
 
 def validate_open_unit_interval(value: float, name: str) -> None:
     """Ensure ``value`` lies in the open interval ``(0, 1)``; raise ``ValueError`` otherwise."""
+
     if not (0.0 < value < 1.0):
         raise ValueError(
             f"{name} must be in (0, 1), got {value}; fix by passing a strictly "
@@ -45,6 +47,7 @@ def annualized_garman_klass(
     Leading ``window-1`` values are NaN (warmup); callers should ``.dropna()``
     before using the result as a training target.
     """
+
     gk = quant_engine.GarmanKlass(window).compute(
         bars["open"].to_numpy(dtype=float, copy=False),
         bars["high"].to_numpy(dtype=float, copy=False),
@@ -64,6 +67,7 @@ def next_bar_direction(close: pd.Series[float]) -> pd.Series[int]:
     no ``t+1`` close — returning its comparison would be a leakage hazard
     — so it's dropped, not filled.
     """
+
     direction: pd.Series[int] = (close.shift(-1) > close).astype(int).iloc[:-1]
     return direction
 
@@ -81,6 +85,7 @@ def align_features_for_directional_target(
     feature column is non-NaN. Callers that need a column subset should
     pre-subset ``features`` before calling.
     """
+
     target = next_bar_direction(close)
     features_aligned = features.loc[target.index]
     valid_mask = features_aligned.notna().all(axis=1)

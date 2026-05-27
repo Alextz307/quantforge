@@ -53,6 +53,7 @@ def _extract_name(spec: str) -> str:
     Strips surrounding single/double quotes (CI YAML wraps extras like
     ``'uvicorn[standard]'`` so the shell doesn't glob them).
     """
+
     stripped = spec.strip("\"'")
     match = _PACKAGE_NAME_RE.match(stripped)
     if not match:
@@ -62,17 +63,20 @@ def _extract_name(spec: str) -> str:
 
 def _is_type_stub(name: str) -> bool:
     """Heuristic for PEP 561 stub packages: ``types-*`` or ``*-stubs``."""
+
     return name.startswith("types-") or name.endswith("-stubs")
 
 
 def _runtime_dep_names(pyproject_text: str) -> list[str]:
     """Canonicalized runtime dep names from a ``pyproject.toml`` text."""
+
     deps = tomllib.loads(pyproject_text)["project"]["dependencies"]
     return [_extract_name(d) for d in deps]
 
 
 def _dev_type_stub_names(pyproject_text: str) -> list[str]:
     """Canonicalized type-stub names from the ``dev`` optional-deps group."""
+
     parsed = tomllib.loads(pyproject_text)
     dev_deps = parsed.get("project", {}).get("optional-dependencies", {}).get("dev", [])
     return [name for d in dev_deps if _is_type_stub(name := _extract_name(d))]
@@ -91,6 +95,7 @@ def find_missing_deps(pyproject_text: str, ci_yaml_text: str) -> list[str]:
     Raises:
         ValueError: if the ``python-test`` pip install line cannot be located.
     """
+
     runtime_deps = set(_runtime_dep_names(pyproject_text))
     ci_packages = _ci_install_packages(ci_yaml_text, _PYTHON_TEST_INSTALL_RE, "python-test")
     return sorted(runtime_deps - ci_packages)
@@ -102,6 +107,7 @@ def find_missing_type_stubs(pyproject_text: str, ci_yaml_text: str) -> list[str]
     Raises:
         ValueError: if the ``lint-and-typecheck`` pip install line cannot be located.
     """
+
     stubs = set(_dev_type_stub_names(pyproject_text))
     ci_packages = _ci_install_packages(ci_yaml_text, _LINT_INSTALL_RE, "lint-and-typecheck")
     return sorted(stubs - ci_packages)

@@ -24,5 +24,6 @@ class IFeaturePipeline(ABC):
 
     def fit_transform(self, train_data: pd.DataFrame) -> pd.DataFrame:
         """Convenience: fit + transform on training data."""
+
         self.fit(train_data)
         return self.transform(train_data)

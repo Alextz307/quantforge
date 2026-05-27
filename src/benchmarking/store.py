@@ -97,6 +97,7 @@ class BenchmarkStore:
         requires the run to carry every listed tag. ``commit`` matches the
         run's hardware git_sha prefix (allowing short/long SHAs).
         """
+
         tag_set = set(tags) if tags is not None else set()
         # Run filenames encode the ISO timestamp with colons replaced by dashes
         # (`<safe_ts>_<sha7>.jsonl`). For the `since` filter we can compare the

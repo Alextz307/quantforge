@@ -18,6 +18,7 @@ logger = get_logger(__name__)
 
 def _compute_rsi(close: pd.Series[float], period: int = 14) -> pd.Series[float]:
     """Compute RSI via the C++ binding (Wilder's smoothing)."""
+
     values = quant_engine.RSI(period).compute(np.asarray(close, dtype=np.float64))
     return pd.Series(values, index=close.index)
 
@@ -29,6 +30,7 @@ def _compute_macd(
     signal: int = 9,
 ) -> tuple[pd.Series[float], pd.Series[float], pd.Series[float]]:
     """Compute MACD line, signal line, and histogram via the C++ binding."""
+
     result = quant_engine.MACD(fast, slow, signal).compute_all(np.asarray(close, dtype=np.float64))
     macd_line = pd.Series(result.macd_line, index=close.index)
     signal_line = pd.Series(result.signal_line, index=close.index)
@@ -90,6 +92,7 @@ class FeatureEngineeringPipeline(IFeaturePipeline):
         ``MomentumGatekeeperStrategy.save``) can round-trip the scaler
         through the public API instead of reaching into ``_scaler``.
         """
+
         return self._scaler
 
     @scaler.setter
@@ -101,6 +104,7 @@ class FeatureEngineeringPipeline(IFeaturePipeline):
         assumed fitted — sklearn will raise on the first ``transform()``
         call otherwise.
         """
+
         self._scaler = value
 
     @property
@@ -109,6 +113,7 @@ class FeatureEngineeringPipeline(IFeaturePipeline):
 
         C++ MACD signal line emits NaN for the first ``slow + signal - 2`` bars.
         """
+
         macd_signal_warmup = self._macd_slow + self._macd_signal - 2
         return max(
             self._long_return_period,
@@ -120,6 +125,7 @@ class FeatureEngineeringPipeline(IFeaturePipeline):
 
     def _compute_raw_features(self, data: pd.DataFrame) -> pd.DataFrame:
         """Compute all raw features before scaling."""
+
         close: pd.Series[float] = data["close"]
 
         features = pd.DataFrame(index=data.index)
@@ -151,6 +157,7 @@ class FeatureEngineeringPipeline(IFeaturePipeline):
         Raises:
             LeakageError: If called more than once.
         """
+
         guard_scaler_fit_once(self._scaler, "FeatureEngineeringPipeline")
 
         features = self._compute_raw_features(train_data)
@@ -161,6 +168,7 @@ class FeatureEngineeringPipeline(IFeaturePipeline):
 
         Precondition: callers must invoke ``guard_scaler_fit_once`` first.
         """
+
         self._scaler = StandardScaler()
         valid_mask = features.notna().all(axis=1)
         if valid_mask.any():
@@ -170,6 +178,7 @@ class FeatureEngineeringPipeline(IFeaturePipeline):
 
     def fit_transform(self, train_data: pd.DataFrame) -> pd.DataFrame:
         """Fit scaler and transform in one pass (avoids double feature computation)."""
+
         guard_scaler_fit_once(self._scaler, "FeatureEngineeringPipeline")
 
         features = self._compute_raw_features(train_data)
@@ -187,6 +196,7 @@ class FeatureEngineeringPipeline(IFeaturePipeline):
         Raises:
             RuntimeError: If called before ``fit()``.
         """
+
         if self._scaler is None:
             raise RuntimeError(
                 "FeatureEngineeringPipeline.transform() called before fit(); "
@@ -199,6 +209,7 @@ class FeatureEngineeringPipeline(IFeaturePipeline):
 
     def _maybe_attach_ohlc(self, features: pd.DataFrame, source: pd.DataFrame) -> pd.DataFrame:
         """Concatenate raw OHLCV onto ``features`` when ``keep_ohlc=True``."""
+
         if not self._keep_ohlc:
             return features
         present = [c for c in OHLCV_COLUMNS if c in source.columns]
@@ -208,6 +219,7 @@ class FeatureEngineeringPipeline(IFeaturePipeline):
 
     def _apply_scaler_in_place(self, features: pd.DataFrame) -> None:
         """Scale non-NaN rows in place. Leading warmup NaNs are preserved."""
+
         assert self._scaler is not None
         valid_mask = features.notna().all(axis=1)
         if valid_mask.any():

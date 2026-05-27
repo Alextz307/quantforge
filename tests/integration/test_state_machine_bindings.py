@@ -37,6 +37,7 @@ def _python_mean_reversion(
     Kept inlined so the test remains valid if the Python implementation is
     ever re-deleted or refactored.
     """
+
     n = len(close)
     out = np.full(n, np.nan, dtype=np.float64)
     position = 0.0

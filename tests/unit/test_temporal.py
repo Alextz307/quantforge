@@ -80,6 +80,7 @@ class TestTemporalSplit:
 
     def test_rejects_adjacent_train_test(self) -> None:
         """Train end == test start (same timestamp) should be rejected."""
+
         idx = pd.DatetimeIndex(pd.date_range(ADJACENT_DF_START, periods=ADJACENT_DF_ROWS, freq="D"))
         data = pd.DataFrame({"v": range(ADJACENT_DF_ROWS)}, index=idx)
         train_overlap = data.iloc[:ADJACENT_TRAIN_END]
@@ -186,6 +187,7 @@ class TestWalkForwardValidator:
 
     def test_no_temporal_leakage(self) -> None:
         """Every split's train max < test min (guaranteed by TemporalSplit)."""
+
         df = make_daily_df(WF_LARGE_DF_ROWS)
         validator = WalkForwardValidator(
             n_splits=WF_DEFAULT_N_SPLITS, test_size=WF_DEFAULT_TEST_SIZE, gap=WF_DEFAULT_GAP
@@ -304,6 +306,7 @@ class TestResolveHoldoutBoundary:
 
     def test_pct_split_dev_and_holdout_are_strictly_temporal(self) -> None:
         """The returned boundary, used as documented, yields a clean split."""
+
         df = make_daily_df(HB_DF_ROWS)
         boundary = resolve_holdout_boundary(df, holdout_pct=HB_PCT)
         assert boundary is not None
@@ -314,6 +317,7 @@ class TestResolveHoldoutBoundary:
 
     def test_pct_composes_cleanly_with_temporal_split(self) -> None:
         """Tripwire #3: TemporalSplit accepts the resolved boundary."""
+
         df = make_daily_df(HB_DF_ROWS)
         boundary = resolve_holdout_boundary(df, holdout_pct=HB_PCT)
         assert boundary is not None
@@ -340,6 +344,7 @@ class TestResolveHoldoutBoundary:
         would silently shift bars across the dev / holdout line — the
         exact leakage vector we're defending against.
         """
+
         df = make_daily_df(HB_DF_ROWS)
         phantom = pd.Timestamp(df.index[0]) - pd.Timedelta(days=1)
         with pytest.raises(LeakageError, match="not present in the fetched data"):
@@ -348,6 +353,7 @@ class TestResolveHoldoutBoundary:
     def test_both_knobs_set_raises(self) -> None:
         """Defense in depth: even if config validation is bypassed, the
         helper refuses ambiguous input."""
+
         df = make_daily_df(HB_DF_ROWS)
         with pytest.raises(ValueError, match="at most one of holdout_pct / holdout_start"):
             resolve_holdout_boundary(
@@ -361,6 +367,7 @@ class TestResolveHoldoutBoundary:
 
     def test_pct_too_small_empties_holdout_raises(self) -> None:
         """Sub-per-bar fractions round to cutoff == len(df)."""
+
         df = make_daily_df(HB_TINY_DF_ROWS)
         with pytest.raises(ValueError, match="empty holdout region"):
             resolve_holdout_boundary(df, holdout_pct=HB_FLOAT_EPS_PCT)
@@ -375,6 +382,7 @@ class TestResolveHoldoutBoundary:
         derived from the pct's first run — yield identical results. This is
         how the manifest round-trip is supposed to work in practice: dev run
         records the derived timestamp, holdout eval reads it back pinned."""
+
         df = make_daily_df(HB_DF_ROWS)
         via_pct = resolve_holdout_boundary(df, holdout_pct=HB_PCT)
         assert via_pct is not None

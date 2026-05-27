@@ -128,6 +128,7 @@ def _maybe_inject_standard_features(payload: dict[str, object]) -> None:
 
     User-supplied ``features`` blocks pass through unchanged.
     """
+
     if payload.get("features") is not None:
         return
     strategy = payload.get("strategy")
@@ -205,6 +206,7 @@ def _extract_study_name(hpo_payload: dict[str, object]) -> str:
     ``study_name`` is a non-empty path-safe string. Defensive re-check
     rather than threading the parsed model through.
     """
+
     raw = hpo_payload.get("study_name")
     if not isinstance(raw, str) or not raw:
         raise JobConfigInvalidError(
@@ -229,6 +231,7 @@ def _resolve_compare_inputs(
     accumulate across all bad indices so the UI can highlight every
     problematic row in a single 422 response.
     """
+
     errors: list[ValidationErrorItem] = []
     config_paths: list[Path] = []
     reuse_run_dirs: list[Path] = []
@@ -265,6 +268,7 @@ def _resolve_holdout_source(payload: HoldoutPayload, store_root: Path) -> tuple[
     ``payload.out_name`` if set, else the source basename (matches the
     CLI's default).
     """
+
     loc = ["holdout_payload", "source_id"]
     if payload.source_kind == "run":
         try:
@@ -364,6 +368,7 @@ def _resolve_spec_path(payload: StudyPayload, ctx: _HandlerCtx) -> Path:
     lookup is unambiguous. Caller is responsible for surfacing a 422 if
     neither location resolves.
     """
+
     upload_path = find_upload_path(
         ctx.study_spec_uploads_dir, ctx.user.id, payload.spec_name
     )
@@ -383,6 +388,7 @@ def _resolve_study_spec(payload: StudyPayload, ctx: _HandlerCtx) -> tuple[StudyS
     rooted at ``["study_payload", "spec_name", ...]`` so the form can
     highlight the offending field.
     """
+
     spec_path = _resolve_spec_path(payload, ctx)
     try:
         raw = spec_path.read_text(encoding="utf-8")
@@ -435,6 +441,7 @@ def _resolve_study_spec(payload: StudyPayload, ctx: _HandlerCtx) -> tuple[StudyS
 
 def _validate_only_legs(only_legs: list[str], spec_legs: list[StudyLeg]) -> None:
     """Each ``only_legs`` entry must match a leg id derived from the spec."""
+
     if not only_legs:
         return
     valid_ids: set[str] = {
@@ -646,6 +653,7 @@ async def submit_job(
     placeholder row is inserted so a rejected submission leaves no orphan
     state behind.
     """
+
     ctx = _HandlerCtx(
         user=user,
         conn=conn,
@@ -709,8 +717,10 @@ async def _persist_and_spawn(
         ),
     )
     conn.commit()
+
     for path, payload in plan.configs_to_write.items():
         _write_config_yaml(path, payload)
+
     pid = await manager.spawn(
         job_id=row.id,
         kind=kind,
@@ -736,6 +746,7 @@ def list_jobs_for(
     error on click. Non-terminal jobs are kept regardless (their artifact
     may not exist yet).
     """
+
     if all_users:
         if user.role is not Role.ADMIN:
             raise JobNotOwnedError("only admins can list all users' jobs")
@@ -795,6 +806,7 @@ async def cancel_job(
 
 def reconcile_orphans(conn: sqlite3.Connection) -> int:
     """Mark RUNNING rows whose PID is no longer alive as FAILED; returns the count."""
+
     orphans = 0
     for job in list_running_jobs(conn):
         if job.pid is None or not _pid_alive(job.pid):

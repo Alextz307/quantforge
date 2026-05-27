@@ -69,6 +69,7 @@ logger = get_logger(__name__)
 )
 def cli(log_level: str) -> None:
     """Quant-engine experiment orchestrator."""
+
     logging.basicConfig(level=log_level.upper(), format=CLI_LOG_FORMAT)
 
 
@@ -164,6 +165,7 @@ def run_cmd(
     username: str | None,
 ) -> None:
     """Execute a single walk-forward experiment end-to-end."""
+
     with attach_cli_log_file(store_root, "experiment_run") as log_path:
         try:
             cfg = load_experiment_config(config_path)
@@ -294,6 +296,7 @@ def tune_cmd(
     completed trial (Optuna's semantics: ``n_trials`` is the number of
     NEW trials to run each invocation, not a cap on total trials).
     """
+
     # Defer optuna so unrelated subcommands don't pay its import cost.
     from src.optimization.tuner import StrategyTuner
     from src.visualization.hpo_reporter import HPOReporter
@@ -448,6 +451,7 @@ def compare_cmd(
     that directory (instead of the top-level ``experiment_results/runs/``)
     so the comparison bundle is self-contained.
     """
+
     from src.visualization.comparison_reporter import ComparisonReporter
 
     if len(config_paths) < 2:
@@ -588,6 +592,7 @@ def holdout_eval_cmd(
     (not reused from the source's last-fold state) so the OOS number
     reflects the strongest honest fit the framework can produce.
     """
+
     if (run_dir is None) == (hpo_dir is None):
         raise click.ClickException(
             "holdout-eval requires exactly one of --run-dir / --hpo-best; pass exactly one source."
@@ -647,6 +652,7 @@ def holdout_eval_cmd(
 
 def _apply_hpo_overrides(cfg: HPOConfig, *, n_trials: int | None, n_jobs: int | None) -> HPOConfig:
     """Rebuild the HPO config with CLI overrides, re-running validators."""
+
     if n_trials is None and n_jobs is None:
         return cfg
     payload = cfg.model_dump(mode="json")
@@ -674,6 +680,7 @@ def _override_experiment(
     in a half-validated state (e.g. an empty-string ``name`` from the CLI
     would be caught by ``min_length=1``).
     """
+
     payload = cfg.model_dump(mode="json")
     if name is not None:
         payload["name"] = name
@@ -690,6 +697,7 @@ def _load_reused_runs(raw: str | None, *, n_configs: int) -> list[ExperimentResu
     dirs so the user sees the usual CLI-error framing instead of a raw
     traceback.
     """
+
     if raw is None:
         return None
     raw_paths = [p.strip() for p in raw.split(",") if p.strip()]
@@ -716,6 +724,7 @@ def _apply_dotted_overrides(cfg: ExperimentConfig, overrides: tuple[str, ...]) -
     primitives, mutate the dict via :func:`apply_overrides`, then ``model_validate``
     so the returned object is fully validated against the same schema.
     """
+
     if not overrides:
         return cfg
     payload = cfg.model_dump(mode="json")
@@ -767,6 +776,7 @@ def clean_cmd(store_root: Path, apply: bool, keep: tuple[str, ...]) -> None:
     git-tracked files; pass ``--keep <name>`` for each to exclude them
     and rerun.
     """
+
     from src.orchestration.clean import apply_clean, format_plan, plan_clean
 
     plan = plan_clean(store_root, keep=keep)

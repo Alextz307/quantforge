@@ -69,6 +69,7 @@ def test_reactivate_preserves_artifact_ownership(db_conn: sqlite3.Connection) ->
     that user ever launched silently becomes ownerless. This test fails the
     moment that happens.
     """
+
     original = create_user(db_conn, username=ALEX, password=PASSWORD, role=Role.USER)
     db_conn.execute(
         "INSERT INTO jobs (id, user_id, kind, command, config_path, log_path, "

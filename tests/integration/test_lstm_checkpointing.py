@@ -111,6 +111,7 @@ def test_checkpoint_survives_mid_fit_interrupt(
     is loadable and shape-compatible with the model — i.e. the most recent
     successful write was atomic from the consumer's point of view.
     """
+
     seed_globally()
     train = df.iloc[:-1]
     p = _build_predictor(features, epochs=LONGER_EPOCHS)

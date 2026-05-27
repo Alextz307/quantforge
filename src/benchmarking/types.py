@@ -323,6 +323,7 @@ class ComparisonReport:
             RegressionReport.from_dict(r) if isinstance(r, dict) else _reject("report")
             for r in reports_raw
         )
+
         return cls(
             baseline_run_id=json_io.get_str(d, "baseline_run_id"),
             current_run_id=json_io.get_str(d, "current_run_id"),

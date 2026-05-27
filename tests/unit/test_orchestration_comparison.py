@@ -81,6 +81,7 @@ def patched_build(monkeypatch: pytest.MonkeyPatch) -> dict[str, float]:
     a name→sharpe dict the test fills. The fixture returns the dict so
     tests can populate it before invoking ``run_comparison``.
     """
+
     sharpe_by_name: dict[str, float] = {}
 
     def _fake_build(cfg: ExperimentConfig) -> _StubExperiment:

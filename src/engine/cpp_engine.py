@@ -101,8 +101,10 @@ class CppBacktestEngine(IBacktestEngine):
         slippage: SlippageConfig,
     ) -> BacktestResult:
         _validate_inputs(bars, signals)
+
         ts, o, h, lo, c, v = _bars_to_arrays(bars)
         sig = signals.to_numpy(dtype=np.float64, copy=False)
+
         return self._engine.run(
             timestamps=ts,
             open=o,
@@ -121,8 +123,10 @@ class CppBacktestEngine(IBacktestEngine):
         scenarios: Sequence[SlippageConfig],
     ) -> list[BacktestResult]:
         _validate_inputs(bars, signals)
+
         ts, o, h, lo, c, v = _bars_to_arrays(bars)
         sig = signals.to_numpy(dtype=np.float64, copy=False)
+
         return self._engine.run_scenarios(
             timestamps=ts,
             open=o,
@@ -150,9 +154,11 @@ class CppBacktestEngine(IBacktestEngine):
                 "by inner-joining the two leg fetches before invoking the "
                 "pairs engine."
             )
+
         ts, oa, ha, la, ca, va = _bars_to_arrays(bars_a)
         ob, hb, lb, cb, vb = _bars_to_ohlcv_arrays(bars_b)
         sig = signals.to_numpy(dtype=np.float64, copy=False)
+
         return self._engine.run_pairs(
             timestamps=ts,
             open_a=oa,

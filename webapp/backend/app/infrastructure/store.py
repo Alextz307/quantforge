@@ -62,6 +62,7 @@ def iter_artifact_dirs(root: Path, subdir: str, manifest_filename: str) -> Itera
     (``<store>/<subdir>/<name>``) and nested (``studies/<x>/<subdir>/<name>``)
     layouts.
     """
+
     if not root.is_dir():
         return
     for manifest in root.glob(f"**/{subdir}/*/{manifest_filename}"):
@@ -81,6 +82,7 @@ def find_artifact_dir(
     Raises ``not_found`` (a subclass of :class:`ArtifactNotFoundError`) when
     no artifact with that name exists under ``root``.
     """
+
     if root.is_dir():
         for manifest in root.glob(f"**/{subdir}/{name}/{manifest_filename}"):
             return manifest.parent
@@ -101,16 +103,19 @@ def store_label(artifact_dir: Path, root: Path) -> str:
     ``Path("experiment_results")``) with already-resolved artifact dirs
     (returned by ``find_*_by_wire_id`` helpers).
     """
+
     return artifact_dir.resolve().parent.relative_to(root.resolve()).as_posix()
 
 
 def iter_run_dirs(root: Path) -> Iterator[Path]:
     """Yield every run directory under ``root``."""
+
     return iter_artifact_dirs(root, _RUNS_SUBDIR, EXPERIMENT_MANIFEST_JSON)
 
 
 def find_run_dir(root: Path, experiment_id: str) -> Path:
     """Resolve an ``experiment_id`` to its run directory."""
+
     return find_artifact_dir(
         root,
         _RUNS_SUBDIR,
@@ -122,11 +127,13 @@ def find_run_dir(root: Path, experiment_id: str) -> Path:
 
 def iter_comparison_dirs(root: Path) -> Iterator[Path]:
     """Yield every comparison directory under ``root``."""
+
     return iter_artifact_dirs(root, COMPARISONS_SUBDIR, EXPERIMENT_MANIFEST_JSON)
 
 
 def find_comparison_dir(root: Path, name: str) -> Path:
     """Resolve a comparison ``name`` to its directory."""
+
     return find_artifact_dir(
         root,
         COMPARISONS_SUBDIR,
@@ -138,11 +145,13 @@ def find_comparison_dir(root: Path, name: str) -> Path:
 
 def iter_holdout_eval_dirs(root: Path) -> Iterator[Path]:
     """Yield every holdout-eval directory under ``root``."""
+
     return iter_artifact_dirs(root, HOLDOUT_EVALS_SUBDIR, HOLDOUT_EVAL_JSON)
 
 
 def find_holdout_eval_dir(root: Path, name: str) -> Path:
     """Resolve a holdout-eval ``name`` to its directory."""
+
     return find_artifact_dir(
         root,
         HOLDOUT_EVALS_SUBDIR,
@@ -154,11 +163,13 @@ def find_holdout_eval_dir(root: Path, name: str) -> Path:
 
 def iter_study_dirs(root: Path) -> Iterator[Path]:
     """Yield every study directory under ``root``."""
+
     return iter_artifact_dirs(root, STUDIES_SUBDIR, STUDY_STATE_FILENAME)
 
 
 def find_study_dir(root: Path, name: str) -> Path:
     """Resolve a study ``name`` to its directory."""
+
     return find_artifact_dir(
         root,
         STUDIES_SUBDIR,
@@ -170,6 +181,7 @@ def find_study_dir(root: Path, name: str) -> Path:
 
 def iter_hpo_study_dirs(root: Path) -> Iterator[Path]:
     """Yield every HPO-study directory under ``root``."""
+
     return iter_artifact_dirs(root, HPO_SUBDIR, TRIALS_JSONL_NAME)
 
 
@@ -180,6 +192,7 @@ def find_hpo_study_dir(root: Path, name: str) -> Path:
     studies share the same name. Use :func:`find_hpo_study_dir_by_wire_id`
     for deterministic lookup against nested study trees.
     """
+
     return find_artifact_dir(
         root,
         HPO_SUBDIR,
@@ -206,6 +219,7 @@ def hpo_wire_id_from_dir(study_dir: Path, root: Path) -> str:
     (test fixtures) — the listing-glob path and the detail-resolver path
     can disagree on which they hold.
     """
+
     return (
         study_dir.resolve().relative_to(root.resolve()).as_posix().replace("/", HPO_WIRE_DELIMITER)
     )
@@ -218,6 +232,7 @@ def find_hpo_study_dir_by_wire_id(root: Path, wire_id: str) -> Path:
     ``root``, verifies the result is still under ``root`` (path-traversal
     guard), and confirms it contains the HPO trials file.
     """
+
     if HPO_WIRE_DELIMITER not in wire_id and "/" in wire_id:
         # Reject leaked slashes — wire ids must use the encoded form so
         # routing stays single-segment.

@@ -26,6 +26,7 @@ def sample_trial_params(cfg: ExperimentConfig, trial: optuna.trial.BaseTrial) ->
     ``ExperimentConfig.strategy.params`` with sampled values winning —
     that merge is the tuner's job, not the sampler's.
     """
+
     strategy_cls = strategy_registry.get(cfg.strategy.name)
     suggested: dict[str, object] = strategy_cls.suggest_params(trial)
     return suggested

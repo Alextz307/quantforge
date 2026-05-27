@@ -115,6 +115,7 @@ async def stream_hpo(
     byte 0 then yields live appends through the same loop, so the WS
     handler doesn't have to deduplicate against a replay set.
     """
+
     user = resolve_ws_user(websocket)
     if user is None:
         await websocket.close(code=WS_CLOSE_UNAUTHORIZED)

@@ -93,6 +93,7 @@ def mocked_tuner_env(
     Returns a callable that resets the per-test trial counter so each
     test starts from the same deterministic state.
     """
+
     counter = {"n": 0}
 
     def _fake_build(cfg: ExperimentConfig) -> _FakeExperiment:
@@ -116,6 +117,7 @@ def mocked_tuner_env(
 def _window_for_trial(n: int) -> int:
     """Deterministic rotation across the AdaptiveBollinger window search space
     [10, 50] giving monotone coverage around the peak."""
+
     return 10 + (n * 5) % 41
 
 

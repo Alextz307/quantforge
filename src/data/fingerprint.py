@@ -61,6 +61,7 @@ def fingerprint_bars(df: pd.DataFrame) -> str:
     part of the hash so a frame missing ``volume`` cannot collide with
     one where volume is all-zeros.
     """
+
     return _fingerprint(df, OHLCV_COLUMNS, "fingerprint_bars")
 
 
@@ -70,6 +71,7 @@ def fingerprint_pair_bars(df: pd.DataFrame) -> str:
     Expects ``open_a / high_a / ... / volume_b`` columns produced by the
     multi-ticker fetch path.
     """
+
     suffix_a, suffix_b = PAIRS_LEG_SUFFIXES
     leg_cols = [f"{c}{suffix_a}" for c in OHLCV_COLUMNS] + [f"{c}{suffix_b}" for c in OHLCV_COLUMNS]
     return _fingerprint(df, leg_cols, "fingerprint_pair_bars")
@@ -84,6 +86,7 @@ def fingerprint_multi_bars(df: pd.DataFrame, tickers: Sequence[str]) -> str:
     the same set of tickers always produces the same hash regardless of
     whether the caller passed ``[SPY, QQQ]`` or ``[QQQ, SPY]``.
     """
+
     sorted_tickers = sorted(tickers)
     leg_cols = [f"{c}_{t}" for t in sorted_tickers for c in OHLCV_COLUMNS]
     return _fingerprint(df, leg_cols, "fingerprint_multi_bars")
@@ -114,6 +117,7 @@ def assert_data_hash_matches(
     compute it once and pass it in; the helper does NOT recompute (the
     fingerprint is O(N bars) and a comparison loop should pay it once).
     """
+
     if actual != expected:
         hint = fix_hint or (
             "Fix by using the same data source / cache as the original "

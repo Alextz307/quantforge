@@ -108,6 +108,7 @@ class TestFeatureFactory:
 
     def test_each_instance_fit_exactly_once(self) -> None:
         """No fit-once guard trips because every instance is fresh."""
+
         bars = make_synthetic_ohlcv_df()
         validator = WalkForwardValidator(n_splits=_N_SPLITS, test_size=_TEST_SIZE, gap=_GAP)
         recorder = _FactoryRecorder()
@@ -142,6 +143,7 @@ class TestFeatureFactory:
     def test_default_no_factory_produces_same_fold_count(self) -> None:
         """No factory means no feature application; strategy sees raw bars.
         Smoke check that the existing default path still works."""
+
         bars = make_synthetic_ohlcv_df()
         validator = WalkForwardValidator(n_splits=_N_SPLITS, test_size=_TEST_SIZE, gap=_GAP)
         results = evaluate_walk_forward(

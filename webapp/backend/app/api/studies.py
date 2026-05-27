@@ -88,6 +88,7 @@ async def post_study_consolidated(
     loop stays responsive while the (few-seconds) job completes. A study
     that hasn't completed any legs yet returns 422.
     """
+
     try:
         return await run_in_threadpool(
             generate_consolidated, get_settings().store_root, name, conn=conn, user=user
@@ -140,6 +141,7 @@ async def stream_study(websocket: WebSocket, name: str) -> None:
     webapp-launched and CLI-launched studies surface; the watcher cares
     about disk state, not whose process is writing.
     """
+
     user = resolve_ws_user(websocket)
     if user is None:
         await websocket.close(code=WS_CLOSE_UNAUTHORIZED)

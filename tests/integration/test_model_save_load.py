@@ -61,6 +61,7 @@ def log_return_target(close_df: pd.DataFrame) -> pd.Series:
 @pytest.fixture
 def lstm_df() -> pd.DataFrame:
     """DataFrame with multiple feature columns suitable for LSTMPredictor."""
+
     rng = np.random.default_rng(SYNTH_SEED)
     idx = pd.bdate_range(start="2020-01-02", periods=100, freq="B")
     close = 100.0 * np.cumprod(1 + rng.normal(0.0003, 0.01, 100))
@@ -216,6 +217,7 @@ class TestLSTMSaveLoad:
         ``.pt`` payload directly: every tensor's device must be CPU regardless
         of where the live model lives.
         """
+
         original = LSTMPredictor(
             feature_columns=lstm_features,
             hidden_dim=LSTM_HIDDEN_DIM,

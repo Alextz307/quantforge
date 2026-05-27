@@ -28,6 +28,7 @@ from src.core.hpo_config import SamplerKind
 
 def build_sampler(kind: SamplerKind, seed: int) -> BaseSampler:
     """Instantiate the requested Optuna sampler with a deterministic seed."""
+
     match kind:
         case SamplerKind.TPE:
             return TPESampler(seed=seed)

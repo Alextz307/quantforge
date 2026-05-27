@@ -107,6 +107,7 @@ class TestWalkForwardDeepCheck:
         metadata drifted forward so its training region overlaps the
         incoming fold's test window.
         """
+
         s = AdaptiveBollingerStrategy(
             window=_BOLLINGER_WINDOW,
             trend_window=_BOLLINGER_TREND,

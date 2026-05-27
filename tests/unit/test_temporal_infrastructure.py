@@ -196,6 +196,7 @@ class TestTrainingMetadata:
 
     def test_validate_no_overlap_boundary(self, sample_metadata: TrainingMetadata) -> None:
         """Eval data starting exactly at train_end should be rejected."""
+
         boundary = make_daily_df(META_BOUNDARY_DF_ROWS, start=META_BOUNDARY_START)
         with pytest.raises(LeakageError):
             sample_metadata.validate_no_overlap(boundary)
@@ -229,6 +230,7 @@ class TestTrainingMetadata:
 
     def test_training_metadata_none_before_fit(self) -> None:
         """IPredictor.training_metadata returns None before fit()."""
+
         from src.models.interface import IPredictor
 
         class DummyPredictor(IPredictor):

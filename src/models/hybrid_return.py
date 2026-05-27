@@ -167,6 +167,7 @@ class HybridReturnModel(IPredictor):
                 checkpointing of the residual-correction leaf.
             **kwargs: Forwarded to LSTM fit — supports Optuna ``trial``.
         """
+
         guard_scaler_fit_once(self._scaler, "HybridReturnModel")
 
         target_clean = target.dropna()
@@ -206,6 +207,7 @@ class HybridReturnModel(IPredictor):
 
         First ``lstm_lookback`` rows inherit NaN from the LSTM component.
         """
+
         self._assert_fitted_with_metadata()
         if self._scaler is None:
             raise RuntimeError(
@@ -226,6 +228,7 @@ class HybridReturnModel(IPredictor):
 
     def predict_single(self, recent_window: pd.DataFrame) -> float:
         """Single hybrid return forecast from a recent window."""
+
         self._assert_fitted_with_metadata()
         return float(self.predict(recent_window).iloc[-1])
 
@@ -234,6 +237,7 @@ class HybridReturnModel(IPredictor):
         DataFrame the LSTM can consume. Callers must ensure ``training_metadata``
         is set first (the ``cast`` is safe under that precondition).
         """
+
         scaler = cast(StandardScaler, self._scaler)
         scaled = scaler.transform(feature_frame)
         return pd.DataFrame(scaled, index=feature_frame.index, columns=self._feature_columns)
@@ -244,6 +248,7 @@ class HybridReturnModel(IPredictor):
 
         Every ctor kwarg is persisted in the composite's own ``config.json``.
         """
+
         metadata = self._assert_fitted_with_metadata()
         assert self._scaler is not None
 
@@ -270,6 +275,7 @@ class HybridReturnModel(IPredictor):
         drift guard in ``tests/integration/test_strategy_save_load.py``
         verifies the output keys match ``__init__``'s parameter names.
         """
+
         return frozen_params_to_json(self._params, omit=("lstm_device",))
 
     @classmethod
@@ -280,6 +286,7 @@ class HybridReturnModel(IPredictor):
         loading sub-models — a corrupt composite config fast-fails with a
         named-field error, without wasting I/O on the ARMA/LSTM subdirs.
         """
+
         root = Path(path)
         config = json_io.read_dict(root / CONFIG_JSON)
         metadata = json_io.read_dict(root / METADATA_JSON)
@@ -304,6 +311,7 @@ class HybridReturnModel(IPredictor):
             lstm_amp=json_io.get_bool(config, "lstm_amp"),
             interval=Interval(json_io.get_str(config, "interval")),
         )
+
         instance._arma = ARMAPredictor.load(root / ARMA_SUBDIR)
         instance._lstm = LSTMPredictor.load(root / LSTM_SUBDIR)
         instance._scaler = load_standard_scaler(root / SCALER_JSON)
@@ -312,6 +320,7 @@ class HybridReturnModel(IPredictor):
 
     def get_all_training_metadata(self) -> tuple[TrackedMetadata, ...]:
         """Expose hybrid + owned ARMA + LSTM metadata for the deep leakage check."""
+
         return collect_metadata(
             ("hybrid_return", self._training_metadata),
             ("arma", self._arma.training_metadata),
@@ -321,6 +330,7 @@ class HybridReturnModel(IPredictor):
     @staticmethod
     def suggest_params(trial: optuna.Trial) -> dict[str, object]:
         """Optuna search space combining ARMA and LSTM hyperparameters."""
+
         return {
             "arma_p_max": trial.suggest_int("hybrid_ret_arma_p_max", 1, 5),
             "arma_q_max": trial.suggest_int("hybrid_ret_arma_q_max", 1, 5),

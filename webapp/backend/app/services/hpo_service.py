@@ -71,6 +71,7 @@ def list_hpo_studies(
     using basename as the join key; nested studies (``studies/<x>/hpo/...``)
     have no per-leg TUNE row and are always visible (ownerless = shared).
     """
+
     summaries: list[HpoSummary] = []
     for study_dir in cached_artifact_dirs(root, "hpo", iter_hpo_study_dirs):
         trials = json_io.read_jsonl(study_dir / TRIALS_JSONL_NAME)
@@ -100,6 +101,7 @@ def get_hpo_study(
     against the jobs DB; passed through here to avoid coupling this layer
     to a sqlite connection.
     """
+
     key = _top_level_basename(wire_id)
     if key is not None:
         check_artifact_access(conn, experiment_id=key, user=user)
@@ -136,6 +138,7 @@ def list_trials(
     after_trial: int | None = None,
 ) -> list[TrialRow]:
     """Read the trial feed, optionally filtered to ``trial.number > after_trial``."""
+
     key = _top_level_basename(wire_id)
     if key is not None:
         check_artifact_access(conn, experiment_id=key, user=user)
@@ -167,6 +170,7 @@ def get_param_importance(
     Optuna is imported lazily to avoid pulling its sklearn dependency into
     the webapp's startup path.
     """
+
     key = _top_level_basename(wire_id)
     if key is not None:
         check_artifact_access(conn, experiment_id=key, user=user)
@@ -201,6 +205,7 @@ def find_live_job_for(conn: sqlite3.Connection, wire_id: str) -> str | None:
     ``wire_id`` would be a false-positive against an unrelated top-level
     tune. Returns ``None`` for nested studies.
     """
+
     basename = _top_level_basename(wire_id)
     if basename is None:
         return None
@@ -226,6 +231,7 @@ def _top_level_basename(wire_id: str) -> str | None:
     are produced by STUDY jobs and have no per-leg TUNE row — callers
     treat ``None`` as "ownerless, inherit the parent study's visibility".
     """
+
     parts = wire_id.split(HPO_WIRE_DELIMITER)
     if len(parts) == 2 and parts[0] == HPO_SUBDIR:
         return parts[1]
@@ -239,6 +245,7 @@ def trial_row_from_record(trial: dict[str, object]) -> TrialRow:
     per-trial ``Experiment.run()`` resolves a name, so the row can
     deep-link to the trial's run page.
     """
+
     user_attrs_raw = trial.get("user_attrs")
     user_attrs: dict[str, object] = user_attrs_raw if isinstance(user_attrs_raw, dict) else {}
     experiment_id = user_attrs.get("experiment_id")
@@ -269,6 +276,7 @@ def _summary_from_trials(
         if best_value is None or value > best_value:
             best_value = value
             best_number = json_io.get_int(t, "number")
+
     has_best_config = (study_dir / BEST_CONFIG_YAML_NAME).is_file()
     return HpoSummary(
         wire_id=hpo_wire_id_from_dir(study_dir, root),
@@ -298,6 +306,7 @@ def best_config_reserves_holdout(study_dir: Path) -> bool:
     should already have confirmed file existence before treating a
     ``True`` as "yes, this is a launchable holdout source".
     """
+
     path = study_dir / BEST_CONFIG_YAML_NAME
     try:
         text = path.read_text(encoding="utf-8")

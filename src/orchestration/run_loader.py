@@ -39,6 +39,7 @@ def load_experiment_result(run_dir: Path) -> ExperimentResult:
         FileNotFoundError: ``run_dir`` is not a directory, or either of
             the required artifacts is missing.
     """
+
     if not run_dir.is_dir():
         raise FileNotFoundError(
             f"experiment run directory not found: {run_dir}; "
@@ -64,6 +65,7 @@ def load_experiment_result(run_dir: Path) -> ExperimentResult:
 
 def load_experiment_config_from_run(run_dir: Path) -> ExperimentConfig:
     """Read the frozen ``config.yaml`` from a persisted run directory."""
+
     if not run_dir.is_dir():
         raise FileNotFoundError(
             f"experiment run directory not found: {run_dir}; "
@@ -81,4 +83,5 @@ def load_experiment_config_from_run(run_dir: Path) -> ExperimentConfig:
 
 def resolve_run_dir(store_root: Path, experiment_id: str) -> Path:
     """Resolve ``store_root / runs / <experiment_id>``."""
+
     return store_root / RUNS_SUBDIR / experiment_id

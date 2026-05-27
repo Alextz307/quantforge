@@ -37,6 +37,7 @@ def _isolate_webapp_db(tmp_path_factory: pytest.TempPathFactory) -> Path:
     insert synthetic jobs rows into the developer's actual
     ``webapp/data/webapp.sqlite`` whenever they ran.
     """
+
     db_path = tmp_path_factory.mktemp("webapp_db") / "test_webapp.sqlite"
     os.environ["WEBAPP_DB_PATH"] = str(db_path)
     return db_path
@@ -44,6 +45,7 @@ def _isolate_webapp_db(tmp_path_factory: pytest.TempPathFactory) -> Path:
 
 def load_script_module(path: Path, name: str) -> ModuleType:
     """Import a top-level script (``scripts/foo.py``) by path for testing."""
+
     spec = importlib.util.spec_from_file_location(name, path)
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
@@ -104,6 +106,7 @@ def seed_globally() -> None:
     body (e.g., to compare two runs with identical starting state). A
     pytest fixture would only fire once per test.
     """
+
     np.random.seed(GLOBAL_NUMPY_SEED)
     try:
         import torch
@@ -116,12 +119,14 @@ def seed_globally() -> None:
 @pytest.fixture
 def deterministic_seed() -> None:
     """Set deterministic random seeds for reproducibility."""
+
     seed_globally()
 
 
 @pytest.fixture
 def synthetic_feature_columns() -> list[str]:
     """Two synthetic feature column names used by composite-model tests."""
+
     return ["feat_a", "feat_b"]
 
 
@@ -134,6 +139,7 @@ def sample_spy_df() -> pd.DataFrame:
     daily volatility. OHLC constraints are enforced
     (high >= max(open, close), low <= min(open, close)).
     """
+
     np.random.seed(SPY_FIXTURE_SEED)
     idx = pd.bdate_range(start=SPY_START_DATE, periods=SPY_ROW_COUNT, freq="B")
 
@@ -167,6 +173,7 @@ def sample_spy_df() -> pd.DataFrame:
 @pytest.fixture
 def sample_bar_data() -> list[BarData]:
     """List of BarData instances for testing."""
+
     return [
         BarData(
             timestamp=datetime(2024, 1, i + 1),
@@ -193,6 +200,7 @@ def make_synthetic_close_df(
     returns with ``SYNTH_RETURN_MEAN`` mean and ``SYNTH_RETURN_STD``
     daily volatility.
     """
+
     np.random.seed(seed)
     idx = pd.bdate_range(start=start, periods=n_rows, freq="B")
     returns = np.random.normal(SYNTH_RETURN_MEAN, SYNTH_RETURN_STD, n_rows)
@@ -213,6 +221,7 @@ def make_synthetic_ohlcv_df(
     prior close (so bar t fills at bar t-1's close); high/low bracket
     the OHL with a small noise band.
     """
+
     np.random.seed(seed)
     idx = pd.bdate_range(start=start, periods=n_rows, freq="B")
     returns = np.random.normal(SYNTH_RETURN_MEAN, SYNTH_RETURN_STD, n_rows)
@@ -263,6 +272,7 @@ def make_mini_experiment_fixture(
     as kwargs and otherwise pins to a known-fast AdaptiveBollinger config
     (``garch_p_max=garch_q_max=1`` so the AIC grid finishes in seconds).
     """
+
     csv_dir = tmp_path / "csv_data"
     csv_dir.mkdir()
     df = make_synthetic_ohlcv_df(n_rows=n_rows, start=_MINI_SMOKE_START_DATE)
@@ -347,6 +357,7 @@ def make_pair_mini_experiment_fixture(
     boundary, and including it here would require carrying a tighter
     ``zscore_lookback`` to keep the dev region long enough.
     """
+
     csv_dir = tmp_path / "csv_data"
     csv_dir.mkdir()
 
@@ -443,6 +454,7 @@ def make_multi_feature_mini_experiment_fixture(
     importing the module that contains ``@strategy_registry.register(...)``).
     The helper writes the YAML; it does not import strategies.
     """
+
     csv_dir = tmp_path / "csv_data"
     csv_dir.mkdir()
 
@@ -489,6 +501,7 @@ def make_walk_forward_validator(n_splits: int, test_size: int) -> WalkForwardVal
     ``expanding`` flow through from ``WalkForwardValidator``'s own
     defaults so this helper can never drift from them.
     """
+
     return WalkForwardValidator(n_splits=n_splits, test_size=test_size)
 
 
@@ -504,6 +517,7 @@ def assert_params_match_constructor(
     constructor it shadows — mypy can't enforce this when the dataclass
     is spread via ``**asdict(...)``.
     """
+
     import dataclasses
     import inspect
 
@@ -527,6 +541,7 @@ def make_declining_close_df(
     ``close > trend_ma`` is False throughout — useful for asserting
     that trend filters suppress long entries in strict bearish windows.
     """
+
     idx = pd.bdate_range(start=start, periods=n_rows, freq="B")
     close = np.linspace(start_price, end_price, n_rows)
     return pd.DataFrame({"close": close, "volume": [1e6] * n_rows}, index=idx)
@@ -545,6 +560,7 @@ def make_declining_ohlcv_df(
     the OC range by a small symmetric ``band`` so HLOC ordering holds and the
     Garman-Klass estimator receives non-degenerate OHLC input.
     """
+
     idx = pd.bdate_range(start=start, periods=n_rows, freq="B")
     close = np.linspace(start_price, end_price, n_rows)
     open_ = np.empty(n_rows)
@@ -567,6 +583,7 @@ def attach_synthetic_features(
     seeded ``N(0, 1)`` noise. Used by composite + strategy tests that need a
     close (or OHLCV) frame plus a deterministic feature matrix.
     """
+
     rng = np.random.default_rng(seed)
     df = base.copy()
     for col in features:
@@ -588,6 +605,7 @@ def make_pair_close_df(
     resulting spread ``close_a - (1/scale) * close_b`` is stationary — a
     cointegrated pair that passes the Engle-Granger ADF test.
     """
+
     np.random.seed(seed)
     idx = pd.bdate_range(start=start, periods=n_rows, freq="B")
     returns = np.random.normal(SYNTH_RETURN_MEAN, SYNTH_RETURN_STD, n_rows)
@@ -603,6 +621,7 @@ def make_daily_df(n_rows: int, start: str = DAILY_DEFAULT_START_DATE) -> pd.Data
     Not a fixture — call directly with parameters. For minimal test DataFrames
     that only need 'close' and 'volume' columns.
     """
+
     idx = pd.bdate_range(start=start, periods=n_rows, freq="B")
     return pd.DataFrame(
         {"close": range(n_rows), "volume": [DAILY_FIXED_VOLUME] * n_rows},
@@ -618,6 +637,7 @@ def large_daily_df() -> pd.DataFrame:
     ``LARGE_BASE_PRICE`` and ``SYNTH_RETURN_STD`` daily volatility.
     Suitable for WalkForwardValidator tests requiring multiple folds.
     """
+
     np.random.seed(LARGE_FIXTURE_SEED)
     idx = pd.bdate_range(start=LARGE_START_DATE, periods=LARGE_ROW_COUNT, freq="B")
 
@@ -738,6 +758,7 @@ def make_stub_fold_record(
     so callers that only care about metric aggregation can stay terse;
     callers that need specific fold windows pass them in explicitly.
     """
+
     return FoldRecord(
         fold_index=fold_index,
         train_start=train_start if train_start is not None else _STUB_FOLD_START,
@@ -770,6 +791,7 @@ def make_stub_experiment_result(
     (synthetic data hash, 'unknown' git sha). Used by cross-strategy
     comparison tests that need aligned folds across strategies.
     """
+
     manifest = Manifest(
         experiment_id=f"stub_{name}",
         name=name,
@@ -799,6 +821,7 @@ def make_log_return_equity_curve(
     seed-deterministic curve whose downstream Sharpe is recognisable to
     ``aggregate_folds`` so ranking + pairwise bootstrap behave predictably.
     """
+
     rng = np.random.default_rng(seed)
     log_rets = rng.normal(sharpe * sigma, sigma, size=n - 1)
     curve = np.exp(np.concatenate([[0.0], np.cumsum(log_rets)]))
@@ -816,6 +839,7 @@ def comparison_curve_seed(name: str, fold_index: int) -> int:
     into the high half, fold index into the low half. Reserves a 65k-fold
     window per name without collisions.
     """
+
     name_anchor = sum((i + 1) * ord(c) for i, c in enumerate(name)) & 0xFFFF
     return (name_anchor << 16) | (fold_index & 0xFFFF)
 
@@ -837,6 +861,7 @@ def make_stub_aggregate_stats(
     callers; the consolidator tests pass higher values to exercise
     fold-weighted pooling.
     """
+
     return AggregateStats(
         n_folds=n_folds,
         sharpe_mean=sharpe,

@@ -106,6 +106,7 @@ class StrategyTuner:
     @cached_property
     def _study_logger(self) -> logging.LoggerAdapter:  # type: ignore[type-arg]
         """Per-study context-bound logger; built once, reused across trials."""
+
         return get_logger(__name__, study=self.hpo_cfg.study_name)
 
     @property
@@ -116,6 +117,7 @@ class StrategyTuner:
         the tuner is invoked from — matters for resume from a different
         shell or CI worker.
         """
+
         return storage_url_for(self.study_dir)
 
     def run(self, *, progress: bool = False) -> optuna.Study:
@@ -128,6 +130,7 @@ class StrategyTuner:
         ``progress=True``, Optuna's built-in ``show_progress_bar`` renders a
         per-trial bar to TTY (silently disabled in non-interactive runs).
         """
+
         self.study_dir.mkdir(parents=True, exist_ok=True)
         self._persist_configs()
 
@@ -183,9 +186,11 @@ class StrategyTuner:
             )
         )
         trial.set_user_attr(USER_ATTR_EXPERIMENT_ID, result.experiment_id)
+
         metrics = aggregate_folds(result.folds).to_dict()
         value = objective(metrics)
         elapsed = time.monotonic() - start
+
         # ``best_trial`` is direction-aware (Optuna picks max for "maximize"
         # and min for "minimize"); using it instead of a hand-rolled compare
         # keeps the log honest if the study direction ever changes. It raises
@@ -198,6 +203,7 @@ class StrategyTuner:
         except ValueError:
             best_value = value
             best_number = trial.number
+
         self._study_logger.info(
             "trial %d/%d experiment_id=%s value=%.6f best=%.6f (trial %d) elapsed=%.1fs",
             trial.number + 1,
@@ -224,6 +230,7 @@ class StrategyTuner:
         run re-writes whichever is missing, so the "both frozen yamls
         present" invariant is always restored on a clean rerun.
         """
+
         exp_path = self.study_dir / EXPERIMENT_CONFIG_YAML
         hpo_path = self.study_dir / HPO_CONFIG_YAML
         if exp_path.exists():
@@ -253,6 +260,7 @@ def storage_url_for(study_dir: Path) -> str:
     Uses ``Path.as_posix()`` so the URL is well-formed on Windows too —
     SQLAlchemy expects forward slashes regardless of platform.
     """
+
     db_path = (study_dir / STUDY_DB_FILENAME).resolve()
     return f"sqlite:///{db_path.as_posix()}"
 
@@ -266,6 +274,7 @@ def _materialize_trial_config(
     validation live on the ``ExperimentConfig`` validators and we want a
     trial's config to pass the same gates as any user-authored YAML.
     """
+
     payload = base.model_dump(mode="json")
     strategy_payload = dict(payload["strategy"])
     current_params = dict(strategy_payload.get("params", {}))
@@ -278,5 +287,6 @@ def _materialize_trial_config(
 
 def _config_content_hash(cfg: ExperimentConfig) -> str:
     """Stable SHA over a model's JSON dump — content equality, not object identity."""
+
     payload = yaml.safe_dump(cfg.model_dump(mode="json"), sort_keys=True)
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()

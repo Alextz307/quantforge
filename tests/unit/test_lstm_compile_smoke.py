@@ -66,6 +66,7 @@ def _build(amp: bool = False) -> LSTMPredictor:
 
 def test_amp_default_is_false() -> None:
     """No-arg ctor → ``amp`` is False; thesis runs land on FP32 by default."""
+
     p = LSTMPredictor(feature_columns=["close"])
     assert p._amp is False
 
@@ -77,6 +78,7 @@ def test_amp_kwarg_round_trips_via_save_load(
     so a downstream ``update()`` or fresh fit honours the persisted choice
     rather than silently dropping back to FP32.
     """
+
     torch.manual_seed(GLOBAL_TORCH_SEED)
     p = _build(amp=True)
     p.fit(lstm_df.iloc[:-1], lstm_target)
@@ -103,6 +105,7 @@ def test_compile_path_produces_finite_predictions(
     fails on this model shape would surface as NaNs / inf here, not as
     silent failure.
     """
+
     torch.manual_seed(GLOBAL_TORCH_SEED)
     p = _build(amp=False)
     p.fit(lstm_df.iloc[:-1], lstm_target)

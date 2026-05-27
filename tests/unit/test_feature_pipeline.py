@@ -83,11 +83,13 @@ class TestFeatureEngineeringPipeline:
         self, fitted_pipeline: FeatureEngineeringPipeline, pipeline_df: pd.DataFrame
     ) -> None:
         """Leading NaN from warmup must NOT be back-filled."""
+
         result = fitted_pipeline.transform(pipeline_df)
         assert result["return_21d"].iloc[:RETURN_21D_WARMUP_BARS].isna().all()
 
     def test_scaler_normalizes_training_data(self, pipeline_df: pd.DataFrame) -> None:
         """After scaling, valid training rows should have ~zero mean."""
+
         p = FeatureEngineeringPipeline()
         result = p.fit_transform(pipeline_df)
         valid = result["return_1d"].dropna()
@@ -95,6 +97,7 @@ class TestFeatureEngineeringPipeline:
 
     def test_transform_uses_training_stats(self, pipeline_df: pd.DataFrame) -> None:
         """Test data transformed using training scaler statistics."""
+
         train = pipeline_df.iloc[:TRAIN_TEST_SPLIT_INDEX]
         test = pipeline_df.iloc[TRAIN_TEST_SPLIT_INDEX:]
 
@@ -113,6 +116,7 @@ class TestFeatureEngineeringPipeline:
 
     def test_custom_periods(self, pipeline_df: pd.DataFrame) -> None:
         """Pipeline works with non-default periods and names columns accordingly."""
+
         p = FeatureEngineeringPipeline(
             rsi_period=CUSTOM_RSI_PERIOD,
             macd_fast=CUSTOM_MACD_FAST,
@@ -128,6 +132,7 @@ class TestFeatureEngineeringPipeline:
 
     def test_keep_ohlc_passthrough(self) -> None:
         """When keep_ohlc=True, OHLCV survives both fit_transform and transform."""
+
         from tests.conftest import make_synthetic_ohlcv_df
 
         ohlcv = make_synthetic_ohlcv_df(n_rows=PIPELINE_ROW_COUNT, seed=42)
@@ -147,6 +152,7 @@ class TestFeatureEngineeringPipeline:
 class TestComputeRSI:
     def test_rsi_range(self, pipeline_df: pd.DataFrame) -> None:
         """RSI values must be in [0, 100]."""
+
         rsi = _compute_rsi(pipeline_df["close"])
         valid = rsi.dropna()
         assert (valid >= RSI_LOWER_BOUND).all()
@@ -160,6 +166,7 @@ class TestComputeRSI:
 class TestComputeMACD:
     def test_macd_histogram_is_difference(self, pipeline_df: pd.DataFrame) -> None:
         """Histogram = MACD line - signal line."""
+
         macd, signal, hist = _compute_macd(pipeline_df["close"])
         np.testing.assert_allclose(
             np.asarray(hist.values, dtype=np.float64),

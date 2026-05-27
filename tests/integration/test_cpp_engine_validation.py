@@ -49,6 +49,7 @@ def test_run_rejects_misaligned_signals_index() -> None:
 
 def test_run_scenarios_validates_inputs_too() -> None:
     """The same _validate_inputs path covers both run and run_scenarios."""
+
     bars = make_synthetic_ohlcv_df(n_rows=VALIDATION_N_ROWS).drop(columns=["close"])
     signals = _zero_signals(bars.index)
     with pytest.raises(ValueError, match="missing required columns"):

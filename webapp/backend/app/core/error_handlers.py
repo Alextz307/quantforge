@@ -75,6 +75,7 @@ async def _handle_access_denied(_req: Request, exc: Exception) -> Response:
     disclose that the artifact exists — matching the framework-wide
     no-peek-forward policy on identity leaks.
     """
+
     return JSONResponse(
         status_code=status.HTTP_404_NOT_FOUND, content={"detail": str(exc)}
     )
@@ -88,6 +89,7 @@ async def _handle_list_permission(_req: Request, exc: Exception) -> Response:
     PermissionError in the future need their own handlers — this one is
     registered specifically for the upload list endpoints' error shape.
     """
+
     return JSONResponse(
         status_code=status.HTTP_403_FORBIDDEN, content={"detail": str(exc)}
     )
