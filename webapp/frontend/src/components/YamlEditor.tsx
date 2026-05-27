@@ -3,6 +3,13 @@ import Editor, { type OnMount } from "@monaco-editor/react";
 import type * as MonacoNs from "monaco-editor";
 import type { editor } from "monaco-editor";
 import type { ValidationErrorItem } from "@/api/configs";
+import { useTheme } from "@/lib/theme";
+import type { ResolvedTheme } from "@/lib/themeStorage";
+
+const MONACO_THEME: Record<ResolvedTheme, "vs" | "vs-dark"> = {
+  light: "vs",
+  dark: "vs-dark",
+};
 
 // ``@monaco-editor/react`` exports ``Monaco`` as ``typeof
 // monaco-editor/esm/vs/editor/editor.api`` — a sub-path import TypeScript
@@ -43,12 +50,20 @@ export function YamlEditor({
 }: YamlEditorProps) {
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
   const monacoRef = useRef<MonacoApi | null>(null);
+  const { resolvedTheme } = useTheme();
+  const monacoTheme = MONACO_THEME[resolvedTheme];
 
   const onMount: OnMount = (editorInstance, monaco) => {
     editorRef.current = editorInstance;
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     monacoRef.current = monaco;
   };
+
+  useEffect(() => {
+    const monaco = monacoRef.current;
+    if (!monaco) return;
+    monaco.editor.setTheme(monacoTheme);
+  }, [monacoTheme]);
 
   useEffect(() => {
     const editorInstance = editorRef.current;
@@ -92,7 +107,7 @@ export function YamlEditor({
           wordWrap: "on",
           renderWhitespace: "selection",
         }}
-        theme="vs"
+        theme={monacoTheme}
       />
     </div>
   );

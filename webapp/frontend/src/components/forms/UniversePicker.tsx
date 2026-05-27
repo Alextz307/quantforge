@@ -72,7 +72,7 @@ export function UniversePicker({ onApply, disabled, className }: UniversePickerP
         </Button>
       </div>
       {detail.data?.parse_error && (
-        <p className="text-xs text-rose-600">YAML parse error: {detail.data.parse_error}</p>
+        <p className="text-xs text-rose-600 dark:text-rose-400">YAML parse error: {detail.data.parse_error}</p>
       )}
     </div>
   );

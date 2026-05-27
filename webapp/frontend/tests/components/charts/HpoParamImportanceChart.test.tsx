@@ -1,7 +1,8 @@
-import { render, screen } from "@testing-library/react";
+import { screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { HpoParamImportanceChart } from "@/components/charts/HpoParamImportanceChart";
 import type { ParamImportanceResponse } from "@/api/hpo";
+import { renderWithProviders } from "../../util/render";
 
 const POPULATED: ParamImportanceResponse = {
   importance: { window: 0.7, k: 0.3 },
@@ -20,7 +21,7 @@ const EMPTY_NO_MESSAGE: ParamImportanceResponse = {
 
 describe("HpoParamImportanceChart", () => {
   it("renders the chart wrapper with the param count", () => {
-    render(<HpoParamImportanceChart response={POPULATED} />);
+    renderWithProviders(<HpoParamImportanceChart response={POPULATED} />);
     const wrapper = screen.getByTestId("hpo-importance");
     expect(wrapper.getAttribute("data-param-count")).toBe(
       String(Object.keys(POPULATED.importance).length),
@@ -28,14 +29,14 @@ describe("HpoParamImportanceChart", () => {
   });
 
   it("renders the response message when importance is empty", () => {
-    render(<HpoParamImportanceChart response={EMPTY_WITH_MESSAGE} />);
+    renderWithProviders(<HpoParamImportanceChart response={EMPTY_WITH_MESSAGE} />);
     expect(screen.getByTestId("hpo-importance-empty")).toHaveTextContent(
       EMPTY_WITH_MESSAGE.message ?? "",
     );
   });
 
   it("renders a default message when importance is empty and no message provided", () => {
-    render(<HpoParamImportanceChart response={EMPTY_NO_MESSAGE} />);
+    renderWithProviders(<HpoParamImportanceChart response={EMPTY_NO_MESSAGE} />);
     expect(screen.getByTestId("hpo-importance-empty")).toHaveTextContent(/No importance data yet/i);
   });
 });

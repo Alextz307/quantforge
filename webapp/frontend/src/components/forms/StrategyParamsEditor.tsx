@@ -77,7 +77,7 @@ function ParamField({ param, value, onChange, errorMsg, disabled }: ParamFieldPr
         </span>
       </Label>
       <ParamInput id={id} param={param} value={value} onChange={onChange} disabled={disabled} />
-      {errorMsg && <p className="text-xs text-rose-600">{errorMsg}</p>}
+      {errorMsg && <p className="text-xs text-rose-600 dark:text-rose-400">{errorMsg}</p>}
     </div>
   );
 }
@@ -239,7 +239,7 @@ function JsonInput({ id, value, onChange, placeholder, disabled }: JsonInputProp
           }
         }}
       />
-      {parseError && <p className="text-xs text-amber-600">JSON: {parseError}</p>}
+      {parseError && <p className="text-xs text-amber-600 dark:text-amber-400">JSON: {parseError}</p>}
     </div>
   );
 }

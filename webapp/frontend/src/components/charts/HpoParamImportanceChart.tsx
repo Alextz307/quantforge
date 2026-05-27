@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import type { Data, Layout } from "plotly.js";
-import { Plot } from "@/components/charts/plot";
+import { Plot, useThemedLayout } from "@/components/charts/plot";
 import type { ParamImportanceResponse } from "@/api/hpo";
 
 export interface HpoParamImportanceChartProps {
@@ -38,7 +38,7 @@ export function HpoParamImportanceChart({ response, height = 320 }: HpoParamImpo
     [rows],
   );
 
-  const layout = useMemo<Partial<Layout>>(
+  const baseLayout = useMemo<Partial<Layout>>(
     () => ({
       autosize: true,
       height,
@@ -48,6 +48,7 @@ export function HpoParamImportanceChart({ response, height = 320 }: HpoParamImpo
     }),
     [height],
   );
+  const layout = useThemedLayout(baseLayout);
 
   if (rows.length === 0) {
     const message = response.message ?? "No importance data yet.";

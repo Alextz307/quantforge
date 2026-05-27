@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import type { Data, Layout } from "plotly.js";
-import { Plot } from "@/components/charts/plot";
+import { Plot, useThemedLayout } from "@/components/charts/plot";
 import type { StudyDirection, TrialRow } from "@/api/hpo";
 import { TRIAL_STATE_COMPLETE } from "@/lib/trialState";
 
@@ -64,7 +64,7 @@ export function HpoConvergenceChart({ trials, direction, height = 360 }: HpoConv
     ];
   }, [points, direction]);
 
-  const layout = useMemo<Partial<Layout>>(
+  const baseLayout = useMemo<Partial<Layout>>(
     () => ({
       autosize: true,
       height,
@@ -76,6 +76,7 @@ export function HpoConvergenceChart({ trials, direction, height = 360 }: HpoConv
     }),
     [height],
   );
+  const layout = useThemedLayout(baseLayout);
 
   if (points.length === 0) {
     return (

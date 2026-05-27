@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import type { Data, Layout } from "plotly.js";
-import { Plot } from "@/components/charts/plot";
+import { Plot, useThemedLayout } from "@/components/charts/plot";
 
 export interface EquityTrace {
   name: string;
@@ -33,7 +33,7 @@ export function EquityChart({
     [traces],
   );
 
-  const layout = useMemo<Partial<Layout>>(
+  const baseLayout = useMemo<Partial<Layout>>(
     () => ({
       autosize: true,
       height,
@@ -45,6 +45,7 @@ export function EquityChart({
     }),
     [height, xLabel, yLabel],
   );
+  const layout = useThemedLayout(baseLayout);
 
   if (traces.length === 0) {
     return (

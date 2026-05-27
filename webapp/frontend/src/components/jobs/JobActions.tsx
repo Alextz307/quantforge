@@ -28,12 +28,14 @@ export function JobActions({ job }: JobActionsProps) {
         href={jobLogDownloadUrl(job.id)}
         target="_blank"
         rel="noopener noreferrer"
-        className="text-sm text-blue-600 hover:underline"
+        className="text-sm text-blue-600 hover:underline dark:text-blue-400"
       >
         Download log
       </a>
       <JobArtifactLink job={job} className="text-sm" />
-      {cancel.isError && <span className="text-sm text-rose-600">{cancel.error.message}</span>}
+      {cancel.isError && (
+        <span className="text-sm text-rose-600 dark:text-rose-400">{cancel.error.message}</span>
+      )}
     </div>
   );
 }

@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, type RenderOptions } from "@testing-library/react";
 import type { ReactElement, ReactNode } from "react";
 import { MemoryRouter } from "react-router-dom";
+import { ThemeProvider } from "@/lib/theme";
 import { ROUTER_FUTURE_FLAGS } from "./router";
 
 interface ProviderOptions {
@@ -24,11 +25,13 @@ export function renderWithProviders(
   const client = makeClient();
   function Wrapper({ children }: { children: ReactNode }) {
     return (
-      <QueryClientProvider client={client}>
-        <MemoryRouter initialEntries={initialEntries} future={ROUTER_FUTURE_FLAGS}>
-          {children}
-        </MemoryRouter>
-      </QueryClientProvider>
+      <ThemeProvider>
+        <QueryClientProvider client={client}>
+          <MemoryRouter initialEntries={initialEntries} future={ROUTER_FUTURE_FLAGS}>
+            {children}
+          </MemoryRouter>
+        </QueryClientProvider>
+      </ThemeProvider>
     );
   }
   return { ...render(ui, { wrapper: Wrapper, ...options }), queryClient: client };

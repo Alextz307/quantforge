@@ -18,7 +18,7 @@ export function ConfigField({ id, label, hint, error, className, children }: Con
       </Label>
       {children}
       {hint && !error && <p className="mt-1 text-xs text-muted-foreground">{hint}</p>}
-      {error && <p className="mt-1 text-xs text-rose-600">{error}</p>}
+      {error && <p className="mt-1 text-xs text-rose-600 dark:text-rose-400">{error}</p>}
     </div>
   );
 }
