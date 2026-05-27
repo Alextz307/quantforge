@@ -1,5 +1,6 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Link, useLocation, useSearchParams } from "react-router-dom";
+import { useMe } from "@/api/auth";
 import {
   usePrefetchRun,
   useRunsPage,
@@ -7,11 +8,13 @@ import {
   type RunsPage,
   type SortOrder,
 } from "@/api/runs";
+import { AllUsersToggle } from "@/components/AllUsersToggle";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FilterDate } from "@/components/FilterDate";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { LaunchedByCell } from "@/components/LaunchedByCell";
 import { QueryRenderer } from "@/components/QueryRenderer";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { formatDateTime, formatMetric } from "@/lib/format";
@@ -64,21 +67,27 @@ function setParam(params: URLSearchParams, key: string, value: string): URLSearc
 }
 
 export function RunsPage() {
+  const me = useMe();
+  const isAdmin = me.data?.role === "admin";
+  const [allUsers, setAllUsers] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
   const state = useMemo(() => readState(searchParams), [searchParams]);
   const debouncedStrategy = useDebouncedValue(state.strategy, FILTER_DEBOUNCE_MS);
   const debouncedTicker = useDebouncedValue(state.ticker, FILTER_DEBOUNCE_MS);
   const debouncedSince = useDebouncedValue(state.since, FILTER_DEBOUNCE_MS);
 
-  const query = useRunsPage({
-    limit: state.limit,
-    offset: state.offset,
-    sortBy: state.sortBy,
-    order: state.order,
-    ...(debouncedStrategy ? { strategy: debouncedStrategy } : {}),
-    ...(debouncedTicker ? { ticker: debouncedTicker } : {}),
-    ...(debouncedSince ? { since: new Date(debouncedSince).toISOString() } : {}),
-  });
+  const query = useRunsPage(
+    {
+      limit: state.limit,
+      offset: state.offset,
+      sortBy: state.sortBy,
+      order: state.order,
+      ...(debouncedStrategy ? { strategy: debouncedStrategy } : {}),
+      ...(debouncedTicker ? { ticker: debouncedTicker } : {}),
+      ...(debouncedSince ? { since: new Date(debouncedSince).toISOString() } : {}),
+    },
+    { allUsers: isAdmin && allUsers },
+  );
 
   const updateParam = (key: string, value: string) => {
     setSearchParams(setParam(searchParams, key, value));
@@ -107,6 +116,13 @@ export function RunsPage() {
         <CardTitle>Runs</CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
+        <AllUsersToggle
+          isAdmin={isAdmin}
+          checked={allUsers}
+          onChange={setAllUsers}
+          artifactLabel="runs"
+          testId="runs-all-users-toggle"
+        />
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="flex flex-col gap-1">
             <Label htmlFor="filter-strategy">Strategy</Label>
@@ -211,8 +227,8 @@ function RunsBody({ page, state, onToggleSort, onPrev, onNext }: RunsBodyProps) 
                 state={state}
                 onToggle={onToggleSort}
                 align="right"
-                isLast
               />
+              <th className="py-2 pr-0">Launched by</th>
             </tr>
           </thead>
           <tbody>
@@ -238,7 +254,10 @@ function RunsBody({ page, state, onToggleSort, onPrev, onNext }: RunsBodyProps) 
                 <td className="py-2 pr-4 font-mono">{r.interval}</td>
                 <td className="py-2 pr-4 font-mono text-xs">{formatDateTime(r.created_at)}</td>
                 <td className="py-2 pr-4 text-right font-mono">{formatMetric(r.sharpe_mean, 3)}</td>
-                <td className="py-2 pr-0 text-right font-mono">{formatMetric(r.calmar_mean, 3)}</td>
+                <td className="py-2 pr-4 text-right font-mono">{formatMetric(r.calmar_mean, 3)}</td>
+                <td className="py-2 pr-0">
+                  <LaunchedByCell username={r.launched_by_username} />
+                </td>
               </tr>
             ))}
           </tbody>

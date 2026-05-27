@@ -23,11 +23,13 @@ from pathlib import Path
 import click
 from pydantic import ValidationError
 
+from scripts._attribution import attribute_via_username, default_username
 from src.core.exceptions import LeakageError
 from src.core.logging import attach_cli_log_file
 from src.orchestration.study import run_study
 from src.orchestration.study_report import consolidate_study
 from src.visualization.study_report_reporter import StudyReportReporter
+from webapp.backend.app.schemas.jobs import JobKind
 
 DEFAULT_STORE_ROOT = Path("experiment_results")
 
@@ -78,6 +80,12 @@ def study() -> None:
     default=False,
     help="Skip the holdout-eval step on every leg (early-iteration knob).",
 )
+@click.option(
+    "--user",
+    "username",
+    default=None,
+    help="Webapp username to attribute this study to (see ``experiment run --user``).",
+)
 def run_cmd(
     spec_path: Path,
     store_root: Path,
@@ -85,6 +93,7 @@ def run_cmd(
     only_legs: tuple[str, ...],
     skip_compares: bool,
     skip_holdout_eval: bool,
+    username: str | None,
 ) -> None:
     """Drive the empirical study end-to-end.
 
@@ -118,6 +127,14 @@ def run_cmd(
         click.echo(f"failed:       {result.n_legs_failed}")
         click.echo(f"skipped:      {result.n_legs_skipped}")
         click.echo(f"compares:     {result.n_compares_done}")
+
+        attribute_via_username(
+            username=username or default_username(),
+            kind=JobKind.STUDY,
+            experiment_id=result.study_dir.name,
+            command="study run",
+        )
+
         if result.n_legs_failed > 0:
             # Surface failure as a non-zero exit so CI / scripts catch it.
             raise click.ClickException(

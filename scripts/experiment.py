@@ -42,12 +42,14 @@ from src.core.persistence import (
     HPO_SUBDIR,
     RUNS_SUBDIR,
 )
+from scripts._attribution import attribute_via_username, default_username
 from src.orchestration.builder import build_experiment
 from src.orchestration.comparison import SignificanceTest, run_comparison
 from src.orchestration.experiment import RunOptions
 from src.orchestration.holdout_eval import resolve_source, run_holdout_eval
 from src.orchestration.run_loader import load_experiment_result
 from src.orchestration.types import ExperimentResult
+from webapp.backend.app.schemas.jobs import JobKind
 
 # ``optuna`` is deferred into ``tune_cmd`` so it does not load on every CLI
 # invocation (e.g., ``--help`` or ``compare``). The visualization reporters
@@ -140,6 +142,17 @@ def cli(log_level: str) -> None:
         "chars: letters, digits, _, -, :."
     ),
 )
+@click.option(
+    "--user",
+    "username",
+    default=None,
+    help=(
+        "Webapp username to attribute this artifact to. Defaults to the OS "
+        "user (``getpass.getuser()``). Auto-creates the webapp account on "
+        "first use when stdin is a TTY (prompts for a password); errors "
+        "out in non-interactive contexts pointing at scripts/create_user.py."
+    ),
+)
 def run_cmd(
     config_path: Path,
     name: str | None,
@@ -150,6 +163,7 @@ def run_cmd(
     checkpoint: bool,
     overrides: tuple[str, ...],
     publish_label: str | None,
+    username: str | None,
 ) -> None:
     """Execute a single walk-forward experiment end-to-end."""
     with attach_cli_log_file(store_root, "experiment_run") as log_path:
@@ -190,6 +204,13 @@ def run_cmd(
         click.echo(f"experiment_id: {result.experiment_id}")
         click.echo(f"artifacts:    {run_dir}")
         click.echo(f"folds:        {len(result.folds)}")
+
+        attribute_via_username(
+            username=username or default_username(),
+            kind=JobKind.RUN,
+            experiment_id=result.experiment_id,
+            command="experiment run",
+        )
 
 
 @cli.command("tune")
@@ -250,6 +271,12 @@ def run_cmd(
         "--trials / --n-jobs for that."
     ),
 )
+@click.option(
+    "--user",
+    "username",
+    default=None,
+    help="Webapp username to attribute this study to (see ``experiment run --user``).",
+)
 def tune_cmd(
     config_path: Path,
     hpo_config_path: Path,
@@ -259,6 +286,7 @@ def tune_cmd(
     write_report: bool,
     progress: bool,
     overrides: tuple[str, ...],
+    username: str | None,
 ) -> None:
     """Run an Optuna study over an ExperimentConfig's hyperparameter space.
 
@@ -317,6 +345,13 @@ def tune_cmd(
             click.echo(f"best_trial:  {best.number}")
         except ValueError:
             click.echo("best_value:  n/a (no completed trials)")
+
+        attribute_via_username(
+            username=username or default_username(),
+            kind=JobKind.TUNE,
+            experiment_id=hpo_cfg.study_name,
+            command="experiment tune",
+        )
 
 
 @cli.command("compare")
@@ -390,6 +425,12 @@ def tune_cmd(
         "chars: letters, digits, _, -, :."
     ),
 )
+@click.option(
+    "--user",
+    "username",
+    default=None,
+    help="Webapp username to attribute this comparison to (see ``experiment run --user``).",
+)
 def compare_cmd(
     config_paths: tuple[Path, ...],
     out_name: str,
@@ -400,6 +441,7 @@ def compare_cmd(
     overrides: tuple[str, ...],
     reuse_runs: str | None,
     publish_label: str | None,
+    username: str | None,
 ) -> None:
     """Run N configs, rank, optionally test pairwise significance.
 
@@ -463,6 +505,13 @@ def compare_cmd(
             n_sig = sum(1 for p in report.pairwise if p.significant)
             click.echo(f"pairwise:   {len(report.pairwise)} comparisons, {n_sig} significant")
 
+        attribute_via_username(
+            username=username or default_username(),
+            kind=JobKind.COMPARE,
+            experiment_id=report.out_name,
+            command="experiment compare",
+        )
+
 
 @cli.command("holdout-eval")
 @click.option(
@@ -518,6 +567,12 @@ def compare_cmd(
         "chars: letters, digits, _, -, :."
     ),
 )
+@click.option(
+    "--user",
+    "username",
+    default=None,
+    help="Webapp username to attribute this holdout-eval to (see ``experiment run --user``).",
+)
 def holdout_eval_cmd(
     run_dir: Path | None,
     hpo_dir: Path | None,
@@ -525,6 +580,7 @@ def holdout_eval_cmd(
     store_root: Path,
     write_report: bool,
     publish_label: str | None,
+    username: str | None,
 ) -> None:
     """Refit on full dev, evaluate once on the reserved holdout — honest OOS.
 
@@ -582,6 +638,13 @@ def holdout_eval_cmd(
         click.echo(f"sharpe:          {result.sharpe_ratio:+.4f}")
         click.echo(f"total_return:    {result.total_return:+.4f}")
         click.echo(f"max_drawdown:    {result.max_drawdown:+.4f}")
+
+        attribute_via_username(
+            username=username or default_username(),
+            kind=JobKind.HOLDOUT,
+            experiment_id=result.out_name,
+            command="experiment holdout-eval",
+        )
 
 
 def _apply_hpo_overrides(cfg: HPOConfig, *, n_trials: int | None, n_jobs: int | None) -> HPOConfig:

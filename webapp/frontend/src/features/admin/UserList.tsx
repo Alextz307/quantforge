@@ -1,5 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Trash2 } from "lucide-react";
+import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import {
   ROLE_USER,
@@ -8,6 +9,7 @@ import {
   useDeleteUser,
   useUsers,
   type UserCreate,
+  type UserPublic,
 } from "@/api/users";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -22,6 +24,7 @@ export function UserList() {
   const usersQuery = useUsers();
   const createUser = useCreateUser();
   const deleteUser = useDeleteUser();
+  const [showAutoCreatedOnly, setShowAutoCreatedOnly] = useState(false);
   const {
     register,
     handleSubmit,
@@ -41,6 +44,17 @@ export function UserList() {
   });
 
   const submitDisabled = isSubmitting || createUser.isPending;
+
+  const filteredUsers = useMemo(() => {
+    if (!usersQuery.data) return undefined;
+    if (!showAutoCreatedOnly) return usersQuery.data;
+    return usersQuery.data.filter((u) => u.auto_created_at !== null);
+  }, [usersQuery.data, showAutoCreatedOnly]);
+
+  const onDeleteClick = (user: UserPublic) => {
+    if (!window.confirm(`Soft-delete user "${user.username}" (id=${String(user.id)})?`)) return;
+    deleteUser.mutate(user.id);
+  };
 
   return (
     <div className="space-y-6">
@@ -97,8 +111,19 @@ export function UserList() {
       </Card>
 
       <Card>
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between gap-4">
           <CardTitle>Users</CardTitle>
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={showAutoCreatedOnly}
+              onChange={(e) => {
+                setShowAutoCreatedOnly(e.target.checked);
+              }}
+              data-testid="users-auto-created-toggle"
+            />
+            Show only auto-created (CLI typos)
+          </label>
         </CardHeader>
         <CardContent className="space-y-4">
           {usersQuery.isLoading && <p className="text-sm text-muted-foreground">Loading…</p>}
@@ -112,20 +137,26 @@ export function UserList() {
               <AlertDescription>{deleteUser.error.message}</AlertDescription>
             </Alert>
           )}
-          {usersQuery.data && (
+          {filteredUsers && (
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b text-left text-muted-foreground">
                   <th className="py-2">Username</th>
                   <th className="py-2">Role</th>
+                  <th className="py-2">Auto-created</th>
                   <th className="py-2 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {usersQuery.data.map((user) => (
+                {filteredUsers.map((user) => (
                   <tr key={user.id} className="border-b last:border-0">
                     <td className="py-2">{user.username}</td>
                     <td className="py-2">{user.role}</td>
+                    <td className="py-2 font-mono text-xs">
+                      {user.auto_created_at ?? (
+                        <span className="text-muted-foreground italic">—</span>
+                      )}
+                    </td>
                     <td className="py-2 text-right">
                       <Button
                         variant="ghost"
@@ -133,7 +164,7 @@ export function UserList() {
                         aria-label={`Delete ${user.username}`}
                         disabled={deleteUser.isPending}
                         onClick={() => {
-                          deleteUser.mutate(user.id);
+                          onDeleteClick(user);
                         }}
                       >
                         <Trash2 className="h-4 w-4" />
@@ -141,6 +172,15 @@ export function UserList() {
                     </td>
                   </tr>
                 ))}
+                {filteredUsers.length === 0 && (
+                  <tr>
+                    <td colSpan={4} className="py-3 text-sm text-muted-foreground">
+                      {showAutoCreatedOnly
+                        ? "No auto-created accounts — nothing to clean up."
+                        : "No users."}
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           )}

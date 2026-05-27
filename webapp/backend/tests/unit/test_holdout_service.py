@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sqlite3
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -20,6 +21,7 @@ from webapp.backend.tests.conftest import (
     PLOT_BYTES,
     PLOT_FILENAME,
     make_synthetic_holdout_eval,
+    make_viewer_user,
 )
 
 NEWER_NAME = "holdout_newer"
@@ -31,18 +33,22 @@ EXPECTED_SHARPE = 0.6
 EXPECTED_EQUITY_CURVE = [10000.0, 10100.0, 10500.0]
 
 
-def test_list_holdout_evals_sorts_newest_first(tmp_path: Path) -> None:
+def test_list_holdout_evals_sorts_newest_first(
+    tmp_path: Path, db_conn: sqlite3.Connection
+) -> None:
     root = tmp_path / "experiment_results"
     parent = root / "studies" / "main" / HOLDOUT_EVALS_SUBDIR
     make_synthetic_holdout_eval(parent, name=OLDER_NAME, created_at=OLDER_TS)
     make_synthetic_holdout_eval(parent, name=NEWER_NAME, created_at=NEWER_TS)
 
-    summaries = list_holdout_evals(root)
+    summaries = list_holdout_evals(root, conn=db_conn, user=make_viewer_user(db_conn), all_users=False)
 
     assert [s.name for s in summaries] == [NEWER_NAME, OLDER_NAME]
 
 
-def test_list_holdout_evals_surfaces_source_and_store(tmp_path: Path) -> None:
+def test_list_holdout_evals_surfaces_source_and_store(
+    tmp_path: Path, db_conn: sqlite3.Connection
+) -> None:
     root = tmp_path / "experiment_results"
     make_synthetic_holdout_eval(
         root / "thesis_demo" / HOLDOUT_EVALS_SUBDIR,
@@ -52,7 +58,9 @@ def test_list_holdout_evals_surfaces_source_and_store(tmp_path: Path) -> None:
         holdout_start=HOLDOUT_BOUNDARY,
     )
 
-    summary = list_holdout_evals(root)[0]
+    summary = list_holdout_evals(
+        root, conn=db_conn, user=make_viewer_user(db_conn), all_users=False
+    )[0]
 
     assert summary.source_kind == "hpo"
     assert summary.source_id == "some_hpo_study"
@@ -60,7 +68,9 @@ def test_list_holdout_evals_surfaces_source_and_store(tmp_path: Path) -> None:
     assert summary.store == "thesis_demo/holdout_evals"
 
 
-def test_get_holdout_eval_returns_full_detail(tmp_path: Path) -> None:
+def test_get_holdout_eval_returns_full_detail(
+    tmp_path: Path, db_conn: sqlite3.Connection
+) -> None:
     root = tmp_path / "experiment_results"
     make_synthetic_holdout_eval(
         root / "studies" / "main" / HOLDOUT_EVALS_SUBDIR,
@@ -68,7 +78,7 @@ def test_get_holdout_eval_returns_full_detail(tmp_path: Path) -> None:
         sharpe_ratio=EXPECTED_SHARPE,
     )
 
-    detail = get_holdout_eval(root, NEWER_NAME)
+    detail = get_holdout_eval(root, NEWER_NAME, conn=db_conn, user=make_viewer_user(db_conn))
 
     assert detail.name == NEWER_NAME
     assert detail.git_sha == "abc1234"
@@ -78,27 +88,41 @@ def test_get_holdout_eval_returns_full_detail(tmp_path: Path) -> None:
     assert PLOT_FILENAME in detail.plots
 
 
-def test_get_holdout_eval_raises_for_unknown_name(tmp_path: Path) -> None:
+def test_get_holdout_eval_raises_for_unknown_name(
+    tmp_path: Path, db_conn: sqlite3.Connection
+) -> None:
     root = tmp_path / "experiment_results"
     make_synthetic_holdout_eval(root / "studies" / "main" / HOLDOUT_EVALS_SUBDIR, name=NEWER_NAME)
 
     with pytest.raises(HoldoutEvalNotFoundError):
-        get_holdout_eval(root, "missing_holdout")
+        get_holdout_eval(root, "missing_holdout", conn=db_conn, user=make_viewer_user(db_conn))
 
 
-def test_resolve_plot_returns_path_for_existing_file(tmp_path: Path) -> None:
+def test_resolve_plot_returns_path_for_existing_file(
+    tmp_path: Path, db_conn: sqlite3.Connection
+) -> None:
     root = tmp_path / "experiment_results"
     make_synthetic_holdout_eval(root / "studies" / "main" / HOLDOUT_EVALS_SUBDIR, name=NEWER_NAME)
 
-    path = resolve_plot(root, NEWER_NAME, PLOT_FILENAME)
+    path = resolve_plot(
+        root, NEWER_NAME, PLOT_FILENAME, conn=db_conn, user=make_viewer_user(db_conn)
+    )
 
     assert path.is_file()
     assert path.read_bytes() == PLOT_BYTES
 
 
-def test_resolve_plot_rejects_traversal(tmp_path: Path) -> None:
+def test_resolve_plot_rejects_traversal(
+    tmp_path: Path, db_conn: sqlite3.Connection
+) -> None:
     root = tmp_path / "experiment_results"
     make_synthetic_holdout_eval(root / "studies" / "main" / HOLDOUT_EVALS_SUBDIR, name=NEWER_NAME)
 
     with pytest.raises(PlotNotFoundError):
-        resolve_plot(root, NEWER_NAME, "../../../etc/passwd")
+        resolve_plot(
+            root,
+            NEWER_NAME,
+            "../../../etc/passwd",
+            conn=db_conn,
+            user=make_viewer_user(db_conn),
+        )

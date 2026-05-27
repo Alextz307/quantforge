@@ -28,8 +28,10 @@ class NewJob:
     log_path: Path
 
 
-_JOB_COLUMNS = (
-    "id, user_id, kind, status, started_at, finished_at, exit_code, experiment_id, log_path, pid"
+_JOB_SELECT = (
+    "SELECT j.id, j.user_id, j.kind, j.status, j.started_at, j.finished_at, "
+    "j.exit_code, j.experiment_id, j.log_path, j.pid, u.username AS launched_by_username "
+    "FROM jobs j LEFT JOIN users u ON u.id = j.user_id"
 )
 
 
@@ -40,6 +42,7 @@ def _now_iso() -> str:
 def _row_to_job(row: sqlite3.Row) -> JobRow:
     started_at = row["started_at"]
     finished_at = row["finished_at"]
+    username = row["launched_by_username"]
     return JobRow(
         id=str(row["id"]),
         user_id=int(row["user_id"]),
@@ -51,6 +54,7 @@ def _row_to_job(row: sqlite3.Row) -> JobRow:
         experiment_id=str(row["experiment_id"]) if row["experiment_id"] else None,
         log_path=str(row["log_path"]),
         pid=int(row["pid"]) if row["pid"] is not None else None,
+        launched_by_username=str(username) if username is not None else None,
     )
 
 
@@ -75,10 +79,7 @@ def insert_job(conn: sqlite3.Connection, new_job: NewJob) -> JobRow:
 
 
 def get_job(conn: sqlite3.Connection, job_id: str) -> JobRow:
-    row = conn.execute(
-        f"SELECT {_JOB_COLUMNS} FROM jobs WHERE id = ?",
-        (job_id,),
-    ).fetchone()
+    row = conn.execute(f"{_JOB_SELECT} WHERE j.id = ?", (job_id,)).fetchone()
     if row is None:
         raise JobNotFoundError(f"job {job_id} not found")
     return _row_to_job(row)
@@ -92,12 +93,12 @@ def list_jobs(conn: sqlite3.Connection, *, user_id: int | None = None) -> list[J
     though the subprocess hasn't spawned — and ``id`` breaks ties for stable
     pagination across the polling refetch.
     """
-    order_clause = "ORDER BY started_at DESC NULLS FIRST, id DESC"
+    order_clause = "ORDER BY j.started_at DESC NULLS FIRST, j.id DESC"
     if user_id is None:
-        rows = conn.execute(f"SELECT {_JOB_COLUMNS} FROM jobs {order_clause}").fetchall()
+        rows = conn.execute(f"{_JOB_SELECT} {order_clause}").fetchall()
     else:
         rows = conn.execute(
-            f"SELECT {_JOB_COLUMNS} FROM jobs WHERE user_id = ? {order_clause}",
+            f"{_JOB_SELECT} WHERE j.user_id = ? {order_clause}",
             (user_id,),
         ).fetchall()
     return [_row_to_job(row) for row in rows]
@@ -106,7 +107,7 @@ def list_jobs(conn: sqlite3.Connection, *, user_id: int | None = None) -> list[J
 def list_running_jobs(conn: sqlite3.Connection) -> list[JobRow]:
     """Used by lifespan-startup orphan reconcile."""
     rows = conn.execute(
-        f"SELECT {_JOB_COLUMNS} FROM jobs WHERE status = ?",
+        f"{_JOB_SELECT} WHERE j.status = ?",
         (JobStatus.RUNNING.value,),
     ).fetchall()
     return [_row_to_job(row) for row in rows]

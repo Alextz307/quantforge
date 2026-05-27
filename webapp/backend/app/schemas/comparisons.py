@@ -46,6 +46,7 @@ class ComparisonSummary(BaseModel):
     store: str
     created_at: datetime
     strategies: list[str]
+    launched_by_username: str | None = None
 
 
 class ComparisonDetail(BaseModel):
@@ -55,3 +56,4 @@ class ComparisonDetail(BaseModel):
     git_sha: str
     per_strategy_stats: list[PerStrategyStatsRow]
     plots: list[str]
+    launched_by_username: str | None = None

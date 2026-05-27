@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import sqlite3
 
-from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect, status
+from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, WebSocketDisconnect, status
 from starlette.websockets import WebSocketState
 
 from webapp.backend.app.api._ws_auth import (
@@ -39,19 +39,31 @@ router = APIRouter(prefix="/hpo", tags=["hpo"])
 
 
 @router.get("", response_model=list[HpoSummary])
-def get_hpo_studies(_user: UserPublic = Depends(get_current_user)) -> list[HpoSummary]:
-    return list_hpo_studies(get_settings().store_root)
+def get_hpo_studies(
+    all_users: bool = Query(False, alias="all"),
+    user: UserPublic = Depends(get_current_user),
+    conn: sqlite3.Connection = Depends(get_db),
+) -> list[HpoSummary]:
+    return list_hpo_studies(
+        get_settings().store_root, conn=conn, user=user, all_users=all_users
+    )
 
 
 @router.get("/{wire_id}", response_model=HpoDetail)
 def get_hpo_study_detail(
     wire_id: str,
-    _user: UserPublic = Depends(get_current_user),
+    user: UserPublic = Depends(get_current_user),
     conn: sqlite3.Connection = Depends(get_db),
 ) -> HpoDetail:
     try:
         live_job_id = find_live_job_for(conn, wire_id)
-        return get_hpo_study(get_settings().store_root, wire_id, live_job_id=live_job_id)
+        return get_hpo_study(
+            get_settings().store_root,
+            wire_id,
+            conn=conn,
+            user=user,
+            live_job_id=live_job_id,
+        )
     except HpoStudyNotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
 
@@ -60,10 +72,17 @@ def get_hpo_study_detail(
 def get_hpo_trials(
     wire_id: str,
     after_trial: int | None = None,
-    _user: UserPublic = Depends(get_current_user),
+    user: UserPublic = Depends(get_current_user),
+    conn: sqlite3.Connection = Depends(get_db),
 ) -> list[TrialRow]:
     try:
-        return list_trials(get_settings().store_root, wire_id, after_trial=after_trial)
+        return list_trials(
+            get_settings().store_root,
+            wire_id,
+            conn=conn,
+            user=user,
+            after_trial=after_trial,
+        )
     except HpoStudyNotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
 
@@ -71,10 +90,13 @@ def get_hpo_trials(
 @router.get("/{wire_id}/param-importance", response_model=ParamImportanceResponse)
 def get_hpo_param_importance(
     wire_id: str,
-    _user: UserPublic = Depends(get_current_user),
+    user: UserPublic = Depends(get_current_user),
+    conn: sqlite3.Connection = Depends(get_db),
 ) -> ParamImportanceResponse:
     try:
-        return get_param_importance(get_settings().store_root, wire_id)
+        return get_param_importance(
+            get_settings().store_root, wire_id, conn=conn, user=user
+        )
     except HpoStudyNotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
 

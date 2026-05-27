@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sqlite3
 from pathlib import Path
 from typing import cast
 
@@ -16,7 +17,14 @@ from webapp.backend.app.infrastructure.store import (
     store_label,
 )
 from webapp.backend.app.schemas.holdout import HoldoutEvalDetail, HoldoutEvalSummary
+from webapp.backend.app.schemas.users import UserPublic
 from webapp.backend.app.services._dir_cache import cached_artifact_dirs
+from webapp.backend.app.services.ownership import (
+    ArtifactAccessDeniedError,
+    check_artifact_access,
+    resolve_owner_usernames,
+    scope_and_stamp_summaries,
+)
 from webapp.backend.app.services.plots import (
     PlotNotFoundError,
     list_plots,
@@ -24,6 +32,7 @@ from webapp.backend.app.services.plots import (
 )
 
 __all__ = [
+    "ArtifactAccessDeniedError",
     "HoldoutEvalNotFoundError",
     "PlotNotFoundError",
     "get_holdout_eval",
@@ -42,8 +51,14 @@ def _optional_metric(metrics: object, key: str) -> float | None:
     return float(value)
 
 
-def list_holdout_evals(root: Path) -> list[HoldoutEvalSummary]:
-    """List every holdout eval under ``root``, newest first."""
+def list_holdout_evals(
+    root: Path,
+    *,
+    conn: sqlite3.Connection,
+    user: UserPublic,
+    all_users: bool,
+) -> list[HoldoutEvalSummary]:
+    """List every holdout eval under ``root`` visible to ``user``, newest first."""
     summaries: list[HoldoutEvalSummary] = []
     for eval_dir in cached_artifact_dirs(root, "holdout", iter_holdout_eval_dirs):
         payload = json_io.read_dict(eval_dir / HOLDOUT_EVAL_JSON)
@@ -59,15 +74,30 @@ def list_holdout_evals(root: Path) -> list[HoldoutEvalSummary]:
                 sharpe_ratio=sharpe,
             )
         )
-    summaries.sort(key=lambda s: s.created_at, reverse=True)
-    return summaries
+    scoped = scope_and_stamp_summaries(
+        summaries, key_fn=lambda s: s.name, conn=conn, user=user, all_users=all_users
+    )
+    scoped.sort(key=lambda s: s.created_at, reverse=True)
+    return scoped
 
 
-def get_holdout_eval(root: Path, name: str) -> HoldoutEvalDetail:
-    """Read the full detail payload for one holdout eval."""
+def get_holdout_eval(
+    root: Path,
+    name: str,
+    *,
+    conn: sqlite3.Connection,
+    user: UserPublic,
+) -> HoldoutEvalDetail:
+    """Read the full detail payload for one holdout eval.
+
+    Raises :class:`ArtifactAccessDeniedError` when ``user`` is neither owner
+    nor admin; the router maps that to 404.
+    """
+    check_artifact_access(conn, experiment_id=name, user=user)
     eval_dir = find_holdout_eval_dir(root, name)
     payload = json_io.read_dict(eval_dir / HOLDOUT_EVAL_JSON)
     metrics = json_io.get_dict(payload, "metrics")
+    usernames = resolve_owner_usernames(conn, experiment_ids=[name])
     return HoldoutEvalDetail(
         name=json_io.get_str(payload, "out_name"),
         store=store_label(eval_dir, root),
@@ -92,9 +122,18 @@ def get_holdout_eval(root: Path, name: str) -> HoldoutEvalDetail:
         trade_count=json_io.get_int(metrics, "trade_count"),
         equity_curve=json_io.get_float_list(payload, "equity_curve"),
         plots=list_plots(eval_dir),
+        launched_by_username=usernames.get(name),
     )
 
 
-def resolve_plot(root: Path, name: str, plot_name: str) -> Path:
+def resolve_plot(
+    root: Path,
+    name: str,
+    plot_name: str,
+    *,
+    conn: sqlite3.Connection,
+    user: UserPublic,
+) -> Path:
     """Resolve a holdout-eval plot filename to an absolute path, blocking traversal."""
+    check_artifact_access(conn, experiment_id=name, user=user)
     return resolve_plot_path(find_holdout_eval_dir(root, name), plot_name)

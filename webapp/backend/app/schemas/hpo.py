@@ -52,6 +52,7 @@ class HpoSummary(BaseModel):
     # user can't pick a source the CLI would reject for "no holdout
     # reservation" after the subprocess spawns.
     best_config_reserves_holdout: bool
+    launched_by_username: str | None = None
 
 
 class HpoDetail(BaseModel):
@@ -67,6 +68,7 @@ class HpoDetail(BaseModel):
     best_config: dict[str, object]
     best_config_reserves_holdout: bool
     live_job_id: str | None
+    launched_by_username: str | None = None
 
 
 class TrialFrame(BaseModel):

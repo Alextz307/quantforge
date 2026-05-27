@@ -1,4 +1,4 @@
-import { Beaker, GitCompareArrows, LayoutGrid, PlayCircle, ShieldCheck } from "lucide-react";
+import { Beaker, GitCompareArrows, Globe, LayoutGrid, PlayCircle, ShieldCheck } from "lucide-react";
 import { NavCard } from "@/components/NavCard";
 import { ROUTES } from "@/lib/routes";
 
@@ -42,6 +42,12 @@ export function ConfigureLandingPage() {
           icon={LayoutGrid}
           title="New study"
           description="Sweep a spec across strategies and universes; live leg grid as legs land."
+        />
+        <NavCard
+          to={ROUTES.configureUniverse}
+          icon={Globe}
+          title="Manage universes"
+          description="Upload reusable universe specs that study legs reference by slug."
         />
       </div>
     </div>

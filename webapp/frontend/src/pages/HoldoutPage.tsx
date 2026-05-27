@@ -1,6 +1,8 @@
 import { useCallback, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import { useMe } from "@/api/auth";
 import { useHoldoutEvals, usePrefetchHoldoutEval, type HoldoutEvalSummary } from "@/api/holdout";
+import { AllUsersToggle } from "@/components/AllUsersToggle";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FilterDate } from "@/components/FilterDate";
@@ -10,6 +12,7 @@ import {
   type SortState,
 } from "@/components/FilterableTablePage";
 import { FilterSelect } from "@/components/FilterSelect";
+import { LaunchedByCell } from "@/components/LaunchedByCell";
 import { QueryRenderer } from "@/components/QueryRenderer";
 import { ALL_OPTION, uniqSorted } from "@/lib/filters";
 import { formatDateTime, formatMetric } from "@/lib/format";
@@ -66,7 +69,10 @@ function sortRows(
 }
 
 export function HoldoutPage() {
-  const query = useHoldoutEvals();
+  const me = useMe();
+  const isAdmin = me.data?.role === "admin";
+  const [allUsers, setAllUsers] = useState(false);
+  const query = useHoldoutEvals({ allUsers: isAdmin && allUsers });
   const [sourceKind, setSourceKind] = useState<SourceKindFilter>(ALL_OPTION);
   const [since, setSince] = useState<string>("");
   const [sortState, setSortState] = useState<SortState<HoldoutSortKey>>(DEFAULT_SORT);
@@ -89,6 +95,13 @@ export function HoldoutPage() {
         </Button>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
+        <AllUsersToggle
+          isAdmin={isAdmin}
+          checked={allUsers}
+          onChange={setAllUsers}
+          artifactLabel="holdout evaluations"
+          testId="holdout-all-users-toggle"
+        />
         <QueryRenderer query={query} errorTitle="Failed to load holdout evaluations">
           {(rows) => (
             <HoldoutBody
@@ -190,6 +203,10 @@ function HoldoutBody({
           cellClassName: "font-mono text-xs",
           render: (r) => formatDateTime(r.created_at),
           sortKey: "created_at",
+        },
+        {
+          header: "Launched by",
+          render: (r) => <LaunchedByCell username={r.launched_by_username} />,
         },
       ]}
     />

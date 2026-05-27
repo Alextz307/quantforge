@@ -1,9 +1,12 @@
 import { useMemo, useState } from "react";
+import { useMe } from "@/api/auth";
 import { useStudies, usePrefetchStudy, type StudySummary } from "@/api/studies";
+import { AllUsersToggle } from "@/components/AllUsersToggle";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FilterDate } from "@/components/FilterDate";
 import { FilterableTablePage } from "@/components/FilterableTablePage";
 import { FilterSelect } from "@/components/FilterSelect";
+import { LaunchedByCell } from "@/components/LaunchedByCell";
 import { QueryRenderer } from "@/components/QueryRenderer";
 import { ALL_OPTION, uniqSorted } from "@/lib/filters";
 import { formatDateTime, formatPercent } from "@/lib/format";
@@ -24,7 +27,10 @@ function applyFilters(rows: readonly StudySummary[], f: StudiesFilters): readonl
 }
 
 export function StudiesPage() {
-  const query = useStudies();
+  const me = useMe();
+  const isAdmin = me.data?.role === "admin";
+  const [allUsers, setAllUsers] = useState(false);
+  const query = useStudies({ allUsers: isAdmin && allUsers });
   const [spec, setSpec] = useState<string>(ALL_OPTION);
   const [since, setSince] = useState<string>("");
 
@@ -34,6 +40,13 @@ export function StudiesPage() {
         <CardTitle>Studies</CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
+        <AllUsersToggle
+          isAdmin={isAdmin}
+          checked={allUsers}
+          onChange={setAllUsers}
+          artifactLabel="studies"
+          testId="studies-all-users-toggle"
+        />
         <QueryRenderer query={query} errorTitle="Failed to load studies">
           {(rows) => (
             <StudiesBody
@@ -107,6 +120,10 @@ function StudiesBody({ rows, spec, since, onSpec, onSince }: BodyProps) {
           header: "Started",
           cellClassName: "font-mono text-xs",
           render: (r) => formatDateTime(r.started_at),
+        },
+        {
+          header: "Launched by",
+          render: (r) => <LaunchedByCell username={r.launched_by_username} />,
         },
       ]}
     />

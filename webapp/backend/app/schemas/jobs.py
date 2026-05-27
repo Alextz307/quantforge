@@ -145,6 +145,7 @@ class JobRow(BaseModel):
     experiment_id: str | None
     log_path: str
     pid: int | None
+    launched_by_username: str | None = None
 
 
 class JobLogFrame(BaseModel):

@@ -2,10 +2,12 @@ import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useMe } from "@/api/auth";
 import { useJobs, type JobRow, type JobStatus } from "@/api/jobs";
+import { AllUsersToggle } from "@/components/AllUsersToggle";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { JobStatusPill } from "@/components/jobs/JobStatusPill";
 import { FilterableTablePage } from "@/components/FilterableTablePage";
 import { FilterSelect } from "@/components/FilterSelect";
+import { LaunchedByCell } from "@/components/LaunchedByCell";
 import { QueryRenderer } from "@/components/QueryRenderer";
 import { ALL_OPTION } from "@/lib/filters";
 import { formatDateTime } from "@/lib/format";
@@ -79,18 +81,12 @@ function JobsBody({ rows, status, onStatus, isAdmin, allUsers, onAllUsers }: Job
   const filters = useMemo<JobFilters>(() => ({ status }), [status]);
   return (
     <>
-      {isAdmin && (
-        <label className="flex items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            checked={allUsers}
-            onChange={(e) => {
-              onAllUsers(e.target.checked);
-            }}
-          />
-          Show jobs from all users (admin)
-        </label>
-      )}
+      <AllUsersToggle
+        isAdmin={isAdmin}
+        checked={allUsers}
+        onChange={onAllUsers}
+        artifactLabel="jobs"
+      />
       <FilterableTablePage<JobRow, JobFilters>
         rows={rows}
         filters={filters}
@@ -131,6 +127,10 @@ function JobsBody({ rows, status, onStatus, isAdmin, allUsers, onAllUsers }: Job
           {
             header: "Artifact",
             render: (j) => <JobArtifactLink job={j} compact fallback="—" />,
+          },
+          {
+            header: "Launched by",
+            render: (j) => <LaunchedByCell username={j.launched_by_username} />,
           },
         ]}
       />

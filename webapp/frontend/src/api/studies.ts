@@ -19,10 +19,18 @@ export type StudyConsolidatedDTO = components["schemas"]["StudyConsolidatedDTO"]
 const LIST_STALE_TIME = 30_000;
 const STUDY_DETAIL_STALE_TIME = 10_000;
 
-function studiesConfig(): ApiQueryOptions<StudySummary[]> {
+export interface StudiesListOptions {
+  allUsers?: boolean;
+}
+
+function studiesConfig(opts: StudiesListOptions): ApiQueryOptions<StudySummary[]> {
+  const allUsers = opts.allUsers ?? false;
   return {
-    queryKey: queryKeys.studies,
-    fetcher: () => apiClient.GET(API_PATHS.studies),
+    queryKey: queryKeys.studiesList(allUsers),
+    fetcher: () =>
+      allUsers
+        ? apiClient.GET(API_PATHS.studies, { params: { query: { all: true } } })
+        : apiClient.GET(API_PATHS.studies),
     errorMsg: "Failed to load studies",
     staleTime: LIST_STALE_TIME,
   };
@@ -46,8 +54,8 @@ function studyConsolidatedConfig(name: string): ApiQueryOptions<StudyConsolidate
   };
 }
 
-export function useStudies(): UseQueryResult<StudySummary[]> {
-  return useApiQuery(studiesConfig());
+export function useStudies(opts: StudiesListOptions = {}): UseQueryResult<StudySummary[]> {
+  return useApiQuery(studiesConfig(opts));
 }
 
 export function useStudy(name: string): UseQueryResult<StudyDetail> {

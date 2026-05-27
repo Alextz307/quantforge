@@ -15,10 +15,20 @@ export type HoldoutEvalDetail = components["schemas"]["HoldoutEvalDetail"];
 
 const LIST_STALE_TIME = 30_000;
 
-function holdoutEvalsConfig(): ApiQueryOptions<HoldoutEvalSummary[]> {
+export interface HoldoutEvalsListOptions {
+  allUsers?: boolean;
+}
+
+function holdoutEvalsConfig(
+  opts: HoldoutEvalsListOptions,
+): ApiQueryOptions<HoldoutEvalSummary[]> {
+  const allUsers = opts.allUsers ?? false;
   return {
-    queryKey: queryKeys.holdoutEvals,
-    fetcher: () => apiClient.GET(API_PATHS.holdoutEvals),
+    queryKey: queryKeys.holdoutEvalsList(allUsers),
+    fetcher: () =>
+      allUsers
+        ? apiClient.GET(API_PATHS.holdoutEvals, { params: { query: { all: true } } })
+        : apiClient.GET(API_PATHS.holdoutEvals),
     errorMsg: "Failed to load holdout evaluations",
     staleTime: LIST_STALE_TIME,
   };
@@ -33,8 +43,10 @@ function holdoutEvalConfig(name: string): ApiQueryOptions<HoldoutEvalDetail> {
   };
 }
 
-export function useHoldoutEvals(): UseQueryResult<HoldoutEvalSummary[]> {
-  return useApiQuery(holdoutEvalsConfig());
+export function useHoldoutEvals(
+  opts: HoldoutEvalsListOptions = {},
+): UseQueryResult<HoldoutEvalSummary[]> {
+  return useApiQuery(holdoutEvalsConfig(opts));
 }
 
 export function useHoldoutEval(name: string): UseQueryResult<HoldoutEvalDetail> {

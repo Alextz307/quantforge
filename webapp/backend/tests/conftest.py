@@ -36,6 +36,7 @@ from webapp.backend.app.core.settings import get_settings
 from webapp.backend.app.core.types import Role
 from webapp.backend.app.infrastructure.db import bootstrap_schema, open_db
 from webapp.backend.app.main import create_app
+from webapp.backend.app.schemas.users import UserPublic
 from webapp.backend.app.services.plots import PLOTS_DIRNAME
 from webapp.backend.app.services.user_service import create_user
 
@@ -134,6 +135,25 @@ ADMIN_USERNAME = "admin"
 ADMIN_PASSWORD = "adminpass!"
 SECONDARY_USERNAME = "bob"
 SECONDARY_PASSWORD = "secondary!"
+VIEWER_USERNAME = "viewer"
+VIEWER_PASSWORD = "viewer-password"
+
+
+def make_viewer_user(
+    conn: sqlite3.Connection,
+    *,
+    username: str = VIEWER_USERNAME,
+    role: Role = Role.USER,
+) -> UserPublic:
+    """Stock authenticated user for service-layer tests.
+
+    Hoisted from the per-file ``_viewer`` helper that the five
+    artifact-service test modules used to define. Service tests that
+    don't seed any jobs rows treat artifacts as ownerless / shared, so
+    the helper's identity rarely matters — pass an alternate ``username``
+    only when the test explicitly needs a second user.
+    """
+    return create_user(conn, username=username, password=VIEWER_PASSWORD, role=role)
 
 
 @pytest.fixture

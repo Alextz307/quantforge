@@ -27,6 +27,7 @@ class HoldoutEvalSummary(BaseModel):
     # yet. Surfacing it on the listing lets the table render + sort on Sharpe
     # without forcing a per-row detail fetch.
     sharpe_ratio: float | None
+    launched_by_username: str | None = None
 
 
 class HoldoutEvalDetail(BaseModel):
@@ -53,3 +54,4 @@ class HoldoutEvalDetail(BaseModel):
     trade_count: int
     equity_curve: list[float]
     plots: list[str]
+    launched_by_username: str | None = None

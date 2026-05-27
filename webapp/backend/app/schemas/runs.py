@@ -44,6 +44,7 @@ class RunSummary(BaseModel):
     calmar_mean: float | None
     has_holdout: bool
     data_hash: str
+    launched_by_username: str | None = None
 
 
 class RunDetail(BaseModel):
@@ -63,6 +64,7 @@ class RunDetail(BaseModel):
     holdout_start: datetime | None
     metrics: dict[str, float]
     plots: list[str]
+    launched_by_username: str | None = None
 
 
 class FoldRow(BaseModel):

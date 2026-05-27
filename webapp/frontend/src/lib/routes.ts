@@ -7,6 +7,7 @@ export const ROUTES = {
   configureCompare: "/configure/compare",
   configureHoldout: "/configure/holdout",
   configureStudy: "/configure/study",
+  configureUniverse: "/configure/universe",
   jobs: "/jobs",
   jobDetail: "/jobs/:jobId",
   runs: "/runs",

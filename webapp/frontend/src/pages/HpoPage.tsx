@@ -1,5 +1,7 @@
 import { useCallback, useMemo, useState } from "react";
+import { useMe } from "@/api/auth";
 import { useHpoStudies, usePrefetchHpoStudy, type HpoSummary } from "@/api/hpo";
+import { AllUsersToggle } from "@/components/AllUsersToggle";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FilterDate } from "@/components/FilterDate";
 import {
@@ -8,6 +10,7 @@ import {
   type SortState,
 } from "@/components/FilterableTablePage";
 import { FilterSelect } from "@/components/FilterSelect";
+import { LaunchedByCell } from "@/components/LaunchedByCell";
 import { QueryRenderer } from "@/components/QueryRenderer";
 import { ALL_OPTION, uniqSorted } from "@/lib/filters";
 import { formatDateTime, formatMetric } from "@/lib/format";
@@ -55,7 +58,10 @@ function sortRows(
 }
 
 export function HpoPage() {
-  const query = useHpoStudies();
+  const me = useMe();
+  const isAdmin = me.data?.role === "admin";
+  const [allUsers, setAllUsers] = useState(false);
+  const query = useHpoStudies({ allUsers: isAdmin && allUsers });
   const [store, setStore] = useState<string>(ALL_OPTION);
   const [since, setSince] = useState<string>("");
   const [sortState, setSortState] = useState<SortState<HpoSortKey>>(DEFAULT_SORT);
@@ -75,6 +81,13 @@ export function HpoPage() {
         <CardTitle>HPO studies</CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
+        <AllUsersToggle
+          isAdmin={isAdmin}
+          checked={allUsers}
+          onChange={setAllUsers}
+          artifactLabel="HPO studies"
+          testId="hpo-all-users-toggle"
+        />
         <QueryRenderer query={query} errorTitle="Failed to load HPO studies">
           {(rows) => (
             <HpoBody
@@ -161,6 +174,10 @@ function HpoBody({ rows, store, since, onStore, onSince, sortState, onSortToggle
           cellClassName: "font-mono text-xs",
           render: (r) => formatDateTime(r.created_at),
           sortKey: "created_at",
+        },
+        {
+          header: "Launched by",
+          render: (r) => <LaunchedByCell username={r.launched_by_username} />,
         },
       ]}
     />

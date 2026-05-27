@@ -24,7 +24,14 @@ from webapp.backend.app.schemas.studies import (
     StudyDetail,
     StudySummary,
 )
+from webapp.backend.app.schemas.users import UserPublic
 from webapp.backend.app.services._dir_cache import cached_artifact_dirs
+from webapp.backend.app.services.ownership import (
+    ArtifactAccessDeniedError,
+    check_artifact_access,
+    resolve_owner_usernames,
+    scope_and_stamp_summaries,
+)
 from webapp.backend.app.services.plots import (
     PLOTS_DIRNAME,
     TABLES_DIRNAME,
@@ -36,6 +43,7 @@ from webapp.backend.app.services.plots import (
 logger = logging.getLogger(__name__)
 
 __all__ = [
+    "ArtifactAccessDeniedError",
     "ConsolidatedReportNotFoundError",
     "PlotNotFoundError",
     "StudyConsolidationError",
@@ -59,8 +67,14 @@ class StudyConsolidationError(ValueError):
     """Raised when consolidation cannot complete (e.g. missing per-leg artifacts)."""
 
 
-def list_studies(root: Path) -> list[StudySummary]:
-    """List every study under ``root``, newest first."""
+def list_studies(
+    root: Path,
+    *,
+    conn: sqlite3.Connection,
+    user: UserPublic,
+    all_users: bool,
+) -> list[StudySummary]:
+    """List every study under ``root`` visible to ``user``, newest first."""
     summaries: list[StudySummary] = []
     for study_dir in cached_artifact_dirs(root, "study", iter_study_dirs):
         try:
@@ -69,13 +83,29 @@ def list_studies(root: Path) -> list[StudySummary]:
             logger.warning("skipping unreadable study at %s: %s", study_dir, exc)
             continue
         summaries.append(_summary_from_state(study_dir.name, state))
-    summaries.sort(key=lambda s: s.started_at, reverse=True)
-    return summaries
+    scoped = scope_and_stamp_summaries(
+        summaries, key_fn=lambda s: s.name, conn=conn, user=user, all_users=all_users
+    )
+    scoped.sort(key=lambda s: s.started_at, reverse=True)
+    return scoped
 
 
-def get_study(root: Path, name: str) -> StudyDetail:
-    """Read the full detail payload for one study."""
-    return build_study_detail(find_study_dir(root, name))
+def get_study(
+    root: Path,
+    name: str,
+    *,
+    conn: sqlite3.Connection,
+    user: UserPublic,
+) -> StudyDetail:
+    """Read the full detail payload for one study.
+
+    Raises :class:`ArtifactAccessDeniedError` when ``user`` is neither owner
+    nor admin; the router maps that to 404.
+    """
+    check_artifact_access(conn, experiment_id=name, user=user)
+    detail = build_study_detail(find_study_dir(root, name))
+    usernames = resolve_owner_usernames(conn, experiment_ids=[name])
+    return detail.model_copy(update={"launched_by_username": usernames.get(name)})
 
 
 def build_study_detail(study_dir: Path) -> StudyDetail:
@@ -114,8 +144,15 @@ def build_study_detail(study_dir: Path) -> StudyDetail:
     )
 
 
-def get_consolidated(root: Path, name: str) -> StudyConsolidatedDTO:
+def get_consolidated(
+    root: Path,
+    name: str,
+    *,
+    conn: sqlite3.Connection,
+    user: UserPublic,
+) -> StudyConsolidatedDTO:
     """Read the consolidated-report manifest + tables/plots index for one study."""
+    check_artifact_access(conn, experiment_id=name, user=user)
     study_dir = find_study_dir(root, name)
     manifest_path = study_dir / MANIFEST_FILENAME
     try:
@@ -137,7 +174,13 @@ def get_consolidated(root: Path, name: str) -> StudyConsolidatedDTO:
     )
 
 
-def generate_consolidated(root: Path, name: str) -> StudyConsolidatedDTO:
+def generate_consolidated(
+    root: Path,
+    name: str,
+    *,
+    conn: sqlite3.Connection,
+    user: UserPublic,
+) -> StudyConsolidatedDTO:
     """Build (or rebuild) the consolidated report for a study and return its DTO.
 
     Idempotent: safe to call against a study that already has a consolidated
@@ -146,22 +189,39 @@ def generate_consolidated(root: Path, name: str) -> StudyConsolidatedDTO:
     artifacts are missing or malformed (e.g. running against a study that
     hasn't completed any legs yet).
     """
+    check_artifact_access(conn, experiment_id=name, user=user)
     study_dir = find_study_dir(root, name)
     try:
         report = consolidate_study(study_dir)
     except (FileNotFoundError, ValueError) as exc:
         raise StudyConsolidationError(str(exc)) from exc
     StudyReportReporter().generate_full_report(report, study_dir)
-    return get_consolidated(root, name)
+    return get_consolidated(root, name, conn=conn, user=user)
 
 
-def resolve_consolidated_plot(root: Path, name: str, plot_name: str) -> Path:
+def resolve_consolidated_plot(
+    root: Path,
+    name: str,
+    plot_name: str,
+    *,
+    conn: sqlite3.Connection,
+    user: UserPublic,
+) -> Path:
     """Resolve a consolidated plot filename to an absolute path, blocking traversal."""
+    check_artifact_access(conn, experiment_id=name, user=user)
     return resolve_file_under(find_study_dir(root, name), PLOTS_DIRNAME, plot_name)
 
 
-def resolve_consolidated_table(root: Path, name: str, table_name: str) -> Path:
+def resolve_consolidated_table(
+    root: Path,
+    name: str,
+    table_name: str,
+    *,
+    conn: sqlite3.Connection,
+    user: UserPublic,
+) -> Path:
     """Resolve a consolidated table filename to an absolute path, blocking traversal."""
+    check_artifact_access(conn, experiment_id=name, user=user)
     return resolve_file_under(find_study_dir(root, name), TABLES_DIRNAME, table_name)
 
 

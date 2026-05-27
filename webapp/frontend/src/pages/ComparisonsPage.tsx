@@ -1,11 +1,14 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import { useMe } from "@/api/auth";
 import { useComparisons, usePrefetchComparison, type ComparisonSummary } from "@/api/comparisons";
+import { AllUsersToggle } from "@/components/AllUsersToggle";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FilterDate } from "@/components/FilterDate";
 import { FilterableTablePage } from "@/components/FilterableTablePage";
 import { FilterSelect } from "@/components/FilterSelect";
+import { LaunchedByCell } from "@/components/LaunchedByCell";
 import { QueryRenderer } from "@/components/QueryRenderer";
 import { ALL_OPTION, uniqSorted } from "@/lib/filters";
 import { formatDateTime } from "@/lib/format";
@@ -29,7 +32,10 @@ function applyFilters(
 }
 
 export function ComparisonsPage() {
-  const query = useComparisons();
+  const me = useMe();
+  const isAdmin = me.data?.role === "admin";
+  const [allUsers, setAllUsers] = useState(false);
+  const query = useComparisons({ allUsers: isAdmin && allUsers });
   const [strategy, setStrategy] = useState<string>(ALL_OPTION);
   const [since, setSince] = useState<string>("");
 
@@ -44,6 +50,13 @@ export function ComparisonsPage() {
         </Button>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
+        <AllUsersToggle
+          isAdmin={isAdmin}
+          checked={allUsers}
+          onChange={setAllUsers}
+          artifactLabel="comparisons"
+          testId="comparisons-all-users-toggle"
+        />
         <QueryRenderer query={query} errorTitle="Failed to load comparisons">
           {(rows) => (
             <ComparisonsBody
@@ -110,6 +123,10 @@ function ComparisonsBody({ rows, strategy, since, onStrategy, onSince }: BodyPro
           header: "Created",
           cellClassName: "font-mono text-xs",
           render: (r) => formatDateTime(r.created_at),
+        },
+        {
+          header: "Launched by",
+          render: (r) => <LaunchedByCell username={r.launched_by_username} />,
         },
       ]}
     />

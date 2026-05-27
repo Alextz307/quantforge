@@ -20,10 +20,18 @@ const LIST_STALE_TIME = 30_000;
 const STUDY_LIVE_REFETCH_MS = 3_000;
 const IMPORTANCE_LIVE_REFETCH_MS = 30_000;
 
-function hpoStudiesConfig(): ApiQueryOptions<HpoSummary[]> {
+export interface HpoStudiesListOptions {
+  allUsers?: boolean;
+}
+
+function hpoStudiesConfig(opts: HpoStudiesListOptions): ApiQueryOptions<HpoSummary[]> {
+  const allUsers = opts.allUsers ?? false;
   return {
-    queryKey: queryKeys.hpoStudies,
-    fetcher: () => apiClient.GET(API_PATHS.hpoStudies),
+    queryKey: queryKeys.hpoStudiesList(allUsers),
+    fetcher: () =>
+      allUsers
+        ? apiClient.GET(API_PATHS.hpoStudies, { params: { query: { all: true } } })
+        : apiClient.GET(API_PATHS.hpoStudies),
     errorMsg: "Failed to load HPO studies",
     staleTime: LIST_STALE_TIME,
   };
@@ -64,8 +72,10 @@ function hpoParamImportanceConfig(
   };
 }
 
-export function useHpoStudies(): UseQueryResult<HpoSummary[]> {
-  return useApiQuery(hpoStudiesConfig());
+export function useHpoStudies(
+  opts: HpoStudiesListOptions = {},
+): UseQueryResult<HpoSummary[]> {
+  return useApiQuery(hpoStudiesConfig(opts));
 }
 
 export function useHpoStudy(

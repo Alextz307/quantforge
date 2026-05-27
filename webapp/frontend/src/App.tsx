@@ -49,6 +49,9 @@ const ConfigureHoldoutPage = lazy(() =>
 const ConfigureStudyPage = lazy(() =>
   import("@/pages/ConfigureStudyPage").then((m) => ({ default: m.ConfigureStudyPage })),
 );
+const ConfigureUniversePage = lazy(() =>
+  import("@/pages/ConfigureUniversePage").then((m) => ({ default: m.ConfigureUniversePage })),
+);
 const JobDetailPage = lazy(() =>
   import("@/pages/JobDetailPage").then((m) => ({ default: m.JobDetailPage })),
 );
@@ -120,6 +123,14 @@ export function App() {
           element={
             <Suspense fallback={<ChartFallback />}>
               <ConfigureStudyPage />
+            </Suspense>
+          }
+        />
+        <Route
+          path={ROUTES.configureUniverse}
+          element={
+            <Suspense fallback={<ChartFallback />}>
+              <ConfigureUniversePage />
             </Suspense>
           }
         />

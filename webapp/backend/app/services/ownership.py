@@ -26,10 +26,15 @@ of someone else's artifact.
 from __future__ import annotations
 
 import sqlite3
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
+from typing import TypeVar
+
+from pydantic import BaseModel
 
 from webapp.backend.app.core.types import Role
 from webapp.backend.app.schemas.users import UserPublic
+
+SummaryT = TypeVar("SummaryT", bound=BaseModel)
 
 # Conservative cap on the IN-clause arity. SQLite's
 # ``SQLITE_LIMIT_VARIABLE_NUMBER`` was 999 in pre-3.32 builds and 32766
@@ -152,10 +157,67 @@ def resolve_owner_usernames(
     return result
 
 
+def scope_and_stamp_summaries(
+    summaries: list[SummaryT],
+    *,
+    key_fn: Callable[[SummaryT], str | None],
+    conn: sqlite3.Connection,
+    user: UserPublic,
+    all_users: bool,
+) -> list[SummaryT]:
+    """Filter a summary list to ``user``-visible artifacts and stamp ``launched_by_username``.
+
+    Standard epilogue for every list endpoint: take the unsorted full
+    summary list, drop the entries the caller may not see, attach the
+    owner's username on the survivors via ``model_copy``.
+
+    ``key_fn(summary)`` returns the ``experiment_id`` used as the ownership
+    lookup key, or ``None`` for summaries that are inherently ownerless
+    (e.g. nested HPO studies under ``studies/<x>/hpo/...`` inherit their
+    parent study's visibility and have no per-leg jobs row). ``None``
+    entries always appear in the result, unstamped — the frontend's
+    ``"system"`` fallback handles the display.
+
+    The caller is responsible for the final sort; this helper preserves
+    input order for survivors.
+    """
+    keys_per_summary = [key_fn(s) for s in summaries]
+    keys_to_query = [k for k in keys_per_summary if k is not None]
+    owners: dict[str, tuple[int, str | None]] = {}
+    for chunk in _chunks(keys_to_query, _MAX_IN_PARAMS):
+        rows = conn.execute(
+            f"SELECT j.experiment_id, j.user_id, u.username "  # noqa: S608 - placeholders only
+            f"FROM jobs j LEFT JOIN users u ON u.id = j.user_id "
+            f"WHERE j.experiment_id IN ({_in_placeholders(len(chunk))})",
+            chunk,
+        ).fetchall()
+        for row in rows:
+            owners[str(row["experiment_id"])] = (
+                int(row["user_id"]),
+                str(row["username"]) if row["username"] is not None else None,
+            )
+    admin_all = user.role is Role.ADMIN and all_users
+    scoped: list[SummaryT] = []
+    for summary, key in zip(summaries, keys_per_summary, strict=True):
+        if key is None:
+            scoped.append(summary)
+            continue
+        owner = owners.get(key)
+        if owner is None:
+            scoped.append(summary)
+            continue
+        owner_id, owner_username = owner
+        if not admin_all and owner_id != user.id:
+            continue
+        scoped.append(summary.model_copy(update={"launched_by_username": owner_username}))
+    return scoped
+
+
 __all__ = [
     "ArtifactAccessDeniedError",
     "check_artifact_access",
     "filter_visible_experiment_ids",
     "resolve_artifact_owner",
     "resolve_owner_usernames",
+    "scope_and_stamp_summaries",
 ]

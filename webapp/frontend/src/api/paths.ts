@@ -31,6 +31,10 @@ export const API_PATHS = {
   studySpecValidate: "/api/configs/study_spec/validate",
   studyUploads: "/api/configs/study/uploads",
   studyUpload: "/api/configs/study/uploads/{slug}",
+  universeUploads: "/api/configs/universe/uploads",
+  universeUpload: "/api/configs/universe/uploads/{slug}",
+  universeSpecSchema: "/api/configs/universe_spec/schema",
+  universeSpecValidate: "/api/configs/universe_spec/validate",
   strategies: "/api/strategies",
   strategySchema: "/api/strategies/{name}/schema",
 } as const;

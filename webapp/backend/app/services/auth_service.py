@@ -9,6 +9,8 @@ import bcrypt
 
 from webapp.backend.app.core.types import Role
 
+MIN_PASSWORD_LENGTH = 8
+
 
 @dataclass(frozen=True)
 class AuthenticatedUser:

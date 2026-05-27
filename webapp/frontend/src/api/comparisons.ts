@@ -16,10 +16,20 @@ export type PerStrategyStatsRow = components["schemas"]["PerStrategyStatsRow"];
 
 const LIST_STALE_TIME = 30_000;
 
-function comparisonsConfig(): ApiQueryOptions<ComparisonSummary[]> {
+export interface ComparisonsListOptions {
+  allUsers?: boolean;
+}
+
+function comparisonsConfig(
+  opts: ComparisonsListOptions,
+): ApiQueryOptions<ComparisonSummary[]> {
+  const allUsers = opts.allUsers ?? false;
   return {
-    queryKey: queryKeys.comparisons,
-    fetcher: () => apiClient.GET(API_PATHS.comparisons),
+    queryKey: queryKeys.comparisonsList(allUsers),
+    fetcher: () =>
+      allUsers
+        ? apiClient.GET(API_PATHS.comparisons, { params: { query: { all: true } } })
+        : apiClient.GET(API_PATHS.comparisons),
     errorMsg: "Failed to load comparisons",
     staleTime: LIST_STALE_TIME,
   };
@@ -34,8 +44,10 @@ function comparisonConfig(name: string): ApiQueryOptions<ComparisonDetail> {
   };
 }
 
-export function useComparisons(): UseQueryResult<ComparisonSummary[]> {
-  return useApiQuery(comparisonsConfig());
+export function useComparisons(
+  opts: ComparisonsListOptions = {},
+): UseQueryResult<ComparisonSummary[]> {
+  return useApiQuery(comparisonsConfig(opts));
 }
 
 export function useComparison(name: string): UseQueryResult<ComparisonDetail> {

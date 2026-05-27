@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib.util
+import os
 from collections.abc import Iterable
 from datetime import UTC, datetime
 from pathlib import Path
@@ -23,6 +24,22 @@ from src.orchestration.types import ExperimentResult, FoldRecord
 from tests import _strategy_stubs as _strategy_stubs  # noqa: F401  # registers test stubs
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+
+
+@pytest.fixture(autouse=True, scope="session")
+def _isolate_webapp_db(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """Point ``WEBAPP_DB_PATH`` at a session-local tmp file.
+
+    The CLI subcommands (``experiment run/tune/compare/holdout-eval``,
+    ``study run``) attribute their artifacts via ``attribute_via_username``,
+    which opens the webapp DB at ``WEBAPP_DB_PATH``. Without this fixture,
+    framework tests invoking those subcommands via ``CliRunner`` would
+    insert synthetic jobs rows into the developer's actual
+    ``webapp/data/webapp.sqlite`` whenever they ran.
+    """
+    db_path = tmp_path_factory.mktemp("webapp_db") / "test_webapp.sqlite"
+    os.environ["WEBAPP_DB_PATH"] = str(db_path)
+    return db_path
 
 
 def load_script_module(path: Path, name: str) -> ModuleType:

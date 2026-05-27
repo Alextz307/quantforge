@@ -18,9 +18,8 @@ import click
 from webapp.backend.app.core.settings import get_settings
 from webapp.backend.app.core.types import Role
 from webapp.backend.app.infrastructure.db import bootstrap_schema, open_db
+from webapp.backend.app.services.auth_service import MIN_PASSWORD_LENGTH
 from webapp.backend.app.services.user_service import upsert_user
-
-MIN_PASSWORD_LENGTH = 8
 
 
 @click.command()

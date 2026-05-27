@@ -11,6 +11,11 @@ class UserPublic(BaseModel):
     id: int
     username: str
     role: Role
+    # ISO-8601 timestamp set only when the account was minted by the CLI
+    # ``--user`` auto-create path (typo-stub candidates). ``None`` for
+    # accounts created through the admin form, ``scripts.create_user``, or
+    # any other deliberate path.
+    auto_created_at: str | None = None
 
 
 class UserCreate(BaseModel):

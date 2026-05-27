@@ -23,9 +23,17 @@ const LIST_STALE_TIME = 30_000;
 // React Query cache; the default 5min is too generous for unbounded keys.
 const LIST_GC_TIME = 60_000;
 
-function runsPageConfig(params: RunsPageParams): ApiQueryOptions<RunsPage> {
+export interface RunsListOptions {
+  allUsers?: boolean;
+}
+
+function runsPageConfig(
+  params: RunsPageParams,
+  opts: RunsListOptions,
+): ApiQueryOptions<RunsPage> {
+  const allUsers = opts.allUsers ?? false;
   return {
-    queryKey: queryKeys.runsPage(params),
+    queryKey: queryKeys.runsPage({ ...params, allUsers }),
     fetcher: () =>
       apiClient.GET(API_PATHS.runs, {
         params: {
@@ -37,6 +45,7 @@ function runsPageConfig(params: RunsPageParams): ApiQueryOptions<RunsPage> {
             ...(params.strategy !== undefined ? { strategy: params.strategy } : {}),
             ...(params.ticker !== undefined ? { ticker: params.ticker } : {}),
             ...(params.since !== undefined ? { since: params.since } : {}),
+            ...(allUsers ? { all: true } : {}),
           },
         },
       }),
@@ -66,8 +75,11 @@ function runFoldsConfig(experimentId: string): ApiQueryOptions<FoldRow[]> {
   };
 }
 
-export function useRunsPage(params: RunsPageParams): UseQueryResult<RunsPage> {
-  return useApiQuery(runsPageConfig(params));
+export function useRunsPage(
+  params: RunsPageParams,
+  opts: RunsListOptions = {},
+): UseQueryResult<RunsPage> {
+  return useApiQuery(runsPageConfig(params, opts));
 }
 
 export function useRun(experimentId: string): UseQueryResult<RunDetail> {

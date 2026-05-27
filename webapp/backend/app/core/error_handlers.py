@@ -1,9 +1,9 @@
-"""App-level exception handlers for spec-upload errors.
+"""App-level exception handlers — translate service-layer errors to HTTP responses.
 
-Registers FastAPI handlers that translate the service-layer exception
-classes raised by :class:`SpecUploadStore` into the HTTP responses the
-frontend expects. Routes that perform upload operations stay free of
-try/except blocks; the mapping lives here, once.
+Registers FastAPI handlers that map the small set of cross-cutting exception
+classes raised by service modules into the HTTP responses the frontend
+expects. Endpoints stay free of repetitive try/except blocks for these
+errors; the mapping lives here, once.
 
 Status code mapping:
 
@@ -13,6 +13,8 @@ Status code mapping:
   library path in the detail.
 * :class:`SpecUploadInvalidError`      -> ``422`` with the verbatim
   ``ValidationErrorItem`` list the editor renders inline.
+* :class:`ArtifactAccessDeniedError`   -> ``404`` (not 403, so the
+  response does not disclose that the artifact exists at all).
 * :class:`PermissionError` raised from a list call (non-admin
   ``?all=true``)                       -> ``403``.
 """
@@ -25,6 +27,7 @@ from typing import cast
 from fastapi import FastAPI, Request, Response, status
 from fastapi.responses import JSONResponse
 
+from webapp.backend.app.services.ownership import ArtifactAccessDeniedError
 from webapp.backend.app.services.spec_upload_store import (
     LibrarySlugCollisionError,
     SpecUploadInvalidError,
@@ -64,6 +67,19 @@ async def _handle_invalid(_req: Request, exc: Exception) -> Response:
     )
 
 
+async def _handle_access_denied(_req: Request, exc: Exception) -> Response:
+    """Map ``ArtifactAccessDeniedError`` to 404 (not 403).
+
+    Surfaced from artifact read endpoints when the caller is neither the
+    artifact's owner nor an admin. 404 (not 403) so the response does not
+    disclose that the artifact exists — matching the framework-wide
+    no-peek-forward policy on identity leaks.
+    """
+    return JSONResponse(
+        status_code=status.HTTP_404_NOT_FOUND, content={"detail": str(exc)}
+    )
+
+
 async def _handle_list_permission(_req: Request, exc: Exception) -> Response:
     """Map non-admin ``?all=true`` PermissionError to 403.
 
@@ -86,6 +102,9 @@ def attach(app: FastAPI) -> None:
     )
     app.add_exception_handler(
         SpecUploadInvalidError, cast(ExcHandler, _handle_invalid)
+    )
+    app.add_exception_handler(
+        ArtifactAccessDeniedError, cast(ExcHandler, _handle_access_denied)
     )
     app.add_exception_handler(
         PermissionError, cast(ExcHandler, _handle_list_permission)

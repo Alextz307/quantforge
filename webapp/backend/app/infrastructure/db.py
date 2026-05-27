@@ -16,7 +16,8 @@ CREATE TABLE IF NOT EXISTS users (
     password_hash TEXT NOT NULL,
     role TEXT NOT NULL DEFAULT 'user',
     created_at TEXT NOT NULL,
-    deleted_at TEXT
+    deleted_at TEXT,
+    auto_created_at TEXT
 );
 """
 
@@ -86,11 +87,32 @@ def get_connection(db_path: Path) -> sqlite3.Connection:
     return conn
 
 
+def _ensure_column(
+    conn: sqlite3.Connection, table: str, column: str, definition: str
+) -> None:
+    """Idempotently ``ALTER TABLE ... ADD COLUMN``.
+
+    SQLite supports ``ADD COLUMN`` but not ``ADD COLUMN IF NOT EXISTS``;
+    introspect ``PRAGMA table_info`` first so re-running on an already-
+    migrated DB is a no-op.
+    """
+    cursor = conn.execute(f"PRAGMA table_info({table})")
+    existing = {str(row["name"]) for row in cursor.fetchall()}
+    if column in existing:
+        return
+    conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
+
+
 def bootstrap_schema(conn: sqlite3.Connection) -> None:
     conn.executescript(USERS_SCHEMA)
     conn.executescript(JOBS_SCHEMA)
     conn.executescript(STUDY_SPEC_UPLOADS_SCHEMA)
     conn.executescript(UNIVERSE_SPEC_UPLOADS_SCHEMA)
+    # Migration: ``users.auto_created_at`` distinguishes CLI ``--user`` auto-
+    # creates from deliberate ``scripts.create_user`` runs so an admin can find
+    # typo-stub accounts. Pre-existing rows stay NULL — only new auto-creates
+    # stamp it.
+    _ensure_column(conn, "users", "auto_created_at", "TEXT")
     conn.commit()
 
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import sqlite3
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
@@ -43,9 +44,16 @@ from webapp.backend.app.schemas.runs import (
     RunSummary,
     SortOrder,
 )
+from webapp.backend.app.schemas.users import UserPublic
 from webapp.backend.app.services._dir_cache import (
     cached_artifact_index,
     warm_index,
+)
+from webapp.backend.app.services.ownership import (
+    ArtifactAccessDeniedError,
+    check_artifact_access,
+    resolve_owner_usernames,
+    scope_and_stamp_summaries,
 )
 from webapp.backend.app.services.plots import (
     PLOTS_DIRNAME,
@@ -66,6 +74,7 @@ _RUN_KIND = "run"
 
 
 __all__ = [
+    "ArtifactAccessDeniedError",
     "PlotNotFoundError",
     "RunNotFoundError",
     "get_folds",
@@ -83,15 +92,27 @@ __all__ = [
 _LIST_WORKER_COUNT = 4
 
 
-def list_runs(root: Path) -> list[RunSummary]:
-    """List every run under ``root``, newest first.
+def list_runs(
+    root: Path,
+    *,
+    conn: sqlite3.Connection,
+    user: UserPublic,
+    all_users: bool,
+) -> list[RunSummary]:
+    """List every run under ``root`` visible to ``user``, newest first.
 
     Runs missing ``config.yaml`` are skipped (they cannot populate the
     strategy/tickers/interval columns); runs missing ``metrics.json``
     surface with ``None`` aggregates. The walker keys on
     ``manifest.json``, so partial runs without one never appear at all.
     """
-    summaries = _summarize_all(root)
+    summaries = scope_and_stamp_summaries(
+        _summarize_all(root),
+        key_fn=lambda s: s.experiment_id,
+        conn=conn,
+        user=user,
+        all_users=all_users,
+    )
     summaries.sort(key=lambda s: s.created_at, reverse=True)
     return summaries
 
@@ -157,6 +178,9 @@ def _cached_summarize(run_dir: Path, root: Path) -> RunSummary:
 def list_runs_page(
     root: Path,
     *,
+    conn: sqlite3.Connection,
+    user: UserPublic,
+    all_users: bool,
     limit: int,
     offset: int,
     sort_by: RunSortBy,
@@ -172,7 +196,13 @@ def list_runs_page(
     Filters and sort happen in-memory over the summary list; ``limit``/``offset``
     pick the page that is returned to the client.
     """
-    all_rows = _summarize_all(root)
+    all_rows = scope_and_stamp_summaries(
+        _summarize_all(root),
+        key_fn=lambda s: s.experiment_id,
+        conn=conn,
+        user=user,
+        all_users=all_users,
+    )
     filtered = [r for r in all_rows if _matches_filters(r, strategy, ticker, since)]
     filtered.sort(key=_sort_key(sort_by), reverse=(order is SortOrder.DESC))
     page = filtered[offset : offset + limit]
@@ -221,7 +251,13 @@ def _ensure_plots(run_dir: Path) -> None:
     StrategyReporter().generate_full_report(result, run_dir)
 
 
-def get_run(root: Path, experiment_id: str) -> RunDetail:
+def get_run(
+    root: Path,
+    experiment_id: str,
+    *,
+    conn: sqlite3.Connection,
+    user: UserPublic,
+) -> RunDetail:
     """Read the full detail payload for one run.
 
     Plot generation is NOT triggered here — it's deferred to ``resolve_plot``,
@@ -234,6 +270,7 @@ def get_run(root: Path, experiment_id: str) -> RunDetail:
     with empty ``metrics`` rather than 500-ing so the detail page agrees with
     the listing.
     """
+    check_artifact_access(conn, experiment_id=experiment_id, user=user)
     run_dir = _lookup_run_dir(root, experiment_id)
     manifest = read_experiment_manifest(run_dir)
     config = load_experiment_config_from_run(run_dir)
@@ -241,6 +278,7 @@ def get_run(root: Path, experiment_id: str) -> RunDetail:
         metrics = _read_metrics(run_dir)
     except FileNotFoundError:
         metrics = {}
+    usernames = resolve_owner_usernames(conn, experiment_ids=[experiment_id])
     return RunDetail(
         experiment_id=manifest.experiment_id,
         name=manifest.name,
@@ -256,11 +294,19 @@ def get_run(root: Path, experiment_id: str) -> RunDetail:
         holdout_start=manifest.holdout_start,
         metrics=metrics,
         plots=list_plots(run_dir),
+        launched_by_username=usernames.get(experiment_id),
     )
 
 
-def get_folds(root: Path, experiment_id: str) -> list[FoldRow]:
+def get_folds(
+    root: Path,
+    experiment_id: str,
+    *,
+    conn: sqlite3.Connection,
+    user: UserPublic,
+) -> list[FoldRow]:
     """Read per-fold metric rows for one run."""
+    check_artifact_access(conn, experiment_id=experiment_id, user=user)
     run_dir = _lookup_run_dir(root, experiment_id)
     result = load_experiment_result(run_dir)
     return [
@@ -285,12 +331,20 @@ def get_folds(root: Path, experiment_id: str) -> list[FoldRow]:
     ]
 
 
-def resolve_plot(root: Path, experiment_id: str, plot_name: str) -> Path:
+def resolve_plot(
+    root: Path,
+    experiment_id: str,
+    plot_name: str,
+    *,
+    conn: sqlite3.Connection,
+    user: UserPublic,
+) -> Path:
     """Resolve a plot filename to an absolute path, blocking ``..`` traversal.
 
     Lazily renders missing plots on first access (covers direct/bookmarked
     plot URLs that bypass ``get_run``).
     """
+    check_artifact_access(conn, experiment_id=experiment_id, user=user)
     run_dir = _lookup_run_dir(root, experiment_id)
     try:
         return resolve_plot_path(run_dir, plot_name)

@@ -28,9 +28,17 @@ from webapp.backend.app.schemas.hpo import (
     TrialRow,
 )
 from webapp.backend.app.schemas.jobs import TERMINAL_STATUSES, JobKind
+from webapp.backend.app.schemas.users import UserPublic
 from webapp.backend.app.services._dir_cache import cached_artifact_dirs
+from webapp.backend.app.services.ownership import (
+    ArtifactAccessDeniedError,
+    check_artifact_access,
+    resolve_owner_usernames,
+    scope_and_stamp_summaries,
+)
 
 __all__ = [
+    "ArtifactAccessDeniedError",
     "HpoStudyNotFoundError",
     "best_config_reserves_holdout",
     "find_live_job_for",
@@ -41,6 +49,7 @@ __all__ = [
     "trial_row_from_record",
 ]
 
+
 _COMPLETE_STATE = "COMPLETE"
 _MIN_TRIALS_FOR_IMPORTANCE = 2
 _NEEDS_MORE_TRIALS_MESSAGE = (
@@ -49,26 +58,58 @@ _NEEDS_MORE_TRIALS_MESSAGE = (
 _DB_MISSING_MESSAGE = "Importance unavailable: optuna study DB not yet written."
 
 
-def list_hpo_studies(root: Path) -> list[HpoSummary]:
-    """List every HPO study under ``root``, newest first."""
+def list_hpo_studies(
+    root: Path,
+    *,
+    conn: sqlite3.Connection,
+    user: UserPublic,
+    all_users: bool,
+) -> list[HpoSummary]:
+    """List every HPO study under ``root`` visible to ``user``, newest first.
+
+    Top-level studies (``hpo/<basename>``) are scoped via the jobs table
+    using basename as the join key; nested studies (``studies/<x>/hpo/...``)
+    have no per-leg TUNE row and are always visible (ownerless = shared).
+    """
     summaries: list[HpoSummary] = []
     for study_dir in cached_artifact_dirs(root, "hpo", iter_hpo_study_dirs):
         trials = json_io.read_jsonl(study_dir / TRIALS_JSONL_NAME)
         summaries.append(_summary_from_trials(study_dir, trials, root))
-    summaries.sort(key=lambda s: s.created_at, reverse=True)
-    return summaries
+    scoped = scope_and_stamp_summaries(
+        summaries,
+        key_fn=lambda s: _top_level_basename(s.wire_id),
+        conn=conn,
+        user=user,
+        all_users=all_users,
+    )
+    scoped.sort(key=lambda s: s.created_at, reverse=True)
+    return scoped
 
 
-def get_hpo_study(root: Path, wire_id: str, *, live_job_id: str | None = None) -> HpoDetail:
+def get_hpo_study(
+    root: Path,
+    wire_id: str,
+    *,
+    conn: sqlite3.Connection,
+    user: UserPublic,
+    live_job_id: str | None = None,
+) -> HpoDetail:
     """Read the full detail payload for one HPO study.
 
     ``live_job_id`` is resolved by the router via :func:`find_live_job_for`
     against the jobs DB; passed through here to avoid coupling this layer
     to a sqlite connection.
     """
+    key = _top_level_basename(wire_id)
+    if key is not None:
+        check_artifact_access(conn, experiment_id=key, user=user)
     study_dir = find_hpo_study_dir_by_wire_id(root, wire_id)
     trials = json_io.read_jsonl(study_dir / TRIALS_JSONL_NAME)
     summary = _summary_from_trials(study_dir, trials, root)
+    launched_by: str | None = None
+    if key is not None:
+        usernames = resolve_owner_usernames(conn, experiment_ids=[key])
+        launched_by = usernames.get(key)
     return HpoDetail(
         wire_id=summary.wire_id,
         name=summary.name,
@@ -82,11 +123,22 @@ def get_hpo_study(root: Path, wire_id: str, *, live_job_id: str | None = None) -
         best_config=_read_best_config(study_dir),
         best_config_reserves_holdout=summary.best_config_reserves_holdout,
         live_job_id=live_job_id,
+        launched_by_username=launched_by,
     )
 
 
-def list_trials(root: Path, wire_id: str, after_trial: int | None = None) -> list[TrialRow]:
+def list_trials(
+    root: Path,
+    wire_id: str,
+    *,
+    conn: sqlite3.Connection,
+    user: UserPublic,
+    after_trial: int | None = None,
+) -> list[TrialRow]:
     """Read the trial feed, optionally filtered to ``trial.number > after_trial``."""
+    key = _top_level_basename(wire_id)
+    if key is not None:
+        check_artifact_access(conn, experiment_id=key, user=user)
     study_dir = find_hpo_study_dir_by_wire_id(root, wire_id)
     trials = json_io.read_jsonl(study_dir / TRIALS_JSONL_NAME)
     rows = [trial_row_from_record(t) for t in trials]
@@ -96,7 +148,13 @@ def list_trials(root: Path, wire_id: str, after_trial: int | None = None) -> lis
     return rows
 
 
-def get_param_importance(root: Path, wire_id: str) -> ParamImportanceResponse:
+def get_param_importance(
+    root: Path,
+    wire_id: str,
+    *,
+    conn: sqlite3.Connection,
+    user: UserPublic,
+) -> ParamImportanceResponse:
     """Compute fANOVA-style hyperparameter importance for an HPO study.
 
     Returns ``importance={}`` plus a human-readable ``message`` (rather than
@@ -109,6 +167,9 @@ def get_param_importance(root: Path, wire_id: str) -> ParamImportanceResponse:
     Optuna is imported lazily to avoid pulling its sklearn dependency into
     the webapp's startup path.
     """
+    key = _top_level_basename(wire_id)
+    if key is not None:
+        check_artifact_access(conn, experiment_id=key, user=user)
     study_dir = find_hpo_study_dir_by_wire_id(root, wire_id)
     trials = json_io.read_jsonl(study_dir / TRIALS_JSONL_NAME)
     n_complete = sum(1 for t in trials if json_io.get_str(t, "state") == _COMPLETE_STATE)
@@ -157,7 +218,14 @@ def find_live_job_for(conn: sqlite3.Connection, wire_id: str) -> str | None:
 
 
 def _top_level_basename(wire_id: str) -> str | None:
-    """Return the basename iff the study sits at ``hpo/<basename>`` directly."""
+    """Return the basename iff the study sits at ``hpo/<basename>`` directly.
+
+    Top-level HPO studies (``hpo/<basename>``) persist their basename as
+    ``jobs.experiment_id`` at submission time, so the basename is also
+    the ownership join key. Nested studies (``studies/<x>/hpo/<basename>``)
+    are produced by STUDY jobs and have no per-leg TUNE row — callers
+    treat ``None`` as "ownerless, inherit the parent study's visibility".
+    """
     parts = wire_id.split(HPO_WIRE_DELIMITER)
     if len(parts) == 2 and parts[0] == HPO_SUBDIR:
         return parts[1]

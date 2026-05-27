@@ -28,6 +28,7 @@ class StudySummary(BaseModel):
     total_legs: int
     completed_legs: int
     completion_pct: float
+    launched_by_username: str | None = None
 
 
 class StudyDetail(BaseModel):
@@ -43,6 +44,7 @@ class StudyDetail(BaseModel):
     # Pre-flight signal so the frontend skips the consolidated-report fetch
     # (a 404 round-trip) when no report has been generated yet.
     has_consolidated_report: bool
+    launched_by_username: str | None = None
 
 
 class StudyConsolidatedDTO(BaseModel):
