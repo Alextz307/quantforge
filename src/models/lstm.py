@@ -116,7 +116,7 @@ class LSTMPredictor(IPredictor):
         self._val_split_ratio = val_split_ratio
         self._device = select_device(device)
         self._interval = interval
-        # Mixed-precision opt-in; CUDA-only, no-op on MPS/CPU.
+        # Mixed-precision opt-in; CUDA-only, no-op on MPS / CPU.
         self._amp = amp
 
         self._model: MarketLSTM | None = None
@@ -159,7 +159,6 @@ class LSTMPredictor(IPredictor):
         val_df = df.iloc[split_idx:]
 
         if len(train_df) <= self._lookback or len(val_df) <= self._lookback:
-            # Not enough data for validation split — train on all data
             train_ds = TemporalDataset(df, target_col, self._lookback, self._feature_columns)
             val_ds = None
         else:
@@ -167,8 +166,6 @@ class LSTMPredictor(IPredictor):
             val_ds = TemporalDataset(val_df, target_col, self._lookback, self._feature_columns)
 
         train_loader = DataLoader(train_ds, batch_size=self._batch_size, shuffle=False)
-        # val_loader outlives the epoch loop: with shuffle=False, rebuilding
-        # per epoch would construct identical samplers.
         val_loader = (
             DataLoader(val_ds, batch_size=self._batch_size, shuffle=False)
             if val_ds is not None
@@ -372,7 +369,6 @@ class LSTMPredictor(IPredictor):
         guarantee portability across CUDA / MPS / CPU.
         """
         metadata = self._assert_fitted_with_metadata()
-        # ``_model`` is set atomically with metadata in fit() — assert for mypy.
         assert self._model is not None
         model = self._model
 

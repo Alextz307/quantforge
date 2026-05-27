@@ -48,9 +48,6 @@ class FoldRecord:
     win_rate: float
     trade_count: int
     equity_curve: tuple[float, ...]
-    # Strategy-emitted scalars (e.g. floor_bind_fraction). Persisted as a
-    # plain JSON object alongside the headline metrics so post-hoc analyses
-    # can read per-fold diagnostics without rerunning the strategy.
     strategy_diagnostics: Mapping[str, float] = MappingProxyType({})
 
     @classmethod

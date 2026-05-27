@@ -12,21 +12,17 @@ from src.core.utils import compute_log_returns
 from src.models.arma import ARMAPredictor
 from tests.conftest import make_synthetic_close_df
 
-# Compact ARMA search space (small for fast CI)
 COMPACT_P_MAX = 2
 COMPACT_Q_MAX = 2
 
-# Minimal close samples for "before fit" guards
 SAMPLE_CLOSE_TWO = [100, 101]
 SAMPLE_CLOSE_THREE = [100, 101, 102]
 
-# Hourly test data
 HOURLY_ROW_COUNT = 200
 HOURLY_START = "2020-01-02 09:30"
 HOURLY_RETURN_STD = 0.005
 HOURLY_BASE_PRICE = 100.0
 
-# Determinism seed
 NUMPY_SEED = 42
 
 
@@ -67,7 +63,7 @@ class TestARMAPredictor:
         assert fitted_arma._model is not None
         p, d, q = fitted_arma._model.order
         assert p >= 0
-        assert d == 0  # returns are stationary
+        assert d == 0
         assert q >= 0
 
     def test_tune_returns_valid_order(self, arma_target: pd.Series) -> None:
@@ -133,9 +129,8 @@ class TestARMAPredictor:
     def test_predict_returns_kwarg_matches_default_path(
         self, fitted_arma: ARMAPredictor, arma_df: pd.DataFrame
     ) -> None:
-        # Passing the same ``returns`` the default path would derive must
-        # produce a bit-identical Series; regressions in the alignment
-        # logic (positional slice-assign vs reindex) would show up here.
+        # Bit-identical to the implicit-returns path; catches alignment-
+        # logic regressions (positional slice-assign vs reindex).
         default_forecast = fitted_arma.predict(arma_df)
         returns = compute_log_returns(arma_df["close"]).dropna()
         explicit_forecast = fitted_arma.predict(arma_df, returns=returns)

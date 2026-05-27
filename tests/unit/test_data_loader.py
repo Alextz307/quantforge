@@ -19,7 +19,6 @@ from tests.conftest import make_synthetic_ohlcv_df
 
 REQUIRED_OHLCV_COLUMNS = set(OHLCV_COLUMNS)
 
-# Common normalizer-test ladder length (3 days)
 NORMALIZER_DAY_COUNT = 3
 NORMALIZER_OHLC_OPEN = [100.0, 101.0, 102.0]
 NORMALIZER_OHLC_HIGH = [105.0, 106.0, 107.0]
@@ -27,7 +26,6 @@ NORMALIZER_OHLC_LOW = [99.0, 100.0, 101.0]
 NORMALIZER_OHLC_CLOSE = [103.0, 104.0, 105.0]
 NORMALIZER_VOLUME = [1000, 2000, 3000]
 
-# CSV-source synthetic dataset
 CSV_ROW_COUNT = 20
 CSV_BASE_OPEN = 100.0
 CSV_BASE_HIGH = 105.0
@@ -37,13 +35,11 @@ CSV_VOLUME_STEP = 1000
 WIDE_FETCH_START = datetime(2024, 1, 1)
 WIDE_FETCH_END = datetime(2024, 12, 31)
 
-# Cache-roundtrip dataset
 CACHE_DAY_COUNT = 3
 CONCURRENT_ITERATIONS = 30
 CACHE_VALUES = [1.0, 2.0, 3.0]
 SINGLE_VALUE = [1.0]
 
-# CSV-with-cache fixture
 CACHED_CSV_ROW_COUNT = 10
 CACHED_CSV_OPEN = 100.0
 CACHED_CSV_HIGH = 105.0
@@ -51,22 +47,14 @@ CACHED_CSV_LOW = 99.0
 CACHED_CSV_CLOSE = 103.0
 CACHED_CSV_VOLUME = 1000
 
-# Date-range filter dataset
 RANGE_ROW_COUNT = 60
 RANGE_FETCH_START = datetime(2024, 2, 1)
 RANGE_FETCH_END = datetime(2024, 2, 28)
 RANGE_FETCH_START_TS = pd.Timestamp("2024-02-01")
 RANGE_FETCH_END_TS = pd.Timestamp("2024-02-28")
 
-# Parquet-source synthetic dataset (small fixture for non-size-sensitive tests)
 PARQUET_SMALL_ROW_COUNT = 5
 
-# Committed thesis-demo fixture (catches bit-rot / truncation in CI; the
-# `make thesis-demo` target itself is not exercised by CI). Date range
-# matches `config/strategies/adaptive_bollinger.yaml` (the canonical
-# strategy YAML the Makefile composes the demo from); row floor allows
-# yfinance reruns to vary by a few sessions while still catching gross
-# truncation.
 COMMITTED_FIXTURES_DIR = Path(__file__).resolve().parents[1] / "fixtures"
 THESIS_DEMO_TICKER = "SPY"
 THESIS_DEMO_START = datetime(2018, 1, 2)
@@ -201,7 +189,7 @@ class TestDataCache:
 
     def test_invalidate_missing_key_is_noop(self, tmp_path: Path) -> None:
         cache = DataCache(cache_dir=tmp_path)
-        cache.invalidate("nonexistent")  # should not raise
+        cache.invalidate("nonexistent")
 
     def test_clear(self, tmp_path: Path) -> None:
         cache = DataCache(cache_dir=tmp_path)
@@ -228,9 +216,8 @@ class TestDataCache:
         df = pd.DataFrame({"close": CACHE_VALUES}, index=idx)
         cache.save("k", df)
 
-        # Threading does not propagate exceptions back to the main thread,
-        # so we aggregate every failure mode (incl. AssertionError) and
-        # assert empty after join.
+        # Threads can't propagate exceptions back to the main thread; aggregate
+        # every failure (incl. AssertionError) and assert empty after join.
         errors: list[BaseException] = []
 
         def writer() -> None:
@@ -267,7 +254,6 @@ class TestDataCache:
 
 class TestCSVSource:
     def test_fetch_from_csv(self, tmp_path: Path) -> None:
-        # Create a test CSV
         csv_path = tmp_path / "SPY.csv"
         idx = pd.bdate_range("2024-01-01", periods=CSV_ROW_COUNT)
         df = pd.DataFrame(
@@ -323,11 +309,10 @@ class TestCSVSource:
         cache = DataCache(cache_dir=cache_dir)
         source = CSVSource(data_dir=data_dir, cache=cache)
 
-        # First fetch — from CSV
         result1 = source.fetch("SPY", start=WIDE_FETCH_START, end=WIDE_FETCH_END)
         assert len(result1) == CACHED_CSV_ROW_COUNT
 
-        # Second fetch — from cache (even if CSV is deleted)
+        # Second fetch must come from cache even though the CSV is gone.
         csv_path.unlink()
         result2 = source.fetch("SPY", start=WIDE_FETCH_START, end=WIDE_FETCH_END)
         pd.testing.assert_frame_equal(result1, result2)

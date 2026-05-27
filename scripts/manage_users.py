@@ -37,12 +37,9 @@ class _UserRow:
     auto_created_at: str | None
 
 
-def _query_users(
-    conn: sqlite3.Connection, *, auto_created_only: bool
-) -> list[_UserRow]:
+def _query_users(conn: sqlite3.Connection, *, auto_created_only: bool) -> list[_UserRow]:
     sql = (
-        "SELECT id, username, role, created_at, auto_created_at "
-        "FROM users WHERE deleted_at IS NULL"
+        "SELECT id, username, role, created_at, auto_created_at FROM users WHERE deleted_at IS NULL"
     )
     if auto_created_only:
         sql += " AND auto_created_at IS NOT NULL"

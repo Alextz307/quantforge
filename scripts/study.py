@@ -136,7 +136,6 @@ def run_cmd(
         )
 
         if result.n_legs_failed > 0:
-            # Surface failure as a non-zero exit so CI / scripts catch it.
             raise click.ClickException(
                 f"{result.n_legs_failed} leg(s) failed — inspect study_state.json "
                 f"under {result.study_dir} for per-leg error messages, then rerun "

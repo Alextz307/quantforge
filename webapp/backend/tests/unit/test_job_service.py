@@ -231,7 +231,6 @@ def test_submit_rejects_invalid_payload_before_persisting(
         )
 
     assert any(err.loc == ["data"] for err in excinfo.value.errors)
-    # Nothing persisted, nothing spawned.
     assert list_jobs(db_conn) == []
     cast(AsyncMock, manager.spawn).assert_not_awaited()
 
@@ -274,17 +273,14 @@ def test_list_jobs_hides_terminal_jobs_with_missing_artifacts(
     store_root = tmp_path / "store"
     store_root.mkdir()
 
-    # Job 1: terminal + experiment_id missing on disk → filtered.
     orphan = insert_job(db_conn, _new_job_for(alice))
     mark_running(db_conn, orphan.id, FAKE_PID)
     mark_terminal(
         db_conn, orphan.id, status=JobStatus.COMPLETED, exit_code=0, experiment_id="ghost_id"
     )
 
-    # Job 2: queued/running, no experiment_id yet → kept.
     live = insert_job(db_conn, _new_job_for(alice))
 
-    # Job 3: terminal with no experiment_id (failed early) → kept.
     failed = insert_job(db_conn, _new_job_for(alice))
     mark_running(db_conn, failed.id, FAKE_PID + 1)
     mark_terminal(db_conn, failed.id, status=JobStatus.FAILED, exit_code=1)
@@ -375,7 +371,7 @@ def test_reconcile_marks_dead_pid_failed(db_conn: sqlite3.Connection) -> None:
 def test_reconcile_leaves_alive_pid_running(db_conn: sqlite3.Connection) -> None:
     alice = _user(db_conn, "alice")
     job = insert_job(db_conn, _new_job_for(alice))
-    mark_running(db_conn, job.id, os.getpid())  # current process is alive
+    mark_running(db_conn, job.id, os.getpid())
 
     assert reconcile_orphans(db_conn) == 0
     [running] = list_running_jobs(db_conn)
@@ -475,10 +471,6 @@ def test_job_submission_validator_requires_hpo_payload_for_tune() -> None:
         )
 
 
-# Compare + holdout fixtures + tests --------------------------------------------------------
-
-# All run ids share a 64-char hash suffix shape so ``find_run_dir``'s glob
-# resolves without ambiguity in a freshly-seeded store.
 _COMPARE_RUN_A = "20260101_120000_AdaptiveBollinger_abc1234_deadbeef"
 _COMPARE_RUN_B = "20260201_090000_AdaptiveBollinger_def5678_cafebabe"
 _HOLDOUT_RUN_ID = "20260301_080000_AdaptiveBollinger_aaa0000_bbbb1111"
@@ -493,7 +485,6 @@ def _seed_run_with_holdout(store_root: Path, experiment_id: str, holdout_start: 
         experiment_id=experiment_id,
         created_at=datetime(2026, 3, 1, tzinfo=UTC),
     )
-    # ``make_synthetic_run`` stamps ``holdout_start=None``; patch in place.
     manifest = json_io.read_dict(run_dir / EXPERIMENT_MANIFEST_JSON)
     manifest["holdout_start"] = holdout_start
     json_io.write(run_dir / EXPERIMENT_MANIFEST_JSON, manifest)
@@ -554,8 +545,6 @@ def test_submit_compare_spawns_with_reuse_runs_and_persists_out_name(
 
     assert row.status is JobStatus.RUNNING
     assert row.kind is JobKind.COMPARE
-    # Artifact name is pre-committed at submission so live-job lookups work
-    # before the subprocess writes the comparison dir.
     assert row.experiment_id == "my_compare"
     spawn = cast(AsyncMock, manager.spawn)
     spawn.assert_awaited_once()
@@ -565,7 +554,6 @@ def test_submit_compare_spawns_with_reuse_runs_and_persists_out_name(
     assert "compare" in command
     assert "--reuse-runs" in command
     reuse_value = command[command.index("--reuse-runs") + 1]
-    # Reuse runs string carries both run dirs in matching order.
     assert _COMPARE_RUN_A in reuse_value
     assert _COMPARE_RUN_B in reuse_value
     assert reuse_value.index(_COMPARE_RUN_A) < reuse_value.index(_COMPARE_RUN_B)
@@ -599,7 +587,6 @@ def test_submit_compare_rejects_unknown_run_id(db_conn: sqlite3.Connection, tmp_
             )
         )
 
-    # Errors are positional: ghost id sits at index 1.
     locs = [err.loc for err in excinfo.value.errors]
     assert ["compare_payload", "run_ids", "1"] in locs
     assert list_jobs(db_conn, user_id=user.id) == []
@@ -680,7 +667,6 @@ def test_submit_holdout_from_hpo_spawns_with_hpo_best_flag(
         )
     )
 
-    # out_name defaults to the source basename (= study name).
     assert row.experiment_id == _HPO_STUDY
     spawn = cast(AsyncMock, manager.spawn)
     assert spawn.await_args is not None
@@ -696,7 +682,6 @@ def test_submit_holdout_rejects_run_without_holdout_start(
     user = _user(db_conn, "alice")
     manager = _stub_manager()
     store_root = tmp_path / "store"
-    # ``make_synthetic_run`` defaults ``holdout_start=None`` — the rejected case.
     make_synthetic_run(store_root / RUNS_SUBDIR, experiment_id=_HOLDOUT_RUN_ID)
     submission = JobSubmission(
         kind=JobKind.HOLDOUT,

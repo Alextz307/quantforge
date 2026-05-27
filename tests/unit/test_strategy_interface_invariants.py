@@ -51,14 +51,12 @@ def _make_metadata() -> TrainingMetadata:
 
 def test_set_fitted_with_metadata_populates_metadata_slot() -> None:
     s = _BareStrategy()
-    # Pre-state: helper hasn't run, fitted state is empty.
     assert s.training_metadata is None
 
     meta = _make_metadata()
     s._set_fitted_with_metadata(meta)
 
     assert s.training_metadata is meta
-    # Read-side helper must agree — the pair is each other's inverse.
     assert s._assert_fitted_with_metadata(caller="test") is meta
 
 

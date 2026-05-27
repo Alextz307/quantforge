@@ -38,7 +38,7 @@ HYBRID_DEFAULT_ITEMS = 1
 DEFAULT_QUANT_BENCH_PATH = Path("cpp/build/benchmarks/quant_bench")
 DEFAULT_CPP_TIMEOUT_S = 600.0
 
-HybridCallable = Callable[[], int]  # returns items processed (for items/sec)
+HybridCallable = Callable[[], int]
 HybridBench = tuple[str, HybridCallable]
 
 

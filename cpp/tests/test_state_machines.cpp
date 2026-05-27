@@ -17,8 +17,6 @@ constexpr double kEntryZ = 2.0;
 constexpr double kExitZ = 0.5;
 constexpr double kStopLossZ = 3.0;
 
-// ───── Mean-reversion state machine ─────
-
 TEST(MeanReversionStateMachine, FlatWhenAllBandsNaN) {
     const std::vector<double> close(5, 100.0);
     const std::vector<double> nans(5, kNaN);
@@ -84,8 +82,6 @@ TEST(MeanReversionStateMachine, LengthMismatchThrows) {
     EXPECT_THROW((void)run_mean_reversion_state_machine(a, a, a, b, a), std::invalid_argument);
     EXPECT_THROW((void)run_mean_reversion_state_machine(a, a, a, a, b), std::invalid_argument);
 }
-
-// ───── Pairs state machine ─────
 
 TEST(PairsStateMachine, EntryShortAndExit) {
     // z timeline: below entry, above entry (short), back inside exit (flat),

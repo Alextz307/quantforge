@@ -83,7 +83,6 @@ describe("StrategyParamsEditor", () => {
     expect(screen.getByLabelText(/label/i)).toHaveAttribute("type", "text");
     expect(screen.getByLabelText(/verbose/i)).toHaveAttribute("type", "checkbox");
     expect(screen.getByRole("combobox", { name: /interval/i })).toBeInTheDocument();
-    // Complex params render as <textarea>; matched by name via the for/id pairing.
     expect(document.querySelector("textarea")).not.toBeNull();
   });
 
@@ -97,13 +96,10 @@ describe("StrategyParamsEditor", () => {
 
   it("labels the empty option per param: required → 'select', nullable → 'none', else 'use default'", () => {
     render(<StrategyParamsEditor schema={SCHEMA} values={{}} onChange={() => undefined} />);
-    // Default-bearing enum: "use default".
     const intervalSelect = screen.getByRole("combobox", { name: /interval/i });
     expect(intervalSelect.querySelector('option[value=""]')).toHaveTextContent(/use default/i);
-    // Optional[Enum]: "none" (the device dropdown that used to render as JSON).
     const deviceSelect = screen.getByRole("combobox", { name: /device/i });
     expect(deviceSelect.querySelector('option[value=""]')).toHaveTextContent(/none/i);
-    // Required enum: "select" + the HTML required attribute is set.
     const modeSelect = screen.getByRole("combobox", { name: /mode/i });
     expect(modeSelect.querySelector('option[value=""]')).toHaveTextContent(/select/i);
     expect(modeSelect).toBeRequired();
@@ -137,12 +133,10 @@ describe("StrategyParamsEditor", () => {
     render(<StrategyParamsEditor schema={SCHEMA} values={{}} onChange={onChange} />);
     const textarea = document.querySelector("textarea");
     if (!textarea) throw new Error("complex param textarea missing");
-    // Partial JSON: text stays in the box, no commit, parse hint shown.
     fireEvent.change(textarea, { target: { value: '["foo",' } });
     expect(textarea).toHaveValue('["foo",');
     expect(screen.getByText(/JSON:/)).toBeInTheDocument();
     expect(onChange).not.toHaveBeenCalled();
-    // Complete the JSON: parsed value commits, hint clears.
     fireEvent.change(textarea, { target: { value: '["foo","bar"]' } });
     expect(textarea).toHaveValue('["foo","bar"]');
     expect(screen.queryByText(/JSON:/)).not.toBeInTheDocument();

@@ -77,7 +77,6 @@ class TestGenerateFullReport:
         table skeleton so the consuming command sees a predictable layout."""
         StrategyReporter().generate_full_report(_make_result(n_folds=0), tmp_path)
         assert (tmp_path / "tables" / "metrics_summary.tex").is_file()
-        # No plots when there's nothing to plot.
         assert not (tmp_path / "plots" / "equity_curves.png").exists()
 
 

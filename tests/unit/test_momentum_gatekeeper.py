@@ -15,21 +15,18 @@ from tests.conftest import (
     make_synthetic_close_df,
 )
 
-# Compact XGBoost params for fast CI
 COMPACT_N_ESTIMATORS = 20
 COMPACT_MAX_DEPTH = 3
 
-# Strategy defaults for tests
 MA_WINDOW = 20
 PROB_THRESHOLD = 0.55
-FEATURE_PIPELINE_WARMUP = 33  # MACD signal (slow=26 + signal=9 - 2) dominates hard-NaN horizons
+# MACD signal line (slow=26 + signal=9 - 2) dominates the hard-NaN horizon.
+FEATURE_PIPELINE_WARMUP = 33
 
-# Out-of-sample eval fixture
 EVAL_ROW_COUNT = 80
 EVAL_START_DATE = "2021-01-04"
 EVAL_SEED = 99
 
-# Valid binary signal values
 VALID_SIGNALS = {0.0, 1.0}
 
 
@@ -80,7 +77,6 @@ class TestMomentumGatekeeperStrategy:
         self, fitted_strategy: MomentumGatekeeperStrategy, train_df: pd.DataFrame
     ) -> None:
         signals = fitted_strategy.generate_signals(train_df)
-        # MACD signal line warmup dominates FeaturePipeline hard-NaN horizon
         assert signals.iloc[:FEATURE_PIPELINE_WARMUP].isna().all()
 
     def test_training_metadata_populated(
@@ -90,7 +86,6 @@ class TestMomentumGatekeeperStrategy:
         assert meta is not None
         assert meta.n_train_samples == len(train_df)
         assert meta.interval == Interval.DAILY
-        # resolved features should include the standard FeaturePipeline outputs
         assert "return_1d" in meta.feature_columns
         assert "macd" in meta.feature_columns
 

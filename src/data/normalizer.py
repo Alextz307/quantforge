@@ -59,7 +59,6 @@ class DataNormalizer:
 
         result.columns = pd.Index([str(c).lower() for c in result.columns])
 
-        # Ensure DatetimeIndex
         if not isinstance(result.index, pd.DatetimeIndex):
             if "date" in result.columns:
                 result = result.set_index("date")

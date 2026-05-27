@@ -138,20 +138,12 @@ def append_jsonl(path: str | Path, record: object) -> None:
         f.write("\n")
 
 
-# --- Typed JSON field accessors --------------------------------------------
-# Narrowing the values out of ``read_dict(...)`` is ceremonial (``int(str
-# (raw[key]))``) when repeated at every load site. These helpers centralize
-# the "read then narrow" pattern with uniform error messages, so a load() body
-# reads as a flat list of field extractions rather than nested casts.
-
-
 def get_int(d: dict[str, object], key: str) -> int:
     """Pull ``key`` out of ``d`` and narrow to ``int`` with a named error."""
     if key not in d:
         raise KeyError(f"missing required JSON field {key!r}")
     value = d[key]
     if isinstance(value, bool) or not isinstance(value, int):
-        # bool is an int subclass — reject to avoid ``True``/``False`` leaking in
         raise ValueError(f"JSON field {key!r} must be an int, got {type(value).__name__}")
     return value
 

@@ -11,7 +11,7 @@ pyproject, leaf-keys vs. strategy ctors).
 | `experiment.py` (`make experiment`) | Click group with `run`, `tune`, `compare`, `holdout-eval`, `study`, `clean` subcommands. Drives the orchestration layer end to end. |
 | `benchmark.py` (`make bench`) | Click group with `run`, `compare`, `latex`, `history`, `show-baseline` over `BenchmarkRunner` / `BenchmarkStore`. |
 | `check_ci_deps.py` | Drift guard: every runtime dep in `pyproject.toml` appears in CI's `python-test` pip install line; every `types-*` / `*-stubs` dev dep appears in CI's `lint-and-typecheck` pip install line. Runs in CI as an early lint step. (The `webapp` + `webapp-frontend` jobs use `pip install -e ".[webapp]"` so their installs cannot drift from `[webapp]` extras.) |
-| `check_readme_test_counts.py` | Drift guard: README's "**N Python tests** (+M opt-in skips), **K C++ tests**" phrase agrees with `pytest --collect-only` and `ctest -N`. Pass `--fix` to rewrite the README in place from the live numbers (runs the suite to split passed vs skipped). C++ check downgraded to a notice when `cpp/build/` is absent. |
+| `check_constants_sync.py` | Drift guard: every numeric constant mirrored between `src/core/constants.py` and `cpp/include/quant/core/types.hpp` (trading-calendar counts, position limits) has the same value on both sides. Pairs to verify are listed in `MIRROR_PAIRS` in the script. |
 | `dump_openapi.py` (`make webapp-openapi-snapshot`) | Boot FastAPI, write its OpenAPI 3.1 spec to `webapp/frontend/openapi.snapshot.json` (the committed contract that `npm run gen:api` reads). |
 | `check_openapi_snapshot.py` (`make webapp-check-openapi-snapshot`) | Drift guard: re-build the OpenAPI spec, fail if it diverges from the committed snapshot. Tells the developer to rerun `make webapp-openapi-snapshot` and commit. |
 | `check_webapp_schema_mirror.py` (`make webapp-check-schema-mirror`) | Drift guard: extract every Pydantic write-DTO mirrored as a zod schema (`LoginRequest`, `UserCreate`) into `webapp/frontend/schema-mirror.snapshot.json`; pair vitest test asserts the zod schema agrees on field names, types, min/max constraints. `--write` regenerates the snapshot. |
@@ -26,7 +26,7 @@ pyproject, leaf-keys vs. strategy ctors).
 | `study.py` | `experiment study run / report` — sub-group registered under `experiment.py`'s `cli`. |
 | `benchmark.py` | `benchmark run / compare / latex / history / show-baseline`. |
 | `check_ci_deps.py` | Stdlib-only (no PyYAML) so it runs in CI before deps install. |
-| `check_readme_test_counts.py` | Stdlib-only; runs after `pip install -e .` so it can spawn `pytest --collect-only`. |
+| `check_constants_sync.py` | Stdlib-only; text-parses both files via regex so it runs in the same early-CI lint step as `check_ci_deps.py`. |
 | `dump_openapi.py` | Lazy-imports `webapp.backend.app.main` so `--out` consumers without webapp deps can still load the module's `DEFAULT_SNAPSHOT_PATH` constant. |
 | `check_openapi_snapshot.py` | Reuses `dump_openapi.build_openapi_spec()` for the live spec; lazy webapp import keeps `diff_against_snapshot` testable without fastapi. |
 | `check_webapp_schema_mirror.py` | Walks `model_fields` on Pydantic v2 models; `--write` regenerates the snapshot, default mode diffs. Frontend pair: `webapp/frontend/tests/lib/schemas/mirror.test.ts`. |
@@ -77,10 +77,11 @@ since they're fast and produce no logger output worth persisting.
   fails `check_ci_deps.py` in the same PR. The `webapp` + `webapp-frontend`
   jobs use `pip install -e ".[webapp]"`, so their installs cannot drift from
   `[webapp]` extras and need no separate guard.
-- **README test counts ↔ runners.** `check_readme_test_counts.py`
-  re-collects the pytest + ctest counts and compares them against the
-  README prose; running tests but forgetting to update the README fails
-  CI lint.
+- **Python ↔ C++ constants.** Numeric scalars mirrored between
+  `src/core/constants.py` and `cpp/include/quant/core/types.hpp`
+  (trading-calendar counts, position limits) must agree value-for-value;
+  `check_constants_sync.py` flags any divergence so an annualization-factor
+  edit on one side without the other fails CI lint.
 - **OpenAPI snapshot ↔ live FastAPI app.** `check_openapi_snapshot.py`
   re-dumps the spec and fails if it diverges from
   `webapp/frontend/openapi.snapshot.json`. The committed snapshot is
@@ -91,7 +92,7 @@ since they're fast and produce no logger output worth persisting.
   test asserts each zod schema's `.shape` agrees on field names, types,
   and min/max constraints.
 
-`check_ci_deps.py` and `check_readme_test_counts.py` are stdlib-only;
+`check_ci_deps.py` and `check_constants_sync.py` are stdlib-only;
 `check_openapi_snapshot.py` and `check_webapp_schema_mirror.py` need
 `[webapp]` deps installed.
 

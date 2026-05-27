@@ -85,6 +85,12 @@ def check_artifact_access(
 
     Returns ``None`` on success. Admins always pass. Owners pass for
     artifacts they launched. Everyone passes on ownerless artifacts.
+
+    Single-artifact contract: this issues one SQL query per call. Detail
+    endpoints (one artifact per request) are the intended caller. **Batch
+    reads** (an endpoint returning many artifact details at once) MUST
+    pre-filter via :func:`filter_visible_experiment_ids` instead — calling
+    this in a loop is an N+1 trap.
     """
     if user.role is Role.ADMIN:
         return

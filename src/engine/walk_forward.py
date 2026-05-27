@@ -60,9 +60,6 @@ class FoldResult:
     test_end: pd.Timestamp
     backtest: BacktestResult
     metrics: PerformanceMetrics
-    # Strategy-emitted scalars surfaced once per fold via
-    # ``IStrategy.get_fold_diagnostics()`` after generate_signals. Default
-    # empty for strategies that don't track any (AdaptiveBollinger, Pairs).
     strategy_diagnostics: Mapping[str, float] = field(default_factory=lambda: _EMPTY_DIAGNOSTICS)
 
 
@@ -147,8 +144,6 @@ def validate_deep_metadata(
     partial coverage rather than swallowing the whole check.
     """
     strategy_cls = type(strategy).__name__
-    # Hoist fold boundaries once; every tracked entry compares scalars
-    # rather than re-scanning the fold DataFrame inside ``validate_no_overlap``.
     test_start: pd.Timestamp = test_data.index[0]
     saw_any = False
     for tracked in strategy.get_all_training_metadata():
@@ -234,10 +229,10 @@ def evaluate_walk_forward(
     results: list[FoldResult] = []
     fold_iter: Iterable[TemporalSplit] = validator.split(bars)
     if progress:
-        # ``disable=None`` lets tqdm auto-detect non-TTY environments and
-        # silently no-op (e.g. CI logs, redirected output).
         from tqdm.auto import tqdm
 
+        # ``disable=None`` lets tqdm auto-detect non-TTY environments
+        # (CI logs, redirected output) and silently no-op.
         fold_iter = tqdm(fold_iter, total=n_folds, desc="folds", disable=None)
     for fold in fold_iter:
         fold_logger = get_logger(__name__, fold=f"{fold.fold_index + 1}/{n_folds}")
@@ -250,8 +245,8 @@ def evaluate_walk_forward(
         )
         if feature_pipeline_factory is not None:
             pipeline = feature_pipeline_factory()
-            # fit_transform(train) does the fit AND the train-window transform
-            # in one pass instead of fit() + transform(train) == two passes.
+            # fit_transform does fit + train-window transform in one pass
+            # instead of fit() + transform(train) == two passes.
             train_frame = pipeline.fit_transform(fold.train)
             test_frame = pipeline.transform(fold.test)
         else:

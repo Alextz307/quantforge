@@ -140,7 +140,6 @@ class TestRunComparisonPairwise:
             store_root=tmp_path,
             significance_test=SignificanceTest.BOOTSTRAP,
         )
-        # 3 choose 2 = 3 pairs
         assert len(report.pairwise) == 3
 
     def test_significance_none_leaves_pairwise_empty(
@@ -201,7 +200,6 @@ class TestRunComparisonAlignment:
                     self._cfg_name = cfg_name
 
                 def run(self, options: RunOptions | None = None) -> ExperimentResult:
-                    # Alpha has 3 folds, Bravo has only 2 — alignment violated.
                     n = 3 if self._cfg_name == "Alpha" else 2
                     folds = tuple(
                         make_stub_fold_record(

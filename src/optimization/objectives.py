@@ -21,11 +21,6 @@ from typing import Protocol, assert_never, runtime_checkable
 
 from src.core.hpo_config import ObjectiveKind
 
-# Penalty on |max_drawdown_worst|. Chosen so a 10-pt drawdown costs 0.2
-# units of Sortino — aggressive enough to flag deep-drawdown trials but
-# not so punitive that a stable-Sortino strategy with a short dip gets
-# discarded. Configurable via the dataclass kwarg when users want to
-# override via an explicitly-constructed objective.
 _DEFAULT_DRAWDOWN_PENALTY = 2.0
 
 

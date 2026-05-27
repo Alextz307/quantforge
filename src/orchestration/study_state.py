@@ -45,14 +45,10 @@ class LegStep(StrEnum):
     HOLDOUT_EVAL = "holdout_eval"
 
 
-# Module-level aliases let call sites read as ``LEG_STEP_TUNE`` (matches the
-# rest of the codebase's bare-constant style for things-named-once-and-imported).
 LEG_STEP_TUNE = LegStep.TUNE
 LEG_STEP_RUN = LegStep.RUN
 LEG_STEP_HOLDOUT_EVAL = LegStep.HOLDOUT_EVAL
 
-# Canonical step ordering — consumed by the orchestrator and by tests
-# asserting resume-from-mid-leg semantics.
 LEG_STEPS_ORDER: tuple[LegStep, ...] = (
     LegStep.TUNE,
     LegStep.RUN,
@@ -123,8 +119,6 @@ class LegState:
 
     @classmethod
     def from_dict(cls, d: dict[str, object]) -> Self:
-        # Unknown step strings are dropped to keep legacy state files (e.g. with
-        # discontinued step names) readable rather than crashing the studies list.
         valid_steps: set[str] = {step.value for step in LegStep}
         steps = tuple(
             LegStep(s) for s in json_io.get_str_list(d, "steps_completed") if s in valid_steps

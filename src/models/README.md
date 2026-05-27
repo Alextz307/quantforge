@@ -54,10 +54,12 @@ instantiation and standalone-training artifacts.
 - **Statistical leaves freeze params after `fit`.** GARCH conditional
   variance and ARMA one-step forecast use only the fitted params —
   no re-estimation during `predict`.
-- **Required `feature_columns`.** LSTM, XGBoost, hybrids take
-  `feature_columns: list[str]` as a required ctor parameter — never
-  inferred from `train_data.columns` (the caller may legitimately
-  carry extra columns like raw `close` alongside features).
+- **Required `feature_columns`.** LSTM, XGBoost, hybrids, and the
+  underlying `TemporalDataset` all take `feature_columns: list[str]`
+  as a required ctor parameter — never inferred from
+  `train_data.columns` (the caller may legitimately carry extra
+  columns like raw `close` alongside features). An empty list raises
+  `ValueError` at construction.
 - **Best-state checkpointing.** `LSTMPredictor.fit` and
   `DirectionalClassifier.fit` accept a `checkpoint_path`; on every
   validation-metric improvement they write `best_state.pt` /

@@ -12,7 +12,6 @@
 
 namespace {
 
-// ───── Bench data constants ─────
 constexpr double kInitialEquity = 10'000.0;
 constexpr double kEquityFloor = 0.01;
 constexpr double kReturnMean = 0.0003;   // ~7.6% annualized drift

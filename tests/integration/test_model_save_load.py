@@ -28,12 +28,9 @@ from src.models.lstm import LSTMPredictor
 from src.models.xgboost_classifier import DirectionalClassifier
 from tests.conftest import make_synthetic_close_df
 
-# ARMA/GARCH: small grid, fast CI
 COMPACT_P_MAX = 2
 COMPACT_Q_MAX = 2
 
-# LSTM: compact architecture, one epoch of training — we only need a fitted
-# state dict for round-trip, not a well-trained model.
 LSTM_FEATURE_COUNT = 3
 LSTM_HIDDEN_DIM = 8
 LSTM_NUM_LAYERS = 1
@@ -42,11 +39,9 @@ LSTM_EPOCHS = 1
 LSTM_BATCH_SIZE = 8
 LSTM_VAL_SPLIT = 0.2
 
-# XGBoost: small booster; one feature vector pass is enough to exercise round-trip.
 XGB_N_ESTIMATORS = 5
 XGB_MAX_DEPTH = 2
 
-# Fixture-wide synthetic-data constants
 SYNTH_SEED = 7
 SYNTH_FEATURE_NOISE_STD = 0.01
 SYNTH_VOLUME_LOW = 1_000_000
@@ -157,8 +152,8 @@ class TestARMASaveLoad:
         assert loaded._model is not None and original._model is not None
         assert loaded._model.order == original._model.order
         assert loaded.training_metadata == original.training_metadata
-        # ARMA predictions are fitted-values + forecasts; round-trip via
-        # statsmodels ``filter`` reproduces both branches exactly.
+        # statsmodels ``filter`` reproduces ARMA fitted values + forecasts to
+        # FP noise, not bit-identical.
         np.testing.assert_allclose(
             loaded.predict(close_df).to_numpy(),
             original.predict(close_df).to_numpy(),
@@ -367,12 +362,10 @@ class TestHybridVolatilitySaveLoad:
             df[col] = rng.normal(0, 1, len(df))
 
         log_ret = compute_log_returns(df["close"])
-        # Synthetic annualized realized-vol target — rolling std of log returns.
         realized_vol = log_ret.rolling(20, min_periods=20).std() * np.sqrt(
             Interval.DAILY.annualization_factor()
         )
 
-        # Keep CI fast — one epoch is enough to exercise the save path.
         torch.manual_seed(0)
         np.random.seed(0)
         model = HybridVolatilityModel(
@@ -518,9 +511,8 @@ class TestHybridVolatilityCorruptConfig:
         path = tmp_path / "hv"
         model.save(path)
 
-        # Corrupt the composite's own config — leave the sub-model configs
-        # untouched. The error must name ``feature_columns`` before we fall
-        # through to any sub-model load.
+        # Corrupt only the composite's own config; the load error must name
+        # ``feature_columns`` before falling through to any sub-model load.
         config = json_io.read_dict(path / CONFIG_JSON)
         del config["feature_columns"]
         json_io.write(path / CONFIG_JSON, config)
@@ -547,7 +539,7 @@ class TestARMACorruptOrder:
         model.save(path)
 
         weights = json_io.read_dict(path / WEIGHTS_JSON)
-        weights["order"] = [1, 2]  # too short
+        weights["order"] = [1, 2]
         json_io.write(path / WEIGHTS_JSON, weights)
 
         with pytest.raises(ValueError, match="3-element list"):

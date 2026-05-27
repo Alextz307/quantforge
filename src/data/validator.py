@@ -22,7 +22,7 @@ from src.core.constants import OHLCV_COLUMNS
 from src.core.exceptions import DataQualityError
 
 _MAX_EXAMPLES = 3
-_PRICE_COLUMNS = OHLCV_COLUMNS[:4]  # open, high, low, close — volume is checked separately
+_PRICE_COLUMNS = OHLCV_COLUMNS[:4]
 
 
 def validate_bars(df: pd.DataFrame) -> None:
@@ -33,10 +33,6 @@ def validate_bars(df: pd.DataFrame) -> None:
     for those preconditions run first so a caller bypassing the normalizer gets
     a ``DataQualityError`` rather than an obscure KeyError downstream.
     """
-    # Precondition checks (empty / missing cols / DatetimeIndex / NaT): defense-
-    # in-depth for the cache-hit path, where a parquet written by an older code
-    # version bypasses ``DataNormalizer``. Redundant but cheap on the fresh-fetch
-    # path, so callers get a single ``DataQualityError`` either way.
     if df.empty:
         raise DataQualityError("bars: empty DataFrame")
 
@@ -53,8 +49,6 @@ def validate_bars(df: pd.DataFrame) -> None:
         raise DataQualityError(f"bars: NaT in index at positions {nat_positions}")
 
     ohlcv = df[list(OHLCV_COLUMNS)]
-    # ``isfinite`` covers NaN and ±inf in one pass; ``isna`` alone would pass infinities
-    # through and poison downstream rolling / log-return math with silent NaN cascades.
     not_finite = ~np.isfinite(ohlcv.to_numpy(dtype=float, copy=False))
     bad_rows = not_finite.any(axis=1)
     if bool(bad_rows.any()):

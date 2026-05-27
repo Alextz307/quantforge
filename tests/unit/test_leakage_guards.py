@@ -11,22 +11,18 @@ import pytest
 from src.core.contracts import no_future_data, no_nan_in_output, temporally_sorted
 from src.core.exceptions import LeakageError
 
-# Date ladder lengths shared across most tests
 FIVE_DAY_LEN = 5
 THREE_DAY_LEN = 3
 
-# Synthetic close-price ladders matched to the day counts above
 FIVE_DAY_CLOSE = [1.0, 2.0, 3.0, 4.0, 5.0]
 THREE_DAY_CLOSE = [1.0, 2.0, 3.0]
-FIVE_DAY_MEAN = 3.0  # mean(FIVE_DAY_CLOSE)
+FIVE_DAY_MEAN = 3.0
 
-# Future-data leak: index in 2025 while input index is 2024
+# Future-data leak fixture: index in 2025 while input index is 2024.
 FUTURE_LEAK_LEN = 3
 
-# Filter-transform output length (subset of FIVE_DAY input)
 FILTER_OUTPUT_LEN = 3
 
-# Scalar-output dummy value
 SCALAR_RETURN_VALUE = 42.0
 
 

@@ -40,7 +40,6 @@ def test_detail_returns_best_config(authed_client: TestClient, webapp_store: Pat
     detail = response.json()
     assert detail["best_config"]["strategy"]["name"] == "AdaptiveBollinger"
     assert detail["direction"] == EXPECTED_DIRECTION
-    # No live tune job has been launched in this fixture, so the field is null.
     assert detail["live_job_id"] is None
 
 

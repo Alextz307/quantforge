@@ -102,7 +102,7 @@ def test_submit_study_persists_running_with_output_dir_as_experiment_id(
 
     assert row.status is JobStatus.RUNNING
     assert row.pid == FAKE_PID
-    assert row.experiment_id == "tiny"  # output_dir.name
+    assert row.experiment_id == "tiny"
 
 
 def test_submit_study_command_includes_flags(db_conn: sqlite3.Connection, tmp_path: Path) -> None:
@@ -263,7 +263,6 @@ def test_submit_study_rejects_when_running_collision_exists(
     manager = _stub_manager()
     config_root = tmp_path / "config"
     _write_spec(config_root, _minimal_spec_dict())
-    # Seed a running STUDY job whose experiment_id matches spec.output_dir.name ("tiny").
     seeded = insert_job(
         db_conn,
         NewJob(

@@ -63,7 +63,6 @@ class TestCalmarObjective:
 
 class TestSortinoMinusDrawdownPenaltyObjective:
     def test_default_penalty_applied(self) -> None:
-        # default penalty = 2.0 → 2.0 - 2.0 * 0.15 = 1.7
         obj = SortinoMinusDrawdownPenaltyObjective()
         result = obj(_aggregate_fixture())
         assert result == pytest.approx(1.7)

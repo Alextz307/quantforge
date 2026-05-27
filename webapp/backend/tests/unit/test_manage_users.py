@@ -94,13 +94,11 @@ def test_delete_cmd_refuses_non_tty_without_yes(
 ) -> None:
     """Scripts/CI calling ``users delete`` MUST pass ``--yes`` — never silently drop."""
     _user(db_conn, "alxe", auto=True)
-    # WEBAPP_DB_PATH already points at tmp_path via the autouse env fixture.
     runner = CliRunner()
     with patch("scripts.manage_users.stdin_is_tty", return_value=False):
         result = runner.invoke(delete_cmd, ["alxe"])
     assert result.exit_code != 0
     assert "non-interactive" in result.output.lower()
-    # User still exists.
     assert get_user(db_conn, resolve_user_id(db_conn, "alxe") or 0) is not None
 
 

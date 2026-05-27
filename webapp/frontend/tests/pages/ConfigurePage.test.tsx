@@ -31,7 +31,6 @@ describe("ConfigurePage", () => {
       { initialEntries: [ROUTES.configure] },
     );
 
-    // Wait for /api/strategies to settle.
     await screen.findByLabelText(/Run name/i);
     await waitFor(() => {
       expect(screen.getByLabelText(/Strategy$/i)).not.toBeDisabled();
@@ -44,8 +43,6 @@ describe("ConfigurePage", () => {
   });
 
   it("blocks submit and shows inline error when a required strategy param is missing", async () => {
-    // Override the strategy-schema handler to return a strategy with a required
-    // param so we can drive the pre-submit guard without setting up Pydantic.
     const validateCalls = { count: 0 };
     server.use(
       http.get(API_PATHS.strategies, () =>
@@ -90,7 +87,6 @@ describe("ConfigurePage", () => {
 
     expect(await screen.findByText(/strategy\.params\.feature_columns/i)).toBeInTheDocument();
     expect(screen.getAllByText(/field required/i).length).toBeGreaterThan(0);
-    // Pre-submit short-circuit must NOT have hit the validate endpoint.
     expect(validateCalls.count).toBe(0);
   });
 
@@ -136,7 +132,6 @@ describe("ConfigurePage", () => {
     });
     await user.selectOptions(screen.getByLabelText(/Strategy$/i), "AdaptiveBollinger");
 
-    // Form fields hydrate from canonical_params (25 / 1.75) once the schema arrives.
     await waitFor(() => {
       expect(screen.getByLabelText(/window/i)).toHaveValue(25);
     });

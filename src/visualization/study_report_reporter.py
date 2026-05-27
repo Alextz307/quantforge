@@ -117,8 +117,6 @@ class StudyReportReporter:
 
         return out_dir
 
-    # --- tables -------------------------------------------------------------
-
     def _write_master_ranking(
         self, ranking_df: pd.DataFrame, tables_dir: Path, *, slug: str
     ) -> None:
@@ -176,12 +174,9 @@ class StudyReportReporter:
                 "(every universe was single-strategy or `--skip-compares` was set)"
             )
             return
-        # Long-form CSV (all universes in one file) for slicing.
         long_df = _build_pairwise_long_df(report.per_universe_pairwise)
         long_df.to_csv(tables_dir / _PAIRWISE_LONG_CSV_FILENAME, index=False)
 
-        # One LaTeX matrix per universe — small matrices read better than
-        # one massive multi-index table.
         per_universe_dir = tables_dir / _PAIRWISE_PER_UNIVERSE_SUBDIR
         per_universe_dir.mkdir(parents=True, exist_ok=True)
         for universe, pairs in sorted(report.per_universe_pairwise.items()):
@@ -195,8 +190,6 @@ class StudyReportReporter:
                 ),
                 label=f"tab:pairwise_{slug}_{universe}",
             )
-
-    # --- plots --------------------------------------------------------------
 
     def _plot_strategy_x_universe_heatmap(
         self, report: ConsolidatedStudyReport, plots_dir: Path
@@ -230,8 +223,6 @@ class StudyReportReporter:
         out_path.parent.mkdir(parents=True, exist_ok=True)
         fig, ax = plt.subplots(figsize=(FIGURE_WIDTH_IN, FIGURE_HEIGHT_IN), dpi=FIGURE_DPI)
 
-        # Bucket the points once so each strategy gets its own marker without
-        # rescanning per_leg_holdout per strategy.
         by_strategy: dict[str, tuple[list[float], list[float]]] = {}
         all_xs: list[float] = []
         all_ys: list[float] = []
@@ -304,9 +295,6 @@ class StudyReportReporter:
                 / HOLDOUT_EQUITY_FILENAME
             )
             _copy_per_leg_artifact(src_png, dest_dir / f"{leg_id}.png", missing_label=str(src_png))
-
-
-# --- helpers ---------------------------------------------------------------
 
 
 def _write_table_pair(

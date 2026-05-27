@@ -86,9 +86,7 @@ def _require_user_id(conn: sqlite3.Connection, username: str) -> int:
 
 def _existing_experiment_ids(conn: sqlite3.Connection) -> set[str]:
     """One pass over jobs.experiment_id to skip already-owned artifacts."""
-    rows = conn.execute(
-        "SELECT experiment_id FROM jobs WHERE experiment_id IS NOT NULL"
-    ).fetchall()
+    rows = conn.execute("SELECT experiment_id FROM jobs WHERE experiment_id IS NOT NULL").fetchall()
     return {str(r["experiment_id"]) for r in rows}
 
 

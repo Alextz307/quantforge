@@ -1,8 +1,10 @@
 # Quant Trading Framework
 
+[![CI](https://github.com/Alextz307/quantforge/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Alextz307/quantforge/actions/workflows/ci.yml)
+
 A thesis-grade, bifurcated C++/Python quantitative trading framework with strict anti-leakage guarantees, temporal contracts, and a clean separation between computation (C++) and orchestration (Python). Built around walk-forward validation, typed interfaces, and end-to-end hyperparameter tuning.
 
-**Current state:** a Python orchestration layer built on top of a C++ core. Implemented and under test: the typed temporal contracts, data layer, ML leaf models (GARCH, ARMA, LSTM, XGBoost), hybrid residual models, five trading strategies, the feature pipeline, a C++ indicator suite (RSI, MACD, Bollinger, Garman-Klass, Parkinson), a GARCH inference filter, two strategy state machines and two full `IStrategy` C++ classes (pairs trading + adaptive bollinger) with a shared `SpreadCalculator` primitive, and the C++ backtest engine + performance metrics — all bridged through a `pybind11` module (`quant_engine`) with the GIL released on every compute call. Every model and strategy round-trips through directory-based `save()` / `load()` (JSON configs + metadata + native binary weights, zero pickle). `WalkForwardValidator` supports an optional `snap_to_day` mode that keeps every train/test boundary on a daily close, honouring the intraday day-boundary rule. An offline `make thesis-demo` target runs the full data → walk-forward → metrics → reporters → cross-strategy comparison flow on a committed SPY parquet so a fresh checkout can verify the pipeline end-to-end without network access. CI is green on Linux and macOS with **1097 Python tests** (+21 opt-in skips), **222 C++ tests**, `mypy --strict` clean on the full Python tree, and `ruff` clean across the whole repo.
+**Current state:** a Python orchestration layer built on top of a C++ core. Implemented and under test: the typed temporal contracts, data layer, ML leaf models (GARCH, ARMA, LSTM, XGBoost), hybrid residual models, five trading strategies, the feature pipeline, a C++ indicator suite (RSI, MACD, Bollinger, Garman-Klass, Parkinson), a GARCH inference filter, two strategy state machines and two full `IStrategy` C++ classes (pairs trading + adaptive bollinger) with a shared `SpreadCalculator` primitive, and the C++ backtest engine + performance metrics — all bridged through a `pybind11` module (`quant_engine`) with the GIL released on every compute call. Every model and strategy round-trips through directory-based `save()` / `load()` (JSON configs + metadata + native binary weights, zero pickle). `WalkForwardValidator` supports an optional `snap_to_day` mode that keeps every train/test boundary on a daily close, honouring the intraday day-boundary rule. An offline `make thesis-demo` target runs the full data → walk-forward → metrics → reporters → cross-strategy comparison flow on a committed SPY parquet so a fresh checkout can verify the pipeline end-to-end without network access. CI is green on Linux and macOS with `mypy --strict` clean on the full Python tree, and `ruff` clean across the whole repo.
 
 ## Architecture
 
@@ -179,6 +181,83 @@ the global registries (`data_source_registry`, `strategy_registry`,
 `feature_registry`) so the same YAML configures both ad-hoc runs and
 HPO trials. The deep metadata tripwire then enforces strict no-overlap
 between every component's training window and each fold's test window.
+
+## Webapp
+
+The framework also ships with a thin FastAPI + React webapp under
+[`webapp/`](webapp/README.md) that puts a configurable runner and an
+artifact viewer in front of the same CLI everyone uses. **The backend
+never re-implements strategy logic** — it spawns the existing
+`python -m scripts.experiment` subcommands as subprocesses and reads the
+predictable artifact tree under `experiment_results/`, so whatever runs
+from the UI is bit-identical to the equivalent shell invocation and a
+missing UI button is never the reason a CLI flow is unreachable. A
+single SQLite file under `webapp/data/` tracks users + jobs; artifact
+ownership is read from the `jobs.user_id` ↔ `experiment_id` mapping so
+a non-admin only sees runs they launched. Auth is bcrypt + signed
+HttpOnly cookies (`itsdangerous`) with `USER` / `ADMIN` roles. The
+OpenAPI 3.1 spec is committed
+(`webapp/frontend/openapi.snapshot.json`) and a drift guard fails CI on
+divergence; the React side regenerates its typed client from that same
+snapshot. A second guard mirrors every Pydantic write-DTO into a zod
+schema so client-side form validation matches server-side validation
+exactly.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant User as User
+    participant SPA as React SPA
+    participant API as FastAPI /api
+    participant DB as SQLite · users + jobs
+    participant Sub as experiment subprocess
+    participant FS as experiment_results/
+
+    User->>SPA: fill Run form, submit
+    SPA->>API: POST /api/jobs {kind:"run", config_payload}
+    API->>API: Pydantic validate · 422 on bad shape
+    API->>DB: INSERT jobs row · status=QUEUED, user_id
+    API->>FS: write <jobs/<id>.yaml>
+    API->>Sub: spawn python -m scripts.experiment run --config
+    API->>DB: UPDATE jobs SET status=RUNNING, pid=<n>
+    API-->>SPA: 201 {job_id}
+
+    SPA->>API: WS /api/jobs/{id}/stream
+    API-->>SPA: {type:"status", status:"running"}
+    loop while running
+        Sub->>FS: append log line
+        FS-->>API: LogTailer reads new bytes
+        API-->>SPA: {type:"log", line}
+    end
+    Sub->>FS: write experiment_results/runs/<exp_id>/
+    Sub-->>API: exit(0)
+    API->>DB: UPDATE jobs SET status=COMPLETED, experiment_id=<exp_id>
+    API-->>SPA: {type:"status", status:"completed", experiment_id}
+    API-->>SPA: WS close
+
+    SPA->>API: GET /api/runs/{exp_id} (+ /folds, /plots/*)
+    API->>DB: filter_visible_experiment_ids · ownership
+    API->>FS: read manifest.json + metrics.json + plots/
+    API-->>SPA: RunDetail JSON
+```
+
+End-to-end capabilities:
+
+- **Run + tune + compare + holdout-eval** through one `POST /api/jobs`
+  endpoint with a `kind` discriminator; the same Pydantic schemas
+  validate both the React form and the backend payload.
+- **Live log streaming + status transitions** over a single WebSocket
+  frame channel (`{type:"log"|"status"}`); the HPO monitor uses the
+  same pattern (`{type:"trial"}` frames as Optuna writes them).
+- **Artifact browsers** for runs / comparisons / holdout evals /
+  studies / HPO studies, each with detail + plot routes; admins can
+  pass `?all=1` for a cross-user view.
+- **Ownership-aware queries** on every read; non-owners receive 404
+  (not 403) so artifact existence is not disclosed.
+- **Soft-delete on users** with a regression test pinning
+  reactivate-on-collision — a deleted user re-created with the same
+  username keeps the same `user_id`, so their owned artifacts stay
+  attributed.
 
 ## What's Implemented
 

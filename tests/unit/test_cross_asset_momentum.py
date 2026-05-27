@@ -30,12 +30,9 @@ _LAGS: tuple[int, ...] = (1, 5, 21)
 _THRESHOLD = 0.55
 _N_BARS = 200
 
-# Fast XGBoost params for unit tests — we only need a fitted booster, not a
-# well-trained one.
 COMPACT_N_ESTIMATORS = 10
 COMPACT_MAX_DEPTH = 2
 
-# Bound markers from the strategy's threshold validator: ``[0.5, 1.0)``.
 _THRESHOLD_TOO_LOW = 0.49
 _THRESHOLD_TOO_HIGH = 1.0
 
@@ -159,7 +156,6 @@ class TestTrainGenerate:
         assert meta is not None
         assert meta.n_train_samples == len(wide_df)
         assert meta.interval == Interval.DAILY
-        # Feature columns mirror ``feature_tickers × lags`` in deterministic order.
         expected = tuple(_derive_feature_columns(_FEATURE_TICKERS, _LAGS))
         assert meta.feature_columns == expected
 

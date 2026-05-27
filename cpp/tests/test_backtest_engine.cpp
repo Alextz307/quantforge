@@ -11,30 +11,25 @@
 namespace quant {
 namespace {
 
-// ───── Synthetic bar constants ─────
 constexpr int64_t kBaseTimestampS = 1'000'000;
 constexpr int64_t kSecondsPerBar = 86'400;
 constexpr double kSampleVolume = 1'000'000.0;
 constexpr double kTinyOrderVolume = 100.0;
 
-// ───── Engine defaults ─────
 constexpr double kInitialCapital = 10'000.0;
 constexpr double kZeroFeeRate = 0.0;
 constexpr double kTenBpsFeeRate = 0.001;
 constexpr double kFloatTolerance = 1e-9;
 
-// ───── Slippage test parameters ─────
-constexpr double kFixedSlippageBps = 10.0;   // 10 bp = 0.1%
+constexpr double kFixedSlippageBps = 10.0;
 constexpr double kVolumeImpactCoeff = 5000.0;
 
-// ───── Synthetic price levels reused across directional tests ─────
 constexpr double kPriceAt80 = 80.0;
 constexpr double kPriceAt90 = 90.0;
 constexpr double kPriceAt100 = 100.0;
 constexpr double kPriceAt110 = 110.0;
 constexpr double kPriceAt120 = 120.0;
 
-// ───── Helpers ─────
 Bar make_bar(size_t idx, double open, double high, double low, double close,
              double volume = kSampleVolume) {
     return Bar{
@@ -76,10 +71,6 @@ BacktestEngine::Config zero_friction_config(bool allow_short = true) {
         allow_short);
 }
 
-// ═══════════════════════════════════════════════════════════════
-// Input validation & trivial shapes
-// ═══════════════════════════════════════════════════════════════
-
 TEST(BacktestEngineTest, FewerSignalsThanBarsThrows) {
     BacktestEngine engine(zero_friction_config());
     const auto bars = constant_price_series(3);
@@ -107,16 +98,12 @@ TEST(BacktestEngineTest, EmptySeriesReturnsDefault) {
 TEST(BacktestEngineTest, SingleBarNoFillPossible) {
     BacktestEngine engine(zero_friction_config());
     const auto bars = constant_price_series(1);
-    const std::vector<double> signals{1.0};  // no bar t+1 to fill into
+    const std::vector<double> signals{1.0};
     const auto result = engine.run(bars, signals);
     ASSERT_EQ(result.equity_curve.size(), 1U);
     EXPECT_DOUBLE_EQ(result.equity_curve[0], kInitialCapital);
     EXPECT_EQ(result.trade_count, 0);
 }
-
-// ═══════════════════════════════════════════════════════════════
-// Signal semantics: flat, NaN, allow_short
-// ═══════════════════════════════════════════════════════════════
 
 TEST(BacktestEngineTest, FlatSignalNoTrades) {
     BacktestEngine engine(zero_friction_config());
@@ -150,7 +137,6 @@ TEST(BacktestEngineTest, AllowShortFalseClipsNegativeSignal) {
 
 TEST(BacktestEngineTest, ShortProfitsOnPriceDrop) {
     BacktestEngine engine(zero_friction_config(/*allow_short=*/true));
-    // Enter short at bar 1 open (90); bar 2 drops to 80 → MTM gain.
     const std::vector<Bar> bars{
         make_bar(0, kPriceAt100, kPriceAt100, kPriceAt100, kPriceAt100),
         make_bar(1, kPriceAt90, kPriceAt90, kPriceAt90, kPriceAt90),
@@ -159,7 +145,6 @@ TEST(BacktestEngineTest, ShortProfitsOnPriceDrop) {
     const std::vector<double> signals{-1.0, -1.0, -1.0};
     const auto result = engine.run(bars, signals);
     EXPECT_GT(result.equity_curve.back(), kInitialCapital);
-    // Shorted (kInitialCapital / kPriceAt90) shares at 90; bar 2 at 80.
     // Rebalancing to maintain leverage is equity-neutral at the instant of
     // fill, so MTM gain at bar 2 close = shares * (entry - close).
     const double expected_gain =
@@ -167,10 +152,6 @@ TEST(BacktestEngineTest, ShortProfitsOnPriceDrop) {
     EXPECT_NEAR(result.equity_curve.back() - kInitialCapital,
                 expected_gain, kFloatTolerance);
 }
-
-// ═══════════════════════════════════════════════════════════════
-// Position sizing & mark-to-market
-// ═══════════════════════════════════════════════════════════════
 
 TEST(BacktestEngineTest, AlwaysLongTracksPrice) {
     BacktestEngine engine(zero_friction_config());
@@ -180,8 +161,6 @@ TEST(BacktestEngineTest, AlwaysLongTracksPrice) {
     };
     const std::vector<double> signals{1.0, 1.0};
     const auto result = engine.run(bars, signals);
-    // Buy at bar 1 open (110) with 10,000 → 90.909... shares.
-    // MTM at bar 1 close (120): 90.909... * 120 = 10909.090909...
     const double expected_shares = kInitialCapital / kPriceAt110;
     const double expected_equity = expected_shares * kPriceAt120;
     EXPECT_NEAR(result.equity_curve.back(), expected_equity, kFloatTolerance);
@@ -194,15 +173,10 @@ TEST(BacktestEngineTest, AlwaysLongTracksPrice) {
 TEST(BacktestEngineTest, TradeCountReflectsDistinctPositionChanges) {
     BacktestEngine engine(zero_friction_config());
     const auto bars = constant_price_series(5);
-    // 0 → +1 → +1 → -1 → 0 : three distinct position changes.
     const std::vector<double> signals{1.0, 1.0, -1.0, 0.0, 0.0};
     const auto result = engine.run(bars, signals);
     EXPECT_EQ(result.trade_count, 3);
 }
-
-// ═══════════════════════════════════════════════════════════════
-// Slippage
-// ═══════════════════════════════════════════════════════════════
 
 TEST(BacktestEngineTest, FixedSlippageRaisesBuyFillPrice) {
     BacktestEngine engine(make_config(
@@ -214,18 +188,12 @@ TEST(BacktestEngineTest, FixedSlippageRaisesBuyFillPrice) {
     };
     const std::vector<double> signals{1.0, 0.0};
     const auto result = engine.run(bars, signals);
-    // Sizing uses theoretical_open: target_shares = 10000 / 110.
-    // Fill happens at 110 * (1 + 10bp) = 110.11, so cash goes slightly
-    // negative (target_shares * 110.11 > initial_capital). At bar 1 close
-    // (110), equity = cash + shares * close = 10000 - bps_fraction * 10000.
     const double bps_fraction = kFixedSlippageBps / kBpsPerUnit;
     const double expected_equity = kInitialCapital * (1.0 - bps_fraction);
     EXPECT_NEAR(result.equity_curve.back(), expected_equity, kFloatTolerance);
 }
 
 TEST(BacktestEngineTest, VolumeScaledSlippageIncreasesWithOrderSize) {
-    // Two runs with identical bars/signals but different volume on the fill bar.
-    // Smaller volume → larger slippage impact → lower final equity after a long entry.
     const std::vector<double> signals{1.0, 0.0};
     const std::vector<Bar> bars_large_volume{
         make_bar(0, kPriceAt100, kPriceAt100, kPriceAt100, kPriceAt100),
@@ -245,32 +213,23 @@ TEST(BacktestEngineTest, VolumeScaledSlippageIncreasesWithOrderSize) {
     EXPECT_LT(result_small.equity_curve.back(), result_large.equity_curve.back());
 }
 
-// ═══════════════════════════════════════════════════════════════
-// Commission
-// ═══════════════════════════════════════════════════════════════
-
 TEST(BacktestEngineTest, CommissionBleedsAcrossAlternatingTrades) {
     BacktestEngine engine(make_config(
         kTenBpsFeeRate,
         SlippageConfig{SlippageModel::NoSlippage, 0.0, 0.0}));
-    const auto bars = constant_price_series(5);  // flat prices → no price PnL
-    // 0 → +1 → -1 → +1 → -1: 4 position changes.
+    const auto bars = constant_price_series(5);
     const std::vector<double> signals{1.0, -1.0, 1.0, -1.0, 0.0};
     const auto result = engine.run(bars, signals);
     EXPECT_GT(result.trade_count, 0);
     EXPECT_LT(result.equity_curve.back(), kInitialCapital);
 }
 
-// ═══════════════════════════════════════════════════════════════
-// Metrics boundary: statistical fields default-zero in Batch A
-// ═══════════════════════════════════════════════════════════════
-
+// Engine owns cash-flow metrics; MetricsCalculator owns the statistical ones.
 TEST(BacktestEngineTest, StatisticalMetricsDefaultZero) {
     BacktestEngine engine(zero_friction_config());
     const auto bars = constant_price_series(3);
     const std::vector<double> signals{1.0, 1.0, 0.0};
     const auto result = engine.run(bars, signals);
-    // Engine owns cash-flow metrics; MetricsCalculator (Batch B) owns these.
     EXPECT_DOUBLE_EQ(result.sharpe_ratio, 0.0);
     EXPECT_DOUBLE_EQ(result.sortino_ratio, 0.0);
     EXPECT_DOUBLE_EQ(result.max_drawdown, 0.0);
@@ -278,10 +237,6 @@ TEST(BacktestEngineTest, StatisticalMetricsDefaultZero) {
     EXPECT_DOUBLE_EQ(result.annualized_return, 0.0);
     EXPECT_DOUBLE_EQ(result.annualized_volatility, 0.0);
 }
-
-// ═══════════════════════════════════════════════════════════════
-// Pairs (two-leg) backtest
-// ═══════════════════════════════════════════════════════════════
 
 TEST(BacktestEngineRunPairsTest, MismatchedLegLengthsThrows) {
     BacktestEngine engine(zero_friction_config());
@@ -340,7 +295,6 @@ TEST(BacktestEngineRunPairsTest, ConvergingSpreadProfitsBothLegs) {
     };
     const std::vector<double> signals{1.0, 1.0, 1.0};
     const auto result = engine.run_pairs(bars_a, bars_b, signals, 1.0);
-    // bar 1: open spread; bar 2: leverage=1 forces an MTM-neutral rebalance.
     EXPECT_EQ(result.trade_count, 2);
     const double shares_a_expected = kInitialCapital / kPriceAt100;
     const double shares_b_expected = kInitialCapital / kPriceAt100;

@@ -58,7 +58,7 @@ class TestDefaultOverrideForSimpleStrategies:
         tracked = s.get_all_training_metadata()
         assert len(tracked) == 1
         assert tracked[0].origin == "strategy"
-        assert tracked[0].metadata is None  # not trained yet
+        assert tracked[0].metadata is None
 
 
 class TestAdaptiveBollingerOverride:

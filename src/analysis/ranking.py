@@ -35,10 +35,6 @@ _DISPLAY_COLUMNS: tuple[str, ...] = (
     "n_folds",
 )
 
-# (primary_column, tiebreaker_column) per metric. Tiebreaker is a secondary
-# view of the same phenomenon — Sharpe ↔ Sortino, Calmar → Sortino — so a
-# tied primary still resolves to a meaningful runner-up rather than just
-# alphabetical-by-name.
 _SORT_KEYS: Mapping[RankingMetric, tuple[str, str]] = {
     RankingMetric.SHARPE: ("sharpe_mean", "sortino_mean"),
     RankingMetric.SORTINO: ("sortino_mean", "sharpe_mean"),

@@ -117,13 +117,11 @@ class TestSnapHelpers:
             _first_bar_after_gap_days(helper_dates, 0, 1)
 
     def test_holiday_gap_uses_observed_dates(self) -> None:
-        # 2 trading days, 4-day calendar gap, 2 more trading days.
         first_block = pd.date_range("2020-01-06 00:00", periods=HOLIDAY_PRE_BARS, freq="h")
         second_block = pd.date_range("2020-01-13 00:00", periods=HOLIDAY_POST_BARS, freq="h")
         idx = first_block.append(second_block)
         assert isinstance(idx, pd.DatetimeIndex)
         dates = idx.normalize()
-        # gap=1 observed trading day → skip 2020-01-13, land on first bar of 2020-01-14.
         result = _first_bar_after_gap_days(dates, HOLIDAY_PRE_BARS, 1)
         assert result == HOLIDAY_PRE_BARS + HOURLY_BARS_PER_DAY
 

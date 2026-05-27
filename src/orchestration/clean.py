@@ -214,8 +214,6 @@ def _git_tracked_by_child(store_root: Path, *, git_root: Path) -> dict[str, tupl
     for raw in result.stdout.split("\0"):
         if not raw:
             continue
-        # `git ls-files` paths are relative to git_root; resolve against it
-        # before stripping the store_root prefix.
         absolute = (git_root / raw).resolve()
         try:
             relative = absolute.relative_to(store_root_abs)

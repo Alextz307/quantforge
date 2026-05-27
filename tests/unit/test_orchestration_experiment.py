@@ -48,7 +48,6 @@ _TEST_SIZE = 60
 _GAP = 1
 _HOLDOUT_PCT = 0.2
 _SEED = 42
-# {timestamp}_{strategy}_{sha7}_{8 hex chars}
 _EXPERIMENT_ID_RE = re.compile(r"^\d{8}_\d{6}_AdaptiveBollinger_[a-f0-9]+_[a-f0-9]{8}$")
 
 
@@ -130,7 +129,6 @@ class TestExperimentRun:
         assert (run_dir / FOLD_RESULTS_JSONL).is_file()
         assert (run_dir / EXPERIMENT_METRICS_JSON).is_file()
         assert (run_dir / EXPERIMENT_STRATEGY_SUBDIR).is_dir()
-        # write_report defaults True → reporter artifacts land alongside.
         assert (run_dir / "plots" / "equity_curves.png").is_file()
         assert (run_dir / "tables" / "metrics_summary.tex").is_file()
 
@@ -146,7 +144,7 @@ class TestExperimentRun:
         assert manifest.seed == _SEED
         assert manifest.slippage_scenario == SlippageScenario.NORMAL
         assert manifest.holdout_start is not None
-        assert len(manifest.data_hash) == 64  # SHA-256 hex
+        assert len(manifest.data_hash) == 64
 
     def test_holdout_reservation_excludes_last_bars(
         self,
@@ -167,7 +165,6 @@ class TestExperimentRun:
         run_dir = store / "runs" / result.experiment_id
         lines = (run_dir / FOLD_RESULTS_JSONL).read_text().strip().splitlines()
         assert len(lines) == _N_SPLITS
-        # Each line is valid JSON
         import json
 
         for line in lines:
@@ -212,9 +209,7 @@ class TestNoReportFlag:
         store = tmp_path / "experiment_results"
         result = exp.run(RunOptions(store_root=store, write_report=False))
         run_dir = store / "runs" / result.experiment_id
-        # Core runtime artifacts still land.
         assert (run_dir / FOLD_RESULTS_JSONL).is_file()
-        # Reporter artifacts do NOT.
         assert not (run_dir / "plots").exists()
         assert not (run_dir / "tables").exists()
 
@@ -272,9 +267,6 @@ class TestTickerCountValidation:
             "tickers": [_TICKER, "OTHER", "THIRD"],
         }
         cfg = ExperimentConfig.model_validate(cfg_dict_copy)
-        # Builder catches it for AdaptiveBollinger (single-asset) before fetch;
-        # the same ValueError surfaces with a slightly different message even
-        # if a future PairsTrading config slipped through.
         with pytest.raises(ValueError, match="single-asset"):
             build_experiment(cfg)
 
@@ -302,7 +294,6 @@ def pairs_csv_dir(tmp_path: Path) -> Path:
     n = _PAIRS_N_ROWS
     log_a = np.cumsum(rng.normal(0.0001, 0.012, size=n))
     price_a = 100.0 * np.exp(log_a)
-    # Spread is mean-reverting: OU with theta=0.15.
     spread = np.zeros(n)
     for i in range(1, n):
         spread[i] = 0.85 * spread[i - 1] + rng.normal(0.0, 0.5)
@@ -355,7 +346,7 @@ class TestPairsExperimentEndToEnd:
                     "exit_zscore": 0.5,
                     "stop_loss_zscore": 4.0,
                     "zscore_lookback": 30,
-                    "p_value_threshold": 0.5,  # generous so the smoke fixture qualifies
+                    "p_value_threshold": 0.5,
                 },
             },
             "validation": {
@@ -372,12 +363,8 @@ class TestPairsExperimentEndToEnd:
 
         assert len(result.folds) == 2
         for fold in result.folds:
-            # Equity curves are non-empty and start at the engine's initial capital.
             assert len(fold.equity_curve) > 0
             assert fold.equity_curve[0] > 0.0
-
-
-# ───── Direct unit tests for the new helpers ─────
 
 
 class TestFetchPairBars:
@@ -418,7 +405,6 @@ class TestFetchPairBars:
             "volume_b",
         ):
             assert col in bars.columns, col
-        # Inner join cannot drop the entire universe.
         assert len(bars) > 0
 
 
@@ -453,7 +439,6 @@ class TestWalkForwardPairsSplit:
     def test_split_pairs_frame_missing_leg_raises(self) -> None:
         from src.engine.walk_forward import split_pairs_frame
 
-        # leg-A only — missing all leg-B columns.
         bars = pd.DataFrame(
             {"open_a": [1.0], "high_a": [1.0], "low_a": [1.0], "close_a": [1.0], "volume_a": [1.0]},
             index=pd.date_range("2024-01-01", periods=1),

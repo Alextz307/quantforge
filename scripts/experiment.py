@@ -28,6 +28,7 @@ from pathlib import Path
 import click
 from pydantic import ValidationError
 
+from scripts._attribution import attribute_via_username, default_username
 from src.core.config import (
     ExperimentConfig,
     load_experiment_config,
@@ -42,7 +43,6 @@ from src.core.persistence import (
     HPO_SUBDIR,
     RUNS_SUBDIR,
 )
-from scripts._attribution import attribute_via_username, default_username
 from src.orchestration.builder import build_experiment
 from src.orchestration.comparison import SignificanceTest, run_comparison
 from src.orchestration.experiment import RunOptions
@@ -52,10 +52,8 @@ from src.orchestration.types import ExperimentResult
 from webapp.backend.app.schemas.jobs import JobKind
 
 # ``optuna`` is deferred into ``tune_cmd`` so it does not load on every CLI
-# invocation (e.g., ``--help`` or ``compare``). The visualization reporters
-# import matplotlib transitively, but matplotlib already lands at top-level
-# via ``pmdarima`` (model registry side-effect import), so deferring them
-# here only saves the wrapper modules — kept lazy for symmetry with optuna.
+# invocation. Visualization reporters are also lazy for symmetry; matplotlib
+# already lands at top-level via the ``pmdarima`` model registry side-effect.
 
 DEFAULT_STORE_ROOT = Path("experiment_results")
 

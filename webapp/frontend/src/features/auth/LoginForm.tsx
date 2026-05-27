@@ -15,7 +15,12 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { resolveFromParam } from "@/lib/routes";
-import { loginSchema, type LoginFormValues } from "@/lib/schemas/login";
+import {
+  LOGIN_PASSWORD_MAX,
+  LOGIN_USERNAME_MAX,
+  loginSchema,
+  type LoginFormValues,
+} from "@/lib/schemas/login";
 
 export function LoginForm() {
   const navigate = useNavigate();
@@ -52,6 +57,7 @@ export function LoginForm() {
               id="username"
               autoComplete="username"
               autoFocus
+              maxLength={LOGIN_USERNAME_MAX}
               disabled={isSubmitting || login.isPending}
               {...register("username")}
             />
@@ -65,6 +71,7 @@ export function LoginForm() {
               id="password"
               type="password"
               autoComplete="current-password"
+              maxLength={LOGIN_PASSWORD_MAX}
               disabled={isSubmitting || login.isPending}
               {...register("password")}
             />

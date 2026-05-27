@@ -145,8 +145,6 @@ class TestCompareSubcommandSmoke:
         assert result.exit_code == 0, result.output
 
         cmp_dir = store_root / COMPARISONS_SUBDIR / "no_report"
-        # The comparison dir is still created (run_comparison mkdir'd it +
-        # per-strategy runs/ landed there), but no tables/ or plots/ subtree.
         assert cmp_dir.is_dir()
         assert not (cmp_dir / "tables").exists()
         assert not (cmp_dir / "plots").exists()
@@ -186,7 +184,6 @@ def _materialise_run_dir(run_dir: Path, name: str, *, data_hash: str | None = No
     run_dir.mkdir(parents=True, exist_ok=True)
     result = _stub_result(name, sharpe={"Alpha": 1.2, "Bravo": 0.7}.get(name, 1.0))
     if data_hash is not None:
-        # Manifest is frozen; rebuild with the override hash.
         from dataclasses import replace
 
         result = ExperimentResult(

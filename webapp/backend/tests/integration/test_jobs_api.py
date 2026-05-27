@@ -195,8 +195,6 @@ def test_cancel_running_job_transitions_to_cancelled(
     )
     submit = authed_jobs_client.post(JOBS_PATH, json=make_valid_job_submission()).json()
     job_id = submit["id"]
-    # The slow command sleeps 60s; cancel should fire SIGTERM and reach
-    # CANCELLED before the sleep finishes.
     cancel = authed_jobs_client.delete(f"{JOBS_PATH}/{job_id}")
     assert cancel.status_code == HTTPStatus.OK
     final = _await_terminal(authed_jobs_client, job_id)
@@ -234,7 +232,6 @@ def test_post_invalid_config_payload_returns_422(authed_jobs_client: TestClient)
     body = resp.json()
     assert isinstance(body["detail"], list)
     assert any(item["loc"] == ["data"] for item in body["detail"])
-    # Failed submissions don't show up in subsequent listings.
     listing = authed_jobs_client.get(JOBS_PATH).json()
     assert listing == []
 
@@ -314,8 +311,6 @@ def test_post_tune_rejects_invalid_hpo_payload(
     assert any("hpo_payload" in err["loc"] for err in detail)
 
 
-# Compare + holdout API integration ---------------------------------------------------------
-
 _COMPARE_RUN_A = "20260101_120000_AdaptiveBollinger_abc1234_deadbeef"
 _COMPARE_RUN_B = "20260201_090000_AdaptiveBollinger_def5678_cafebabe"
 
@@ -332,7 +327,6 @@ def _seed_compare_runs(monkeypatch: pytest.MonkeyPatch, run_ids: tuple[str, ...]
     runs_dir.mkdir(parents=True, exist_ok=True)
     for run_id in run_ids:
         make_synthetic_run(runs_dir, experiment_id=run_id)
-    # Settings cache is already test-scoped via _webapp_test_env.
     return store_root
 
 
@@ -392,7 +386,6 @@ def test_post_holdout_from_run_spawns_and_completes(
     )
     run_id = "20260301_080000_AdaptiveBollinger_aaa0000_bbbb1111"
     store_root = _seed_compare_runs(monkeypatch, (run_id,))
-    # Backfill a non-null holdout_start so the source is eligible.
     manifest_path = store_root / "runs" / run_id / EXPERIMENT_MANIFEST_JSON
     manifest = json_io.read_dict(manifest_path)
     manifest["holdout_start"] = "2024-01-01T00:00:00"

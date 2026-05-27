@@ -21,7 +21,7 @@ class TemporalDataset(Dataset[tuple[torch.Tensor, torch.Tensor]]):
         df: pd.DataFrame,
         target_column: str,
         lookback_window: int,
-        feature_columns: list[str] | None = None,
+        feature_columns: list[str],
     ) -> None:
         if not isinstance(df.index, pd.DatetimeIndex):
             raise TypeError(
@@ -50,9 +50,11 @@ class TemporalDataset(Dataset[tuple[torch.Tensor, torch.Tensor]]):
                 f"for lookback_window={lookback_window}; fix by widening the "
                 f"input window or by shrinking lookback_window."
             )
-
-        if feature_columns is None:
-            feature_columns = [c for c in df.columns if c != target_column]
+        if not feature_columns:
+            raise ValueError(
+                "feature_columns must be a non-empty list; fix by passing the "
+                "explicit feature names this dataset should consume."
+            )
 
         self._features = torch.from_numpy(df[feature_columns].to_numpy(dtype=np.float32).copy())
         self._targets = torch.from_numpy(df[target_column].to_numpy(dtype=np.float32).copy())

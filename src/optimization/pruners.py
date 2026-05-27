@@ -24,9 +24,6 @@ from optuna.pruners import (
 
 from src.core.hpo_config import PrunerKind
 
-# 25% keeps the top three quarters of trials; tighter than median (50%)
-# but looser than the most aggressive Optuna defaults. Sane thesis-demo
-# default — users who care can construct a custom PercentilePruner.
 _DEFAULT_PERCENTILE_PRUNER_VALUE = 25.0
 
 

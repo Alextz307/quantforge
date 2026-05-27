@@ -28,17 +28,9 @@ from typing import Any
 
 from src.core.persistence import CLI_LOGS_SUBDIR
 
-#: Format string shared by the stdout handler (``logging.basicConfig`` in the
-#: CLI entry point) and the file handler attached by :func:`attach_cli_log_file`.
-#: One source of truth so live ``tail -f`` stays grep-compatible with stdout.
 CLI_LOG_FORMAT = "%(asctime)s %(levelname)s %(name)s: %(message)s"
 
 
-# ``logging.LoggerAdapter`` became generic in Python 3.12 (parameterised over
-# the logger it wraps), but typeshed doesn't yet publish the ``[LoggerT]``
-# default, so parameterising would require ``logging.LoggerAdapter[Logger]``
-# which isn't version-portable. The ``type-arg`` ignore is the typeshed
-# round-trip cost; remove once stubs stabilise.
 class _ContextAdapter(logging.LoggerAdapter):  # type: ignore[type-arg]
     """LoggerAdapter that formats bound context as ``[k1=v1 k2=v2] <msg>``.
 
@@ -48,9 +40,6 @@ class _ContextAdapter(logging.LoggerAdapter):  # type: ignore[type-arg]
     intermediate list.
     """
 
-    # ``msg``/``kwargs`` use ``Any`` because the parent ``LoggerAdapter.process``
-    # signature does; narrowing would violate Liskov substitution and break
-    # legitimate callers who pass LogRecord-compatible objects.
     def process(
         self,
         msg: Any,

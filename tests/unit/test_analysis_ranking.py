@@ -51,7 +51,6 @@ class TestRankStrategiesMultiple:
     def test_calmar_selects_different_winner_than_sharpe(self) -> None:
         """Sanity: ``by`` actually switches the primary sort axis."""
         alpha = make_stub_aggregate_stats(sharpe=1.6)
-        # Override Calmar independently of Sharpe to verify the sort key.
         bravo = replace(make_stub_aggregate_stats(sharpe=0.9), calmar_mean=2.1)
         stats = {"Alpha": alpha, "Bravo": bravo}
         by_sharpe = rank_strategies(stats, by=RankingMetric.SHARPE)

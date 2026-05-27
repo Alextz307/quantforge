@@ -6,6 +6,7 @@ import { UniversePicker, type UniversePreset } from "@/components/forms/Universe
 import { useStrategies, type StrategySchema } from "@/api/strategies";
 import {
   INTERVAL_OPTIONS,
+  NAME_MAX,
   TICKERS_INPUT_HINT,
   type ConfigureFormValues,
   type IntervalValue,
@@ -63,7 +64,7 @@ export function ExperimentFieldsSection<T extends ConfigureFormValues>({
 
       <section className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <ConfigField id="name" label="Run name" error={e.name?.message}>
-          <Input id="name" {...reg("name")} disabled={isSubmitting} />
+          <Input id="name" maxLength={NAME_MAX} {...reg("name")} disabled={isSubmitting} />
         </ConfigField>
         <ConfigField id="seed" label="Seed" error={e.seed?.message}>
           <Input id="seed" type="number" {...reg("seed")} disabled={isSubmitting} />

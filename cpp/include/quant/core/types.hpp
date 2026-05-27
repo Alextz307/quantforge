@@ -8,12 +8,10 @@
 
 namespace quant {
 
-// ── Trading constants ──
-
 inline constexpr int kTradingDaysPerYear = 252;
 inline constexpr int kTradingWeeksPerYear = 52;
-inline constexpr int kUSMinutesPerDay = 390;   // 6.5 hours
-inline constexpr int kUSSecondsPerDay = 23400;  // 390 * 60
+inline constexpr int kUSMinutesPerDay = 390;
+inline constexpr int kUSSecondsPerDay = 23400;
 
 inline constexpr double kMaxLeverage = 3.0;
 inline constexpr double kMinPosition = -1.0;
@@ -23,8 +21,6 @@ inline constexpr double kMaxPosition = 3.0;
 // scenario without naming it. The out-param overload resets to this value so
 // reusing a BacktestResult across scenarios cannot leak a prior label.
 inline constexpr const char* kDefaultScenarioLabel = "normal";
-
-// ── Interval ──
 
 enum class Interval : uint8_t {
     Second,
@@ -49,10 +45,8 @@ enum class Interval : uint8_t {
         case Interval::Daily:          return kTradingDaysPerYear;
         case Interval::Weekly:         return kTradingWeeksPerYear;
     }
-    return kTradingDaysPerYear;  // unreachable, satisfies -Wreturn-type
+    return kTradingDaysPerYear;
 }
-
-// ── Bar (AoS — for API/pybind11 interfaces) ──
 
 struct Bar {
     int64_t timestamp_epoch_s{};
@@ -76,8 +70,7 @@ struct Bar {
     }
 };
 
-// ── BarSoA (Structure of Arrays — for computation hot paths) ──
-
+// Structure of Arrays — for computation hot paths.
 struct BarSoA {
     // Heap data alignment depends on the allocator (macOS default is 16-byte,
     // sufficient for NEON). Use a custom aligned allocator if cache-line
@@ -107,14 +100,10 @@ struct BarSoA {
     }
 };
 
-// ── Signal ──
-
 struct Signal {
     int64_t timestamp_epoch_s{};
-    double position{};  // [kMinPosition, kMaxPosition]
+    double position{};
 };
-
-// ── PairSignal ──
 
 struct PairSignal {
     int64_t timestamp_epoch_s{};
@@ -122,8 +111,6 @@ struct PairSignal {
     double leg_b_position{};
     double spread_zscore{};
 };
-
-// ── BacktestResult ──
 
 struct BacktestResult {
     double total_return{};

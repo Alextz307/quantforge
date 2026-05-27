@@ -10,7 +10,6 @@ from src.core.temporal import TemporalTripleSplit, TrainingMetadata
 from src.core.types import Interval
 from tests.conftest import make_daily_df
 
-# TripleSplit common parameters
 TRIPLE_SMALL_DF_ROWS = 100
 TRIPLE_DEFAULT_DF_ROWS = 200
 TRIPLE_LARGE_DF_ROWS = 500
@@ -21,8 +20,7 @@ DEFAULT_GAP = 5
 INVALID_PCT_TOO_LARGE_VAL = 0.6
 INVALID_PCT_TOO_LARGE_HOLDOUT = 0.5
 
-# TripleSplit overlap construction (raw indices)
-OVERLAP_TRAIN_TO_VAL_TRAIN_END = 60  # > validation_start to overlap train-val
+OVERLAP_TRAIN_TO_VAL_TRAIN_END = 60
 OVERLAP_TRAIN_TO_VAL_VAL_START = 50
 OVERLAP_TRAIN_TO_VAL_VAL_END = 80
 OVERLAP_TRAIN_TO_VAL_HOLDOUT_START = 85
@@ -30,7 +28,7 @@ OVERLAP_TRAIN_TO_VAL_HOLDOUT_START = 85
 OVERLAP_VAL_TO_HOLDOUT_TRAIN_END = 30
 OVERLAP_VAL_TO_HOLDOUT_VAL_START = 40
 OVERLAP_VAL_TO_HOLDOUT_VAL_END = 70
-OVERLAP_VAL_TO_HOLDOUT_HOLDOUT_START = 65  # < val_end to overlap val-holdout
+OVERLAP_VAL_TO_HOLDOUT_HOLDOUT_START = 65
 
 EMPTY_TRAIN_VAL_START = 40
 EMPTY_TRAIN_VAL_END = 60
@@ -41,17 +39,17 @@ NON_DATETIME_VAL_START = 20
 NON_DATETIME_VAL_END = 35
 NON_DATETIME_HOLDOUT_START = 40
 
-# TrainingMetadata sample
 META_TRAIN_START = "2020-01-02"
 META_TRAIN_END = "2023-06-30"
 META_FIT_TIMESTAMP = "2024-01-01 12:00:00"
 META_N_SAMPLES = 900
 META_FEATURE_COLUMNS = ("close", "volume", "return_1d")
 META_OVERLAP_DF_ROWS = 50
-META_OVERLAP_START = "2023-06-01"  # ends inside training window
-META_FUTURE_START = "2023-07-02"  # strictly after train_end
+META_OVERLAP_START = "2023-06-01"
+META_FUTURE_START = "2023-07-02"
 META_BOUNDARY_DF_ROWS = 10
-META_BOUNDARY_START = META_TRAIN_END  # exact boundary should still be rejected
+# Same timestamp as META_TRAIN_END — exact boundary must still be rejected.
+META_BOUNDARY_START = META_TRAIN_END
 META_PLAIN_ROWS = 10
 
 
@@ -89,10 +87,9 @@ class TestTemporalTripleSplit:
             df, val_pct=DEFAULT_VAL_PCT, holdout_pct=DEFAULT_HOLDOUT_PCT, gap=DEFAULT_GAP
         )
         total = len(split.train) + len(split.validation) + len(split.holdout)
-        # Proportions are approximate due to gaps
         assert len(split.holdout) == int(TRIPLE_LARGE_DF_ROWS * DEFAULT_HOLDOUT_PCT)
         assert len(split.validation) == int(TRIPLE_LARGE_DF_ROWS * DEFAULT_VAL_PCT)
-        assert total < TRIPLE_LARGE_DF_ROWS  # gaps eat some rows
+        assert total < TRIPLE_LARGE_DF_ROWS
 
     def test_overlap_train_val_raises(self) -> None:
         df = make_daily_df(TRIPLE_SMALL_DF_ROWS)
@@ -144,7 +141,6 @@ class TestTemporalTripleSplit:
         assert len(split.train) > 0
         assert len(split.validation) > 0
         assert len(split.holdout) > 0
-        # With gap=0, regions are still non-overlapping (adjacent is ok)
         assert split.train.index.max() < split.validation.index.min()
 
     def test_from_dataframe_invalid_val_pct(self) -> None:
@@ -196,7 +192,7 @@ class TestTrainingMetadata:
         self, sample_metadata: TrainingMetadata
     ) -> None:
         future = make_daily_df(META_OVERLAP_DF_ROWS, start=META_FUTURE_START)
-        sample_metadata.validate_no_overlap(future)  # should not raise
+        sample_metadata.validate_no_overlap(future)
 
     def test_validate_no_overlap_boundary(self, sample_metadata: TrainingMetadata) -> None:
         """Eval data starting exactly at train_end should be rejected."""

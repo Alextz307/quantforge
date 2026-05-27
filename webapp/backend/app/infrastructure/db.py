@@ -2,12 +2,24 @@
 
 from __future__ import annotations
 
+import re
 import sqlite3
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
 
 from webapp.backend.app.core.settings import get_settings
+
+# SQLite does not support parameter binding for table/column identifiers,
+# so migration helpers below must interpolate them. These regexes pin the
+# accepted shape so a future caller cannot pass user-supplied input into
+# the schema layer: identifiers are restricted to ``^[A-Za-z_][A-Za-z0-9_]*$``
+# (no quotes, no semicolons, no whitespace) and type definitions to a small
+# alphanumeric + whitespace allowlist that covers ``TEXT``, ``INTEGER NOT
+# NULL``, ``INTEGER DEFAULT 0`` and similar — string defaults requiring
+# quotes are deliberately not allowed; extending the regex forces review.
+_IDENTIFIER_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+_TYPE_DEFINITION_RE = re.compile(r"^[A-Za-z0-9_ ]+$")
 
 USERS_SCHEMA = """
 CREATE TABLE IF NOT EXISTS users (
@@ -87,20 +99,28 @@ def get_connection(db_path: Path) -> sqlite3.Connection:
     return conn
 
 
-def _ensure_column(
-    conn: sqlite3.Connection, table: str, column: str, definition: str
-) -> None:
+def _ensure_column(conn: sqlite3.Connection, table: str, column: str, definition: str) -> None:
     """Idempotently ``ALTER TABLE ... ADD COLUMN``.
 
     SQLite supports ``ADD COLUMN`` but not ``ADD COLUMN IF NOT EXISTS``;
     introspect ``PRAGMA table_info`` first so re-running on an already-
     migrated DB is a no-op.
+
+    Identifiers and the type clause are validated against the module-level
+    regexes so a future caller that pipes user input into a migration call
+    fails loudly here rather than executing an arbitrary statement.
     """
-    cursor = conn.execute(f"PRAGMA table_info({table})")
+    if not _IDENTIFIER_RE.match(table):
+        raise ValueError(f"invalid table name: {table!r}")
+    if not _IDENTIFIER_RE.match(column):
+        raise ValueError(f"invalid column name: {column!r}")
+    if not _TYPE_DEFINITION_RE.match(definition):
+        raise ValueError(f"invalid column definition: {definition!r}")
+    cursor = conn.execute(f"PRAGMA table_info({table})")  # noqa: S608 - identifier validated above
     existing = {str(row["name"]) for row in cursor.fetchall()}
     if column in existing:
         return
-    conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
+    conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")  # noqa: S608 - identifiers validated above
 
 
 def bootstrap_schema(conn: sqlite3.Connection) -> None:

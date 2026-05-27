@@ -62,8 +62,7 @@ class TestGarchGridCache:
             cells_after_second = len(cache)
 
         assert cells_after_first == GRID_SMALL_P * GRID_SMALL_Q
-        assert cells_after_second == cells_after_first  # no new fits
-        # Same returns + same grid → same chosen order → same fitted params.
+        assert cells_after_second == cells_after_first
         assert first._best_p == second._best_p
         assert first._best_q == second._best_q
         assert first._omega == pytest.approx(second._omega)
@@ -77,15 +76,10 @@ class TestGarchGridCache:
             large_cells = len(cache)
 
         assert small_cells == GRID_SMALL_P * GRID_SMALL_Q
-        # Total reaches the full larger grid; intersection of grids was
-        # served from cache, only newly-introduced cells were fit.
         assert large_cells == GRID_LARGE_P * GRID_LARGE_Q
 
     def test_no_cache_when_context_unset(self, returns_a: pd.Series) -> None:
-        # Pre-condition: no enclosing context manager → no active cache.
         assert active_cache() is None
-        # Behaviour is identical to the pre-cache code path: fit succeeds,
-        # _best_p/_best_q populated, no global state mutated.
         g = _fit_garch(returns_a, p_max=GRID_SMALL_P, q_max=GRID_SMALL_Q)
         assert active_cache() is None
         assert 1 <= g._best_p <= GRID_SMALL_P
@@ -99,7 +93,6 @@ class TestGarchGridCache:
             _fit_garch(returns_a, p_max=GRID_SMALL_P, q_max=GRID_SMALL_Q)
             _fit_garch(returns_b, p_max=GRID_SMALL_P, q_max=GRID_SMALL_Q)
 
-        # Two disjoint returns hashes × p*q grid cells = 2 * p*q entries.
         assert len(cache) == 2 * GRID_SMALL_P * GRID_SMALL_Q
 
     def test_context_resets_on_exception(self, returns_a: pd.Series) -> None:
@@ -107,9 +100,8 @@ class TestGarchGridCache:
         with pytest.raises(RuntimeError, match="boom"):
             with garch_cache_context(cache):
                 raise RuntimeError("boom")
-        # The cache was never written to, but more importantly the
-        # ContextVar is now back to None — a subsequent fit must NOT see
-        # a stale cache from the failed block.
+        # ContextVar must reset to None on exit so a subsequent fit doesn't
+        # see a stale cache from the failed block.
         assert active_cache() is None
 
     def test_strategy_anti_leakage_invariant_holds_with_cache(self) -> None:

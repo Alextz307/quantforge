@@ -190,7 +190,6 @@ def run_leg(
     on the returned state — the caller decides whether to stop or
     continue with the next leg.
     """
-    # Defer optuna so unrelated modules don't pay its import cost.
     from src.optimization.tuner import StrategyTuner
 
     started_at = prior_state.started_at if prior_state.started_at is not None else datetime.now(UTC)
@@ -332,8 +331,6 @@ def run_study(
             legs=tuple(LegState.initial(leg.leg_id, leg.strategy, leg.universe) for leg in legs),
             cross_strategy_compares_done=(),
         )
-        # Snapshot the spec alongside the state file so a post-mortem
-        # against the resume hash can re-read what the run was driven by.
         (study_dir / SPEC_SNAPSHOT_FILENAME).write_text(
             spec_path.read_text(encoding="utf-8"), encoding="utf-8"
         )
@@ -475,6 +472,4 @@ def _resolve_under(repo_root: Path, p: Path) -> Path:
     return p if p.is_absolute() else repo_root / p
 
 
-# Silence default config loggers during smoke tests where logging.basicConfig
-# may not have been called.
 logging.getLogger(__name__).addHandler(logging.NullHandler())

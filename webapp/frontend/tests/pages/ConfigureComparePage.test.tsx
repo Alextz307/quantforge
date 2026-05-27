@@ -12,9 +12,6 @@ import { renderWithProviders } from "../util/render";
 
 const COMPARE_OUT_NAME = "my_compare";
 
-// Sibling of RUN_SPY sharing the same data_hash — represents a different
-// strategy run against the same SPY bar series, which is the canonical
-// reuse-mode compare workflow.
 const RUN_SPY_VT = {
   ...RUN_SPY,
   experiment_id: "exp_spy_vt",
@@ -47,7 +44,6 @@ describe("ConfigureComparePage", () => {
       { initialEntries: [ROUTES.configureCompare] },
     );
 
-    // Wait for the runs picker to settle.
     await screen.findByText(RUN_SPY.name);
     await user.click(screen.getByLabelText(`Select ${RUN_SPY.name}`));
     await user.click(screen.getByLabelText(`Select ${RUN_SPY_VT.name}`));
@@ -76,17 +72,13 @@ describe("ConfigureComparePage", () => {
     renderWithProviders(<ConfigureComparePage />);
 
     await screen.findByText(RUN_SPY.name);
-    // Picker is unrestricted before any selection.
     expect(screen.getByLabelText(`Select ${RUN_IVV_VOO.name}`)).not.toBeDisabled();
 
-    // Selecting RUN_SPY locks the picker to its bar series.
     await user.click(screen.getByLabelText(`Select ${RUN_SPY.name}`));
 
-    // RUN_IVV_VOO has a different data_hash → disabled + a lock notice appears.
     expect(screen.getByLabelText(`Select ${RUN_IVV_VOO.name}`)).toBeDisabled();
     expect(screen.getByTestId("compare-data-hash-lock-notice")).toBeInTheDocument();
 
-    // Deselecting clears the lock.
     await user.click(screen.getByLabelText(`Select ${RUN_SPY.name}`));
     expect(screen.queryByTestId("compare-data-hash-lock-notice")).not.toBeInTheDocument();
     expect(screen.getByLabelText(`Select ${RUN_IVV_VOO.name}`)).not.toBeDisabled();
@@ -124,7 +116,6 @@ describe("ConfigureComparePage", () => {
   });
 
   it("caps selection at 8 runs and disables additional checkboxes", async () => {
-    // Override /api/runs to return 9 runs so we can hit the cap.
     server.use(
       http.get(API_PATHS.runs, () =>
         HttpResponse.json({
@@ -143,7 +134,6 @@ describe("ConfigureComparePage", () => {
     renderWithProviders(<ConfigureComparePage />);
 
     await screen.findByText("run_0");
-    // Select the first 8 runs.
     for (let i = 0; i < 8; i += 1) {
       await user.click(screen.getByLabelText(`Select run_${String(i)}`));
     }
@@ -162,7 +152,6 @@ describe("ConfigureComparePage", () => {
     renderWithProviders(<ConfigureComparePage />);
 
     expect(await screen.findByText(/No completed runs yet/i)).toBeInTheDocument();
-    // Sanity: the submit button is still rendered.
     expect(
       within(document.body).getByRole("button", { name: /Launch comparison/i }),
     ).toBeInTheDocument();

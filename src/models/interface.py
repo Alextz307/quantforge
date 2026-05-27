@@ -84,9 +84,6 @@ class IPredictor(ABC):
         self.fit(train_data, target, checkpoint_path=checkpoint_path, **kwargs)
         return self.predict(train_data)
 
-    # Subclasses inherit the unfitted state and must not re-declare this in
-    # ``__init__``; :meth:`_set_fitted_with_metadata` is the only legal mutator,
-    # and ``training_metadata is not None`` is the only fitted-state signal.
     _training_metadata: TrainingMetadata | None = None
 
     @property

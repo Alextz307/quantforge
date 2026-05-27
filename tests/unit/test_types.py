@@ -14,15 +14,14 @@ from src.core.types import (
     Signal,
 )
 
-# Annualization expectations (kept hardcoded — these tests verify the function returns these
-# specific numbers, so importing them from the source would be circular)
+# Hardcoded so the tests verify these specific numbers without re-importing
+# from src (which would make the test circular against the function under test).
 EXPECTED_DAILY_FACTOR = 252
 EXPECTED_MINUTES_PER_TRADING_DAY = 390
 EXPECTED_SECONDS_PER_MINUTE = 60
 EXPECTED_FIVE_MIN_DIVISOR = 5
 EXPECTED_WEEKLY_FACTOR = 52
 
-# Reference OHLCV ladder used across BarData tests (high >= open & close, low <= open & close)
 SAMPLE_TIMESTAMP = datetime(2024, 1, 1)
 VALID_OPEN = 100.0
 VALID_HIGH = 105.0
@@ -30,29 +29,27 @@ VALID_LOW = 99.0
 VALID_CLOSE = 103.0
 VALID_VOLUME = 1_000_000.0
 SMALL_VOLUME = 1000.0
-INVALID_HIGH_BELOW_LOW = 95.0  # < VALID_LOW
-INVALID_OPEN_ABOVE_HIGH = 110.0  # > VALID_HIGH
-INVALID_CLOSE_ABOVE_HIGH = 106.0  # > VALID_HIGH
-INVALID_LOW_ABOVE_OPEN = 101.0  # > VALID_OPEN
+INVALID_HIGH_BELOW_LOW = 95.0
+INVALID_OPEN_ABOVE_HIGH = 110.0
+INVALID_CLOSE_ABOVE_HIGH = 106.0
+INVALID_LOW_ABOVE_OPEN = 101.0
 INVALID_NEGATIVE_PRICE = -1.0
 INVALID_ZERO_PRICE = 0.0
 INVALID_NEGATIVE_VOLUME = -100.0
 
-# Signal test values
 SAMPLE_LONG_POSITION = 0.5
 SAMPLE_SHORT_POSITION = -1.0
 MAX_ALLOWED_POSITION = 3.0
 INVALID_POSITION_BELOW_MIN = -1.5
 INVALID_POSITION_ABOVE_MAX = 3.5
 
-# PairSignal test values
 PAIR_LEG_A_LONG = 1.0
 PAIR_LEG_B_SHORT = -1.0
 PAIR_SAMPLE_ZSCORE = 2.1
 PAIR_NEUTRAL_ZSCORE = 1.0
-PAIR_LEG_OVERSIZED = 2.0  # |a| + |b| = 4 > 3 max combined leverage
-PAIR_LEG_AT_MAX = 1.5  # |a| + |b| = 3.0 (boundary)
-PAIR_INVALID_LEG_VALUE = 5.0  # individual leg out of [-3, 3]
+PAIR_LEG_OVERSIZED = 2.0
+PAIR_LEG_AT_MAX = 1.5
+PAIR_INVALID_LEG_VALUE = 5.0
 PAIR_MAX_COMBINED_LEVERAGE = 3.0
 
 
@@ -89,17 +86,14 @@ class TestInterval:
 
     def test_intraday_consistency(self) -> None:
         """Verify that intraday intervals are consistent with each other."""
-        # 1 minute * EXPECTED_MINUTES_PER_TRADING_DAY = 1 day's minutes
         assert (
             Interval.MINUTE.annualization_factor()
             == Interval.DAILY.annualization_factor() * EXPECTED_MINUTES_PER_TRADING_DAY
         )
-        # 1 second * 60 = 1 minute
         assert (
             Interval.SECOND.annualization_factor()
             == Interval.MINUTE.annualization_factor() * EXPECTED_SECONDS_PER_MINUTE
         )
-        # 5 min = 5 * 1 min
         assert (
             Interval.FIVE_MINUTE.annualization_factor()
             == Interval.MINUTE.annualization_factor() // EXPECTED_FIVE_MIN_DIVISOR

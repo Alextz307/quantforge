@@ -100,7 +100,7 @@ TEST(BufferReuseOverloads, MACDComputeAllWrongSizedVectorThrows) {
     quant::MACD macd(12, 26, 9);
     quant::MACDResult bad;
     bad.macd_line.resize(prices.size());
-    bad.signal_line.resize(prices.size() - 1);  // mismatch
+    bad.signal_line.resize(prices.size() - 1);
     bad.histogram.resize(prices.size());
     EXPECT_THROW(macd.compute_all(prices, bad), std::invalid_argument);
 }
@@ -251,7 +251,7 @@ TEST(BufferReuseOverloads, BacktestResultResetIsDriftSafe) {
     // sentinels across every field and confirm each is clobbered.
     const auto bars = make_bars();
     quant::BacktestEngine::Config cfg;
-    cfg.allow_short = false;  // flat signals → zero trades → zero metrics
+    cfg.allow_short = false;
     const quant::BacktestEngine engine{cfg};
 
     std::vector<double> zero_signals(bars.size(), 0.0);

@@ -75,11 +75,9 @@ class FeatureEngineeringPipeline(IFeaturePipeline):
         self._ma_ratio_window = ma_ratio_window
         self._short_return_period = short_return_period
         self._long_return_period = long_return_period
-        # When True, transform() concatenates the source frame's raw OHLCV
-        # alongside scaled engineered features (OHLCV passes through
-        # un-scaled). Lets strategies that need both raw price AND features
-        # in the same frame (e.g. ReturnForecast, VolatilityTargeting) keep
-        # the columns their own train() depends on.
+        # When True, transform() emits raw OHLCV (un-scaled) alongside
+        # the scaled engineered features. Strategies like ReturnForecast
+        # and VolatilityTargeting depend on both being in the same frame.
         self._keep_ohlc = keep_ohlc
 
         self._scaler: StandardScaler | None = None
@@ -163,7 +161,6 @@ class FeatureEngineeringPipeline(IFeaturePipeline):
 
         Precondition: callers must invoke ``guard_scaler_fit_once`` first.
         """
-        guard_scaler_fit_once(self._scaler, "FeatureEngineeringPipeline")
         self._scaler = StandardScaler()
         valid_mask = features.notna().all(axis=1)
         if valid_mask.any():

@@ -17,13 +17,11 @@ from tests.conftest import (
     make_pair_close_df,
 )
 
-# Strategy defaults tuned for short synthetic fixtures
 ENTRY_Z = 2.0
 EXIT_Z = 0.5
 STOP_Z = 4.0
 LOOKBACK = 30
 
-# Non-cointegrated pair fixture — two independent random walks
 RW_ROW_COUNT = 300
 RW_START_DATE = "2020-01-02"
 RW_SEED_A = 11
@@ -31,7 +29,6 @@ RW_SEED_B = 17
 RW_BASE_PRICE_A = 100.0
 RW_BASE_PRICE_B = 100.0
 
-# Valid discrete signal values
 VALID_SIGNALS = {-1.0, 0.0, 1.0}
 
 

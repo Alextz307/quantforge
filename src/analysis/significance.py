@@ -56,9 +56,6 @@ _IntArray = npt.NDArray[np.int64]
 # does not share a draw sequence by accident.
 _DEFAULT_RNG_SEED = 17
 
-# Number of resamples for the bootstrap-based tests. 10k is the
-# widely-accepted default for 2-decimal stability of 2.5 / 97.5
-# percentiles; trivial on any modern CPU for n <= a few thousand bars.
 _DEFAULT_N_RESAMPLES = 10_000
 
 
@@ -340,7 +337,6 @@ def _stationary_bootstrap_indices(n: int, block_size: int, rng: np.random.Genera
         start = int(rng.integers(0, n))
         length = int(rng.geometric(p))
         take = min(length, n - i)
-        # Wrap around via two slices when the block crosses the boundary.
         end = start + take
         if end <= n:
             out[i : i + take] = np.arange(start, end)

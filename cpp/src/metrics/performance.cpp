@@ -11,7 +11,7 @@ constexpr size_t kMinObsForSampleStd = 2;
 
 struct MeanStd {
     double mean;
-    double sample_std;  // ddof=1
+    double sample_std;
 };
 
 /// Single-pass Welford mean + sample std (ddof=1). Matches the rolling_std

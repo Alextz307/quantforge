@@ -45,8 +45,6 @@ class TestBuildBooktabsTable:
 
     def test_index_not_written_by_default(self) -> None:
         out = build_booktabs_table(_sample_df(), caption="x", label="tab:x")
-        # Pandas writes a column for the index when index=True; the default
-        # should skip it so table columns match DataFrame columns.
         lines = out.splitlines()
         header_idx = next(i for i, line in enumerate(lines) if "sharpe" in line)
         assert "index" not in lines[header_idx].lower()

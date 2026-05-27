@@ -21,11 +21,9 @@ from tests.conftest import (
     make_synthetic_close_df,
 )
 
-# Fixtures
 TRAIN_ROW_COUNT = 200
 FEATURE_RNG_SEED = 13
 
-# Compact hybrid params for fast CI
 COMPACT_ARMA_P_MAX = 2
 COMPACT_ARMA_Q_MAX = 2
 COMPACT_LSTM_HIDDEN_DIM = 16
@@ -33,7 +31,6 @@ COMPACT_LSTM_NUM_LAYERS = 1
 COMPACT_LSTM_LOOKBACK = 10
 COMPACT_LSTM_EPOCHS = 2
 
-# Strategy defaults
 POSITION_SCALE = 20.0
 MAX_LEVERAGE = 1.5
 
@@ -107,12 +104,10 @@ class TestReturnForecastStrategy:
         forecast = fitted_strategy._hybrid_return.predict(train_df).dropna()
         aligned = signals.align(forecast, join="inner")
         signals_aligned, forecast_aligned = aligned
-        # Only bars where clipping didn't fire should sign-match strictly; within bounds
-        # the raw position is position_scale * forecast so signs match. When clipped at
-        # +/- max_leverage the sign also matches (clip preserves sign).
+        # Raw position is position_scale * forecast (signs match); clipping
+        # at +/- max_leverage also preserves sign.
         non_zero = signals_aligned[signals_aligned != 0.0]
         f_aligned = forecast_aligned.loc[non_zero.index]
-        # sign(signal) == sign(forecast) wherever both are non-zero
         non_zero_fc = f_aligned[f_aligned != 0.0]
         assert (np.sign(non_zero.loc[non_zero_fc.index]) == np.sign(non_zero_fc)).all()
 

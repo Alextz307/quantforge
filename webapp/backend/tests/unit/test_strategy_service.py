@@ -37,8 +37,6 @@ def test_adaptive_bollinger_classification() -> None:
     assert by_name["k"].kind is ParamKind.FLOAT
     assert by_name["k"].default == 2.0
 
-    # ``interval`` is framework-managed (duplicates ``data.interval``);
-    # showing it would let the user desync the two. Never surfaces as a form field.
     assert "interval" not in by_name
 
 
@@ -48,12 +46,10 @@ def test_str_list_annotations_classify_as_str_list() -> None:
     schema = describe_strategy("ReturnForecast")
     by_name = {p.name: p for p in schema.params}
 
-    # ``feature_columns: list[str]`` — required, list-of-str.
     assert by_name["feature_columns"].kind is ParamKind.STR_LIST
     assert by_name["feature_columns"].required is True
     assert by_name["feature_columns"].nullable is False
 
-    # CrossAssetMomentum has ``feature_tickers: Sequence[str]``.
     cam = describe_strategy("CrossAssetMomentum")
     cam_params = {p.name: p for p in cam.params}
     assert cam_params["feature_tickers"].kind is ParamKind.STR_LIST
@@ -66,7 +62,6 @@ def test_optional_enum_unwraps_to_typed_dropdown() -> None:
 
     by_name = {p.name: p for p in schema.params}
 
-    # ``lstm_device: Device | None = None`` — Optional[Enum] → ENUM + nullable.
     assert by_name["lstm_device"].kind is ParamKind.ENUM
     assert by_name["lstm_device"].nullable is True
     assert by_name["lstm_device"].required is False
@@ -115,7 +110,6 @@ def test_xgboost_strategies_drop_mps_from_device_choices(
     assert "mps" not in (xgb_params["device"].choices or [])
     assert "cpu" in (xgb_params["device"].choices or [])
 
-    # Sanity: torch-backed strategy on the same host still offers MPS.
     torch_schema = describe_strategy("ReturnForecast")
     torch_params = {p.name: p for p in torch_schema.params}
     assert "mps" in (torch_params["lstm_device"].choices or [])

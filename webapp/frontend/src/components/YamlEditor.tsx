@@ -11,12 +11,9 @@ const MONACO_THEME: Record<ResolvedTheme, "vs" | "vs-dark"> = {
   dark: "vs-dark",
 };
 
-// ``@monaco-editor/react`` exports ``Monaco`` as ``typeof
-// monaco-editor/esm/vs/editor/editor.api`` — a sub-path import TypeScript
-// (with the project's ``moduleResolution: bundler``) cannot resolve, so the
-// alias falls through to ``any`` and trips strict-no-unsafe lint rules. We
-// bypass that by re-typing the captured instance as the public ``monaco-editor``
-// module, which has the same runtime shape.
+// @monaco-editor/react's Monaco type resolves to a sub-path import that bundler
+// moduleResolution cannot follow; re-type via the public monaco-editor module
+// (same runtime shape) to avoid strict-no-unsafe violations.
 type MonacoApi = typeof MonacoNs;
 
 interface YamlEditorProps {

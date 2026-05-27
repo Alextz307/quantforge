@@ -72,8 +72,6 @@ class AdaptiveBollingerStrategy(IStrategy):
         self._k = k
         self._trend_window = trend_window
         self._interval = interval
-        # Retained so ``save()`` can snapshot the ctor kwargs without
-        # reaching into the leaf GARCH's private state.
         self._garch_p_max = garch_p_max
         self._garch_q_max = garch_q_max
 

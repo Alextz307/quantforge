@@ -91,12 +91,9 @@ def test_generate_full_report_writes_full_tree(tmp_path: Path) -> None:
     out = StudyReportReporter().generate_full_report(report, tmp_path, publish_label=_PUBLISH_LABEL)
     assert out == tmp_path
 
-    # Manifest sidecar.
     manifest_path = tmp_path / MANIFEST_FILENAME
     assert manifest_path.is_file()
 
-    # Tables: master, per-universe, holdout, pairwise long CSV +
-    # per-universe matrix.
     tables = tmp_path / TABLES_SUBDIR
     assert (tables / "master_ranking.tex").is_file()
     assert (tables / "master_ranking.csv").is_file()
@@ -107,7 +104,6 @@ def test_generate_full_report_writes_full_tree(tmp_path: Path) -> None:
     assert (tables / "pairwise_significance.csv").is_file()
     assert (tables / "pairwise_significance" / "uni1.tex").is_file()
 
-    # Plots: heatmap + scatter.
     plots = tmp_path / PLOTS_SUBDIR
     for stem in (
         "strategy_x_universe_heatmap",
@@ -135,7 +131,7 @@ def test_holdout_results_includes_dev_and_holdout_columns(tmp_path: Path) -> Non
 
     df = pd.read_csv(tmp_path / TABLES_SUBDIR / "holdout_results.csv")
     assert {"dev_sharpe", "holdout_sharpe", "n_dev_bars", "n_holdout_bars"} <= set(df.columns)
-    assert len(df) == 2  # only legs with holdout snapshots
+    assert len(df) == 2
     assert df["holdout_sharpe"].max() == pytest.approx(1.10)
 
 
@@ -191,7 +187,6 @@ def test_skips_sections_when_no_input_data(tmp_path: Path) -> None:
 def test_copies_per_universe_equity_overlay_when_source_exists(tmp_path: Path) -> None:
     """Reporter copies ``comparisons/<universe>/plots/equity_overlay.{png,svg}`` if present."""
     report = _make_report(study_dir=tmp_path)
-    # Materialise a fake source overlay for uni1 only.
     src_dir = tmp_path / "comparisons" / "uni1" / "plots"
     src_dir.mkdir(parents=True)
     (src_dir / "equity_overlay.png").write_bytes(b"PNG_MARKER")
@@ -202,5 +197,4 @@ def test_copies_per_universe_equity_overlay_when_source_exists(tmp_path: Path) -
     dst_png = tmp_path / PLOTS_SUBDIR / "per_universe_equity_overlays" / "uni1.png"
     assert dst_png.read_bytes() == b"PNG_MARKER"
     assert (dst_png.with_suffix(".svg")).read_bytes() == b"SVG_MARKER"
-    # uni2 source missing → no copy under uni2.png.
     assert not (tmp_path / PLOTS_SUBDIR / "per_universe_equity_overlays" / "uni2.png").exists()

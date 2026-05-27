@@ -96,8 +96,6 @@ class BenchmarkReporter:
         ax.set_xlabel("pct delta (current vs baseline)")
         ax.set_title(f"{report.current_run_id} vs {report.baseline_run_id}")
         fig.tight_layout()
-        # Dashboard plot — PNG only. Vector SVG is reserved for the scaling
-        # plots (which thesis Chapter 6 includes verbatim).
         ensure_parent_dir(out_path)
         fig.savefig(out_path)
         plt.close(fig)
@@ -120,7 +118,6 @@ class BenchmarkReporter:
         ax.set_xlabel("ns per item (median across sizes)")
         ax.set_title(f"component cost breakdown — run {run.run_id}")
         fig.tight_layout()
-        # Dashboard plot — PNG only. Same rationale as plot_regression_comparison.
         ensure_parent_dir(out_path)
         fig.savefig(out_path)
         plt.close(fig)

@@ -50,14 +50,12 @@ class CointegrationTester:
         Returns:
             CointegrationResult with hedge ratio, p-value, and spread stats.
         """
-        # OLS for hedge ratio and spread statistics
         y = series_a.values
         x = add_constant(series_b.values)
         model = OLS(y, x).fit()
         hedge_ratio = float(model.params[1])
         spread: pd.Series[float] = series_a - hedge_ratio * series_b
 
-        # statsmodels.coint uses correct MacKinnon critical values
         _, p_value_raw, _ = coint(series_a.values, series_b.values, autolag="AIC")
         p_value = float(p_value_raw)
 

@@ -127,7 +127,6 @@ describe("UserList", () => {
       }),
     );
 
-    // Tiny settle so any pending mutate would have fired.
     await new Promise((r) => setTimeout(r, 50));
     expect(deleteCalled).toBe(false);
   });

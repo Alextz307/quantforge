@@ -63,8 +63,6 @@ OHLCData generate_ohlc(std::size_t n) {
     return data;
 }
 
-// ── RSI ──
-
 void BM_RSI(benchmark::State& state) {
     const auto n = static_cast<std::size_t>(state.range(0));
     auto prices = generate_prices(n);
@@ -74,8 +72,6 @@ void BM_RSI(benchmark::State& state) {
     });
 }
 BENCHMARK(BM_RSI)->Arg(10000)->Arg(100000)->Arg(1000000);
-
-// ── MACD ──
 
 void BM_MACD(benchmark::State& state) {
     const auto n = static_cast<std::size_t>(state.range(0));
@@ -97,8 +93,6 @@ void BM_MACD_All(benchmark::State& state) {
 }
 BENCHMARK(BM_MACD_All)->Arg(10000)->Arg(100000)->Arg(1000000);
 
-// ── Bollinger Bands ──
-
 void BM_Bollinger(benchmark::State& state) {
     const auto n = static_cast<std::size_t>(state.range(0));
     auto prices = generate_prices(n);
@@ -109,8 +103,6 @@ void BM_Bollinger(benchmark::State& state) {
 }
 BENCHMARK(BM_Bollinger)->Arg(10000)->Arg(100000)->Arg(1000000);
 
-// ── Garman-Klass ──
-
 void BM_GarmanKlass(benchmark::State& state) {
     const auto n = static_cast<std::size_t>(state.range(0));
     auto ohlc = generate_ohlc(n);
@@ -120,8 +112,6 @@ void BM_GarmanKlass(benchmark::State& state) {
     });
 }
 BENCHMARK(BM_GarmanKlass)->Arg(10000)->Arg(100000)->Arg(1000000);
-
-// ── Parkinson ──
 
 void BM_Parkinson(benchmark::State& state) {
     const auto n = static_cast<std::size_t>(state.range(0));

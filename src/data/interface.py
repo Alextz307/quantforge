@@ -68,8 +68,6 @@ class IDataSource(ABC):
             except FileNotFoundError:
                 pass
             else:
-                # Re-validate cached frames: a cache written by an older code version
-                # (weaker or absent validator) should not silently bypass today's checks.
                 validate_bars(cached)
                 return cached
 

@@ -21,23 +21,22 @@ from tests.conftest import (
     make_synthetic_close_df,
 )
 
-# Synthetic data
 SYNTH_ROW_COUNT = 200
-FEATURE_RNG_SEED = 7  # arbitrary; differs from test_hybrid_return.py to vary fixture data
-REALIZED_VOL_WINDOW = 20  # rolling window for synthetic realized-vol target
+# Different from test_hybrid_return.py so the two suites see different data.
+FEATURE_RNG_SEED = 7
+REALIZED_VOL_WINDOW = 20
 
-# Compact-model parameters (small for fast CI; not realistic for production)
 COMPACT_GARCH_P_MAX = 2
 COMPACT_GARCH_Q_MAX = 2
 COMPACT_LSTM_HIDDEN_DIM = 16
 COMPACT_LSTM_NUM_LAYERS = 1
 COMPACT_LSTM_LOOKBACK = 10
 COMPACT_LSTM_EPOCHS = 3
-LSTM_EPOCHS_FOR_RESIDUAL_DIVERGENCE = 10  # higher epoch count to make LSTM signal visible
+# Higher epoch count makes the LSTM residual signal visible.
+LSTM_EPOCHS_FOR_RESIDUAL_DIVERGENCE = 10
 HOURLY_LSTM_EPOCHS = 2
 
-# Numerical
-RESIDUAL_DIVERGENCE_ATOL = 1e-12  # tightness for "hybrid != GARCH-only" assertion
+RESIDUAL_DIVERGENCE_ATOL = 1e-12
 
 
 @pytest.fixture
@@ -175,9 +174,8 @@ class TestHybridVolatilityModel:
         every bar to clip; the tracked fraction should saturate at 1.0."""
         from src.models.hybrid_volatility import HybridVolatilityModel
 
-        # Set min_vol so high that every (garch + lstm) bar gets clipped.
-        # 1e6 is well above any realised-vol realisation our synthetic
-        # frames produce — the floor is sure to bind on every non-NaN bar.
+        # 1e6 sits far above any realised-vol value the synthetic frame
+        # produces, so the floor binds on every non-NaN bar.
         model = HybridVolatilityModel(
             feature_columns=synthetic_feature_columns,
             lstm_epochs=5,
@@ -259,7 +257,6 @@ class TestHybridVolatilityModel:
         )
         hybrid_out = model.predict(hybrid_train_df).dropna()
         garch_only = model._garch.predict(hybrid_train_df).loc[hybrid_out.index]
-        # LSTM residual should produce at least some non-trivial difference
         assert not np.allclose(
             hybrid_out.to_numpy(), garch_only.to_numpy(), atol=RESIDUAL_DIVERGENCE_ATOL
         )

@@ -43,7 +43,7 @@ _DIRECTION_THRESHOLD = 0.55
 _N_SPLITS = 2
 _STRATEGY_NAME = "CrossAssetMomentum"
 
-# Fast XGBoost params — we only need a fitted booster, not a well-trained one.
+# Compact params: a fitted booster is enough; no need for a well-trained one.
 _COMPACT_N_ESTIMATORS = 10
 _COMPACT_MAX_DEPTH = 2
 
@@ -83,17 +83,13 @@ def test_cross_asset_momentum_run_produces_full_artifact_tree(tmp_path: Path) ->
     assert persisted_cfg.data.tickers == [_PRIMARY, *_FEATURE_TICKERS]
     assert persisted_cfg.strategy.name == _STRATEGY_NAME
 
-    # Manifest data_hash must match ``fingerprint_multi_bars`` — guards against
-    # silent regression where the orchestrator picks single-leg or pairs
-    # fingerprint for an N-ticker frame.
+    # Guard against the orchestrator picking single-leg or pairs fingerprint
+    # for an N-ticker frame.
     manifest = read_experiment_manifest(run_dir)
     source = data_source_registry.create_from_config(persisted_cfg.data.source)
     refetched = fetch_bars(source, persisted_cfg, experiment.strategy)
     assert manifest.data_hash == fingerprint_multi_bars(refetched, persisted_cfg.data.tickers)
 
-    # ``strategy.save()`` for CrossAssetMomentum writes the nested classifier
-    # artifact (XGBoost native UBJ). Existence proves the strategy fitted to
-    # completion and persisted via the canonical save_model_skeleton path.
     classifier_artifact = run_dir / EXPERIMENT_STRATEGY_SUBDIR / CLASSIFIER_SUBDIR / MODEL_UBJ
     assert classifier_artifact.is_file()
 

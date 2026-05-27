@@ -93,6 +93,7 @@ void BacktestEngine::run(
     // field gets reset for free via this swap, so the buffer-reuse path
     // can't silently drift out of sync with the struct's defaults.
     auto capacity_saver = std::move(out.equity_curve);
+
     capacity_saver.clear();
     out = BacktestResult{};
     out.equity_curve = std::move(capacity_saver);
@@ -107,7 +108,6 @@ void BacktestEngine::run(
     double shares = 0.0;
     int trade_count = 0;
 
-    // Bar 0: no prior signal → no fill. Equity = starting cash.
     double equity = cash;
     out.equity_curve.push_back(equity);
 
@@ -118,8 +118,8 @@ void BacktestEngine::run(
             target_leverage = 0.0;
         }
 
-        // Carry forward the previous iteration's equity_curve tail instead
-        // of recomputing ``cash + shares * bars[i - 1].close``.
+        // Carry forward the previous iteration's equity tail instead of
+        // recomputing ``cash + shares * bars[i - 1].close``.
         const double pre_fill_equity = equity;
         const double theoretical_price = bars[i].open;
         const double target_shares = size_target_shares(
@@ -211,7 +211,7 @@ void BacktestEngine::run_pairs(
 
     for (size_t i = 1; i < n; ++i) {
         const double raw_signal = signals[i - 1];
-        // ``allow_short`` is intentionally ignored: a pairs trade is
+        // allow_short is intentionally ignored: a pairs trade is
         // dollar-neutral by construction (long one leg, short the other).
         const double leg_a_target = std::isnan(raw_signal) ? 0.0 : raw_signal;
         const double leg_b_target = -hedge_ratio * leg_a_target;

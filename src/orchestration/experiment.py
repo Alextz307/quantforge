@@ -72,7 +72,7 @@ from src.strategies.interface import IStrategy
 _module_logger = get_logger(__name__)
 
 _DEFAULT_STORE_ROOT = Path("experiment_results")
-_EXPERIMENT_ID_SUFFIX_BYTES = 4  # → 8 hex chars, 2^32 combos; low collision risk at ≤10³ runs/s
+_EXPERIMENT_ID_SUFFIX_BYTES = 4  # → 8 hex chars, 2^32 combos; low collision risk
 
 
 def _make_experiment_id(strategy_name: str, created_at: datetime, git_sha: str) -> str:
@@ -330,9 +330,6 @@ class Experiment:
             boundary.isoformat() if boundary is not None else None,
         )
 
-        # Mid-fit checkpoints land under ``<run_dir>/checkpoints/fold_<i>/``
-        # only when the caller opts in — most runs don't need them and skip
-        # the per-epoch / per-round disk writes entirely.
         checkpoint_root = run_dir / EXPERIMENT_CHECKPOINTS_SUBDIR if opts.checkpoint else None
         fold_results: list[FoldResult] = evaluate_walk_forward(
             strategy=self.strategy,
@@ -359,8 +356,6 @@ class Experiment:
         )
 
         if opts.write_report:
-            # Lazy: matplotlib's cold import is ~4s; paying it only when
-            # reports are actually requested keeps the no-report path light.
             from src.visualization.strategy_reporter import StrategyReporter
 
             StrategyReporter().generate_full_report(
@@ -368,8 +363,6 @@ class Experiment:
             )
             logger.info("report generated under %s", run_dir)
 
-        # Summary line after reports so the INFO trail reads
-        # "fetched → walked → reported → summary" in order.
         if folds:
             last_curve = folds[-1].equity_curve
             logger.info(

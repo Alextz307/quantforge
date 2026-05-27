@@ -28,28 +28,25 @@ from tests.conftest import (
 F64Array = npt.NDArray[np.float64]
 I64Array = npt.NDArray[np.int64]
 
-# ───── Engine constants ─────
 INITIAL_CAPITAL = 10_000.0
-TRANSACTION_FEE_RATE = 0.001  # 10 bps round-trip
+TRANSACTION_FEE_RATE = 0.001
 FLAT_PRICE = BAR_LADDER_BASE_PRICE
 FIXED_VOLUME = float(DAILY_FIXED_VOLUME)
 
-# ───── Test harness constants ─────
-N_BARS_MIN = 2  # minimum to trigger one fill (bar 0 primes, bar 1 executes)
+# Minimum bar count: bar 0 primes, bar 1 executes the fill.
+N_BARS_MIN = 2
 N_BARS_SHORT = 3
 N_BARS_LONG = 100
 RETURN_VOL = SPY_RETURN_STD
 SIGNAL_FLIP_PERIOD = 5
 SIGNAL_FLIP_PERIOD_TIGHT = 3
 
-# ───── Slippage scenarios (bps) ─────
 BASE_BPS_LIGHT = 1.0
 BASE_BPS_MEDIUM = 5.0
 BASE_BPS_HEAVY = 20.0
 BASE_BPS_EXTREME = 50.0
 VOLUME_IMPACT_COEFF_HEAVY = 10.0
 
-# ───── Metrics constants (mirror cpp/tests/test_metrics.cpp) ─────
 ANNUALIZATION_DAILY = Interval.DAILY.annualization_factor()
 ANNUALIZATION_TWO = 2
 ANNUALIZATION_FOUR = 4
@@ -60,13 +57,11 @@ EXACT_TOL = 1e-12
 DRAWDOWN_PEAK = 110.0
 DRAWDOWN_TROUGH = 80.0
 
-WIN_RATE_MIXED_EXPECTED = 0.5  # 2 positives out of 4 non-zero returns
-SORTINO_MEAN_EXCESS = 0.052  # hand-derived in cpp SortinoHandComputed
-SORTINO_DOWNSIDE_VAR = 0.00058  # ditto
-# Equity doubles over one period with ann=2 → growth^ann - 1 = 2^2 - 1.
+WIN_RATE_MIXED_EXPECTED = 0.5
+SORTINO_MEAN_EXCESS = 0.052
+SORTINO_DOWNSIDE_VAR = 0.00058
 DOUBLED_ANN_RETURN_EXPECTED = (2.0**ANNUALIZATION_TWO) - 1.0
 
-# ───── Synthetic-trade constants for hand calculations ─────
 SINGLE_TRADE_EXPECTED_FINAL_EQUITY = INITIAL_CAPITAL * (1.0 - TRANSACTION_FEE_RATE)
 SINGLE_TRADE_EXPECTED_RETURN = -TRANSACTION_FEE_RATE
 
@@ -78,11 +73,6 @@ def _flat_bars(
     flat = np.full(n, price, dtype=np.float64)
     vol = np.full(n, FIXED_VOLUME, dtype=np.float64)
     return ts, flat.copy(), flat.copy(), flat.copy(), flat.copy(), vol
-
-
-# ════════════════════════════════════════════════════════════════
-# SlippageConfig / enum round-trip
-# ════════════════════════════════════════════════════════════════
 
 
 class TestSlippageConfig:
@@ -115,11 +105,6 @@ class TestSlippageConfig:
             qe.SlippageModel.Fixed,
             qe.SlippageModel.VolumeScaled,
         } == set(qe.SlippageModel.__members__.values())
-
-
-# ════════════════════════════════════════════════════════════════
-# BacktestEngine.run — numpy marshalling
-# ════════════════════════════════════════════════════════════════
 
 
 class TestBacktestEngineRun:
@@ -192,8 +177,6 @@ class TestBacktestEngineRun:
         """`c_style | forcecast` on the binding coerces f32 inputs to f64."""
         n = N_BARS_SHORT
         ts = np.arange(n, dtype=np.int64)
-        # Cast away the f32 static type — this test exists precisely to
-        # verify the binding's runtime forcecast coercion of f32 → f64.
         flat32 = cast(F64Array, np.full(n, FLAT_PRICE, dtype=np.float32))
         vol32 = cast(F64Array, np.full(n, FIXED_VOLUME, dtype=np.float32))
         sig32 = cast(F64Array, np.full(n, np.nan, dtype=np.float32))
@@ -291,7 +274,7 @@ class TestBacktestEngineRun:
         n = N_BARS_LONG
         ts = np.arange(n, dtype=np.int64)
         close = (np.cumprod(1.0 + rng.normal(0, RETURN_VOL, n)) * FLAT_PRICE).astype(np.float64)
-        # Tight volume so |qty|/volume matters — otherwise impact → 0.
+        # Tight volume so |qty|/volume matters — otherwise impact decays to 0.
         vol = np.full(n, INITIAL_CAPITAL / FLAT_PRICE, dtype=np.float64)
         sig = np.where((np.arange(n) // SIGNAL_FLIP_PERIOD_TIGHT) % 2 == 0, 1.0, -1.0).astype(
             np.float64
@@ -317,11 +300,6 @@ class TestBacktestEngineRun:
         assert volume_scaled.total_return < fixed_only.total_return
 
 
-# ════════════════════════════════════════════════════════════════
-# BacktestEngine.run_scenarios
-# ════════════════════════════════════════════════════════════════
-
-
 class TestRunScenarios:
     @staticmethod
     def _alternating_sample() -> tuple[
@@ -332,7 +310,6 @@ class TestRunScenarios:
         ts = np.arange(n, dtype=np.int64)
         close = (np.cumprod(1.0 + rng.normal(0, RETURN_VOL, n)) * FLAT_PRICE).astype(np.float64)
         vol = np.full(n, FIXED_VOLUME, dtype=np.float64)
-        # Flip signal every 5 bars so scenarios see plenty of trades
         sig = np.where((np.arange(n) // SIGNAL_FLIP_PERIOD) % 2 == 0, 1.0, -1.0).astype(np.float64)
         return ts, close, close, close, close, vol, sig
 
@@ -408,11 +385,6 @@ class TestRunScenarios:
         assert results == []
 
 
-# ════════════════════════════════════════════════════════════════
-# BacktestEngine.run_pairs — binding marshalling
-# ════════════════════════════════════════════════════════════════
-
-
 class TestRunPairsBindings:
     """Binding-layer coverage for the two-leg pairs path.
 
@@ -484,7 +456,7 @@ class TestRunPairsBindings:
 
     def test_signal_length_mismatch_raises(self) -> None:
         ts, oa, ha, la, ca, va, ob, hb, lb, cb, vb = self._arrays(4, 100.0, 90.0)
-        sig = np.zeros(3, dtype=np.float64)  # one short
+        sig = np.zeros(3, dtype=np.float64)
         eng = qe.BacktestEngine()
         with pytest.raises(ValueError, match="signals length"):
             eng.run_pairs(
@@ -505,14 +477,8 @@ class TestRunPairsBindings:
             )
 
 
-# ════════════════════════════════════════════════════════════════
-# MetricsCalculator — bit-for-bit alignment with C++ test values
-# ════════════════════════════════════════════════════════════════
-
-
 class TestMetricsCalculatorBindings:
     def test_max_drawdown_matches_cpp_reference(self) -> None:
-        # Mirrors MaxDrawdownPeakToTrough in test_metrics.cpp.
         equity = np.array(
             [100.0, DRAWDOWN_PEAK, 90.0, 95.0, DRAWDOWN_TROUGH, 85.0],
             dtype=np.float64,
@@ -521,7 +487,6 @@ class TestMetricsCalculatorBindings:
         assert math.isclose(qe.MetricsCalculator.max_drawdown(equity), expected, abs_tol=EXACT_TOL)
 
     def test_annualized_return_geometric(self) -> None:
-        # Mirrors AnnualizedReturnGeometric: doubles over 1 period, ann=2.
         equity = np.array([100.0, 200.0], dtype=np.float64)
         assert math.isclose(
             qe.MetricsCalculator.annualized_return(equity, ANNUALIZATION_TWO),
@@ -530,12 +495,10 @@ class TestMetricsCalculatorBindings:
         )
 
     def test_win_rate_mixed(self) -> None:
-        # Mirrors WinRateMixed: 2 positives out of 4 non-zero returns.
         returns = np.array([0.1, -0.1, 0.0, 0.2, -0.05], dtype=np.float64)
         assert qe.MetricsCalculator.win_rate(returns) == WIN_RATE_MIXED_EXPECTED
 
     def test_sharpe_hand_computed(self) -> None:
-        # Mirrors SharpeHandComputed.
         returns = np.array([0.01, 0.02, 0.03], dtype=np.float64)
         expected = (0.02 / 0.01) * math.sqrt(ANNUALIZATION_DAILY)
         assert math.isclose(
@@ -545,8 +508,6 @@ class TestMetricsCalculatorBindings:
         )
 
     def test_sortino_hand_computed(self) -> None:
-        # Mirrors SortinoHandComputed; mean/downside_var are hand-derived in the
-        # C++ test and mirrored here via named constants, not repeated arithmetic.
         returns = np.array([0.1, -0.05, 0.2, -0.02, 0.03], dtype=np.float64)
         downside_std = math.sqrt(SORTINO_DOWNSIDE_VAR)
         expected = (SORTINO_MEAN_EXCESS / downside_std) * math.sqrt(ANNUALIZATION_DAILY)
@@ -557,7 +518,6 @@ class TestMetricsCalculatorBindings:
         )
 
     def test_annualized_volatility_scaling(self) -> None:
-        # Mirrors AnnualizedVolatilityScalesBySqrtFactor (sample_std=0.01).
         returns = np.array([0.01, 0.02, 0.03], dtype=np.float64)
         expected = 0.01 * math.sqrt(ANNUALIZATION_FOUR)
         assert math.isclose(
@@ -567,7 +527,6 @@ class TestMetricsCalculatorBindings:
         )
 
     def test_compute_populates_all_fields_finite(self) -> None:
-        # Same curve as ComputeMatchesIndividualMethods in test_metrics.cpp.
         equity = np.array(
             [100.0, 110.0, 90.0, 95.0, 80.0, 85.0, 120.0, 115.0],
             dtype=np.float64,
@@ -587,7 +546,6 @@ class TestMetricsCalculatorBindings:
             assert math.isfinite(value)
 
     def test_compute_risk_free_lowers_sharpe(self) -> None:
-        # Mirrors ComputeRiskFreeLowersSharpeAndSortino.
         equity = np.array([100.0, 101.0, 102.5, 101.5, 103.0, 104.0], dtype=np.float64)
         zero = qe.MetricsCalculator.compute(equity, ANNUALIZATION_DAILY, 0.0)
         with_rf = qe.MetricsCalculator.compute(equity, ANNUALIZATION_DAILY, RF_HALF_PCT)
@@ -597,11 +555,6 @@ class TestMetricsCalculatorBindings:
         # rf only affects risk-adjusted numerators, not cash-flow metrics.
         assert with_rf.max_drawdown == zero.max_drawdown
         assert with_rf.annualized_return == zero.annualized_return
-
-
-# ════════════════════════════════════════════════════════════════
-# Cross-binding: engine.equity_curve → MetricsCalculator.compute
-# ════════════════════════════════════════════════════════════════
 
 
 class TestEngineMetricsHandoff:

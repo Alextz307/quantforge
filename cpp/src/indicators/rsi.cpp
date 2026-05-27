@@ -27,12 +27,10 @@ void RSI::compute(
     const double nan = std::numeric_limits<double>::quiet_NaN();
     std::fill(out.begin(), out.end(), nan);
 
-    // Need at least period + 1 prices to compute first RSI value
     if (n <= period_) {
         return;
     }
 
-    // Seed with SMA of first period deltas
     double avg_gain = 0.0;
     double avg_loss = 0.0;
 
@@ -44,7 +42,6 @@ void RSI::compute(
     avg_gain /= period_;
     avg_loss /= period_;
 
-    // First RSI value at index = period
     if (avg_loss == 0.0) {
         out[period_] = (avg_gain == 0.0) ? 50.0 : 100.0;
     } else {
@@ -52,7 +49,6 @@ void RSI::compute(
         out[period_] = 100.0 - 100.0 / (1.0 + rs);
     }
 
-    // Wilder's smoothing for subsequent values
     for (int i = period_ + 1; i < n; ++i) {
         double delta = prices[i] - prices[i - 1];
         double gain = std::max(0.0, delta);

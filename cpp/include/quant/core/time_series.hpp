@@ -14,14 +14,10 @@
 
 namespace quant {
 
-// ── Concept: type must have a timestamp_epoch_s member ──
-
 template<typename T>
 concept HasTimestamp = requires(const T& t) {
     { t.timestamp_epoch_s } -> std::convertible_to<int64_t>;
 };
-
-// ── TimeSeries: owns a sorted sequence of timestamped records ──
 
 template<HasTimestamp T>
 class TimeSeries {
@@ -55,7 +51,7 @@ public:
     [[nodiscard]] TimeSeries<T> slice(int64_t start_ts, int64_t end_ts) const {
         const auto view_span = slice_view(start_ts, end_ts);
         std::vector<T> result(view_span.begin(), view_span.end());
-        // Skip re-validation: data came from an already-validated, sorted parent
+        // Skip re-validation: data came from an already-validated, sorted parent.
         return TimeSeries<T>(std::move(result), SkipValidation{});
     }
 
@@ -94,8 +90,6 @@ private:
 
     std::vector<T> data_;
 };
-
-// ── Compile-time tag types to prevent mixing train/test data ──
 
 struct TrainTag {};
 struct TestTag {};

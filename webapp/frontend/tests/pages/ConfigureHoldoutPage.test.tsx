@@ -21,7 +21,6 @@ describe("ConfigureHoldoutPage", () => {
       { initialEntries: [ROUTES.configureHoldout] },
     );
 
-    // Only RUN_SPY is eligible (has_holdout=true in the seed); RUN_IVV_VOO is not.
     await screen.findByText(RUN_SPY.name);
     expect(screen.queryByText(RUN_IVV_VOO.name)).not.toBeInTheDocument();
 
@@ -45,22 +44,18 @@ describe("ConfigureHoldoutPage", () => {
     server.use(
       http.get(API_PATHS.hpoStudies, () =>
         HttpResponse.json([
-          // Eligible: best_config present AND validation.holdout_pct > 0.
           {
             ...HPO_DEMO_SUMMARY,
             name: "ready_for_holdout",
             has_best_config: true,
             best_config_reserves_holdout: true,
           },
-          // Ineligible: no best_config yet (study still running).
           {
             ...HPO_DEMO_SUMMARY,
             name: "no_best_config",
             has_best_config: false,
             best_config_reserves_holdout: false,
           },
-          // Ineligible: best_config exists but holdout_pct=0 (the CLI would
-          // reject this at the manifest level — we filter preemptively).
           {
             ...HPO_DEMO_SUMMARY,
             name: "no_holdout_reservation",
@@ -73,7 +68,6 @@ describe("ConfigureHoldoutPage", () => {
     const user = userEvent.setup();
     renderWithProviders(<ConfigureHoldoutPage />);
 
-    // Flip to the HPO source variant.
     await user.click(screen.getByLabelText(/From HPO best config/i));
 
     await screen.findByText("ready_for_holdout");
@@ -88,9 +82,7 @@ describe("ConfigureHoldoutPage", () => {
       ],
     });
 
-    // The HPO picker (not the run picker) should be visible after mount.
     await screen.findByTestId("holdout-hpo-picker");
-    // The prefilled radio is checked.
     const radio = await screen.findByLabelText(`Select ${HPO_DEMO_SUMMARY.name}`);
     expect(radio).toBeChecked();
   });

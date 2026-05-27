@@ -82,7 +82,6 @@ def test_missing_run_dir_raises(tmp_path: Path) -> None:
 def test_missing_manifest_raises(tmp_path: Path) -> None:
     run_dir = tmp_path / "incomplete"
     run_dir.mkdir()
-    # Create folds file only.
     (run_dir / FOLD_RESULTS_JSONL).write_text("")
     with pytest.raises(FileNotFoundError, match="manifest.json"):
         load_experiment_result(run_dir)

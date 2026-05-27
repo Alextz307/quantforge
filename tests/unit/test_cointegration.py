@@ -8,24 +8,21 @@ import pytest
 
 from src.models.cointegration import CointegrationTester
 
-# Random-walk generator defaults
 RW_DEFAULT_ROW_COUNT = 500
 RW_DEFAULT_START_DATE = "2020-01-02"
 RW_DEFAULT_RETURN_MEAN = 0.001
 RW_DEFAULT_RETURN_STD = 0.02
 RW_BASE_PRICE = 100.0
 
-# Cointegrated-pair construction
-COINT_HEDGE_RATIO_TRUE = 2.0  # B = X random walk, A = 2*B + noise
+# Construction: B is a random walk, A = COINT_HEDGE_RATIO_TRUE * B + noise.
+COINT_HEDGE_RATIO_TRUE = 2.0
 COINT_NOISE_STD = 0.5
 COINT_BASE_SEED = 42
 COINT_NOISE_SEED = 43
 
-# Independent-pair seeds
 INDEP_SEED_A = 99
 INDEP_SEED_B = 100
 
-# Multi-column screening seeds
 MULTI_INDEP_C_SEED = 50
 MULTI_INDEP_D_SEED = 51
 MULTI_PLANTED_P_SEED = 52
@@ -33,9 +30,8 @@ MULTI_PLANTED_NOISE_SEED = 53
 MULTI_HEDGE_RATIO = 1.5
 MULTI_NOISE_STD = 0.3
 
-# Hypothesis-test thresholds
 COINTEGRATION_P_VALUE_THRESHOLD = 0.05
-HEDGE_RATIO_TOLERANCE = 0.1  # |recovered - true|
+HEDGE_RATIO_TOLERANCE = 0.1
 
 
 def _random_walk(

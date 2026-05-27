@@ -12,19 +12,15 @@ from src.core.utils import compute_log_returns
 from src.models.garch import GARCHPredictor
 from tests.conftest import make_synthetic_close_df
 
-# Compact GARCH search space (small for fast CI)
 COMPACT_P_MAX = 2
 COMPACT_Q_MAX = 2
 
-# Minimal returns sample for "before fit" guard test
 SAMPLE_RETURNS = [0.01, -0.02, 0.015]
 
-# Out-of-sample data for params-frozen test
 OOS_ROW_COUNT = 50
 OOS_START_DATE = "2021-01-02"
 OOS_FIXTURE_SEED = 99
 
-# Determinism seed
 NUMPY_SEED = 42
 
 
@@ -151,9 +147,8 @@ class TestGARCHPredictor:
     def test_predict_returns_kwarg_matches_default_path(
         self, fitted_garch: GARCHPredictor, garch_df: pd.DataFrame
     ) -> None:
-        # Passing the same ``returns`` the default path would derive must
-        # produce a bit-identical Series; regressions in the alignment
-        # logic (positional slice-assign vs reindex) would show up here.
+        # Bit-identical to the implicit-returns path; catches alignment-
+        # logic regressions (positional slice-assign vs reindex).
         default_vol = fitted_garch.predict(garch_df)
         returns = compute_log_returns(garch_df["close"]).dropna()
         explicit_vol = fitted_garch.predict(garch_df, returns=returns)

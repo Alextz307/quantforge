@@ -42,8 +42,6 @@ _CONVERGENCE_FILENAME = "convergence.png"
 _IMPORTANCE_FILENAME = "param_importance.png"
 _TOP_TRIALS_FILENAME = "top_trials.tex"
 _TOP_TRIALS_N = 10
-# Minimum completed trials for param-importance to be meaningful.
-# get_param_importances raises below this; we skip with an info log.
 _MIN_TRIALS_FOR_IMPORTANCE = 2
 
 
@@ -87,7 +85,6 @@ class HPOReporter:
     def _plot_convergence(self, completed: list[optuna.trial.FrozenTrial], path: Path) -> None:
         trial_numbers = [t.number for t in completed]
         values = [t.value for t in completed if t.value is not None]
-        # best-so-far: running max over trial order
         best_so_far: list[float] = []
         running_best = float("-inf")
         for v in values:
@@ -116,8 +113,6 @@ class HPOReporter:
         importances = get_param_importances(study)
         if not importances:
             return
-        # Sorted descending by importance — bar chart reads top-to-bottom as
-        # most-to-least important
         names = list(importances.keys())
         scores = list(importances.values())
 

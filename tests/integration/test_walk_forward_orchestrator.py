@@ -112,8 +112,6 @@ def test_train_strictly_precedes_test(orchestrator_results: list[FoldResult]) ->
 def test_fold_result_carries_metrics(orchestrator_results: list[FoldResult]) -> None:
     for r in orchestrator_results:
         assert isinstance(r.metrics, PerformanceMetrics)
-        # Always-long over a synthetic random walk: trade_count >= 1
-        # (the initial entry on bar 1 always fires).
         assert r.backtest.trade_count >= 1
 
 
@@ -163,5 +161,4 @@ def test_risk_free_rate_lowers_sharpe(wf_bars: pd.DataFrame) -> None:
     )
     for base, rfr in zip(baseline, with_rfr, strict=True):
         assert rfr.metrics.sharpe_ratio < base.metrics.sharpe_ratio
-        # max_drawdown is independent of rf — same fold should produce the same DD.
         assert rfr.metrics.max_drawdown == base.metrics.max_drawdown

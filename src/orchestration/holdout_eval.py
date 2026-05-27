@@ -64,13 +64,8 @@ from src.orchestration.git_info import read_git_sha
 
 _logger = get_logger(__name__)
 
-# Source-kind discriminator persisted in ``holdout_eval.json`` so a future
-# reader can branch on the source without re-reading the source dir.
 SourceKind = Literal["run", "hpo"]
 
-# Per-trial run-dir subdirectory inside an HPO study's trials_artifacts/.
-# Mirrors ``RUNS_SUBDIR`` from persistence.py — kept private here because
-# this is the ONE consumer that walks the HPO study tree at this depth.
 _HPO_RUNS_SUBDIR = "runs"
 
 
@@ -195,7 +190,7 @@ def resolve_source(
             manifest_dir=run_dir,
         )
 
-    assert hpo_dir is not None  # narrows for the type checker
+    assert hpo_dir is not None
     if not hpo_dir.is_dir():
         raise FileNotFoundError(
             f"--hpo-best {hpo_dir} does not exist or is not a directory; "
@@ -214,11 +209,6 @@ def resolve_source(
             f"missing {trials_root} under {hpo_dir}; no trial has produced "
             f"artifacts yet — run the study to completion."
         )
-    # Every trial under one study shares the same dev/holdout boundary
-    # (same base config + validation block), so any single trial's
-    # manifest is canonical. ``next()`` over the iterator avoids
-    # materialising N Paths just to take one — matters on studies with
-    # thousands of trial dirs.
     first_trial = next((p for p in trials_root.iterdir() if p.is_dir()), None)
     if first_trial is None:
         raise FileNotFoundError(
@@ -268,8 +258,6 @@ def run_holdout_eval(
 
     boundary = resolve_holdout_boundary(bars_full, holdout_start=manifest.holdout_start)
     if boundary is None:
-        # Defence-in-depth: ``holdout_start`` was non-None on the manifest
-        # so the resolver's ``holdout_start`` branch must return it.
         raise RuntimeError(
             f"resolve_holdout_boundary returned None for a pinned "
             f"holdout_start={manifest.holdout_start}; this is a contract "
@@ -289,9 +277,6 @@ def run_holdout_eval(
             f"holdout-eval: holdout slice is empty (boundary {boundary} is "
             f"after the data end); refetched bars may have been truncated."
         )
-    # TemporalSplit re-asserts the strict ordering after the slice — a
-    # third invariant on top of the boundary resolver's check and the
-    # manifest cross-check. Cheap defence for an irreversible OOS eval.
     TemporalSplit(train=dev, test=holdout, split_date=boundary)
 
     _logger.info(
@@ -305,9 +290,6 @@ def run_holdout_eval(
         holdout.index[-1],
     )
 
-    # The strategy fits on full dev. A feature pipeline (when wired) is
-    # built fresh exactly as walk-forward does — fit on dev, transform
-    # both dev and holdout. Single fold; identical contract.
     if experiment.feature_pipeline_factory is not None:
         pipeline = experiment.feature_pipeline_factory()
         train_frame = pipeline.fit_transform(dev)

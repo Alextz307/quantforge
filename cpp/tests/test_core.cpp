@@ -8,7 +8,6 @@
 namespace quant {
 namespace {
 
-// ───── Reference OHLCV ladder used across BarTest/TimeSeriesTest fixtures ─────
 constexpr int64_t kSampleTimestampS = 1000;
 constexpr double kValidOpen = 100.0;
 constexpr double kValidHigh = 105.0;
@@ -16,16 +15,14 @@ constexpr double kValidLow = 95.0;
 constexpr double kValidClose = 102.0;
 constexpr double kSampleVolume = 1000.0;
 
-// Invalid-OHLCV mutations
-constexpr double kInvalidHighBelowLow = 90.0;          // < kValidLow
-constexpr double kInvalidHighBelowClose = 101.0;       // < kValidClose
-constexpr double kInvalidLowAboveOpen = 101.0;         // > kValidOpen
-constexpr double kInvalidLowBelowClose = 92.0;         // close used in invalid bars
+constexpr double kInvalidHighBelowLow = 90.0;
+constexpr double kInvalidHighBelowClose = 101.0;
+constexpr double kInvalidLowAboveOpen = 101.0;
+constexpr double kInvalidLowBelowClose = 92.0;
 constexpr double kInvalidLowZero = 0.0;
 constexpr double kInvalidNegativePrice = -1.0;
 constexpr double kInvalidNegativeVolume = -10.0;
 
-// ───── Annualization factor expectations ─────
 // Hardcoded here (rather than imported) because these tests verify
 // annualization_factor() returns those exact numbers.
 constexpr int kExpectedDailyFactor = 252;
@@ -41,22 +38,16 @@ constexpr int kExpectedFiveMinPerYear = 19656;
 constexpr int kExpectedFifteenMinPerYear = 6552;
 constexpr int kExpectedHoursPerYear = 1764;
 
-// ───── BarSoA reservation test ─────
 constexpr size_t kReserveCapacity = 1000;
 
-// ───── TimeSeries fixture parameters ─────
-constexpr int kSecondsPerDay = 86400;          // bars in make_sorted_bars are 1 day apart
+constexpr int kSecondsPerDay = 86400;
 constexpr int kSmallSeriesLen = 5;
 constexpr int kTinySeriesLen = 3;
 constexpr int kMediumSeriesLen = 10;
 constexpr int kSliceStartIdx = 2;
 constexpr int kSliceEndIdx = 5;
-constexpr size_t kSliceExpectedLen = 4;        // [2..5] inclusive
+constexpr size_t kSliceExpectedLen = 4;
 constexpr int64_t kFarFutureTimestamp = 999999;
-
-// ═══════════════════════════════════════════════════════════════
-// Bar::is_valid()
-// ═══════════════════════════════════════════════════════════════
 
 TEST(BarTest, ValidBar) {
     Bar bar{.timestamp_epoch_s = kSampleTimestampS, .open = kValidOpen, .high = kValidHigh,
@@ -136,10 +127,6 @@ TEST(BarTest, NaNIsInvalid) {
     EXPECT_FALSE(bar.is_valid());
 }
 
-// ═══════════════════════════════════════════════════════════════
-// annualization_factor()
-// ═══════════════════════════════════════════════════════════════
-
 TEST(IntervalTest, DailyFactor) {
     EXPECT_EQ(annualization_factor(Interval::Daily), kExpectedDailyFactor);
 }
@@ -174,7 +161,6 @@ TEST(IntervalTest, WeeklyFactor) {
 }
 
 TEST(IntervalTest, FactorsMatchPythonConstants) {
-    // Cross-validate against Python _ANNUALIZATION_FACTORS
     EXPECT_EQ(annualization_factor(Interval::Second), kExpectedSecondsPerYear);
     EXPECT_EQ(annualization_factor(Interval::Minute), kExpectedMinutesPerYear);
     EXPECT_EQ(annualization_factor(Interval::FiveMinute), kExpectedFiveMinPerYear);
@@ -183,10 +169,6 @@ TEST(IntervalTest, FactorsMatchPythonConstants) {
     EXPECT_EQ(annualization_factor(Interval::Daily), kExpectedDailyFactor);
     EXPECT_EQ(annualization_factor(Interval::Weekly), kExpectedWeeklyFactor);
 }
-
-// ═══════════════════════════════════════════════════════════════
-// BarSoA
-// ═══════════════════════════════════════════════════════════════
 
 TEST(BarSoATest, SizeAndEmpty) {
     BarSoA soa;
@@ -210,10 +192,6 @@ TEST(BarSoATest, Reserve) {
     EXPECT_GE(soa.timestamps.capacity(), kReserveCapacity);
     EXPECT_GE(soa.close.capacity(), kReserveCapacity);
 }
-
-// ═══════════════════════════════════════════════════════════════
-// TimeSeries<Bar>
-// ═══════════════════════════════════════════════════════════════
 
 static std::vector<Bar> make_sorted_bars(int n, int64_t start_ts = kSampleTimestampS) {
     std::vector<Bar> bars;
@@ -245,13 +223,13 @@ TEST(TimeSeriesTest, ThrowsOnEmpty) {
 
 TEST(TimeSeriesTest, ThrowsOnUnsorted) {
     auto bars = make_sorted_bars(kSmallSeriesLen);
-    std::swap(bars[1], bars[3]);  // break ordering
+    std::swap(bars[1], bars[3]);
     EXPECT_THROW(auto ts = TimeSeries<Bar>(bars), std::invalid_argument);
 }
 
 TEST(TimeSeriesTest, ThrowsOnDuplicateTimestamps) {
     auto bars = make_sorted_bars(kSmallSeriesLen);
-    bars[2].timestamp_epoch_s = bars[1].timestamp_epoch_s;  // duplicate
+    bars[2].timestamp_epoch_s = bars[1].timestamp_epoch_s;
     EXPECT_THROW(auto ts = TimeSeries<Bar>(bars), std::invalid_argument);
 }
 
@@ -285,14 +263,9 @@ TEST(TimeSeriesTest, SliceSubset) {
 TEST(TimeSeriesTest, SliceEmptyThrows) {
     auto bars = make_sorted_bars(kSmallSeriesLen);
     TimeSeries<Bar> ts(bars);
-    // Range that doesn't include any bars
     EXPECT_THROW(auto sliced = ts.slice(kFarFutureTimestamp, kFarFutureTimestamp),
                  std::invalid_argument);
 }
-
-// ═══════════════════════════════════════════════════════════════
-// TaggedSeries
-// ═══════════════════════════════════════════════════════════════
 
 TEST(TaggedSeriesTest, TrainTagCompiles) {
     auto bars = make_sorted_bars(kSmallSeriesLen);

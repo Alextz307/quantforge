@@ -76,11 +76,8 @@ _DEFAULT_STORE_ROOT = Path("experiment_results")
 STUDY_DB_FILENAME = "optuna_study.db"
 EXPERIMENT_CONFIG_YAML = "experiment_config.yaml"
 HPO_CONFIG_YAML = "hpo_config.yaml"
-# Re-export for downstream consumers that want to read the checkpoint files.
 BEST_CONFIG_YAML = BEST_CONFIG_YAML_NAME
 TRIALS_JSONL = TRIALS_JSONL_NAME
-# Optuna stores the full ``experiment_id`` each trial ran under so users
-# can cross-reference trial.params with the full artefact directory.
 USER_ATTR_EXPERIMENT_ID = "experiment_id"
 _TRIAL_NAME_SUFFIX = "_trial"
 

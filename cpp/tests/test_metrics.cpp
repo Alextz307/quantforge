@@ -10,25 +10,17 @@
 namespace quant {
 namespace {
 
-// ───── Annualization factors ─────
 constexpr int kYear252 = kTradingDaysPerYear;
 constexpr int kYear2 = 2;
 constexpr int kYear4 = 4;
 
-// ───── Tolerances ─────
 constexpr double kExactTol = 1e-12;
 constexpr double kFpTol = 1e-9;
 
-// ───── Equity fixtures ─────
 constexpr double kInitialEquity = 100.0;
 
-// Peak at index 1 (110), trough at index 4 (80) → max_dd = -30/110.
 constexpr double kDrawdownPeak = 110.0;
 constexpr double kDrawdownTrough = 80.0;
-
-// ═══════════════════════════════════════════════════════════════
-// Degenerate inputs
-// ═══════════════════════════════════════════════════════════════
 
 TEST(MetricsCalculatorTest, EmptyEquityAllMetricsZero) {
     const std::vector<double> equity{};
@@ -50,10 +42,6 @@ TEST(MetricsCalculatorTest, SingleElementEquityAllMetricsZero) {
     EXPECT_DOUBLE_EQ(m.annualized_return, 0.0);
 }
 
-// ═══════════════════════════════════════════════════════════════
-// equity_to_returns
-// ═══════════════════════════════════════════════════════════════
-
 TEST(MetricsCalculatorTest, EquityToReturnsSimple) {
     const std::vector<double> equity{100.0, 110.0, 99.0};
     const auto returns = MetricsCalculator::equity_to_returns(equity);
@@ -70,10 +58,6 @@ TEST(MetricsCalculatorTest, EquityToReturnsNonPositivePrevGivesZero) {
     EXPECT_DOUBLE_EQ(returns[0], 0.0);
     EXPECT_NEAR(returns[1], 0.1, kExactTol);
 }
-
-// ═══════════════════════════════════════════════════════════════
-// Max drawdown
-// ═══════════════════════════════════════════════════════════════
 
 TEST(MetricsCalculatorTest, MaxDrawdownPeakToTrough) {
     const std::vector<double> equity{100.0, 110.0, 90.0, 95.0, 80.0, 85.0};
@@ -92,10 +76,6 @@ TEST(MetricsCalculatorTest, MaxDrawdownFlatZero) {
     EXPECT_DOUBLE_EQ(MetricsCalculator::max_drawdown(equity), 0.0);
 }
 
-// ═══════════════════════════════════════════════════════════════
-// Win rate
-// ═══════════════════════════════════════════════════════════════
-
 TEST(MetricsCalculatorTest, WinRateMixed) {
     // 2 positives out of 4 non-zero returns.
     const std::vector<double> returns{0.1, -0.1, 0.0, 0.2, -0.05};
@@ -112,10 +92,6 @@ TEST(MetricsCalculatorTest, WinRateAllZerosSafeZero) {
     EXPECT_DOUBLE_EQ(MetricsCalculator::win_rate(returns), 0.0);
 }
 
-// ═══════════════════════════════════════════════════════════════
-// Annualized return (geometric)
-// ═══════════════════════════════════════════════════════════════
-
 TEST(MetricsCalculatorTest, AnnualizedReturnGeometric) {
     // Equity doubled over one period with ann=2 → 2^2 - 1 = 3.0.
     const std::vector<double> equity{100.0, 200.0};
@@ -129,10 +105,6 @@ TEST(MetricsCalculatorTest, AnnualizedReturnFlatZero) {
                      0.0);
 }
 
-// ═══════════════════════════════════════════════════════════════
-// Annualized volatility
-// ═══════════════════════════════════════════════════════════════
-
 TEST(MetricsCalculatorTest, AnnualizedVolatilityScalesBySqrtFactor) {
     // returns = [0.01, 0.02, 0.03] → sample_std = 0.01 exactly.
     const std::vector<double> returns{0.01, 0.02, 0.03};
@@ -140,10 +112,6 @@ TEST(MetricsCalculatorTest, AnnualizedVolatilityScalesBySqrtFactor) {
     EXPECT_NEAR(MetricsCalculator::annualized_volatility(returns, kYear4),
                 expected, kFpTol);
 }
-
-// ═══════════════════════════════════════════════════════════════
-// Sharpe
-// ═══════════════════════════════════════════════════════════════
 
 TEST(MetricsCalculatorTest, SharpeRiskFreeLowersRatio) {
     const std::vector<double> returns{0.01, 0.02, 0.03};
@@ -179,10 +147,6 @@ TEST(MetricsCalculatorTest, SharpeHandComputed) {
                 expected, kFpTol);
 }
 
-// ═══════════════════════════════════════════════════════════════
-// Sortino
-// ═══════════════════════════════════════════════════════════════
-
 TEST(MetricsCalculatorTest, SortinoOnlyPositiveReturnsZero) {
     // No downside → downside_var = 0 → safe zero.
     const std::vector<double> returns{0.01, 0.02, 0.03};
@@ -209,10 +173,6 @@ TEST(MetricsCalculatorTest, SortinoAllNegativeReturnsIsNegative) {
     const std::vector<double> returns{-0.01, -0.02, -0.03};
     EXPECT_LT(MetricsCalculator::sortino_ratio(returns, kYear252), 0.0);
 }
-
-// ═══════════════════════════════════════════════════════════════
-// compute() end-to-end
-// ═══════════════════════════════════════════════════════════════
 
 TEST(MetricsCalculatorTest, ComputeFlatEquityAllZero) {
     const std::vector<double> equity{100.0, 100.0, 100.0, 100.0};

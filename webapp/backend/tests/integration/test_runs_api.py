@@ -9,7 +9,6 @@ from fastapi.testclient import TestClient
 
 from webapp.backend.tests.conftest import PLOT_BYTES, PLOT_FILENAME
 
-# webapp_store fixture seeds these two ids
 FLAT_ID = "20260101_120000_AdaptiveBollinger_abc1234_deadbeef"
 STUDY_ID = "20260201_090000_PairsTrading_def5678_cafebabe"
 EXPECTED_RUN_COUNT = 2
@@ -39,7 +38,7 @@ def test_list_runs_sorted_newest_first(webapp_store: Path, authed_client: TestCl
     payload = authed_client.get(RUNS_PATH).json()
     items = payload["items"]
 
-    assert items[0]["experiment_id"] == STUDY_ID  # 2026-02-01 newer than 2026-01-01
+    assert items[0]["experiment_id"] == STUDY_ID
     assert items[1]["experiment_id"] == FLAT_ID
 
 

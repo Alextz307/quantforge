@@ -59,9 +59,6 @@ class _StatsmodelsARMAAdapter:
         self.trend = trend
         self.endog = endog
         self.params = params
-        # ``statsmodels.tsa.arima.model.ARIMA`` auto-adds a constant when ``d=0``
-        # and ``trend=None``. Callers persist ``'n'`` for "no trend" and ``'c'``
-        # for "with intercept" so the filter params and the model shape match.
         model = SMARIMA(endog, order=order, trend=trend)
         self._results = model.filter(params)
 
@@ -96,10 +93,6 @@ class ARMAPredictor(IPredictor):
         self._information_criterion = information_criterion
         self._interval = interval
 
-        # ``self._model`` is always a ``_StatsmodelsARMAAdapter`` once fit. Its
-        # public attributes (``order``, ``trend``, ``endog``, ``params``) are
-        # the single source of truth for ``save()``; pmdarima is only used
-        # transiently inside ``fit()`` to pick the order.
         self._model: _StatsmodelsARMAAdapter | None = None
 
     def _run_auto_arima(self, values: np.ndarray[tuple[int], np.dtype[np.float64]]) -> ARIMA:
@@ -158,8 +151,6 @@ class ARMAPredictor(IPredictor):
         trend = trend_raw if isinstance(trend_raw, str) else "n"
         params = np.asarray(arima_res.params, dtype=np.float64)
 
-        # Wrap into the adapter so every post-fit code path (predict, save)
-        # sees the same ``_StatsmodelsARMAAdapter`` surface.
         self._model = _StatsmodelsARMAAdapter(endog, order, params, trend)
 
         logger.info("ARMA fit: best order %s", order)
@@ -218,17 +209,11 @@ class ARMAPredictor(IPredictor):
             oos_forecasts = self._model.predict(n_periods=n_oos)
             predictions[n_fitted:] = oos_forecasts
 
-        # Fast path for the canonical "returns indexed at data.index[1:]" case
-        # — positional slice-assign is O(N); reindex is O(N log N) hash. Both
-        # the ``returns=None`` default and composite callers that pass
-        # ``compute_log_returns(data["close"]).dropna()`` land here.
         if caller_returns is None or returns_clean.index.equals(data.index[1:]):
             arr = np.full(len(data), np.nan)
             arr[1 : 1 + len(predictions)] = predictions
             return pd.Series(arr, index=data.index, name="arma_forecast").ffill()
 
-        # Caller-provided returns index an arbitrary subset of data.index;
-        # fall back to label alignment to stay correct.
         forecast = pd.Series(predictions, index=returns_clean.index, name="arma_forecast")
         return forecast.reindex(data.index).ffill()
 
@@ -254,7 +239,6 @@ class ARMAPredictor(IPredictor):
         on-disk size manageable on large training windows.
         """
         metadata = self._assert_fitted_with_metadata()
-        # ``_model`` is set atomically with metadata in fit() — assert for mypy.
         assert self._model is not None
         adapter = self._model
 

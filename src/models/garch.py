@@ -111,9 +111,8 @@ class GARCHPredictor(IPredictor):
 
         cache = active_cache()
         if cache is None:
-            # No HPO context → use a throwaway local cache. The hash is
-            # only meaningful when entries persist across calls; for a
-            # one-shot fit any constant key works.
+            # No HPO context → throwaway local cache. Entries don't persist
+            # across calls, so any constant hash key (b"") is fine.
             cache = GarchGridCache()
             returns_hash = b""
         else:
@@ -124,7 +123,6 @@ class GARCHPredictor(IPredictor):
         )
 
         if best_result is None:
-            # All (p,q) combos failed — fall back to GARCH(1,1).
             fallback = arch_model(scaled, vol="GARCH", p=1, q=1, dist="skewt", mean="Zero")
             best_result = fallback.fit(disp="off", show_warning=False)
             best_p, best_q = 1, 1
@@ -151,8 +149,6 @@ class GARCHPredictor(IPredictor):
 
         result, self._best_p, self._best_q = self._grid_search(scaled)
 
-        # Scalar / numpy views are retained alongside the cached ``GarchParams``
-        # so "frozen-params" invariant tests can read individual fields.
         self._omega = float(result.params["omega"])
         self._alpha = np.array(
             [float(result.params[f"alpha[{i + 1}]"]) for i in range(self._best_p)]
@@ -206,18 +202,14 @@ class GARCHPredictor(IPredictor):
         cond_vol_daily = np.sqrt(cond_var) / _SCALE_FACTOR
         cond_vol_annual = cond_vol_daily * math.sqrt(self._interval.annualization_factor())
 
-        # Fast path for the canonical "returns indexed at data.index[1:]" case:
-        # one NaN-filled leading row, every remaining bar has one entry.
-        # Positional slice-assign is O(N); reindex is O(N log N) hash. Both
-        # the ``returns=None`` default and composite callers that pass
-        # ``compute_log_returns(data["close"]).dropna()`` land here.
+        # Fast path for the canonical ``returns.index == data.index[1:]``
+        # case (one leading NaN, every other bar gets a value). Positional
+        # slice-assign is O(N); the reindex fallback is O(N log N).
         if caller_returns is None or returns_clean.index.equals(data.index[1:]):
             arr = np.full(len(data), np.nan)
             arr[1 : 1 + len(cond_vol_annual)] = cond_vol_annual
             return pd.Series(arr, index=data.index, name="garch_vol").ffill()
 
-        # Caller-provided returns index an arbitrary subset of data.index;
-        # fall back to label alignment to stay correct.
         vol_series = pd.Series(cond_vol_annual, index=returns_clean.index, name="garch_vol")
         return vol_series.reindex(data.index).ffill()
 
@@ -253,7 +245,6 @@ class GARCHPredictor(IPredictor):
         self, scaled_returns: np.ndarray[tuple[int], np.dtype[np.float64]]
     ) -> np.ndarray[tuple[int], np.dtype[np.float64]]:
         """Run the GARCH(p,q) recursion via the C++ filter on the cached params."""
-        # Non-None by contract: callers guard on ``training_metadata``.
         params = cast(quant_engine.GarchParams, self._garch_params)
         return quant_engine.garch_filter(scaled_returns, params)
 
@@ -311,10 +302,9 @@ class GARCHPredictor(IPredictor):
         instance._train_backcast = json_io.get_float(weights, "backcast")
         instance._best_p = len(alpha)
         instance._best_q = len(beta)
-        # ``GarchParams`` takes independent copies so a future caller that
-        # mutates ``_alpha``/``_beta`` ndarrays can't silently divergence the
-        # cached pybind11 struct. The list() copy is O(p+q), typically ≤10
-        # elements.
+        # ``list(alpha)`` / ``list(beta)`` give the pybind struct independent
+        # copies so a future mutation of ``_alpha``/``_beta`` ndarrays can't
+        # silently drift the cached params used by the C++ filter.
         instance._garch_params = quant_engine.GarchParams(
             omega=instance._omega,
             alpha=list(alpha),

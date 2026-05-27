@@ -5,6 +5,7 @@ import {
   OBJECTIVE_VALUES,
   PRUNER_VALUES,
   SAMPLER_VALUES,
+  STUDY_NAME_MAX,
   type ConfigureTuneFormValues,
 } from "@/lib/schemas/configureTuneForm";
 
@@ -28,7 +29,12 @@ export function HpoFieldsSection({ register, errors, isSubmitting }: HpoFieldsSe
           error={errors.studyName?.message}
           className="md:col-span-2"
         >
-          <Input id="studyName" {...register("studyName")} disabled={isSubmitting} />
+          <Input
+            id="studyName"
+            maxLength={STUDY_NAME_MAX}
+            {...register("studyName")}
+            disabled={isSubmitting}
+          />
         </ConfigField>
         <ConfigField id="nTrials" label="n_trials" error={errors.nTrials?.message}>
           <Input id="nTrials" type="number" {...register("nTrials")} disabled={isSubmitting} />

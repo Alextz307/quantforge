@@ -135,9 +135,9 @@ marshal_bars_and_signals(
 }  // namespace
 
 // Shared kwarg prefix for `run` / `run_scenarios` — the six OHLCV numpy arrays
-// plus the signal array, forced by the "pass six arrays" plan (Batch C plan
-// §Bridge data convention, avoids structured-array fragility). A macro is the
-// only way to share a pack of `py::arg(...)` expansions across `.def()` calls.
+// plus the signal array. The "pass six arrays" bridge convention avoids
+// structured-array fragility. A macro is the only way to share a pack of
+// `py::arg(...)` expansions across `.def()` calls.
 #define QE_BARS_SIGNALS_KWARGS                                                 \
     py::arg("timestamps"), py::arg("open"), py::arg("high"), py::arg("low"),   \
     py::arg("close"), py::arg("volume"), py::arg("signals")
@@ -164,7 +164,6 @@ PYBIND11_MODULE(quant_engine, m) {
     m.def("hello", []() { return std::string("ok"); },
           "Smoke-test hook confirming the compiled C++ extension is loadable.");
 
-    // ── Slippage ──
     py::enum_<quant::SlippageModel>(m, "SlippageModel")
         .value("NoSlippage", quant::SlippageModel::NoSlippage)
         .value("Fixed", quant::SlippageModel::Fixed)
@@ -184,7 +183,6 @@ PYBIND11_MODULE(quant_engine, m) {
         .def_readwrite("volume_impact_coeff",
                        &quant::SlippageConfig::volume_impact_coeff);
 
-    // ── BacktestResult ──
     // ``equity_curve`` is a zero-copy numpy view into the result's vector;
     // the capsule keeps the BacktestResult instance alive so the view stays
     // valid even if the Python-side BacktestResult handle is released after
@@ -205,7 +203,6 @@ PYBIND11_MODULE(quant_engine, m) {
             field_view_reader<quant::BacktestResult, &quant::BacktestResult::equity_curve>())
         .def_readonly("scenario_label", &quant::BacktestResult::scenario_label);
 
-    // ── BacktestEngine ──
     py::class_<quant::BacktestEngine>(m, "BacktestEngine")
         .def(py::init([](double initial_capital, double transaction_fee_rate,
                          bool allow_short) {
@@ -291,7 +288,6 @@ PYBIND11_MODULE(quant_engine, m) {
 #undef QE_BARS_SIGNALS_KWARGS
 #undef QE_PAIRS_BARS_SIGNALS_KWARGS
 
-    // ── PerformanceMetrics ──
     py::class_<quant::PerformanceMetrics>(m, "PerformanceMetrics")
         .def_readonly("annualized_return",
                       &quant::PerformanceMetrics::annualized_return)
@@ -303,7 +299,6 @@ PYBIND11_MODULE(quant_engine, m) {
         .def_readonly("calmar_ratio", &quant::PerformanceMetrics::calmar_ratio)
         .def_readonly("win_rate", &quant::PerformanceMetrics::win_rate);
 
-    // ── MetricsCalculator ── uninstantiable namespace wrapper.
     // GIL released on every compute so Python-side parallelism (Optuna HPO,
     // pytest-xdist) scales across cores for multi-million-bar equity curves.
     // ``call_gil_free`` materializes the span while the GIL is held (numpy
@@ -374,7 +369,6 @@ PYBIND11_MODULE(quant_engine, m) {
             },
             py::arg("returns"), py::arg("annualization_factor"));
 
-    // ── RSI ──
     py::class_<quant::RSI>(m, "RSI")
         .def(py::init<int>(), py::arg("period") = 14)
         .def(
@@ -388,9 +382,9 @@ PYBIND11_MODULE(quant_engine, m) {
         .def_property_readonly("warmup_period", &quant::RSI::warmup_period)
         .def_property_readonly("name", &quant::RSI::name);
 
-    // ── MACDResult ── three vectors owned by a shared_ptr-held MACDResult;
-    // each property returns a zero-copy numpy view with the MACDResult
-    // Python wrapper as its numpy base.
+    // Three vectors owned by a shared_ptr-held MACDResult; each property
+    // returns a zero-copy numpy view with the MACDResult Python wrapper as
+    // its numpy base.
     py::class_<quant::MACDResult, std::shared_ptr<quant::MACDResult>>(m, "MACDResult")
         .def_property_readonly(
             "macd_line",
@@ -402,7 +396,6 @@ PYBIND11_MODULE(quant_engine, m) {
             "histogram",
             field_view_reader<quant::MACDResult, &quant::MACDResult::histogram>());
 
-    // ── MACD ──
     py::class_<quant::MACD>(m, "MACD")
         .def(py::init<int, int, int>(),
              py::arg("fast_period") = 12,
@@ -434,7 +427,7 @@ PYBIND11_MODULE(quant_engine, m) {
         .def_property_readonly("warmup_period", &quant::MACD::warmup_period)
         .def_property_readonly("name", &quant::MACD::name);
 
-    // ── BollingerResult ── same zero-copy pattern as MACDResult.
+    // Same zero-copy pattern as MACDResult.
     py::class_<quant::BollingerResult, std::shared_ptr<quant::BollingerResult>>(
         m, "BollingerResult")
         .def_property_readonly(
@@ -447,7 +440,6 @@ PYBIND11_MODULE(quant_engine, m) {
             "lower",
             field_view_reader<quant::BollingerResult, &quant::BollingerResult::lower>());
 
-    // ── BollingerBands ──
     py::class_<quant::BollingerBands>(m, "BollingerBands")
         .def(py::init<int, double>(),
              py::arg("period") = 20, py::arg("num_std") = 2.0)
@@ -478,7 +470,6 @@ PYBIND11_MODULE(quant_engine, m) {
                                &quant::BollingerBands::warmup_period)
         .def_property_readonly("name", &quant::BollingerBands::name);
 
-    // ── Parkinson ──
     py::class_<quant::Parkinson>(m, "Parkinson")
         .def(py::init<int>(), py::arg("window") = 22)
         .def(
@@ -497,7 +488,6 @@ PYBIND11_MODULE(quant_engine, m) {
         .def_property_readonly("warmup_period", &quant::Parkinson::warmup_period)
         .def_property_readonly("name", &quant::Parkinson::name);
 
-    // ── GarmanKlass ──
     py::class_<quant::GarmanKlass>(m, "GarmanKlass")
         .def(py::init<int>(), py::arg("window") = 22)
         .def(
@@ -518,7 +508,6 @@ PYBIND11_MODULE(quant_engine, m) {
 
 #undef QE_OHLC_KWARGS
 
-    // ── GarchParams ──
     // Fields are read-only; GARCH parameters are frozen after the Python fit.
     py::class_<quant::filters::GarchParams>(m, "GarchParams")
         .def(py::init([](double omega, std::vector<double> alpha,
@@ -538,7 +527,6 @@ PYBIND11_MODULE(quant_engine, m) {
         .def_readonly("mu", &quant::filters::GarchParams::mu)
         .def_readonly("backcast", &quant::filters::GarchParams::backcast);
 
-    // ── garch_filter ──
     m.def(
         "garch_filter",
         [](const ContigF64& scaled_returns,
@@ -554,7 +542,6 @@ PYBIND11_MODULE(quant_engine, m) {
         py::arg("scaled_returns"), py::arg("params"),
         "Run the GARCH(p,q) recursion; returns conditional variances.");
 
-    // ── State machines ──
     m.def(
         "run_mean_reversion_state_machine",
         [](const ContigF64& close, const ContigF64& mid, const ContigF64& upper,
@@ -591,7 +578,6 @@ PYBIND11_MODULE(quant_engine, m) {
         py::arg("stop_loss_zscore"),
         "Run the pairs-trading state machine; returns a position series.");
 
-    // ── CointegrationParams ──
     // spread_mean / spread_std are training-time provenance only — the
     // rolling z-score recomputes them on the inference window. Defaulted
     // so callers who only care about the hedge ratio can omit them.
@@ -608,7 +594,6 @@ PYBIND11_MODULE(quant_engine, m) {
         .def_readonly("spread_mean", &quant::statistics::CointegrationParams::spread_mean)
         .def_readonly("spread_std", &quant::statistics::CointegrationParams::spread_std);
 
-    // ── SpreadCalculator ──
     py::class_<quant::statistics::SpreadCalculator>(m, "SpreadCalculator")
         .def_static(
             "compute_spread",
@@ -634,7 +619,6 @@ PYBIND11_MODULE(quant_engine, m) {
             },
             py::arg("spread"), py::arg("window"));
 
-    // ── PairsTradingStrategy ──
     py::class_<quant::strategies::PairsTradingStrategy> pairs_trading(m, "PairsTradingStrategy");
     py::class_<quant::strategies::PairsTradingStrategy::Config>(pairs_trading, "Config")
         .def(py::init([](double entry_zscore, double exit_zscore,
@@ -674,7 +658,6 @@ PYBIND11_MODULE(quant_engine, m) {
         .def_property_readonly("required_warmup",
                                &quant::strategies::PairsTradingStrategy::required_warmup);
 
-    // ── AdaptiveBollingerStrategy ──
     py::class_<quant::strategies::AdaptiveBollingerStrategy> adaptive_bollinger(
         m, "AdaptiveBollingerStrategy");
     py::class_<quant::strategies::AdaptiveBollingerStrategy::Config>(adaptive_bollinger, "Config")

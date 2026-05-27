@@ -193,8 +193,6 @@ def test_study_run_produces_complete_leg_state(
     spec_path, store = _build_smoke_workspace(tmp_path)
     monkeypatch.chdir(tmp_path)
 
-    # We invoke the CLI directly (Click exit-code semantics catch any
-    # ClickException; bare-fail orchestration bugs surface here, not silent).
     from scripts.experiment import cli as experiment_cli
 
     runner = CliRunner()
@@ -219,12 +217,10 @@ def test_study_run_produces_complete_leg_state(
     for leg in state.legs:
         assert leg.is_complete, f"leg {leg.leg_id} did not complete: error={leg.error}"
         assert leg.run_experiment_id is not None
-        # Holdout-eval was on (universe.holdout_pct=0.20).
         assert LEG_STEP_TUNE in leg.steps_completed
         assert LEG_STEP_RUN in leg.steps_completed
         assert LEG_STEP_HOLDOUT_EVAL in leg.steps_completed
 
-    # Per-leg artifact directories materialised.
     for leg in state.legs:
         assert (study_dir / HPO_SUBDIR / leg.leg_id).is_dir()
         assert leg.run_experiment_id is not None
@@ -251,7 +247,6 @@ def test_study_run_resume_skips_complete_legs(
         ["study", "run", "--spec", str(spec_path), "--store-root", str(store), "--skip-compares"],
     )
     assert second.exit_code == 0, second.output
-    # Resume should report 0 newly-completed + 2 skipped (both pre-existing).
     assert "completed:    0" in second.output
     assert "skipped:      2" in second.output
 
@@ -278,15 +273,11 @@ def test_study_report_consolidates_completed_run(
     )
     assert report_result.exit_code == 0, report_result.output
 
-    # Manifest sidecar at the consolidated root.
     assert (study_dir / "manifest.json").is_file()
-    # Master ranking + holdout results (both legs reserved a holdout).
     assert (study_dir / "tables" / "master_ranking.tex").is_file()
     assert (study_dir / "tables" / "master_ranking.csv").is_file()
     assert (study_dir / "tables" / "holdout_results.csv").is_file()
-    # Strategy×universe heatmap always present when legs completed.
     assert (study_dir / "plots" / "strategy_x_universe_heatmap.png").is_file()
-    # Per-leg holdout equity copies.
     holdout_curves_dir = study_dir / "plots" / "holdout_equity_curves"
     assert holdout_curves_dir.is_dir()
     assert any(p.suffix == ".png" for p in holdout_curves_dir.iterdir())

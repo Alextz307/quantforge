@@ -65,11 +65,6 @@ def _valid_yaml(config_root: Path) -> str:
     ).replace("HPO_PATH", str(config_root / "hpo" / "adaptive_bollinger.yaml"))
 
 
-# ---------------------------------------------------------------------------
-# validate_study_spec_text
-# ---------------------------------------------------------------------------
-
-
 def test_validate_happy_path(tmp_path: Path) -> None:
     _seed_library_files(tmp_path)
     result = validate_study_spec_text(_valid_yaml(tmp_path), config_root=tmp_path)
@@ -109,7 +104,7 @@ def test_validate_missing_required_field(tmp_path: Path) -> None:
 def test_validate_missing_strategy_config(tmp_path: Path) -> None:
     _seed_library_files(tmp_path)
     yaml_text = _valid_yaml(tmp_path).replace(
-        "adaptive_bollinger.yaml", "missing.yaml", 1  # only the first occurrence
+        "adaptive_bollinger.yaml", "missing.yaml", 1
     )
     result = validate_study_spec_text(yaml_text, config_root=tmp_path)
     assert result.valid is False
@@ -127,11 +122,6 @@ def test_validate_unknown_universe(tmp_path: Path) -> None:
     assert any(
         err.loc == ["legs", "0", "universes", "0"] for err in result.errors
     )
-
-
-# ---------------------------------------------------------------------------
-# save_upload + list/get/delete round trip
-# ---------------------------------------------------------------------------
 
 
 def test_save_creates_row_and_yaml_file(db_conn: sqlite3.Connection, tmp_path: Path) -> None:
@@ -218,7 +208,7 @@ def test_save_rejects_invalid_yaml(db_conn: sqlite3.Connection, tmp_path: Path) 
             uploads_root=tmp_path / "uploads",
             config_root=tmp_path,
         )
-    assert exc_info.value.errors  # at least one structured error
+    assert exc_info.value.errors
 
 
 def test_list_scopes_to_caller_by_default(
@@ -335,11 +325,6 @@ def test_save_after_soft_delete_reactivates_row(
         (user.id, "my_study"),
     ).fetchone()
     assert rows["n"] == 1
-
-
-# ---------------------------------------------------------------------------
-# find_upload_path (used by _StudyHandler)
-# ---------------------------------------------------------------------------
 
 
 def test_find_upload_path_returns_path_when_present(

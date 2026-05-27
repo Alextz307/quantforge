@@ -67,7 +67,7 @@ def test_backfill_is_idempotent(
     first = backfill(
         db_conn, username=_ADMIN_USERNAME, store_root=webapp_store, dry_run=False
     )
-    assert first  # sanity: first pass actually did work
+    assert first
     first_count = db_conn.execute("SELECT COUNT(*) AS n FROM jobs").fetchone()["n"]
 
     second = backfill(
@@ -85,7 +85,7 @@ def test_dry_run_writes_nothing(
     plans = backfill(
         db_conn, username=_ADMIN_USERNAME, store_root=webapp_store, dry_run=True
     )
-    assert plans  # sanity: there's something it would have written
+    assert plans
     count = db_conn.execute("SELECT COUNT(*) AS n FROM jobs").fetchone()["n"]
     assert count == 0
 
@@ -121,7 +121,6 @@ def test_existing_jobs_row_is_preserved(
     bob = create_user(
         db_conn, username="bob", password="bob-password", role=Role.USER
     )
-    # Pre-attribute one specific run to bob (not alex)
     bob_eid = "20260201_090000_PairsTrading_def5678_cafebabe"
     db_conn.execute(
         "INSERT INTO jobs (id, user_id, kind, command, config_path, log_path, "
@@ -146,7 +145,6 @@ def test_existing_jobs_row_is_preserved(
         "SELECT user_id FROM jobs WHERE experiment_id = ?", (bob_eid,)
     ).fetchone()
     assert int(owner_row["user_id"]) == bob.id
-    # Other artifacts went to admin.
     admin_rows = db_conn.execute(
         "SELECT COUNT(*) AS n FROM jobs WHERE user_id = ?", (admin_id,)
     ).fetchone()

@@ -119,8 +119,6 @@ class TestTuneSubcommand:
             return _StubExperiment(experiment_id=f"cli_tune_exp_{counter['n']}")
 
         def _fake_aggregate(folds: tuple[object, ...]) -> AggregateStats:
-            # Deterministic decreasing series so trial 0 wins — we only
-            # care that best_config.yaml materialises.
             sharpe = 1.0 - counter["n"] * 0.1
             counter["n"] += 1
             return make_stub_aggregate_stats(sharpe=sharpe, total_return_mean=0.01)
@@ -157,7 +155,6 @@ class TestTuneSubcommand:
         assert (study_dir / "hpo_config.yaml").is_file()
         assert (study_dir / BEST_CONFIG_YAML_NAME).is_file()
         assert (study_dir / TRIALS_JSONL_NAME).is_file()
-        # Reporter artifacts land under the same study dir.
         assert any(study_dir.rglob("convergence.*"))
 
         assert "best_value:" in result.output
@@ -290,7 +287,6 @@ class TestDottedOverride:
         out = _apply_dotted_overrides(cfg, ("data.tickers=[QQQ]", "seed=99"))
         assert out.data.tickers == ["QQQ"]
         assert out.seed == 99
-        # Original untouched (round-trip semantics).
         assert cfg.data.tickers == ["SPY"]
         assert cfg.seed == 1
 

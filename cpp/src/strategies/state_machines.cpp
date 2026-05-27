@@ -65,7 +65,7 @@ void run_mean_reversion_state_machine(
             if (close[t] >= mid[t]) {
                 position = 0.0;
             }
-        } else {  // position == -1.0
+        } else {
             if (close[t] <= mid[t]) {
                 position = 0.0;
             }

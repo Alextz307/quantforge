@@ -14,24 +14,22 @@ from src.core.temporal import (
 )
 from tests.conftest import make_daily_df
 
-# Common fixture sizes
 SMALL_DF_ROWS = 100
 TRAIN_SLICE_END = 50
 TEST_SLICE_START = 55
-OVERLAP_TRAIN_END = 60  # > TEST_SLICE_START to force overlap
+OVERLAP_TRAIN_END = 60
 TINY_DF_ROWS = 10
 SHORT_DF_ROWS = 5
 SMALL_TEST_DF_ROWS = 3
 
-# Adjacent-overlap test: train ends one row past where test starts so they share
-# a single boundary row, which TemporalSplit must reject as a leak.
+# Adjacent-overlap test: train ends one row past where test starts so they
+# share a single boundary row, which TemporalSplit must reject as a leak.
 ADJACENT_DF_ROWS = 10
 ADJACENT_DF_START = "2024-01-01"
 ADJACENT_OVERLAP_INDEX = 5
-ADJACENT_TRAIN_END = ADJACENT_OVERLAP_INDEX + 1  # train slice goes through index 5
-ADJACENT_TEST_START = ADJACENT_OVERLAP_INDEX  # test slice starts at index 5
+ADJACENT_TRAIN_END = ADJACENT_OVERLAP_INDEX + 1
+ADJACENT_TEST_START = ADJACENT_OVERLAP_INDEX
 
-# WalkForwardValidator parameters
 WF_LARGE_DF_ROWS = 2000
 WF_DEFAULT_N_SPLITS = 4
 WF_DEFAULT_TEST_SIZE = 252
@@ -43,7 +41,6 @@ WF_INSUFFICIENT_DF_ROWS = 50
 WF_SINGLE_SPLIT_DF_ROWS = 500
 WF_SINGLE_TEST_SIZE = 100
 
-# PurgedGroupTimeSeriesSplit parameters
 PG_DF_ROWS = 1000
 PG_OVERLAP_DF_ROWS = 500
 PG_DEFAULT_N_GROUPS = 5
@@ -53,7 +50,7 @@ PG_TINY_DF_ROWS = 20
 PG_TWO_GROUPS = 2
 PG_AGGRESSIVE_EMBARGO_PCT = 0.99
 PG_TINIEST_DF_ROWS = 5
-PG_LARGE_N_GROUPS = 10  # > PG_TINIEST_DF_ROWS to trigger insufficient-rows error
+PG_LARGE_N_GROUPS = 10
 
 
 class TestTemporalSplit:
@@ -73,7 +70,7 @@ class TestTemporalSplit:
     def test_rejects_overlapping_train_test(self) -> None:
         df = make_daily_df(SMALL_DF_ROWS)
         train = df.iloc[:OVERLAP_TRAIN_END]
-        test = df.iloc[TRAIN_SLICE_END:]  # overlaps with train
+        test = df.iloc[TRAIN_SLICE_END:]
         with pytest.raises(LeakageError, match="overlaps"):
             TemporalSplit(
                 train=train,
@@ -184,7 +181,6 @@ class TestWalkForwardValidator:
         )
         splits = list(validator.split(df))
         train_sizes = [len(s.train) for s in splits]
-        # Each subsequent training set should be larger
         for i in range(1, len(train_sizes)):
             assert train_sizes[i] > train_sizes[i - 1]
 
@@ -231,7 +227,7 @@ class TestPurgedGroupTimeSeriesSplit:
             n_groups=PG_DEFAULT_N_GROUPS, embargo_pct=PG_SMALL_EMBARGO_PCT
         )
         splits = list(splitter.split(df))
-        assert len(splits) == splitter.n_folds  # n_groups - 1
+        assert len(splits) == splitter.n_folds
 
     def test_embargo_removes_boundary_data(self) -> None:
         df = make_daily_df(PG_DF_ROWS)
@@ -240,7 +236,6 @@ class TestPurgedGroupTimeSeriesSplit:
         )
         splits = list(splitter.split(df))
         for split in splits:
-            # Verify gap between train end and test start
             assert split.train.index.max() < split.test.index.min()
 
     def test_no_overlap(self) -> None:
@@ -278,18 +273,15 @@ class TestPurgedGroupTimeSeriesSplit:
             list(splitter.split(df))
 
 
-# ---- resolve_holdout_boundary --------------------------------------------
-# Fixture sizes chosen so (N, pct) arithmetic is exact: e.g. 100 * 0.85 = 85,
-# no float rounding noise. Keeps the assertions readable.
+# Fixture sizes chosen so (N, pct) arithmetic is exact: 100 * 0.85 = 85 with no
+# float rounding noise.
 HB_DF_ROWS = 100
-HB_PCT = 0.15  # → cutoff index 85
-HB_CUTOFF = 85  # int(100 * (1 - 0.15))
+HB_PCT = 0.15
+HB_CUTOFF = 85
 HB_TINY_DF_ROWS = 10
-HB_TINY_PCT_ALL = 0.99  # int(10 * 0.01) = 0 → empty dev
-# A pct so small that (1 - pct) rounds to exactly 1.0 in double precision,
-# so int(n * (1-pct)) == n (no holdout bars at all). Catches the
-# sub-per-bar-fraction edge case that would otherwise silently reserve
-# nothing.
+HB_TINY_PCT_ALL = 0.99
+# Pct so small that (1 - pct) rounds to exactly 1.0 in double precision, so
+# int(n * (1-pct)) == n. Exercises the sub-per-bar-fraction edge case.
 HB_FLOAT_EPS_PCT = 1e-20
 
 
@@ -374,7 +366,7 @@ class TestResolveHoldoutBoundary:
             resolve_holdout_boundary(df, holdout_pct=HB_FLOAT_EPS_PCT)
 
     def test_non_datetime_index_raises(self) -> None:
-        df = pd.DataFrame({"close": [1.0, 2.0, 3.0]})  # default RangeIndex
+        df = pd.DataFrame({"close": [1.0, 2.0, 3.0]})
         with pytest.raises(TypeError, match="DatetimeIndex"):
             resolve_holdout_boundary(df, holdout_pct=HB_PCT)
 

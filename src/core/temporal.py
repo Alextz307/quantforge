@@ -403,14 +403,11 @@ class WalkForwardValidator:
         first_train_end = n - (self.n_splits - 1) * self.test_size - self.test_size - self.gap
 
         for i in range(self.n_splits):
-            # Test set position: work backward from the end
             test_end = n - (self.n_splits - 1 - i) * self.test_size
             test_start = test_end - self.test_size
 
-            # Train set ends before the gap
             train_end = test_start - self.gap
 
-            # Train set starts at 0 (expanding) or slides
             if self.expanding:
                 train_start = 0
             else:
@@ -419,8 +416,6 @@ class WalkForwardValidator:
             if self.snap_to_day:
                 assert normalized_dates is not None
                 train_end = _snap_train_end_backward(normalized_dates, train_end)
-                # Sliding: recompute train_start from snapped train_end so the
-                # window size stays invariant across folds.
                 if not self.expanding:
                     train_start = max(0, train_end - first_train_end)
                 if train_end <= train_start:
@@ -509,7 +504,6 @@ class PurgedGroupTimeSeriesSplit:
             test_start = i * group_size
             test_end = (i + 1) * group_size if i < self.n_groups - 1 else n
 
-            # Purge: remove embargo_size rows before the test set
             train_end = max(0, test_start - embargo_size)
 
             if train_end < 1:

@@ -13,7 +13,6 @@
 
 namespace {
 
-// ───── Bench data constants (mirror cpp/tests/test_backtest_engine.cpp) ─────
 constexpr int64_t kBaseTimestampS = 1'700'000'000;
 constexpr int64_t kSecondsPerBar = 86'400;
 constexpr double kStartPrice = 100.0;
@@ -23,7 +22,6 @@ constexpr double kMinSpread = 0.001;
 constexpr double kMaxSpread = 0.02;
 constexpr double kSampleVolume = 1.0e6;
 
-// ───── Slippage variants under bench ─────
 constexpr double kVolumeScaledBaseBps = 1.0;
 constexpr double kVolumeImpactCoeff = 100.0;
 

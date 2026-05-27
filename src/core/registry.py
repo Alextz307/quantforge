@@ -178,7 +178,6 @@ def autoload_package(
             import_module(f"{pkg_name}.{info.name}")
 
 
-# Global registries — typed via TYPE_CHECKING imports (no runtime circular deps)
 strategy_registry: ComponentRegistry[IStrategy] = ComponentRegistry()
 model_registry: ComponentRegistry[IPredictor] = ComponentRegistry()
 classifier_registry: ComponentRegistry[IClassifier] = ComponentRegistry()

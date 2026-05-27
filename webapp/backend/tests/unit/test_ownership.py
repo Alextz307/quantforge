@@ -60,11 +60,6 @@ def _seed_job(
     return job
 
 
-# ---------------------------------------------------------------------------
-# resolve_artifact_owner
-# ---------------------------------------------------------------------------
-
-
 def test_resolve_artifact_owner_returns_user_id_when_match(
     db_conn: sqlite3.Connection,
 ) -> None:
@@ -77,11 +72,6 @@ def test_resolve_artifact_owner_returns_none_when_no_job(
     db_conn: sqlite3.Connection,
 ) -> None:
     assert resolve_artifact_owner(db_conn, experiment_id=_LEGACY_EID) is None
-
-
-# ---------------------------------------------------------------------------
-# check_artifact_access
-# ---------------------------------------------------------------------------
 
 
 def test_check_access_owner_passes(db_conn: sqlite3.Connection) -> None:
@@ -107,13 +97,7 @@ def test_check_access_admin_bypasses(db_conn: sqlite3.Connection) -> None:
 
 def test_check_access_ownerless_is_shared(db_conn: sqlite3.Connection) -> None:
     bob = _user(db_conn, "bob")
-    # No jobs row for _LEGACY_EID — anyone gets through.
     check_artifact_access(db_conn, experiment_id=_LEGACY_EID, user=bob)
-
-
-# ---------------------------------------------------------------------------
-# filter_visible_experiment_ids
-# ---------------------------------------------------------------------------
 
 
 def test_filter_visible_scopes_to_caller(db_conn: sqlite3.Connection) -> None:
@@ -127,7 +111,6 @@ def test_filter_visible_scopes_to_caller(db_conn: sqlite3.Connection) -> None:
         user=alice,
         all_users=False,
     )
-    # Alice sees her own + the ownerless artifact, never Bob's.
     assert visible == {_ALICE_EID, _LEGACY_EID}
 
 
@@ -157,11 +140,6 @@ def test_filter_visible_empty_input_short_circuits(
     ) == set()
 
 
-# ---------------------------------------------------------------------------
-# resolve_owner_usernames
-# ---------------------------------------------------------------------------
-
-
 def test_resolve_usernames_maps_matched_eids_only(
     db_conn: sqlite3.Connection,
 ) -> None:
@@ -173,13 +151,6 @@ def test_resolve_usernames_maps_matched_eids_only(
         db_conn, experiment_ids=[_ALICE_EID, _BOB_EID, _LEGACY_EID]
     )
     assert usernames == {_ALICE_EID: "alice", _BOB_EID: "bob"}
-    # _LEGACY_EID has no jobs row → absent from the mapping; caller treats
-    # missing keys as "ownerless / unknown".
-
-
-# ---------------------------------------------------------------------------
-# Chunked IN-clause path (lists > _MAX_IN_PARAMS)
-# ---------------------------------------------------------------------------
 
 
 def _seed_n_jobs(

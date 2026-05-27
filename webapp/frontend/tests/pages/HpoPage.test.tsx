@@ -42,8 +42,6 @@ describe("HpoPage", () => {
   });
 
   it("sorts by best_value when the 'Best' header is clicked", async () => {
-    // Three studies with monotonic best_value and reverse-monotonic created_at
-    // so the default created-DESC order differs from best-DESC order.
     server.use(
       http.get(API_PATHS.hpoStudies, () =>
         HttpResponse.json([
@@ -71,15 +69,12 @@ describe("HpoPage", () => {
     const user = userEvent.setup();
     renderWithProviders(<Tree />, { initialEntries: [ROUTES.hpo] });
 
-    // Default: created DESC -> low, mid, high.
     await screen.findByText("study_low");
     expect(rowOrder()).toEqual(["study_low", "study_mid", "study_high"]);
 
-    // Click "Best" -> best DESC.
     await user.click(screen.getByRole("button", { name: /^Best/ }));
     expect(rowOrder()).toEqual(["study_high", "study_mid", "study_low"]);
 
-    // Re-click "Best" -> best ASC.
     await user.click(screen.getByRole("button", { name: /^Best/ }));
     expect(rowOrder()).toEqual(["study_low", "study_mid", "study_high"]);
   });

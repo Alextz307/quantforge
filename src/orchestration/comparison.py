@@ -66,9 +66,6 @@ _logger = get_logger(__name__)
 
 _DEFAULT_STORE_ROOT = Path("experiment_results")
 
-# Pairwise bootstrap default. 5k resamples keeps the wall clock tolerable
-# for a 10-strategy comparison (45 pairs) while still landing 2-decimal-stable
-# percentiles. Callers can override via ``n_resamples`` for tighter precision.
 _DEFAULT_PAIRWISE_N_RESAMPLES = 5_000
 
 
@@ -329,9 +326,8 @@ def _concatenated_log_returns(
         curve = np.asarray(fold.equity_curve, dtype=np.float64)
         if len(curve) < 2:
             continue
-        # Guard against non-positive equity (a catastrophic fold with
-        # debt at start or end) — log of <=0 is undefined and would
-        # propagate NaN through the bootstrap.
+        # log of <=0 is undefined and would propagate NaN through the
+        # bootstrap. Reject catastrophic folds (debt at start or end).
         if np.any(curve <= 0.0):
             raise ValueError(
                 f"fold {fold.fold_index} has non-positive equity; log-return "

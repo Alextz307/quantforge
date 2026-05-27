@@ -38,9 +38,8 @@ from tests.conftest import REPO_ROOT
 
 MAIN_STUDY_PATH = REPO_ROOT / "config" / "study" / "main_study.yaml"
 
-# Spec-derived counts (kept beside the spec path so a spec edit updates one
-# place). main_study composition: AdaptiveBollinger(11) + PairsTrading(1) +
-# MomentumGatekeeper(11) + VolatilityTargeting(11) + ReturnForecast(11) = 45.
+# Composition: AdaptiveBollinger(11) + PairsTrading(1) + MomentumGatekeeper(11)
+# + VolatilityTargeting(11) + ReturnForecast(11) = 45.
 EXPECTED_MAIN_STUDY_LEG_COUNT = 45
 
 
@@ -83,7 +82,6 @@ class TestExpandSpec:
     def test_cross_product_size(self, tmp_path: Path) -> None:
         spec = load_study_spec(_write_minimal_spec(tmp_path))
         legs = expand_spec_into_legs(spec, repo_root=REPO_ROOT)
-        # 2 (AB universes) + 1 (Pairs universe) = 3 legs
         assert len(legs) == 3
 
     def test_leg_ids_unique_and_well_formed(self, main_spec: StudySpec) -> None:
@@ -124,7 +122,7 @@ class TestComposeLegConfig:
             if leg.strategy == "AdaptiveBollinger" and leg.universe == "spy_daily_2008"
         )
         cfg = compose_leg_config(ab_2008)
-        # spy_daily_2008 pins holdout_pct: 0.0 to make the GFC the eval set.
+        # spy_daily_2008 pins holdout_pct: 0.0 so the GFC becomes the eval set.
         assert cfg.validation.holdout_pct == 0.0
 
 
@@ -142,7 +140,6 @@ class TestResolveStudyDir:
         self, main_spec: StudySpec, tmp_path: Path
     ) -> None:
         store = tmp_path / "store"
-        # main_study output_dir is "studies/main" (relative)
         assert resolve_study_dir(main_spec, store) == store / "studies" / "main"
 
     def test_absolute_output_dir_kept_as_is(self, tmp_path: Path) -> None:
@@ -170,12 +167,11 @@ class TestLegStateRoundTrip:
         s = LegState.initial("X__y", "X", "y")
         s = s.with_step_completed(LEG_STEP_TUNE).with_step_completed(LEG_STEP_RUN)
         assert s.steps_completed == (LEG_STEP_TUNE, LEG_STEP_RUN)
-        # Idempotent on re-add.
         assert s.with_step_completed(LEG_STEP_TUNE).steps_completed == s.steps_completed
 
     def test_unknown_step_in_persisted_json_is_dropped(self) -> None:
-        # Legacy state files may contain steps from discontinued sub-step names;
-        # they're silently dropped so the studies listing stays loadable.
+        """Legacy state files may carry discontinued sub-step names; they must
+        be silently dropped so the studies listing stays loadable."""
         d = LegState.initial("X__y", "X", "y").to_dict()
         d["steps_completed"] = [LEG_STEP_TUNE.value, "regime", LEG_STEP_RUN.value]
         recovered = LegState.from_dict(d)
@@ -210,7 +206,6 @@ class TestStudyStateRoundTrip:
         updated = state.legs[0].with_step_completed(LEG_STEP_TUNE)
         new_state = state.with_leg(updated)
         assert new_state.get_leg("S__a").steps_completed == (LEG_STEP_TUNE,)
-        # Other leg untouched.
         assert new_state.get_leg("S__b").steps_completed == ()
 
     def test_with_leg_unknown_id_raises(self) -> None:
@@ -278,8 +273,8 @@ class TestRunStudySpecHashGuard:
 
         spec_path = _write_minimal_spec(tmp_path, output_dir="studies/test")
         store_root = tmp_path / "store"
-        # Pre-write a state file under the resolved study dir using a
-        # FAKE hash so we can exercise the guard without running compute.
+        # Pre-write a state file using a fake hash so the guard fires before
+        # any compute happens.
         spec = load_study_spec(spec_path)
         study_dir = resolve_study_dir(spec, store_root)
         study_dir.mkdir(parents=True)
@@ -306,9 +301,8 @@ class TestRunStudySpecSnapshot:
     """First-run side-effect: the orchestrator copies the spec for provenance."""
 
     def test_spec_snapshot_written(self, tmp_path: Path) -> None:
-        # We exercise just the snapshot side-effect by short-circuiting via
-        # only_legs filter that matches no leg — orchestrator initialises
-        # state + snapshot, then has nothing to do.
+        # only_legs filter that matches no leg short-circuits compute; the
+        # orchestrator still initialises state + snapshot.
         from src.orchestration.study import run_study
 
         spec_path = _write_minimal_spec(tmp_path, output_dir="studies/snap")
@@ -324,4 +318,4 @@ class TestRunStudySpecSnapshot:
         assert snapshot.read_text() == spec_path.read_text()
         assert result.n_legs_completed == 0
         assert result.n_legs_failed == 0
-        assert result.n_legs_skipped == 3  # all 3 legs filtered out
+        assert result.n_legs_skipped == 3

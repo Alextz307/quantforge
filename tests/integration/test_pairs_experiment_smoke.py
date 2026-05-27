@@ -64,23 +64,18 @@ def test_pairs_run_produces_full_artifact_tree(tmp_path: Path) -> None:
     assert len(run_dirs) == 1, f"expected exactly one run dir, got {run_dirs}"
     run_dir = run_dirs[0]
 
-    # The frozen config must round-trip both legs — the orchestrator's
-    # multi-ticker fetch dispatch keys off ``data.tickers`` length.
     cfg = load_experiment_config(run_dir / EXPERIMENT_CONFIG_YAML)
     assert cfg.data.tickers == [_TICKER_A, _TICKER_B]
 
-    # The manifest's data_hash must match what ``fingerprint_pair_bars``
-    # produces on a fresh fetch — this catches a silent regression where
-    # the orchestrator picks ``fingerprint_bars`` (single-leg) for a pair
-    # frame and the resulting hash would no longer be sensitive to leg B.
+    # Catches a regression where the orchestrator picks the single-leg
+    # ``fingerprint_bars`` for a pair frame — the resulting hash would no
+    # longer be sensitive to leg B.
     manifest = read_experiment_manifest(run_dir)
     source = data_source_registry.create_from_config(cfg.data.source)
     refetched = fetch_bars(source, cfg, build_experiment(cfg).strategy)
     assert manifest.data_hash == fingerprint_pair_bars(refetched)
 
-    # ``strategy.save()`` for PairsTrading writes weights.json with the
-    # fitted cointegration coefficients — the persisted hedge_ratio must
-    # be a non-zero finite float (zero would mean the strategy never fit).
+    # A zero hedge_ratio would mean the strategy never fit.
     weights_path = run_dir / EXPERIMENT_STRATEGY_SUBDIR / WEIGHTS_JSON
     assert weights_path.is_file()
     weights = json.loads(weights_path.read_text())
@@ -88,8 +83,5 @@ def test_pairs_run_produces_full_artifact_tree(tmp_path: Path) -> None:
     assert weights["hedge_ratio"] != 0.0
     assert weights["is_cointegrated"] is True
 
-    # One fold per split — pairs use the same walk-forward dispatcher as
-    # single-leg strategies, so this is the same row-count check as the
-    # single-asset smoke (just over a different engine path under the hood).
     fold_lines = (run_dir / FOLD_RESULTS_JSONL).read_text().splitlines()
     assert len(fold_lines) == _N_SPLITS

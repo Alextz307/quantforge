@@ -35,8 +35,6 @@ if TYPE_CHECKING:
     from src.core.temporal import TrainingMetadata
     from src.orchestration.manifest import Manifest
 
-# Canonical filenames used by every model's save() / load(). Keeping them
-# together avoids silent drift when a format change touches multiple models.
 CONFIG_JSON = "config.json"
 WEIGHTS_JSON = "weights.json"
 METADATA_JSON = "metadata.json"
@@ -44,59 +42,41 @@ SCALER_JSON = "scaler.json"
 WEIGHTS_PT = "weights.pt"
 MODEL_UBJ = "model.ubj"
 ENDOG_NPY = "endog.npy"
-# Best-state checkpoints written mid-fit so a Ctrl+C between epochs / boosting
-# rounds leaves the best-so-far weights recoverable. Distinct filenames from
-# the canonical save outputs (``WEIGHTS_PT`` / ``MODEL_UBJ``) so a checkpoint
-# directory and a save directory can sit side-by-side without collision.
+# Mid-fit checkpoints written so a Ctrl+C between epochs / boosting rounds
+# leaves best-so-far weights recoverable. Distinct filenames from the
+# canonical save outputs so a checkpoint dir and a save dir can sit
+# side-by-side without collision.
 BEST_STATE_PT = "best_state.pt"
 BEST_ITERATION_UBJ = "best_iteration.ubj"
 
-# Canonical subdirectory names for composite save layouts. Centralized so a
-# strategy that persists a GARCH subdir and the GARCHPredictor it delegates to
-# can't disagree on the string. Adding a new leaf type? Add its subdir here.
 GARCH_SUBDIR = "garch"
 ARMA_SUBDIR = "arma"
 LSTM_SUBDIR = "lstm"
 CLASSIFIER_SUBDIR = "classifier"
 HYBRID_VOL_SUBDIR = "hybrid_vol"
 HYBRID_RETURN_SUBDIR = "hybrid_return"
-# Momentum strategy's feature-pipeline scaler sits at the strategy root.
 PIPELINE_SCALER_JSON = "pipeline_scaler.json"
 
-# Experiment-run layout (orchestration output alongside per-model save dirs).
 EXPERIMENT_MANIFEST_JSON = "manifest.json"
 FOLD_RESULTS_JSONL = "fold_results.jsonl"
 EXPERIMENT_CONFIG_YAML = "config.yaml"
 EXPERIMENT_METRICS_JSON = "metrics.json"
 EXPERIMENT_STRATEGY_SUBDIR = "strategy_state"
-# Per-fold mid-fit best-state snapshots land under ``<run>/checkpoints/fold_N/``
-# when ``Experiment.run(checkpoint=True)``. Walk-forward creates the per-fold
-# subdir; the leaf fit() call writes ``BEST_STATE_PT`` / ``BEST_ITERATION_UBJ``.
 EXPERIMENT_CHECKPOINTS_SUBDIR = "checkpoints"
 FOLD_DIR_PREFIX = "fold_"
 
-# Top-level subdirectories of ``experiment_results/``. Single source of truth
-# used by the CLI + the runner; renaming one without the other would orphan
-# artifacts under a stale path.
 RUNS_SUBDIR = "runs"
 HPO_SUBDIR = "hpo"
 COMPARISONS_SUBDIR = "comparisons"
 HOLDOUT_EVALS_SUBDIR = "holdout_evals"
-#: Per-invocation log files written by every persistent CLI subcommand
-#: (run, tune, compare, holdout-eval, study run, study report).
-#: Lets the user inspect a multi-day sweep after a dropped terminal or
-#: audit "what command produced these artifacts" months later.
 CLI_LOGS_SUBDIR = "cli_logs"
 
-# Holdout-eval bundle filenames under ``<store>/holdout_evals/<out_name>/``.
-# The bundle deliberately does NOT write a typed ``Manifest`` — the
-# convention is that only commands which CREATE an experiment write a
-# manifest (run / tune). Holdout-eval is a post-hoc evaluation that
-# REFERENCES the source run's manifest; its own provenance lands in the
-# self-describing ``holdout_eval.json`` payload below (carries the source
-# run id, kind, boundary, data hash, slippage, metrics, and the
-# ``is_holdout_eval: true`` marker so this artifact can never be confused
-# for a normal run by automated tooling).
+# Holdout-eval bundles deliberately skip the typed ``Manifest`` — only
+# commands that CREATE an experiment write one (run / tune). Holdout-eval
+# REFERENCES the source run's manifest, and its own provenance lives in
+# this payload (source id, kind, boundary, data hash, slippage, metrics,
+# and ``is_holdout_eval: true`` so automated tooling can't confuse this
+# artifact for a normal run).
 HOLDOUT_EVAL_JSON = "holdout_eval.json"
 
 
@@ -108,11 +88,9 @@ def ensure_model_dir(path: str | Path) -> Path:
     reused as-is.
     """
     p = Path(path)
-    # Try to create atomically. If ``path`` already exists, ``mkdir`` raises
-    # ``FileExistsError`` and we disambiguate (empty dir = reuse, non-empty =
-    # re-raise, file-at-path = NotADirectoryError). This collapses the old
-    # ``exists()/is_dir()/iterdir()/mkdir()`` check-then-act into one syscall
-    # for the fresh-path fast path and removes the TOCTOU window.
+    # Create atomically; on collision disambiguate. Collapses the old
+    # exists()/is_dir()/iterdir()/mkdir() check-then-act into one syscall
+    # on the fresh-path fast path and removes the TOCTOU window.
     try:
         p.mkdir(parents=True, exist_ok=False)
     except FileExistsError:
@@ -156,9 +134,6 @@ def frozen_params_to_json(
     raw: dict[str, object] = asdict(params)
     for key in omit:
         raw.pop(key, None)
-    # Python 3.7+ allows mutating dict values mid-iteration — we only rewrite
-    # existing keys, never add or remove, so ``.items()`` stays valid without
-    # materialising a ``list(...)`` snapshot.
     for key, value in raw.items():
         if isinstance(value, tuple):
             raw[key] = list(value)
@@ -224,9 +199,6 @@ def save_model_skeleton(
     return root
 
 
-# --- Scaler round-trip ------------------------------------------------------
-
-
 def save_standard_scaler(scaler: StandardScaler, path: str | Path) -> None:
     """Serialize a fitted ``StandardScaler`` to JSON.
 
@@ -247,7 +219,7 @@ def save_standard_scaler(scaler: StandardScaler, path: str | Path) -> None:
         )
     # ``n_samples_seen_`` is a scalar int when fit input has no NaNs, a
     # per-feature ndarray otherwise (the live path: feature pipeline emits
-    # leading warmup NaNs). Storing as a list serialises both shapes.
+    # leading warmup NaNs). Serialising as a list round-trips both shapes.
     payload: dict[str, object] = {
         "mean_": np.asarray(scaler.mean_, dtype=np.float64).tolist(),
         "scale_": np.asarray(scaler.scale_, dtype=np.float64).tolist(),
@@ -279,7 +251,6 @@ def load_standard_scaler(path: str | Path) -> StandardScaler:
     scaler.scale_ = np.asarray(json_io.get_float_list(raw, "scale_"), dtype=np.float64)
     scaler.var_ = np.asarray(json_io.get_float_list(raw, "var_"), dtype=np.float64)
     scaler.n_features_in_ = json_io.get_int(raw, "n_features_in_")
-    # Length-1 → scalar; length>1 → per-feature ndarray. Mirrors sklearn.
     samples_seen = json_io.get_int_list(raw, "n_samples_seen_")
     if len(samples_seen) == 1:
         scaler.n_samples_seen_ = samples_seen[0]

@@ -22,9 +22,8 @@ ZSCORE_WINDOW = 30
 LONG_SERIES_LEN = 500
 LONG_SERIES_SEED_A = 42
 LONG_SERIES_SEED_B = 99
-# pandas' rolling std and C++ Welford both run in fp64; the only divergence
-# source is ordering-of-operations in the Welford inner updates. 1e-10 covers
-# the residual slack comfortably for 500 bars of log-normal noise.
+# Welford-vs-naive ordering noise in fp64 is comfortably under 1e-10 for
+# 500 bars of log-normal noise.
 RSTD_PARITY_RTOL = 1e-10
 
 
@@ -66,7 +65,6 @@ class TestComputeZScore:
     def test_constant_series_is_nan(self) -> None:
         spread = np.full(10, 42.0, dtype=np.float64)
         got = qe.SpreadCalculator.compute_zscore(spread=spread, window=3)
-        # Leading 2 NaNs from incomplete window; subsequent bars NaN from 0-std.
         assert np.isnan(got).all()
 
     def test_matches_pandas_reference_on_random_walk(self) -> None:

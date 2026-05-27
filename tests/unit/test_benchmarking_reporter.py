@@ -48,7 +48,7 @@ def test_generate_full_report_without_baseline(tmp_path: Path) -> None:
     assert (out / "components.png").exists()
     assert (out / "summary.tex").exists()
     assert (out / "scaling_BM_RSI.png").exists()
-    assert not (out / "regression.png").exists()  # no baseline -> no regression plot
+    assert not (out / "regression.png").exists()
 
 
 def test_generate_full_report_with_baseline_emits_regression_artifacts(tmp_path: Path) -> None:
@@ -70,5 +70,4 @@ def test_plot_regression_comparison_skips_when_no_shared_benchmarks(tmp_path: Pa
     )
     BenchmarkReporter().generate_full_report(disjoint, tmp_path / "report", baseline=baseline)
     out = tmp_path / "report"
-    # Disjoint universe -> no regression artefacts (empty-stub PNGs would be invalid).
     assert not (out / "regression.png").exists()

@@ -34,19 +34,10 @@ if TYPE_CHECKING:
 
 _FloatArray = npt.NDArray[np.float64]
 
-# IID bootstrap draws for per-metric CIs. 2000 is sufficient for 2-decimal
-# stability of the 2.5 / 97.5 percentiles on the fold-count range we
-# realistically see (3-20 folds).
 _BOOTSTRAP_N_RESAMPLES = 2000
 
-# Hardcoded 95% CI matches the ``*_ci95_*`` field names on AggregateStats —
-# changing this would mean renaming a public field. Held as a constant so
-# the percentile_ci call below has a labeled argument instead of 0.95 magic.
 _BOOTSTRAP_CONFIDENCE = 0.95
 
-# Fixed seed so ``metrics.json`` is reproducible across invocations. Users
-# who want a different seed can call ``aggregate_folds(folds, rng=...)``
-# directly and emit to_dict() themselves.
 _DEFAULT_RNG_SEED = 42
 
 
@@ -223,8 +214,6 @@ def _mean_std_ci(
     if n == 1:
         return point, 0.0, point, point
     std = float(np.std(values, ddof=1))
-    # Any NaN in the sample propagates through bootstrap means — skip the
-    # work and report NaN bounds consistently with the point estimate.
     if not math.isfinite(point):
         return point, std, float("nan"), float("nan")
     idx = rng.integers(0, n, size=(_BOOTSTRAP_N_RESAMPLES, n))

@@ -16,7 +16,12 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { userCreateSchema, type UserCreateFormValues } from "@/lib/schemas/userCreate";
+import {
+  USER_PASSWORD_MAX,
+  USER_USERNAME_MAX,
+  userCreateSchema,
+  type UserCreateFormValues,
+} from "@/lib/schemas/userCreate";
 
 const EMPTY_FORM: UserCreateFormValues = { username: "", password: "", role: ROLE_USER };
 
@@ -67,14 +72,23 @@ export function UserList() {
             <div className="grid grid-cols-3 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="new-username">Username</Label>
-                <Input id="new-username" {...register("username")} />
+                <Input
+                  id="new-username"
+                  maxLength={USER_USERNAME_MAX}
+                  {...register("username")}
+                />
                 {errors.username && (
                   <p className="text-sm text-destructive">{errors.username.message}</p>
                 )}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="new-password">Password</Label>
-                <Input id="new-password" type="password" {...register("password")} />
+                <Input
+                  id="new-password"
+                  type="password"
+                  maxLength={USER_PASSWORD_MAX}
+                  {...register("password")}
+                />
                 {errors.password ? (
                   <p className="text-sm text-destructive">{errors.password.message}</p>
                 ) : (

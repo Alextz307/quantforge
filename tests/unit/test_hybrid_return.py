@@ -21,11 +21,10 @@ from tests.conftest import (
     make_synthetic_close_df,
 )
 
-# Synthetic data
 SYNTH_ROW_COUNT = 200
-FEATURE_RNG_SEED = 11  # arbitrary; differs from test_hybrid_volatility.py to vary fixture data
+# Different from test_hybrid_volatility.py so the two suites see different data.
+FEATURE_RNG_SEED = 11
 
-# Compact-model parameters (small for fast CI; not realistic for production)
 COMPACT_ARMA_P_MAX = 2
 COMPACT_ARMA_Q_MAX = 2
 COMPACT_LSTM_HIDDEN_DIM = 16
@@ -35,7 +34,6 @@ COMPACT_LSTM_EPOCHS = 3
 LSTM_EPOCHS_FOR_RESIDUAL_DIVERGENCE = 10
 HOURLY_LSTM_EPOCHS = 2
 
-# Numerical
 RESIDUAL_DIVERGENCE_ATOL = 1e-12
 
 
@@ -119,11 +117,10 @@ class TestHybridReturnModel:
 
         model = _fit_model(df, log_return_target, synthetic_feature_columns)
 
-        # Scaler stats finite — proves NaN didn't reach .fit_transform().
+        # Finite scaler stats prove NaN didn't reach .fit_transform().
         assert model._scaler is not None
         assert np.isfinite(model._scaler.mean_).all()
         assert np.isfinite(model._scaler.scale_).all()
-        # Predict still produces a series whose index matches the input.
         result = model.predict(hybrid_train_df)
         assert result.index.equals(hybrid_train_df.index)
 

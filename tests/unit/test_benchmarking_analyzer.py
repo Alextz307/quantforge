@@ -72,7 +72,6 @@ def test_detect_regressions_skips_benchmarks_only_in_one_run() -> None:
         )
     )
     reports = BenchmarkAnalyzer().detect_regressions(current, baseline)
-    # Only the shared benchmark gets a report; the two orphans are silently skipped.
     assert [r.name for r in reports] == ["BM_RSI/10000"]
 
 
@@ -102,7 +101,6 @@ def test_analyze_scaling_identifies_linear() -> None:
 
 
 def test_analyze_scaling_identifies_quadratic() -> None:
-    # y = x^2 at x = 10, 100, 1000 → 100, 10000, 1000000
     run = make_benchmark_run(
         (
             make_benchmark_result("BM_Q/10", n=10, ns=100.0),

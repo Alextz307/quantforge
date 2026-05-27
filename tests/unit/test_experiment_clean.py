@@ -31,7 +31,6 @@ def _populate_store(store_root: Path, dirs: tuple[str, ...]) -> None:
     store_root.mkdir(parents=True, exist_ok=True)
     for name in dirs:
         (store_root / name).mkdir()
-        # Add a sentinel file so the size calculator returns nonzero.
         (store_root / name / "stale.txt").write_text("stale", encoding="utf-8")
 
 
@@ -71,7 +70,6 @@ def test_apply_clean_wipes_safe_candidates_keeping_empty_dirs(tmp_path: Path) ->
 
 def test_apply_clean_refuses_when_tracked_files_present(tmp_path: Path) -> None:
     """A directory with a git-tracked file forces a hard error from ``apply``."""
-    # Bootstrap a git repo on tmp_path so ls-files is meaningful.
     subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)
     subprocess.run(["git", "config", "user.email", "x@y.z"], cwd=tmp_path, check=True)
     subprocess.run(["git", "config", "user.name", "x"], cwd=tmp_path, check=True)
@@ -88,7 +86,6 @@ def test_apply_clean_refuses_when_tracked_files_present(tmp_path: Path) -> None:
     )
     subprocess.run(["git", "commit", "-q", "-m", "track"], cwd=tmp_path, check=True)
 
-    # Add an ephemeral dir alongside.
     (store / "_ephemeral").mkdir()
     (store / "_ephemeral" / "x.txt").write_text("x", encoding="utf-8")
 
@@ -100,7 +97,6 @@ def test_apply_clean_refuses_when_tracked_files_present(tmp_path: Path) -> None:
 
     with pytest.raises(ValueError, match="git-tracked"):
         apply_clean(plan)
-    # Refused dir must remain on disk after the failed apply.
     assert (store / "committed_dir").is_dir()
 
 

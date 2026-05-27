@@ -42,7 +42,7 @@ class _LyingStrategy(IStrategy):
         self._training_metadata = full_panel_metadata
 
     def train(self, train_data: pd.DataFrame, **kwargs: object) -> None:
-        pass  # metadata is preset in __init__
+        pass
 
     def generate_signals(self, data: pd.DataFrame) -> pd.Series:
         return pd.Series(0.0, index=data.index, name="lying_signal")

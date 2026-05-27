@@ -30,9 +30,6 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 _PROGRESS_LOG_INTERVAL = 10
-# XGBClassifier names the validation eval set ``"validation_0"`` when a single
-# eval_set is passed to .fit() — checkpoint saves are gated on improvements to
-# this set so train-set monotone improvement doesn't trigger a save every round.
 _VALIDATION_EVAL_NAME = "validation_0"
 
 
@@ -58,14 +55,8 @@ class _ProgressAndCheckpointCallback(xgb.callback.TrainingCallback):
         super().__init__()
         self._log_interval = log_interval
         self._checkpoint_path = checkpoint_path
-        # Lower-is-better: track the lowest seen validation value per metric.
-        # Only validation entries land here — train entries don't gate saves
-        # and their best is unused, so the data_name dimension is dropped.
         self._best: dict[str, float] = {}
 
-    # ``model`` is typed ``Any`` upstream in XGBoost (Booster | CVPack) — we
-    # must mirror that to satisfy LSP. We only call ``save_model`` which both
-    # variants implement.
     def after_iteration(
         self,
         model: Any,
@@ -74,19 +65,13 @@ class _ProgressAndCheckpointCallback(xgb.callback.TrainingCallback):
     ) -> bool:
         val_improved = False
         should_log = (epoch + 1) % self._log_interval == 0
-        # Build the human-readable "data-metric=value" parts only on log
-        # rounds so non-log rounds don't pay for the f-string formatting.
         latest: list[str] = []
         for data_name, metrics in evals_log.items():
             is_validation = data_name == _VALIDATION_EVAL_NAME
-            # Non-validation entries are tracked only to surface them in the
-            # log line — skip them entirely on quiet rounds since save gating
-            # depends on validation only.
             if not is_validation and not should_log:
                 continue
             for metric_name, history in metrics.items():
                 last = history[-1]
-                # ``cv`` returns (mean, std) tuples; standard fit returns floats.
                 value = float(last[0]) if isinstance(last, tuple) else float(last)
                 if should_log:
                     latest.append(f"{data_name}-{metric_name}={value:.4f}")
@@ -100,11 +85,8 @@ class _ProgressAndCheckpointCallback(xgb.callback.TrainingCallback):
             logger.info("round %d %s", epoch + 1, " ".join(latest))
 
         if val_improved and self._checkpoint_path is not None:
-            # ``str()`` because XGBoost's save_model accepts only str paths.
             model.save_model(str(self._checkpoint_path / BEST_ITERATION_UBJ))
 
-        # Returning False signals "do not stop early" — XGBoost's own
-        # early-stopping callback handles termination separately.
         return False
 
 
@@ -202,7 +184,6 @@ class DirectionalClassifier(IClassifier):
         y_val = target.iloc[split_idx:]
 
         if len(x_val) < 2:
-            # Not enough data for validation — train on all data without early stopping
             self._model.fit(features, target, verbose=False)
         else:
             self._model.set_params(early_stopping_rounds=self._early_stopping_rounds)
@@ -210,8 +191,6 @@ class DirectionalClassifier(IClassifier):
                 log_interval=_PROGRESS_LOG_INTERVAL,
                 checkpoint_path=checkpoint_path,
             )
-            # XGBClassifier expects callbacks via set_params, not fit(); the
-            # fit-time keyword is reserved for the deprecated XGBoost-1.x form.
             self._model.set_params(callbacks=[callback])
             self._model.fit(
                 x_train,
@@ -276,16 +255,10 @@ class DirectionalClassifier(IClassifier):
         is re-resolved on load via ``select_xgboost_device()``.
         """
         metadata = self._assert_fitted_with_metadata()
-        # ``_model`` is set atomically with metadata in fit() — assert for mypy.
         assert self._model is not None
         model = self._model
 
         def write_weights(root: Path) -> None:
-            # XGBClassifier.save_model requires ``_estimator_type`` (a sklearn-side
-            # attribute that's inconsistently populated across xgboost versions).
-            # The booster-level save is stable: ``XGBClassifier.load_model`` accepts
-            # a booster-only UBJ on the reconstruct side. ``best_iteration`` is
-            # baked into the booster itself, so no separate weights.json is needed.
             model.get_booster().save_model(str(root / MODEL_UBJ))
 
         save_model_skeleton(
@@ -333,9 +306,6 @@ class DirectionalClassifier(IClassifier):
         model = xgb.XGBClassifier(device=instance._device)
         model.load_model(str(root / MODEL_UBJ))
         instance._model = model
-        # ``best_iteration`` is only populated on the booster when early
-        # stopping fired during fit. ``hasattr`` already swallows the
-        # ``AttributeError`` XGBoost raises otherwise, so no try/except needed.
         instance._best_iteration = (
             int(model.best_iteration)
             if hasattr(model, "best_iteration")

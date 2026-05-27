@@ -54,7 +54,7 @@ def test_baseline_refuses_to_overwrite_without_flag(tmp_path: Path) -> None:
     store.save_baseline(run, BASELINE_NAME)
     with pytest.raises(FileExistsError, match=BASELINE_NAME):
         store.save_baseline(run, BASELINE_NAME)
-    store.save_baseline(run, BASELINE_NAME, overwrite=True)  # no raise
+    store.save_baseline(run, BASELINE_NAME, overwrite=True)
 
 
 def test_load_missing_baseline_raises(tmp_path: Path) -> None:

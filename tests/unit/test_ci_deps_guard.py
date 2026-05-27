@@ -1,6 +1,8 @@
-"""Tests for the CI/pyproject dependency drift guard."""
-# Long YAML/TOML fixture lines mirror real CI shapes verbatim — wrapping them
-# breaks the regex anchoring the guard relies on.
+"""Tests for the CI/pyproject dependency drift guard.
+
+Long YAML/TOML fixture lines mirror real CI shapes verbatim — wrapping them
+breaks the regex anchoring the guard relies on.
+"""
 # ruff: noqa: E501
 
 from __future__ import annotations
@@ -15,9 +17,8 @@ CI_YAML = REPO_ROOT / ".github" / "workflows" / "ci.yml"
 
 guard = load_script_module(GUARD_SCRIPT, "check_ci_deps")
 
-# Minimal synthetic YAML exercising the same `python-test:` → `run: pip install …`
-# structure as the real workflow. Kept here to avoid depending on the repo's
-# evolving runtime dep list.
+# Synthetic YAML mirrors the real workflow's `python-test:` → `run: pip install …`
+# shape; inlined here so the test doesn't track the live dep list.
 _FAKE_CI_YAML = """\
 name: CI
 jobs:
@@ -99,10 +100,8 @@ class TestFindMissingTypeStubs:
             guard.find_missing_type_stubs(_FAKE_PYPROJECT_ALL_PRESENT, ci_without_job)
 
     def test_non_stub_dev_deps_are_ignored(self) -> None:
-        # `mypy` and `ruff` are dev deps but NOT type stubs — should not be flagged
-        # even though they aren't in the CI lint pip install line. This test
-        # exists because the check_ci_deps script only validates ``types-*`` and
-        # ``*-stubs`` packages; tools like mypy / ruff are installed elsewhere.
+        # check_ci_deps only validates ``types-*`` / ``*-stubs`` packages; other
+        # dev tools like mypy / ruff are installed elsewhere in CI.
         pyproject = (
             '[project]\nname = "x"\ndependencies = []\n'
             '[project.optional-dependencies]\ndev = ["mypy", "ruff"]\n'

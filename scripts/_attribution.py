@@ -101,17 +101,13 @@ def _prompt_and_create(conn: sqlite3.Connection, username: str) -> int:
     """
     click.echo(f"webapp user '{username}' not found.")
     if not click.confirm(f"Create new webapp user '{username}'?", default=False):
-        raise click.ClickException(
-            f"webapp user '{username}' does not exist and was not created"
-        )
+        raise click.ClickException(f"webapp user '{username}' does not exist and was not created")
     password = getpass.getpass("Password: ")
     confirm = getpass.getpass("Confirm:  ")
     if password != confirm:
         raise click.ClickException("passwords do not match")
     if len(password) < MIN_PASSWORD_LENGTH:
-        raise click.ClickException(
-            f"password must be at least {MIN_PASSWORD_LENGTH} characters"
-        )
+        raise click.ClickException(f"password must be at least {MIN_PASSWORD_LENGTH} characters")
     user = create_user(
         conn,
         username=username,
@@ -123,9 +119,7 @@ def _prompt_and_create(conn: sqlite3.Connection, username: str) -> int:
     return int(user.id)
 
 
-def resolve_or_create_attributing_user(
-    conn: sqlite3.Connection, username: str
-) -> int:
+def resolve_or_create_attributing_user(conn: sqlite3.Connection, username: str) -> int:
     """Look up the user id for ``username``; auto-create on TTY only.
 
     Returns the user_id ready to be stamped onto a synthetic ``jobs`` row.

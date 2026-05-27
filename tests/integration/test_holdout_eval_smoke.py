@@ -30,9 +30,7 @@ from src.core.persistence import (
 from tests.conftest import make_mini_experiment_fixture
 
 _TICKER = "MINI"
-# 30% holdout — wide enough to backtest meaningfully, tight enough to
-# leave dev rich. The shared fixture defaults to 15% (the run-smoke
-# baseline); holdout-eval needs more bars to exercise the full pipeline.
+# Holdout-eval needs more bars than the run-smoke fixture's 15% baseline.
 _HOLDOUT_PCT = 0.30
 
 pytestmark = pytest.mark.skipif(
@@ -94,7 +92,6 @@ def test_holdout_eval_produces_full_artifact_tree(tmp_path: Path) -> None:
     assert payload["source_kind"] == "run"
     assert payload["source_id"] == run_dir.name
 
-    # Cross-check with the source manifest: holdout_start + data_hash must match.
     source_manifest = json.loads((run_dir / EXPERIMENT_MANIFEST_JSON).read_text())
     assert payload["holdout_start"] == source_manifest["holdout_start"]
     assert payload["data_hash"] == source_manifest["data_hash"]
@@ -105,7 +102,6 @@ def test_holdout_eval_produces_full_artifact_tree(tmp_path: Path) -> None:
     assert isinstance(payload["equity_curve"], list)
     assert len(payload["equity_curve"]) == payload["n_holdout_bars"]
 
-    # Reporter artifacts (default --report).
     assert (bundle_dir / "tables" / "holdout_metrics.tex").is_file()
     assert (bundle_dir / "plots" / "holdout_equity.png").is_file()
     assert (bundle_dir / "plots" / "holdout_equity.svg").is_file()
@@ -118,11 +114,11 @@ def test_holdout_eval_refuses_when_data_hash_drifts(tmp_path: Path) -> None:
 
     run_dir = _invoke_run(config_path, store)
 
-    # Tamper with the CSV — flip one close-price bar so the fingerprint shifts
-    # but the row count + DatetimeIndex still load cleanly.
+    # Flip one close-price bar so the fingerprint shifts but the row count
+    # + DatetimeIndex still load cleanly.
     csv_path = tmp_path / "csv_data" / f"{_TICKER}.csv"
     contents = csv_path.read_text().splitlines()
-    # Mutate row 50's close column (index 0=date, 1=open, 2=high, 3=low, 4=close).
+    # Row 50 columns: 0=date, 1=open, 2=high, 3=low, 4=close.
     parts = contents[50].split(",")
     parts[4] = str(float(parts[4]) + 1.5)
     contents[50] = ",".join(parts)
@@ -146,7 +142,6 @@ def test_holdout_eval_refuses_when_data_hash_drifts(tmp_path: Path) -> None:
 def test_holdout_eval_refuses_when_source_has_no_holdout(tmp_path: Path) -> None:
     """A dev run with holdout_pct=0 has manifest.holdout_start=None — the eval must refuse."""
     config_path = _write_fixture(tmp_path)
-    # Rewrite the YAML with holdout_pct=0.0 — no reservation.
     payload = yaml.safe_load(config_path.read_text())
     payload["validation"]["holdout_pct"] = 0.0
     config_path.write_text(yaml.safe_dump(payload))

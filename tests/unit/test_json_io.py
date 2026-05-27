@@ -141,17 +141,18 @@ class TestAppendJsonl:
 
 
 class TestGetScalars:
-    # Sample payload containing one of each expected and one wrong-type value
-    # per field. Tests below pull from this single source of truth so the
-    # happy-path + error-path wiring is obvious.
+    """Single sample payload feeds every happy + error-path test below."""
+
     SAMPLE: dict[str, object] = {
         "an_int": 7,
         "a_float": 1.5,
         "a_str": "hello",
         "a_list": [1, 2, 3],
         "str_list": ["a", "b"],
-        "float_list": [0.1, 2, 3.5],  # mixed int+float, should coerce
-        "a_bool": True,  # bool is int subclass — helpers must reject
+        # Mixed int+float (should coerce); bool is an int subclass that the
+        # narrowing helpers must reject when an int/float is required.
+        "float_list": [0.1, 2, 3.5],
+        "a_bool": True,
     }
 
     def test_get_int_happy(self) -> None:
@@ -173,7 +174,6 @@ class TestGetScalars:
         assert json_io.get_float(self.SAMPLE, "a_float") == 1.5
 
     def test_get_float_accepts_int(self) -> None:
-        # Integers are valid JSON numbers; we coerce to float.
         assert json_io.get_float(self.SAMPLE, "an_int") == 7.0
 
     def test_get_float_rejects_bool(self) -> None:
@@ -195,8 +195,8 @@ class TestGetScalars:
         assert json_io.get_bool(self.SAMPLE, "a_bool") is True
 
     def test_get_bool_rejects_int(self) -> None:
-        # bool is an int subclass but int is NOT a bool subclass — the helper
-        # must reject integer-typed JSON values even when they'd coerce to True.
+        # bool is an int subclass but the helper must still reject ints —
+        # otherwise an integer-typed JSON value silently coerces to True.
         with pytest.raises(ValueError, match="must be a bool"):
             json_io.get_bool(self.SAMPLE, "an_int")
 
@@ -207,8 +207,7 @@ class TestGetScalars:
 
 class TestGetLists:
     def test_rejects_non_list_via_typed_wrapper(self) -> None:
-        # Every typed list helper (int/float/str) routes through the same
-        # ``_get_list`` guard, so we exercise it via one of them.
+        # Every typed list helper routes through the same ``_get_list`` guard.
         with pytest.raises(ValueError, match="must be a list"):
             json_io.get_float_list({"x": 7}, "x")
 

@@ -45,11 +45,6 @@ def _user(db_conn: sqlite3.Connection, username: str) -> UserPublic:
     return create_user(db_conn, username=username, password=_USER_PASSWORD, role=Role.USER)
 
 
-# ---------------------------------------------------------------------------
-# validate_universe_spec_text
-# ---------------------------------------------------------------------------
-
-
 def test_validate_happy_path() -> None:
     result = validate_universe_spec_text(VALID_UNIVERSE_YAML)
     assert result.valid is True
@@ -83,11 +78,6 @@ def test_validate_missing_required_field() -> None:
     assert any("data" in err.loc for err in result.errors)
 
 
-# ---------------------------------------------------------------------------
-# save_upload / get_upload / list_uploads
-# ---------------------------------------------------------------------------
-
-
 def test_save_persists_row_and_file(db_conn: sqlite3.Connection, tmp_path: Path) -> None:
     alice = _user(db_conn, "alice")
     detail = save_upload(
@@ -112,7 +102,7 @@ def test_save_invalid_yaml_raises(db_conn: sqlite3.Connection, tmp_path: Path) -
             db_conn,
             user=alice,
             slug="bad",
-            yaml_text="validation: {}\n",  # missing required ``data``
+            yaml_text="validation: {}\n",
             uploads_root=tmp_path,
             config_root=tmp_path / "config",
         )
@@ -222,11 +212,6 @@ def test_get_upload_other_users_returns_not_found(
     )
     with pytest.raises(UniverseSpecUploadNotFoundError):
         get_upload(db_conn, user=bob, slug="u")
-
-
-# ---------------------------------------------------------------------------
-# soft_delete_upload + tombstone reuse
-# ---------------------------------------------------------------------------
 
 
 def test_soft_delete_removes_file_and_row(

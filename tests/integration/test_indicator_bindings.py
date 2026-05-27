@@ -30,38 +30,30 @@ from tests.conftest import make_synthetic_close_df, make_synthetic_ohlcv_df
 
 F64Array = npt.NDArray[np.float64]
 
-# ───── Tolerances ─────
 EXACT_TOL = 1e-10
 RSI_REFERENCE_TOL = 1e-3
 SINGLE_BAR_TOL = 1e-10
 
-# ───── RSI constants ─────
 RSI_DEFAULT_PERIOD = 14
 RSI_HAND_PERIOD = 3
 RSI_HAND_PRICES = [10.0, 11.0, 12.0, 11.0, 13.0, 14.0, 12.0, 15.0]
-# Hand-computed Wilder's RSI for the series above (mirrors the C++ test):
-#   RSI[3] = 66.6667 (deltas +1,+1,-1 → avg_gain=2/3, avg_loss=1/3)
-#   RSI[4] = 83.3333 (Wilder smoothing carries state forward)
 RSI_EXPECTED_AT_3 = 66.6667
 RSI_EXPECTED_AT_4 = 83.3333
 RSI_BOUNDED_MIN = 0.0
 RSI_BOUNDED_MAX = 100.0
 
-# ───── MACD constants ─────
 MACD_FAST = 12
 MACD_SLOW = 26
 MACD_SIGNAL = 9
-MACD_WARMUP = MACD_SLOW - 1  # macd_line first valid at index slow-1
+MACD_WARMUP = MACD_SLOW - 1
 MACD_SIGNAL_WARMUP = MACD_WARMUP + (MACD_SIGNAL - 1)
 
-# ───── Bollinger constants ─────
 BB_PERIOD = 20
 BB_K = 2.0
 BB_SMALL_PERIOD = 5
 BB_WARMUP = BB_PERIOD - 1
 BB_SMALL_WARMUP = BB_SMALL_PERIOD - 1
 
-# ───── Parkinson / Garman-Klass constants ─────
 GK_DEFAULT_WINDOW = 22
 PK_DEFAULT_WINDOW = 22
 GK_SMALL_WINDOW = 5
@@ -73,20 +65,12 @@ SINGLE_BAR_HIGH = 110.0
 SINGLE_BAR_LOW = 90.0
 SINGLE_BAR_CLOSE = 105.0
 
-# ───── GIL-release smoke test ─────
 GIL_STRESS_THREAD_COUNT = 4
 GIL_STRESS_SERIES_LEN = 20_000
 GIL_STRESS_ITERATIONS_PER_THREAD = 3
-# Heuristic upper bound for 4 × 3 × 20k RSI computations with GIL released.
-# A serial run on the dev machine completes in <100ms; 10s gives ample room
-# for slow CI runners. A busted GIL-release (e.g. deadlock, data race) would
-# hang indefinitely — this test would time out pytest's default hang check.
+# Serial run completes in <100ms; 10s allows for slow CI. A busted
+# GIL-release (deadlock, data race) would hang past this timeout.
 GIL_STRESS_TIMEOUT_SECONDS = 10.0
-
-
-# ════════════════════════════════════════════════════════════════
-# RSI
-# ════════════════════════════════════════════════════════════════
 
 
 class TestRSIBinding:
@@ -96,7 +80,6 @@ class TestRSIBinding:
         assert r.warmup_period == RSI_DEFAULT_PERIOD
 
     def test_default_period(self) -> None:
-        # Default ctor should use period=14.
         assert qe.RSI().warmup_period == RSI_DEFAULT_PERIOD
 
     def test_invalid_period_raises(self) -> None:
@@ -124,11 +107,6 @@ class TestRSIBinding:
         valid = out[RSI_DEFAULT_PERIOD:]
         assert (valid >= RSI_BOUNDED_MIN).all()
         assert (valid <= RSI_BOUNDED_MAX).all()
-
-
-# ════════════════════════════════════════════════════════════════
-# MACD
-# ════════════════════════════════════════════════════════════════
 
 
 def _pandas_macd(
@@ -166,13 +144,12 @@ class TestMACDBinding:
         with pytest.raises(ValueError, match="MACD"):
             qe.MACD(0, MACD_SLOW, MACD_SIGNAL)
         with pytest.raises(ValueError, match="MACD"):
-            qe.MACD(MACD_SLOW, MACD_FAST, MACD_SIGNAL)  # fast >= slow
+            qe.MACD(MACD_SLOW, MACD_FAST, MACD_SIGNAL)
 
     def test_compute_parity_with_pandas_ewm(self) -> None:
         close = make_synthetic_close_df()["close"].to_numpy()
         out = qe.MACD(MACD_FAST, MACD_SLOW, MACD_SIGNAL).compute(close)
         ref_macd, _, _ = _pandas_macd(close, MACD_FAST, MACD_SLOW, MACD_SIGNAL)
-        # Warmup bars are NaN in our output; pandas emits real values there.
         np.testing.assert_allclose(
             out[MACD_WARMUP:], ref_macd[MACD_WARMUP:], rtol=0, atol=EXACT_TOL
         )
@@ -203,7 +180,6 @@ class TestMACDBinding:
         m = qe.MACD(MACD_FAST, MACD_SLOW, MACD_SIGNAL)
         line = m.compute(close)
         full = m.compute_all(close)
-        # Both paths produce the same macd_line (differ only in temp allocations).
         both_nan = np.isnan(line) & np.isnan(full.macd_line)
         both_valid = ~np.isnan(line) & ~np.isnan(full.macd_line)
         assert (both_nan | both_valid).all()
@@ -219,15 +195,9 @@ class TestMACDBinding:
         assert result.histogram.shape == close.shape
 
 
-# ════════════════════════════════════════════════════════════════
-# BollingerBands
-# ════════════════════════════════════════════════════════════════
-
-
 class TestBollingerBandsBinding:
     def test_name_and_warmup(self) -> None:
         bb = qe.BollingerBands(BB_PERIOD, BB_K)
-        # Trailing-zero-trimmed double formatting (2.0 → "2.0", not "2.000000").
         assert bb.name == f"BB({BB_PERIOD},2.0)"
         assert bb.warmup_period == BB_WARMUP
 
@@ -274,14 +244,8 @@ class TestBollingerBandsBinding:
         bb = qe.BollingerBands(BB_PERIOD, BB_K)
         mid = bb.compute(close)
         full = bb.compute_all(close)
-        # compute() returns the middle band (SMA), identical to compute_all().mid
         both_valid = ~np.isnan(mid) & ~np.isnan(full.mid)
         np.testing.assert_allclose(mid[both_valid], full.mid[both_valid], rtol=0, atol=EXACT_TOL)
-
-
-# ════════════════════════════════════════════════════════════════
-# Parkinson
-# ════════════════════════════════════════════════════════════════
 
 
 class TestParkinsonBinding:
@@ -331,11 +295,6 @@ class TestParkinsonBinding:
             )
 
 
-# ════════════════════════════════════════════════════════════════
-# GarmanKlass
-# ════════════════════════════════════════════════════════════════
-
-
 class TestGarmanKlassBinding:
     def test_name_and_warmup(self) -> None:
         gk = qe.GarmanKlass(GK_DEFAULT_WINDOW)
@@ -374,17 +333,11 @@ class TestGarmanKlassBinding:
 
     def test_high_less_than_low_raises(self) -> None:
         o = np.array([SINGLE_BAR_OPEN], dtype=np.float64)
-        # Flip high/low so high < low at index 0.
         h = np.array([SINGLE_BAR_LOW], dtype=np.float64)
         lo = np.array([SINGLE_BAR_HIGH], dtype=np.float64)
         c = np.array([SINGLE_BAR_CLOSE], dtype=np.float64)
         with pytest.raises(ValueError, match="high"):
             qe.GarmanKlass(SINGLE_BAR_WINDOW).compute(o, h, lo, c)
-
-
-# ════════════════════════════════════════════════════════════════
-# Binding-layer: f32 forcecast across all five indicators
-# ════════════════════════════════════════════════════════════════
 
 
 class TestForcecastCoercion:
@@ -439,11 +392,6 @@ class TestForcecastCoercion:
         assert out.dtype == np.float64
 
 
-# ════════════════════════════════════════════════════════════════
-# GIL release: observable concurrency
-# ════════════════════════════════════════════════════════════════
-
-
 class TestGILRelease:
     """The plan mandates `gil_scoped_release` on every new compute method so
     that Python-side parallelism (Optuna HPO, pytest-xdist) can actually run
@@ -478,11 +426,6 @@ class TestGILRelease:
         assert len(results) == expected_count
         for out in results:
             np.testing.assert_array_equal(out, expected)
-
-
-# ════════════════════════════════════════════════════════════════
-# Zero-copy capsule lifetime
-# ════════════════════════════════════════════════════════════════
 
 
 def _macd_field(field: str) -> npt.NDArray[np.float64]:
@@ -530,9 +473,8 @@ def _backtest_equity_curve(_field: str) -> npt.NDArray[np.float64]:
     ],
 )
 def test_zero_copy_view_survives_parent_gc(view_factory: object, field: str) -> None:
-    # The zero-copy binding returns numpy views whose numpy-base holds a
-    # strong ref to the parent wrapper. The factory drops its local handle
-    # on return; forcing GC must not dangle the view's storage.
+    """The numpy view's base must keep the C++ parent alive after the factory
+    drops its local handle — otherwise forcing GC would dangle the storage."""
     import gc
 
     assert callable(view_factory)

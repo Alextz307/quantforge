@@ -18,8 +18,6 @@ from src.core.persistence import (
     save_standard_scaler,
 )
 
-# Fixture scale constants — kept small; the helpers are pure IO and don't need
-# large inputs to exercise the round-trip.
 N_SAMPLES = 20
 N_FEATURES = 3
 SCALER_MEAN_SEED = 42
@@ -36,7 +34,6 @@ class TestEnsureModelDir:
     def test_reuses_empty_dir(self, tmp_path: Path) -> None:
         target = tmp_path / "empty"
         target.mkdir()
-        # Must not raise; empty existing dir is a valid save target.
         ensure_model_dir(target)
 
     def test_raises_on_non_empty_dir(self, tmp_path: Path) -> None:
@@ -68,7 +65,6 @@ class TestStandardScalerRoundTrip:
         np.testing.assert_array_equal(loaded.mean_, scaler.mean_)
         np.testing.assert_array_equal(loaded.scale_, scaler.scale_)
         np.testing.assert_array_equal(loaded.var_, scaler.var_)
-        # The decisive round-trip check: transform output must match.
         np.testing.assert_allclose(
             loaded.transform(data),
             scaler.transform(data),
@@ -98,8 +94,6 @@ class TestStandardScalerRoundTrip:
         loaded = load_standard_scaler(path)
 
         np.testing.assert_array_equal(loaded.feature_names_in_, scaler.feature_names_in_)
-        # Decisive check: calling transform() on a named DataFrame must not
-        # emit any warning — the restored feature_names_in_ satisfies sklearn.
         import warnings
 
         with warnings.catch_warnings():
@@ -116,14 +110,11 @@ class TestStandardScalerRoundTrip:
         """
         rng = np.random.default_rng(SCALER_MEAN_SEED)
         data = rng.normal(0.0, 1.0, size=(N_SAMPLES, N_FEATURES))
-        # Punch a different number of NaNs into each column so sklearn's
-        # per-feature counts diverge — defeats any "all features saw the
-        # same N samples" shortcut.
+        # Different NaN counts per column force sklearn into the per-feature
+        # ndarray form; otherwise the test wouldn't exercise the bug shape.
         data[0, 0] = np.nan
         data[0:2, 1] = np.nan
         scaler = StandardScaler().fit(data)
-        # Precondition for the regression: this fit must produce the array
-        # form, otherwise the test isn't exercising the bug shape.
         assert isinstance(scaler.n_samples_seen_, np.ndarray)
         assert scaler.n_samples_seen_.shape == (N_FEATURES,)
 

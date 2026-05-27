@@ -208,9 +208,6 @@ def _build_study_dir(
     return study_dir
 
 
-# --- happy path -------------------------------------------------------------
-
-
 def test_consolidate_study_full_tree(tmp_path: Path) -> None:
     """All artifact kinds present → all maps populated."""
     legs = [
@@ -243,8 +240,6 @@ def test_consolidate_study_full_tree(tmp_path: Path) -> None:
     assert set(report.strategies) == {"StratA", "StratB"}
     assert set(report.universes) == {"uni1", "uni2"}
     assert len(report.per_leg_aggregate) == 4
-    # Sharpe aggregation should land near the mean of the input sharpes
-    # within bootstrap noise tolerance — exact equality is not the point.
     strat_a_uni1 = report.per_leg_aggregate[("StratA", "uni1")]
     assert strat_a_uni1.n_folds == 3
     assert strat_a_uni1.sharpe_mean == pytest.approx(
@@ -287,9 +282,6 @@ def test_consolidate_study_missing_state_raises(tmp_path: Path) -> None:
         consolidate_study(empty_dir)
 
 
-# --- HoldoutSnapshot --------------------------------------------------------
-
-
 def test_holdout_snapshot_round_trip(tmp_path: Path) -> None:
     """Round-trip a real ``HoldoutEvalResult.to_dict()`` payload."""
     leg_dir = tmp_path / "holdout"
@@ -306,9 +298,6 @@ def test_holdout_snapshot_rejects_non_holdout_payload(tmp_path: Path) -> None:
     json_io.write(bad, {"is_holdout_eval": False, "metrics": {}})
     with pytest.raises(ValueError, match="not a holdout-eval payload"):
         HoldoutSnapshot.from_holdout_json(bad)
-
-
-# --- helpers ----------------------------------------------------------------
 
 
 def _load_folds(study_dir: Path, run_id: str) -> tuple[FoldRecord, ...]:

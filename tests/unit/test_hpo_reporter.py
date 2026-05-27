@@ -58,7 +58,6 @@ class TestHPOReporterArtifacts:
         study = _run_study(n_trials=1)
         HPOReporter().generate_full_report(study, tmp_path)
         assert not (tmp_path / "plots" / "param_importance.png").exists()
-        # Convergence still written — one completed trial is enough for that plot.
         assert (tmp_path / "plots" / "convergence.png").is_file()
 
     def test_empty_study_produces_no_plots(self, tmp_path: Path) -> None:
@@ -88,5 +87,4 @@ class TestHPOReporterIgnoresFailedTrials:
 
         study.optimize(good_objective, n_trials=2)
         HPOReporter().generate_full_report(study, tmp_path)
-        # Only COMPLETE trials should appear in convergence — failed trial skipped.
         assert (tmp_path / "plots" / "convergence.png").is_file()

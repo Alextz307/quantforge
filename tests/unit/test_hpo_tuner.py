@@ -39,7 +39,6 @@ _SPY_DATA = {
     "end": "2024-01-01",
     "interval": "daily",
 }
-# Peak objective at window=30 — tuner should favour trials near it.
 _TARGET_WINDOW = 30
 _SHARPE_PENALTY_PER_UNIT = 0.05
 
@@ -100,7 +99,6 @@ def mocked_tuner_env(
         return _FakeExperiment(experiment_id=f"fake_exp_{counter['n']}")
 
     def _fake_aggregate(folds: tuple[object, ...]) -> AggregateStats:
-        # Peaks at _TARGET_WINDOW — tuner should pick trials near it.
         trial_cfg_window = _window_for_trial(counter["n"])
         sharpe = 1.0 - abs(trial_cfg_window - _TARGET_WINDOW) * _SHARPE_PENALTY_PER_UNIT
         counter["n"] += 1
@@ -116,8 +114,8 @@ def mocked_tuner_env(
 
 
 def _window_for_trial(n: int) -> int:
-    # Deterministic rotation across the AdaptiveBollinger window search space
-    # [10, 50] — gives monotone coverage around the peak.
+    """Deterministic rotation across the AdaptiveBollinger window search space
+    [10, 50] giving monotone coverage around the peak."""
     return 10 + (n * 5) % 41
 
 
@@ -133,7 +131,6 @@ class TestStrategyTunerSmoke:
         )
         study = tuner.run()
         assert len(study.trials) == 3
-        # All trials COMPLETE: objective returned a float.
         completed = [t for t in study.trials if t.state == optuna.trial.TrialState.COMPLETE]
         assert len(completed) == 3
 
@@ -179,14 +176,12 @@ class TestStrategyTunerBestConfig:
 
         best_path = tuner.study_dir / BEST_CONFIG_YAML_NAME
         assert best_path.is_file()
-        # The YAML must still round-trip as a valid ExperimentConfig.
         import yaml
 
         with best_path.open() as f:
             raw = yaml.safe_load(f)
         reloaded = ExperimentConfig.model_validate(raw)
         assert reloaded.strategy.name == "AdaptiveBollinger"
-        # best_config keeps the original config name (not the trial suffix).
         assert reloaded.name == "tuner_test"
 
     def test_trials_jsonl_line_per_trial(
@@ -218,7 +213,7 @@ class TestStrategyTunerResume:
         first.run()
         assert (first.study_dir / TRIALS_JSONL_NAME).is_file()
 
-        mocked_tuner_env()  # reset fake metrics counter
+        mocked_tuner_env()
         second = StrategyTuner(
             experiment_cfg=cfg,
             hpo_cfg=_hpo_cfg("resume", n_trials=3),
@@ -241,9 +236,8 @@ class TestStrategyTunerPruning:
     ) -> None:
         import src.optimization.tuner as tm
 
-        # Build a partial monkeypatch: trial 0 runs normally, trial 1
-        # raises TrialPruned from inside aggregate_folds (closest
-        # mid-trial stand-in without plumbing through a real model).
+        # Trial 0 completes; trial 1 raises TrialPruned from aggregate_folds —
+        # the closest mid-trial stand-in without plumbing through a real model.
         counter = {"n": 0}
 
         def _fake_build(cfg: ExperimentConfig) -> _FakeExperiment:
@@ -285,7 +279,6 @@ class TestStrategyTunerConfigDrift:
             store_root=tmp_path,
         ).run()
 
-        # Same study name, different experiment config (seed changed).
         payload = cfg_a.model_dump(mode="json")
         payload["seed"] = 999
         cfg_b = ExperimentConfig.model_validate(payload)

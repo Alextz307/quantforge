@@ -25,7 +25,9 @@ const ISO_DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 
 export const TICKERS_INPUT_HINT = "Comma- or space-separated, e.g. SPY, QQQ";
 
-const NAME_MAX = 64;
+// Mirrored from the ExperimentConfig.name backend constraint — imported by
+// ExperimentFieldsSection so the input's HTML maxLength matches the server.
+export const NAME_MAX = 64;
 const DEFAULT_SEED = 42;
 const SEED_MIN = 0;
 const DEFAULT_N_SPLITS = 3;

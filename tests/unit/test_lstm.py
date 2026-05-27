@@ -10,7 +10,6 @@ import torch
 from src.core.types import Device, Interval, LossFunction
 from src.models.lstm import LSTMPredictor, MarketLSTM
 
-# Synthetic data
 SYNTH_ROW_COUNT = 150
 SYNTH_START_DATE = "2020-01-02"
 SYNTH_BASE_PRICE = 100.0
@@ -21,28 +20,26 @@ SYNTH_VOLUME_LOW = 1_000_000
 SYNTH_VOLUME_HIGH = 5_000_000
 SYNTH_FIXTURE_SEED = 42
 
-# MarketLSTM forward-shape test parameters
 FORWARD_BATCH_SIZE = 4
 FORWARD_LOOKBACK = 10
 FORWARD_FEATURE_COUNT = 3
 EVAL_DROPOUT_BATCH_SIZE = 2
 EVAL_DROPOUT_RATE = 0.5
 
-# Compact LSTM parameters (small for fast CI)
 COMPACT_HIDDEN_DIM = 16
 COMPACT_NUM_LAYERS = 1
 COMPACT_LOOKBACK = 10
 QUICK_EPOCHS = 1
 SHORT_EPOCHS = 3
 MEDIUM_EPOCHS = 5
-LONG_EPOCHS = 20  # high enough for training to reduce loss
-EXCESSIVE_EPOCHS = 200  # used with low patience to trigger early stopping
+LONG_EPOCHS = 20
+# Pair EXCESSIVE_EPOCHS with LOW_PATIENCE_FORCES_EARLY_STOP to trigger early stop.
+EXCESSIVE_EPOCHS = 200
 HIGH_PATIENCE_DISABLES_EARLY_STOP = 50
 LOW_PATIENCE_FORCES_EARLY_STOP = 3
-RECENT_WINDOW_SIZE = 15  # rows passed to predict_single
-TOO_SHORT_WINDOW_SIZE = 5  # below COMPACT_LOOKBACK to trigger ValueError
+RECENT_WINDOW_SIZE = 15
+TOO_SHORT_WINDOW_SIZE = 5
 
-# Determinism seeds
 TORCH_SEED = 42
 NUMPY_SEED = 42
 
@@ -71,8 +68,6 @@ def lstm_df() -> pd.DataFrame:
 def lstm_target(lstm_df: pd.DataFrame) -> pd.Series:
     """Target series for LSTM: next-day return."""
     returns = lstm_df["close"].pct_change().shift(-1)
-    # Drop last row (no future target); leading NaN from pct_change is
-    # shifted out by shift(-1), so no fill needed
     return returns.iloc[:-1]
 
 
@@ -108,7 +103,6 @@ class TestMarketLSTM:
         with torch.no_grad():
             out1 = model(x).clone()
             out2 = model(x).clone()
-        # In eval mode, dropout is disabled — outputs should be identical
         torch.testing.assert_close(out1, out2)
 
 
@@ -132,7 +126,7 @@ class TestLSTMPredictor:
     ) -> None:
         torch.manual_seed(TORCH_SEED)
         np.random.seed(NUMPY_SEED)
-        train = lstm_df.iloc[:-1]  # match target length
+        train = lstm_df.iloc[:-1]
         p = LSTMPredictor(
             lstm_features,
             lookback=COMPACT_LOOKBACK,
@@ -146,9 +140,7 @@ class TestLSTMPredictor:
         result = p.predict(train)
         assert isinstance(result, pd.Series)
         assert len(result) == len(train)
-        # First lookback rows should be NaN
         assert result.iloc[:COMPACT_LOOKBACK].isna().all()
-        # Remaining should have values
         assert result.iloc[COMPACT_LOOKBACK:].notna().all()
 
     def test_predict_single_shape(
@@ -201,7 +193,6 @@ class TestLSTMPredictor:
         p.fit(train, lstm_target)
 
         assert len(p._train_losses) > 0
-        # First loss should be larger than last (training should reduce loss)
         assert p._train_losses[0] > p._train_losses[-1]
 
     def test_early_stopping_fires(
@@ -209,7 +200,6 @@ class TestLSTMPredictor:
     ) -> None:
         torch.manual_seed(TORCH_SEED)
         train = lstm_df.iloc[:-1]
-        # Very low patience to trigger early stopping
         p = LSTMPredictor(
             lstm_features,
             lookback=COMPACT_LOOKBACK,
@@ -219,7 +209,6 @@ class TestLSTMPredictor:
             patience=LOW_PATIENCE_FORCES_EARLY_STOP,
         )
         p.fit(train, lstm_target)
-        # Should stop well before EXCESSIVE_EPOCHS
         assert len(p._train_losses) < EXCESSIVE_EPOCHS
 
     def test_val_losses_populated(
@@ -271,7 +260,7 @@ class TestLSTMPredictor:
     ) -> None:
         """End-to-end fit → predict on an explicitly-pinned CPU device (portable on CI)."""
         torch.manual_seed(TORCH_SEED)
-        train = lstm_df.iloc[:-1]  # target is already 1 shorter
+        train = lstm_df.iloc[:-1]
         p = LSTMPredictor(
             lstm_features,
             lookback=COMPACT_LOOKBACK,
@@ -282,7 +271,6 @@ class TestLSTMPredictor:
         p.fit(train, lstm_target)
         assert p._device.type == "cpu"
         assert p._model is not None
-        # Every model parameter must live on the pinned device
         assert all(param.device.type == "cpu" for param in p._model.parameters())
         signal = p.predict(train)
         assert isinstance(signal, pd.Series)
@@ -301,7 +289,6 @@ class TestLSTMPredictor:
         )
         p.fit(train, lstm_target)
         assert p._feature_columns == subset
-        # return_1d column is ignored even though present in train
         result = p.predict(train)
         assert isinstance(result, pd.Series)
 

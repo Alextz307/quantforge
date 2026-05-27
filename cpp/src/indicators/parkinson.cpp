@@ -37,7 +37,6 @@ void Parkinson::compute(
 
     detail::validate_ohlc_prices(open, high, low, close, "Parkinson");
 
-    // Per-bar Parkinson variance proxy (uses only high/low).
     std::vector<double> pk_daily(static_cast<std::size_t>(n));
     for (int i = 0; i < n; ++i) {
         double log_hl = std::log(high[i] / low[i]);

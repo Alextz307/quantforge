@@ -227,7 +227,6 @@ def test_get_param_importance_returns_message_when_db_missing(
         n_trials=EXPECTED_N_TRIALS,
         n_complete=EXPECTED_N_COMPLETE,
     )
-    # Synthetic fixture writes trials.jsonl only — no optuna_study.db.
 
     response = get_param_importance(
         root,
@@ -322,7 +321,6 @@ def test_find_live_job_for_returns_running_tune_job_id(tmp_path: Path) -> None:
                 log_path=Path("/tmp/job.log"),
             ),
         )
-        # Stamp study_name on experiment_id (matches submit_job's behaviour).
         conn.execute(
             "UPDATE jobs SET experiment_id = ? WHERE id = ?",
             ("demo_study", job.id),

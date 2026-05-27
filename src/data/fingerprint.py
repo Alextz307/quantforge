@@ -45,8 +45,6 @@ def _fingerprint(df: pd.DataFrame, value_columns: Sequence[str], func_name: str)
             f"frame through the appropriate ingestion path first."
         )
     h = hashlib.sha256()
-    # Column-name set distinguishes a frame missing ``volume`` from one
-    # where ``volume == 0.0``; sorted for invariance to input ordering.
     h.update(",".join(sorted(df.columns)).encode())
     h.update(df.index.values.view("int64").tobytes())
     for col in value_columns:

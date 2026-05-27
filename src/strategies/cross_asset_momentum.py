@@ -45,9 +45,6 @@ if TYPE_CHECKING:
 
 logger = get_logger(__name__)
 
-# Lower bound is inclusive (``t == 0.5`` collapses the dead zone — the gate
-# reduces to "trade whichever side is more probable"); upper bound is exclusive
-# (``t == 1.0`` is degenerate — nothing passes).
 _THRESHOLD_LOWER_BOUND = 0.5
 _THRESHOLD_UPPER_BOUND = 1.0
 

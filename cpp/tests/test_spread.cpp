@@ -40,10 +40,6 @@ TEST(SpreadCalculator, ZScoreLeadingWindowIsNaN) {
 }
 
 TEST(SpreadCalculator, ZScoreMatchesHandComputedValue) {
-    // Window of 3 over [1, 2, 3, 4, 5]:
-    //   position 2: mean = 2.0,  std = 1.0  → z = (3 - 2) / 1 = 1.0
-    //   position 3: mean = 3.0,  std = 1.0  → z = (4 - 3) / 1 = 1.0
-    //   position 4: mean = 4.0,  std = 1.0  → z = (5 - 4) / 1 = 1.0
     const std::vector<double> spread = {1.0, 2.0, 3.0, 4.0, 5.0};
     const auto out = SpreadCalculator::compute_zscore(spread, 3);
     EXPECT_NEAR(out[2], 1.0, kTol);
@@ -52,7 +48,6 @@ TEST(SpreadCalculator, ZScoreMatchesHandComputedValue) {
 }
 
 TEST(SpreadCalculator, ZScoreConstantSeriesEmitsNaN) {
-    // Flat series → rolling std = 0 → z-score is NaN (matches pandas).
     const std::vector<double> spread(5, 42.0);
     const auto out = SpreadCalculator::compute_zscore(spread, 3);
     for (std::size_t i = 2; i < out.size(); ++i) {
@@ -76,9 +71,6 @@ TEST(SpreadCalculator, ZScoreWindowBelowTwoThrows) {
 }
 
 TEST(SpreadCalculator, ZScoreWindowTwoIsSmallestLegalValue) {
-    // Window of 2 over [1, 3, 5]:
-    //   position 1: mean=2.0, ddof=1 std=sqrt(2)  → z = (3-2)/sqrt(2) ≈ 0.7071
-    //   position 2: mean=4.0, ddof=1 std=sqrt(2)  → z = (5-4)/sqrt(2) ≈ 0.7071
     const std::vector<double> spread = {1.0, 3.0, 5.0};
     const auto out = SpreadCalculator::compute_zscore(spread, 2);
     ASSERT_EQ(out.size(), spread.size());
@@ -98,7 +90,7 @@ TEST(SpreadCalculator, ZScoreNaNInInputPoisonsSubsequentOutputs) {
     const auto out = SpreadCalculator::compute_zscore(spread, 2);
     ASSERT_EQ(out.size(), spread.size());
     EXPECT_TRUE(std::isnan(out[0]));
-    EXPECT_FALSE(std::isnan(out[1]));  // pre-NaN output still valid
+    EXPECT_FALSE(std::isnan(out[1]));
     // Every output from the NaN onward is NaN, even after NaN has slid out.
     for (std::size_t i = 2; i < out.size(); ++i) {
         EXPECT_TRUE(std::isnan(out[i])) << "expected NaN at position " << i;

@@ -116,9 +116,9 @@ inline void rolling_mean_std(
 
     const double denom = static_cast<double>(window - ddof);
 
-    // Step 1: Compute mean and variance for the first window using Welford's method
+    // Welford's online algorithm — m2 is sum of squared deviations from the running mean.
     double mean = 0.0;
-    double m2 = 0.0;  // sum of squared deviations from the running mean
+    double m2 = 0.0;
     for (int i = 0; i < window; ++i) {
         double delta = data[i] - mean;
         mean += delta / (i + 1);
@@ -127,10 +127,9 @@ inline void rolling_mean_std(
     }
     result[window - 1] = std::sqrt(std::max(0.0, m2 / denom));
 
-    // Step 2: Slide the window using the update formula
-    // When removing old_val and adding new_val:
+    // Sliding update: when removing old_val and adding new_val,
     //   new_mean = old_mean + (new_val - old_val) / window
-    //   m2 += (new_val - old_val) * (new_val - new_mean + old_val - old_mean)
+    //   m2     += (new_val - old_val) * (new_val - new_mean + old_val - old_mean)
     for (int i = window; i < n; ++i) {
         double old_val = data[i - window];
         double new_val = data[i];

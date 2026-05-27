@@ -10,21 +10,17 @@ from src.core.exceptions import LeakageError
 from src.features.pipeline import FeatureEngineeringPipeline, _compute_macd, _compute_rsi
 from tests.conftest import make_synthetic_close_df
 
-# Synthetic data
 PIPELINE_ROW_COUNT = 200
-TRAIN_TEST_SPLIT_INDEX = 150  # split point for "different distribution" test
-RETURN_21D_WARMUP_BARS = 21  # leading-NaN expected for return_21d
+TRAIN_TEST_SPLIT_INDEX = 150
+RETURN_21D_WARMUP_BARS = 21
 
-# Default pipeline periods (must mirror FeatureEngineeringPipeline.__init__ defaults)
+# Must mirror FeatureEngineeringPipeline.__init__ defaults.
 DEFAULT_RSI_PERIOD = 14
 DEFAULT_VOL_WINDOW = 20
 
-# RSI bounds
 RSI_LOWER_BOUND = 0
 RSI_UPPER_BOUND = 100
 
-# Default expected feature columns — derived from period defaults so the list
-# stays in sync if those defaults change
 DEFAULT_FEATURE_COLUMNS = [
     "return_1d",
     "return_5d",
@@ -37,15 +33,13 @@ DEFAULT_FEATURE_COLUMNS = [
     "macd_hist",
 ]
 
-# Custom-period pipeline parameters
 CUSTOM_RSI_PERIOD = 10
 CUSTOM_MACD_FAST = 8
 CUSTOM_MACD_SLOW = 17
 CUSTOM_MACD_SIGNAL = 5
 CUSTOM_VOL_WINDOW = 10
 
-# Numerical tolerances
-SCALED_MEAN_TOLERANCE = 0.1  # |mean| of scaled return_1d after fit_transform
+SCALED_MEAN_TOLERANCE = 0.1
 MACD_HIST_ATOL = 1e-10
 
 
@@ -96,7 +90,6 @@ class TestFeatureEngineeringPipeline:
         """After scaling, valid training rows should have ~zero mean."""
         p = FeatureEngineeringPipeline()
         result = p.fit_transform(pipeline_df)
-        # Check a feature that has many valid rows
         valid = result["return_1d"].dropna()
         assert abs(valid.mean()) < SCALED_MEAN_TOLERANCE
 
@@ -110,8 +103,6 @@ class TestFeatureEngineeringPipeline:
         train_result = p.transform(train)
         test_result = p.transform(test)
 
-        # Test data should NOT have zero mean (different distribution)
-        # Both should be DataFrames with same columns
         assert list(train_result.columns) == list(test_result.columns)
         assert len(test_result) == len(test)
 
@@ -144,12 +135,10 @@ class TestFeatureEngineeringPipeline:
         train_result = p.fit_transform(ohlcv)
         for col in ("open", "high", "low", "close", "volume"):
             assert col in train_result.columns, col
-            # OHLC values must be the raw input (not the scaled version).
             assert (train_result[col] == ohlcv[col]).all(), col
         for engineered in DEFAULT_FEATURE_COLUMNS:
             assert engineered in train_result.columns
 
-        # Same invariant on transform() of held-out data.
         held_out = ohlcv.iloc[len(ohlcv) // 2 :].copy()
         test_result = p.transform(held_out)
         assert (test_result["close"] == held_out["close"]).all()
@@ -165,7 +154,6 @@ class TestComputeRSI:
 
     def test_rsi_has_leading_nan(self, pipeline_df: pd.DataFrame) -> None:
         rsi = _compute_rsi(pipeline_df["close"], period=DEFAULT_RSI_PERIOD)
-        # First N values need warmup (diff drops first, then rolling needs N)
         assert rsi.iloc[:DEFAULT_RSI_PERIOD].isna().all()
 
 

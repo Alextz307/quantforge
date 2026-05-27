@@ -38,8 +38,7 @@ from tests.conftest import (
     make_synthetic_ohlcv_df,
 )
 
-# Compact model parameters for fast CI — we only need a fitted model to exercise
-# the round-trip, not a well-trained one.
+# Compact params just need a fitted model to exercise the round-trip.
 COMPACT_GARCH_P_MAX = 2
 COMPACT_GARCH_Q_MAX = 2
 COMPACT_ARMA_P_MAX = 2
@@ -50,17 +49,11 @@ COMPACT_LSTM_EPOCHS = 1
 COMPACT_XGB_N_ESTIMATORS = 5
 COMPACT_XGB_MAX_DEPTH = 2
 
-# Pairs: slightly smaller lookback keeps the synthetic data enough to exercise
-# the rolling z-score without forcing the fixture to grow.
 PAIRS_ENTRY_Z = 2.0
 PAIRS_EXIT_Z = 0.5
 PAIRS_STOP_Z = 4.0
 PAIRS_LOOKBACK = 20
 
-# Determinism: torch + numpy seeds pinned before every LSTM-using fit so two
-# back-to-back fits would produce identical weights if ever needed. For
-# round-trip tests we fit once and round-trip, so determinism only matters
-# insofar as the test must be reproducible across runs.
 FIT_TORCH_SEED = 0
 FIT_NUMPY_SEED = 0
 
@@ -176,9 +169,6 @@ class TestMomentumGatekeeperSaveLoad:
         assert loaded.training_metadata is not None
         assert loaded._resolved_feature_columns == original._resolved_feature_columns
         assert loaded.training_metadata == original.training_metadata
-        # NaN-aware equality: both outputs carry NaN during warmup and at
-        # feature-pipeline boundaries; ``assert_array_equal`` with
-        # ``equal_nan=True`` treats those identically.
         np.testing.assert_array_equal(
             loaded.generate_signals(close_df).to_numpy(),
             original.generate_signals(close_df).to_numpy(),
@@ -221,8 +211,8 @@ class TestReturnForecastSaveLoad:
 
         assert loaded.training_metadata is not None
         assert loaded.training_metadata == original.training_metadata
-        # ARMA round-trip via statsmodels ``filter`` reproduces fitted values
-        # + forecasts to within double-precision FP noise, not bit-identical.
+        # statsmodels ``filter`` reproduces ARMA fitted values to FP noise,
+        # not bit-identical, so use allclose for ARMA-backed strategies.
         np.testing.assert_allclose(
             loaded.generate_signals(df).to_numpy(),
             original.generate_signals(df).to_numpy(),
@@ -274,11 +264,9 @@ class TestVolatilityTargetingSaveLoad:
         )
 
 
-# Drift guard: every class that owns a save/load pair exposes
-# ``_ctor_kwargs_as_json()``. Its key set must match the class's ``__init__``
-# signature (minus kwargs we intentionally skip — ``lstm_device`` / ``device``
-# is re-resolved on load, never persisted). If someone adds a new ctor kwarg
-# but forgets to persist it, this test fails before the first round-trip does.
+# Drift guard: ``_ctor_kwargs_as_json()`` keys must match ``__init__`` (minus
+# device prefs, which are re-resolved on load, never persisted). Fails before
+# the first round-trip does when a new ctor kwarg lands without a persisted key.
 _DRIFT_CASES: list[tuple[type, Callable[[], object], set[str]]] = [
     (
         HybridVolatilityModel,

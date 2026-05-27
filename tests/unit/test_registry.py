@@ -15,7 +15,6 @@ from src.core.registry import (
     strategy_registry,
 )
 
-# Sentinel values used to confirm constructor args propagate through .create()
 SAMPLE_VALUE = 42
 DIRECT_INIT_VALUE = 10
 
@@ -167,7 +166,6 @@ class TestComponentRegistry:
         class Original(DummyBase):
             pass
 
-        # The decorator should return the class unchanged
         assert Original.__name__ == "Original"
         direct = Original(value=DIRECT_INIT_VALUE)
         assert direct.value == DIRECT_INIT_VALUE
@@ -246,10 +244,8 @@ class TestPackageAutoDiscovery:
     def test_strategies_registry_matches_package_contents_exactly(self) -> None:
         import src.strategies
 
-        # ``list_public()`` filters underscore-prefixed test stubs registered
-        # by ``tests/_strategy_stubs.py``. Production strategies use neither
-        # underscore-prefixed filenames (which the autoloader would skip) nor
-        # underscore-prefixed registry names — the convention is symmetric.
+        # ``list_public()`` filters underscore-prefixed test stubs; production
+        # strategies use neither underscored filenames nor registry names.
         assert len(strategy_registry.list_public()) == _count_non_interface_modules(src.strategies)
 
     def test_data_sources_populated_after_package_import(self) -> None:

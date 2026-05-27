@@ -24,10 +24,8 @@ F64Array = npt.NDArray[np.float64]
 ReturnsFactory = Callable[[], F64Array]
 ParamsFactory = Callable[[], qe.GarchParams]
 
-# ───── Tolerances ─────
 EXACT_TOL = 1e-12
 
-# ───── GARCH reference params ─────
 REF_OMEGA = 0.05
 REF_ALPHA = [0.10]
 REF_BETA = [0.85]
@@ -35,13 +33,11 @@ REF_MU = 0.0
 REF_BACKCAST = 1.0
 VARIANCE_FLOOR = 1e-12
 
-# Series-generation constants
 PARITY_SERIES_LEN = 200
 PARITY_RETURN_STD = 1.0
 CONSTANT_SERIES_LEN = 5
 CONSTANT_RETURN = 0.5
 
-# GIL-release stress constants
 GIL_STRESS_THREAD_COUNT = 4
 GIL_STRESS_SERIES_LEN = 20_000
 GIL_STRESS_ITERATIONS_PER_THREAD = 3
@@ -134,8 +130,7 @@ class TestGarchFilterBinding:
 
     def test_float32_input_is_forcecast(self) -> None:
         returns_f32 = _make_returns(PARITY_SERIES_LEN).astype(np.float32)
-        # The stub declares f64 input, but pybind11's ``py::array::forcecast``
-        # accepts f32 and up-casts it; this cast pins the runtime behavior.
+        # The stub declares f64; pybind11's forcecast accepts f32 and up-casts.
         got_f32 = qe.garch_filter(cast(F64Array, returns_f32), _ref_params())
         got_f64 = qe.garch_filter(returns_f32.astype(np.float64), _ref_params())
         np.testing.assert_allclose(got_f32, got_f64, rtol=EXACT_TOL, atol=EXACT_TOL)

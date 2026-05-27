@@ -77,9 +77,7 @@ def _bars_to_arrays(
     npt.NDArray[np.float64],
     npt.NDArray[np.float64],
 ]:
-    assert isinstance(bars.index, pd.DatetimeIndex)  # mypy narrowing across fn boundary
-    # epoch seconds keeps the wire format in a familiar range; the C++
-    # `Bar.timestamp` field is opaque to the iteration loop.
+    assert isinstance(bars.index, pd.DatetimeIndex)
     ts_ns: npt.NDArray[np.int64] = bars.index.values.view("int64")
     timestamps = ts_ns // _NS_PER_SECOND
     return (timestamps, *_bars_to_ohlcv_arrays(bars))

@@ -23,13 +23,10 @@ from src.core.utils import next_bar_direction
 from src.models.xgboost_classifier import DirectionalClassifier
 from tests.conftest import make_synthetic_close_df, seed_globally
 
-# 200 bars × 30 estimators is enough headroom for several val-metric
-# improvements when the features carry weak predictive signal.
+# 200 bars × 30 estimators leaves room for several val-metric improvements.
 COMPACT_N_ESTIMATORS = 30
 SAVES_BEFORE_INTERRUPT = 1
-# Variance window for the rolling-vol feature; matches the realised-vol
-# convention used by VolatilityTargetingStrategy so the test feature shape
-# mirrors what production strategies actually consume.
+# Matches the realised-vol window used by VolatilityTargetingStrategy.
 VOL_WINDOW = 20
 
 
@@ -51,8 +48,7 @@ def xgb_data() -> tuple[pd.DataFrame, pd.Series]:
     return_1d = close.pct_change()
     momentum_5 = close.pct_change(5)
     rolling_vol = return_1d.rolling(VOL_WINDOW).std()
-    # ``shift(1)`` gives yesterday's direction — autocorrelated with today's,
-    # so the classifier sees weak but nonzero signal.
+    # shift(1) gives yesterday's direction — weakly autocorrelated with today's.
     direction_lag1 = target.shift(1).reindex(base.index).astype(float)
     features = pd.DataFrame(
         {
@@ -97,7 +93,6 @@ def test_checkpoint_reloads_into_usable_booster(
     booster = xgb.Booster()
     booster.load_model(str(ckpt_dir / BEST_ITERATION_UBJ))
 
-    # Booster should produce probabilities of the same shape as the trained classifier.
     dmat = xgb.DMatrix(features)
     preds = booster.predict(dmat)
     assert preds.shape == (len(features),)

@@ -15,31 +15,29 @@
 namespace quant {
 namespace {
 
-// ───── RSI test parameters ─────
 constexpr int kRSIDefaultPeriod = 14;
 constexpr int kRSILongerSeriesLen = 100;
 constexpr int kRSIShortSeriesLen = 20;
-constexpr int kRSIDeepIndex = 50;             // index well past warmup
+constexpr int kRSIDeepIndex = 50;
 constexpr int kRSIPeriod3 = 3;
 constexpr int kRSIPeriod5 = 5;
 constexpr int kRSIPeriod1 = 1;
-constexpr double kRSIBaseRamp = 100.0;        // starting price for ramped series
+constexpr double kRSIBaseRamp = 100.0;
 constexpr double kRSIRampStep = 0.5;
-constexpr double kRSIDescBase = 200.0;        // descending series base
+constexpr double kRSIDescBase = 200.0;
 constexpr double kRSIConstantPrice = 100.0;
 constexpr double kRSINeutral = 50.0;
 constexpr double kRSIFloor = 0.0;
 constexpr double kRSICeiling = 100.0;
 constexpr double kRSIReferenceTolerance = 0.001;
-constexpr double kRSIExpectedAtIdx3 = 66.6667; // hand-computed reference (see test body)
+constexpr double kRSIExpectedAtIdx3 = 66.6667;
 constexpr double kRSIExpectedAtIdx4 = 83.3333;
 
-// ───── MACD test parameters ─────
 constexpr int kMACDFastPeriod = 12;
 constexpr int kMACDSlowPeriod = 26;
 constexpr int kMACDSignalPeriod = 9;
-constexpr int kMACDWarmupBars = 25;           // slow_period - 1
-constexpr int kMACDSignalWarmupBars = 33;     // (slow-1) + (signal-1)
+constexpr int kMACDWarmupBars = 25;
+constexpr int kMACDSignalWarmupBars = 33;
 constexpr int kMACDSeriesLen = 50;
 constexpr int kMACDLongerSeriesLen = 60;
 constexpr double kMACDRampBase = 100.0;
@@ -48,19 +46,17 @@ constexpr double kMACDSineAmplitude = 5.0;
 constexpr double kMACDSineFreq = 0.3;
 constexpr double kMACDExactTolerance = 1e-10;
 
-// ───── Bollinger Bands test parameters ─────
 constexpr int kBBDefaultWindow = 20;
 constexpr int kBBSmallWindow = 5;
-constexpr int kBBDefaultWarmup = 19;          // window - 1
+constexpr int kBBDefaultWarmup = 19;
 constexpr double kBBDefaultK = 2.0;
 constexpr double kBBZeroK = 0.0;
 constexpr double kBBConstantPrice = 50.0;
 constexpr double kBBExactTolerance = 1e-10;
 
-// ───── Garman-Klass test parameters ─────
 constexpr int kGKDefaultWindow = 22;
 constexpr int kGKSmallWindow = 5;
-constexpr int kGKDefaultWarmup = 21;          // window - 1
+constexpr int kGKDefaultWarmup = 21;
 constexpr int kGKSingleBarWindow = 1;
 constexpr int kGKConstWindow = 3;
 constexpr double kGKSingleBarHigh = 110.0;
@@ -69,7 +65,6 @@ constexpr double kGKSingleBarOpen = 100.0;
 constexpr double kGKSingleBarClose = 105.0;
 constexpr double kGKExactTolerance = 1e-10;
 
-// ───── Parkinson test parameters ─────
 constexpr int kPKDefaultWindow = 22;
 constexpr int kPKSmallWindow = 5;
 constexpr int kPKDefaultWarmup = 21;
@@ -77,7 +72,6 @@ constexpr int kPKSingleBarWindow = 1;
 constexpr int kPKConstWindow = 3;
 constexpr double kPKExactTolerance = 1e-10;
 
-// ───── Rolling helpers test parameters ─────
 constexpr int kRollingWindow1 = 1;
 constexpr int kRollingWindow2 = 2;
 constexpr int kRollingWindow3 = 3;
@@ -87,14 +81,9 @@ constexpr int kRollingDdofPopulation = 0;
 constexpr double kRollingExactTolerance = 1e-10;
 constexpr double kRollingLargeValuesTolerance = 1e-6;
 constexpr double kRollingConstantValue = 42.0;
-constexpr double kLargeValueOffset = 1e9;     // for numerical-stability test
-
-// ═══════════════════════════════════════════════════════════════
-// RSI Tests
-// ═══════════════════════════════════════════════════════════════
+constexpr double kLargeValueOffset = 1e9;
 
 TEST(RSITest, WarmupIsNaN) {
-    // Period kRSIDefaultPeriod → first kRSIDefaultPeriod values should be NaN
     std::vector<double> prices(kRSIShortSeriesLen, kRSIBaseRamp);
     for (int i = 0; i < kRSIShortSeriesLen; ++i) prices[i] = kRSIBaseRamp + i * kRSIRampStep;
 
@@ -111,16 +100,13 @@ TEST(RSITest, WarmupIsNaN) {
 }
 
 TEST(RSITest, MonotonicallyIncreasingApproaches100) {
-    // Prices always go up → RSI should be very high
     std::vector<double> prices(kRSILongerSeriesLen);
     for (int i = 0; i < kRSILongerSeriesLen; ++i) prices[i] = kRSIBaseRamp + i;
 
     RSI rsi(kRSIDefaultPeriod);
     auto result = rsi.compute(prices);
 
-    // First valid RSI (index = period) should be 100 (all gains, no losses in seed)
     EXPECT_DOUBLE_EQ(result[kRSIDefaultPeriod], kRSICeiling);
-    // Subsequent values should remain 100 (all gains)
     EXPECT_DOUBLE_EQ(result[kRSIDeepIndex], kRSICeiling);
 }
 
@@ -148,18 +134,13 @@ TEST(RSITest, ConstantPricesGive50) {
 TEST(RSITest, KnownReferenceValue) {
     // Hand-computed RSI(3) for prices [10, 11, 12, 11, 13, 14, 12, 15]
     // Deltas: +1, +1, -1, +2, +1, -2, +3
-    // Seed (first 3 deltas): avg_gain = (1+1+0)/3 = 0.6667, avg_loss = (0+0+1)/3 = 0.3333
-    // RSI[3] = 100 - 100/(1 + 0.6667/0.3333) = 100 - 100/3 = 66.667
+    // Seed: avg_gain = 0.6667, avg_loss = 0.3333 → RSI[3] = 66.667
+    // RSI[4]: avg_gain=1.1111, avg_loss=0.2222 → RS=5.0, RSI=83.333
     std::vector<double> prices = {10, 11, 12, 11, 13, 14, 12, 15};
     RSI rsi(kRSIPeriod3);
     auto result = rsi.compute(prices);
 
     EXPECT_NEAR(result[3], kRSIExpectedAtIdx3, kRSIReferenceTolerance);
-
-    // RSI[4]: delta=+2, gain=2, loss=0
-    // avg_gain = (0.6667*2 + 2)/3 = 3.3333/3 = 1.1111
-    // avg_loss = (0.3333*2 + 0)/3 = 0.6667/3 = 0.2222
-    // RS = 5.0, RSI = 100 - 100/6 = 83.333
     EXPECT_NEAR(result[4], kRSIExpectedAtIdx4, kRSIReferenceTolerance);
 }
 
@@ -195,19 +176,17 @@ TEST(RSITest, InvalidPeriod) {
 }
 
 TEST(RSITest, Period1) {
-    // RSI(1): every bar is either 100 (up), 0 (down), or 50 (flat)
     std::vector<double> prices = {100, 102, 101, 103};
     RSI rsi(kRSIPeriod1);
     auto result = rsi.compute(prices);
 
     EXPECT_TRUE(std::isnan(result[0]));
-    EXPECT_DOUBLE_EQ(result[1], kRSICeiling);  // up
-    EXPECT_DOUBLE_EQ(result[2], kRSIFloor);    // down
-    EXPECT_DOUBLE_EQ(result[3], kRSICeiling);  // up
+    EXPECT_DOUBLE_EQ(result[1], kRSICeiling);
+    EXPECT_DOUBLE_EQ(result[2], kRSIFloor);
+    EXPECT_DOUBLE_EQ(result[3], kRSICeiling);
 }
 
 TEST(RSITest, RangeIsBounded) {
-    // RSI should always be in [0, 100]
     std::vector<double> prices = {100, 105, 95, 110, 85, 120, 80, 115, 90, 105,
                                   95, 110, 85, 120, 80, 115, 90, 105, 95, 110};
     RSI rsi(kRSIPeriod5);
@@ -217,10 +196,6 @@ TEST(RSITest, RangeIsBounded) {
         EXPECT_LE(result[i], kRSICeiling);
     }
 }
-
-// ═══════════════════════════════════════════════════════════════
-// MACD Tests
-// ═══════════════════════════════════════════════════════════════
 
 TEST(MACDTest, OutputSameLength) {
     std::vector<double> prices(kMACDSeriesLen);
@@ -243,7 +218,6 @@ TEST(MACDTest, WarmupNaN) {
     MACD macd(kMACDFastPeriod, kMACDSlowPeriod, kMACDSignalPeriod);
     auto result = macd.compute(prices);
 
-    // First slow_period - 1 values should be NaN
     for (int i = 0; i < kMACDWarmupBars; ++i) {
         EXPECT_TRUE(std::isnan(result[i])) << "MACD line index " << i;
     }
@@ -296,14 +270,12 @@ TEST(MACDTest, WarmupPeriod) {
 }
 
 TEST(MACDTest, SignalLineWarmup) {
-    // Signal line valid at slow_period-1 + signal_period-1
     std::vector<double> prices(kMACDSeriesLen);
     for (int i = 0; i < kMACDSeriesLen; ++i) prices[i] = kMACDRampBase + i * kMACDRampStep;
 
     MACD macd(kMACDFastPeriod, kMACDSlowPeriod, kMACDSignalPeriod);
     auto full = macd.compute_all(prices);
 
-    // Signal and histogram should be NaN before kMACDSignalWarmupBars
     for (int i = 0; i < kMACDSignalWarmupBars; ++i) {
         EXPECT_TRUE(std::isnan(full.signal_line[i])) << "signal at " << i;
         EXPECT_TRUE(std::isnan(full.histogram[i])) << "histogram at " << i;
@@ -314,16 +286,10 @@ TEST(MACDTest, SignalLineWarmup) {
 
 TEST(MACDTest, InvalidPeriods) {
     EXPECT_THROW(auto m = MACD(0, kMACDSlowPeriod, kMACDSignalPeriod), std::invalid_argument);
-    // fast >= slow
     EXPECT_THROW(auto m = MACD(kMACDFastPeriod, kMACDFastPeriod, kMACDSignalPeriod),
                  std::invalid_argument);
-    // fast > slow
     EXPECT_THROW(auto m = MACD(30, kMACDSlowPeriod, kMACDSignalPeriod), std::invalid_argument);
 }
-
-// ═══════════════════════════════════════════════════════════════
-// Bollinger Bands Tests
-// ═══════════════════════════════════════════════════════════════
 
 TEST(BollingerTest, UpperGeqMidGeqLower) {
     std::vector<double> prices = {100, 102, 98, 105, 97, 103, 99, 106, 94, 101,
@@ -383,7 +349,6 @@ TEST(BollingerTest, ComputeReturnsMidBand) {
 }
 
 TEST(BollingerTest, KnownSMAReference) {
-    // SMA(5) of [10, 11, 12, 13, 14] = 12.0
     std::vector<double> prices = {10, 11, 12, 13, 14, 15};
 
     BollingerBands bb(kBBSmallWindow, kBBDefaultK);
@@ -425,10 +390,6 @@ TEST(BollingerTest, InvalidPeriod) {
     EXPECT_THROW(auto b = BollingerBands(kBBDefaultWindow, -1.0), std::invalid_argument);
 }
 
-// ═══════════════════════════════════════════════════════════════
-// Garman-Klass Tests
-// ═══════════════════════════════════════════════════════════════
-
 TEST(GarmanKlassTest, WarmupNaN) {
     std::vector<double> o = {100, 101, 102, 103, 104, 105, 106, 107, 108, 109};
     std::vector<double> h = {102, 103, 104, 105, 106, 107, 108, 109, 110, 111};
@@ -448,12 +409,6 @@ TEST(GarmanKlassTest, WarmupNaN) {
 }
 
 TEST(GarmanKlassTest, KnownReference) {
-    // Single bar: H=110, L=90, O=100, C=105
-    // GK_daily = 0.5 * ln(110/90)^2 - (2ln2-1) * ln(105/100)^2
-    // ln(110/90) = ln(1.2222) ≈ 0.20067
-    // ln(105/100) = ln(1.05) ≈ 0.04879
-    // GK = 0.5 * 0.04027 - 0.3863 * 0.002381 = 0.020133 - 0.000920 = 0.019213
-    // With window=1: annualized = sqrt(0.019213) * sqrt(kTradingDaysPerYear) ≈ 2.200
     std::vector<double> o = {kGKSingleBarOpen};
     std::vector<double> h = {kGKSingleBarHigh};
     std::vector<double> l = {kGKSingleBarLow};
@@ -463,7 +418,6 @@ TEST(GarmanKlassTest, KnownReference) {
     auto result = gk.compute(o, h, l, c);
     EXPECT_EQ(result.size(), 1u);
 
-    // Compute expected precisely
     double log_hl = std::log(kGKSingleBarHigh / kGKSingleBarLow);
     double log_co = std::log(kGKSingleBarClose / kGKSingleBarOpen);
     double gk_daily = 0.5 * log_hl * log_hl
@@ -473,7 +427,6 @@ TEST(GarmanKlassTest, KnownReference) {
 }
 
 TEST(GarmanKlassTest, ConstantOHLCGivesZero) {
-    // When H==L==O==C, all log ratios are 0
     std::vector<double> prices(10, 100.0);
     GarmanKlass gk(kGKConstWindow);
     auto result = gk.compute(prices, prices, prices, prices);
@@ -530,7 +483,7 @@ TEST(GarmanKlassTest, RejectsNegativePrices) {
 
 TEST(GarmanKlassTest, RejectsHighLessThanLow) {
     std::vector<double> o = {100};
-    std::vector<double> h = {90};   // invalid: high < low
+    std::vector<double> h = {90};
     std::vector<double> l = {95};
     std::vector<double> c = {92};
     GarmanKlass gk(kGKSingleBarWindow);
@@ -549,10 +502,6 @@ TEST(GarmanKlassTest, OutputIsNonNegative) {
         EXPECT_GE(result[i], 0.0);
     }
 }
-
-// ═══════════════════════════════════════════════════════════════
-// Parkinson Tests
-// ═══════════════════════════════════════════════════════════════
 
 TEST(ParkinsonTest, WarmupNaN) {
     std::vector<double> h = {102, 103, 104, 105, 106, 107, 108, 109, 110, 111};
@@ -574,8 +523,6 @@ TEST(ParkinsonTest, WarmupNaN) {
 }
 
 TEST(ParkinsonTest, KnownReference) {
-    // Single bar: H=110, L=90
-    // PK_daily = (1/(4*ln(2))) * ln(110/90)^2
     std::vector<double> h = {kGKSingleBarHigh};
     std::vector<double> l = {kGKSingleBarLow};
     std::vector<double> dummy = {kGKSingleBarOpen};
@@ -622,7 +569,7 @@ TEST(ParkinsonTest, MismatchedLengths) {
 
 TEST(ParkinsonTest, RejectsHighLessThanLow) {
     std::vector<double> o = {100};
-    std::vector<double> h = {90};   // invalid: high < low
+    std::vector<double> h = {90};
     std::vector<double> l = {95};
     std::vector<double> c = {92};
     Parkinson pk(kPKSingleBarWindow);
@@ -655,10 +602,6 @@ TEST(ParkinsonTest, WarmupPeriod) {
     EXPECT_EQ(pk.warmup_period(), kPKDefaultWarmup);
 }
 
-// ═══════════════════════════════════════════════════════════════
-// Rolling Helpers Tests
-// ═══════════════════════════════════════════════════════════════
-
 TEST(RollingTest, MeanWindow1) {
     std::vector<double> data = {10, 20, 30, 40, 50};
     auto result = detail::rolling_mean(data, kRollingWindow1);
@@ -689,7 +632,6 @@ TEST(RollingTest, MeanEmptyInput) {
 }
 
 TEST(RollingTest, StdConstantValues) {
-    // Std of constant values should be 0
     std::vector<double> data(10, kRollingConstantValue);
     auto result = detail::rolling_std(data, kRollingWindow5);
     for (size_t i = kRollingWindow5 - 1; i < result.size(); ++i) {
@@ -698,22 +640,18 @@ TEST(RollingTest, StdConstantValues) {
 }
 
 TEST(RollingTest, StdKnownReference) {
-    // std of [1, 2, 3, 4, 5] with ddof=1
-    // mean=3, deviations=[-2,-1,0,1,2], sum_sq_dev=10, var=10/4=2.5, std=sqrt(2.5)
     std::vector<double> data = {1, 2, 3, 4, 5};
     auto result = detail::rolling_std(data, kRollingWindow5, kRollingDdofSample);
     EXPECT_NEAR(result[4], std::sqrt(2.5), kRollingExactTolerance);
 }
 
 TEST(RollingTest, StdPopulation) {
-    // Same data, ddof=0: var=10/5=2.0, std=sqrt(2.0)
     std::vector<double> data = {1, 2, 3, 4, 5};
     auto result = detail::rolling_std(data, kRollingWindow5, kRollingDdofPopulation);
     EXPECT_NEAR(result[4], std::sqrt(2.0), kRollingExactTolerance);
 }
 
 TEST(RollingTest, StdWindow1) {
-    // Window=1 with ddof=0: std should be 0 (single element)
     std::vector<double> data = {10, 20, 30};
     auto result = detail::rolling_std(data, kRollingWindow1, kRollingDdofPopulation);
     EXPECT_DOUBLE_EQ(result[0], 0.0);
@@ -730,8 +668,6 @@ TEST(RollingTest, StdWindowGreaterThanN) {
 }
 
 TEST(RollingTest, StdSlidingMultipleOutputs) {
-    // rolling_std([1,2,3,4,5,6], window=3, ddof=1)
-    // Each consecutive 3-window has std=1.0 (arithmetic ladder)
     std::vector<double> data = {1, 2, 3, 4, 5, 6};
     auto result = detail::rolling_std(data, kRollingWindow3, kRollingDdofSample);
 
@@ -744,8 +680,6 @@ TEST(RollingTest, StdSlidingMultipleOutputs) {
 }
 
 TEST(RollingTest, StdSlidingVaryingValues) {
-    // rolling_std([10, 20, 10, 20], window=2, ddof=1)
-    // [10,20]: mean=15, var=50, std=sqrt(50)≈7.071 — same for every window
     std::vector<double> data = {10, 20, 10, 20};
     auto result = detail::rolling_std(data, kRollingWindow2, kRollingDdofSample);
 
@@ -757,8 +691,8 @@ TEST(RollingTest, StdSlidingVaryingValues) {
 }
 
 TEST(RollingTest, StdNumericalStabilityLargeValues) {
-    // Welford's should handle large values without cancellation
-    // Data: [1e9 + 1, ..., 1e9 + 5] — same std as [1..5] = sqrt(2.5)
+    // Welford's algorithm must stay stable on large-magnitude inputs.
+    // Data: [1e9 + 1, ..., 1e9 + 5] has same std as [1..5] = sqrt(2.5).
     std::vector<double> data = {kLargeValueOffset + 1, kLargeValueOffset + 2,
                                  kLargeValueOffset + 3, kLargeValueOffset + 4,
                                  kLargeValueOffset + 5};
@@ -767,7 +701,6 @@ TEST(RollingTest, StdNumericalStabilityLargeValues) {
 }
 
 TEST(RollingTest, StdWindow1Ddof1AllNaN) {
-    // Sample std with window=1 and ddof=1 is undefined (0 degrees of freedom)
     std::vector<double> data = {kRollingConstantValue, 99.0, 7.0};
     auto result = detail::rolling_std(data, kRollingWindow1, kRollingDdofSample);
     EXPECT_EQ(result.size(), 3u);

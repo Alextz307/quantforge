@@ -16,6 +16,7 @@ jobs:
           python-version: "3.12"
       - run: pip install ruff mypy pandas-stubs pydantic numpy torch types-PyYAML types-psutil types-tqdm pytest pyarrow psutil tqdm
       - run: python scripts/check_ci_deps.py
+      - run: python scripts/check_constants_sync.py
       - run: ruff check src/ tests/ scripts/
       - run: ruff format --check src/ tests/ scripts/
       # Build + install the `quant_engine` C++ extension so mypy can resolve
@@ -23,7 +24,6 @@ jobs:
       # scikit-build-core fetches its own build deps in an isolated env.
       - run: pip install -e .
       - run: mypy --strict src/ tests/ scripts/
-      - run: python scripts/check_readme_test_counts.py
 
   cpp-build-and-test:
     runs-on: ${{ matrix.os }}

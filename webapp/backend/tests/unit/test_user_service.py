@@ -58,6 +58,36 @@ def test_create_user_reactivates_soft_deleted_username(db_conn: sqlite3.Connecti
     assert fetched is not None and fetched.role is Role.ADMIN
 
 
+def test_reactivate_preserves_artifact_ownership(db_conn: sqlite3.Connection) -> None:
+    """Reactivating a soft-deleted username keeps the FK link from jobs alive.
+
+    Load-bearing invariant the reactivate-on-collision pattern guards: any
+    artifact attributed to ``user_id=X`` before the soft-delete must still
+    resolve to the (now-revived) ``user_id=X`` after a same-username
+    ``create_user``. If a future refactor switches to plain INSERT, the
+    revived user gets a fresh id, the jobs row dangles, and every artifact
+    that user ever launched silently becomes ownerless. This test fails the
+    moment that happens.
+    """
+    original = create_user(db_conn, username=ALEX, password=PASSWORD, role=Role.USER)
+    db_conn.execute(
+        "INSERT INTO jobs (id, user_id, kind, command, config_path, log_path, "
+        "status, experiment_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        ("job-1", original.id, "run", "exp run", "/cfg", "/log", "succeeded", "exp-abc"),
+    )
+    db_conn.commit()
+
+    soft_delete_user(db_conn, original.id)
+    revived = create_user(db_conn, username=ALEX, password=NEW_PASSWORD, role=Role.USER)
+
+    assert revived.id == original.id
+    owner_row = db_conn.execute(
+        "SELECT user_id FROM jobs WHERE experiment_id = ?", ("exp-abc",)
+    ).fetchone()
+    assert owner_row is not None
+    assert int(owner_row["user_id"]) == revived.id
+
+
 def test_list_users_excludes_soft_deleted(db_conn: sqlite3.Connection) -> None:
     alex = create_user(db_conn, username=ALEX, password=PASSWORD, role=Role.ADMIN)
     guest = create_user(db_conn, username=GUEST, password=PASSWORD, role=Role.USER)

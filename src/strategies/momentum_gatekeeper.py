@@ -249,7 +249,6 @@ class MomentumGatekeeperStrategy(IStrategy):
         device re-resolution.
         """
         metadata = self._assert_fitted_with_metadata()
-        # ``_classifier`` is set atomically with metadata in train() — assert for mypy.
         assert self._classifier is not None
 
         classifier = self._classifier
@@ -322,9 +321,8 @@ class MomentumGatekeeperStrategy(IStrategy):
         )
         instance._classifier = DirectionalClassifier.load(root / CLASSIFIER_SUBDIR)
         # Replace the pipeline's unfitted scaler with the loaded fitted one.
-        # The pipeline itself is stateless aside from this scaler — reusing
-        # the ctor-built pipeline means hyperparams (rsi_period, macd_*, …)
-        # stay in one place.
+        # The pipeline is stateless aside from this scaler — reusing the
+        # ctor-built pipeline keeps hyperparams in one place.
         instance._pipeline.scaler = load_standard_scaler(root / PIPELINE_SCALER_JSON)
         instance._resolved_feature_columns = resolved
         instance._set_fitted_with_metadata(TrainingMetadata.from_dict(metadata))

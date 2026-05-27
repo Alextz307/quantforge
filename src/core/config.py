@@ -184,7 +184,7 @@ class ValidationConfig(BaseModel):
     test_size: int = Field(
         default=252,
         ge=1,
-        description="Per-fold test-window size in bars (>= 1). 252 ≈ one trading year of daily bars.",
+        description="Per-fold test-window size in bars (>= 1). 252 ≈ one daily trading year.",
     )
     gap: int = Field(
         default=5,

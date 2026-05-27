@@ -163,11 +163,9 @@ describe("ConfigureStudyPage", () => {
     mockUploadsEmpty();
     mockSchema();
     server.use(
-      // /api/configs/study_spec/validate — always returns valid for this test.
       http.post(toMswPath(API_PATHS.studySpecValidate), () =>
         HttpResponse.json({ valid: true, errors: [] }),
       ),
-      // POST /api/configs/study/uploads — record the save.
       http.post(toMswPath(API_PATHS.studyUploads), async ({ request }) => {
         const body = (await request.json()) as { slug: string; yaml: string };
         return HttpResponse.json(
@@ -204,7 +202,6 @@ describe("ConfigureStudyPage", () => {
   it("Save (without launch) flips the mode to the uploads tab", async () => {
     mockStudySpecsList();
     server.use(
-      // Start with empty uploads, then return the new one after save.
       http.get(toMswPath(API_PATHS.studyUploads), () => HttpResponse.json([])),
       http.post(toMswPath(API_PATHS.studySpecValidate), () =>
         HttpResponse.json({ valid: true, errors: [] }),

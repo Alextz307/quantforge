@@ -21,7 +21,7 @@ from src.core.types import BarData, Interval
 from src.engine.scenarios import SlippageScenario
 from src.orchestration.manifest import Manifest
 from src.orchestration.types import ExperimentResult, FoldRecord
-from tests import _strategy_stubs as _strategy_stubs  # noqa: F401  # registers test stubs
+from tests import _strategy_stubs as _strategy_stubs  # noqa: F401
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
@@ -51,44 +51,37 @@ def load_script_module(path: Path, name: str) -> ModuleType:
     return module
 
 
-# Deterministic seeds applied across all tests via the `deterministic_seed` fixture
 GLOBAL_NUMPY_SEED = 42
 GLOBAL_TORCH_SEED = 42
 
-# sample_spy_df: small SPY-like OHLCV
 SPY_ROW_COUNT = 100
 SPY_START_DATE = "2023-01-02"
 SPY_BASE_PRICE = 400.0
-SPY_RETURN_MEAN = 0.0005  # ~12.6% annualized drift
-SPY_RETURN_STD = 0.01  # ~16% annualized vol
-SPY_DAILY_RANGE_STD = 0.005  # std of |high-close|/close
-SPY_OPEN_OFFSET_STD = 0.002  # std of (open-close)/close
+SPY_RETURN_MEAN = 0.0005
+SPY_RETURN_STD = 0.01
+SPY_DAILY_RANGE_STD = 0.005
+SPY_OPEN_OFFSET_STD = 0.002
 SPY_VOLUME_LOW = 50_000_000
 SPY_VOLUME_HIGH = 150_000_000
 SPY_FIXTURE_SEED = 42
 
-# sample_bar_data: synthetic BarData ladder
 BAR_LADDER_COUNT = 10
 BAR_LADDER_BASE_PRICE = 100.0
 BAR_LADDER_BASE_VOLUME = 1_000_000.0
 
-# make_declining_ohlcv_df defaults
-DECLINING_OHLCV_BAND = 0.002  # symmetric OHL half-width around close
+DECLINING_OHLCV_BAND = 0.002
 
-# make_synthetic_close_df defaults
 SYNTH_DEFAULT_ROW_COUNT = 200
 SYNTH_DEFAULT_START_DATE = "2020-01-02"
 SYNTH_DEFAULT_SEED = 42
 SYNTH_DEFAULT_BASE_PRICE = 100.0
-SYNTH_RETURN_MEAN = 0.0003  # ~7.6% annualized drift
-SYNTH_RETURN_STD = 0.012  # ~19% annualized vol
+SYNTH_RETURN_MEAN = 0.0003
+SYNTH_RETURN_STD = 0.012
 SYNTH_FIXED_VOLUME = 1e6
 
-# make_daily_df defaults
 DAILY_DEFAULT_START_DATE = "2020-01-01"
 DAILY_FIXED_VOLUME = 1000
 
-# large_daily_df: 8-year synthetic OHLCV for walk-forward testing
 LARGE_ROW_COUNT = 2000
 LARGE_START_DATE = "2016-01-04"
 LARGE_BASE_PRICE = 200.0
@@ -96,14 +89,11 @@ LARGE_VOLUME_LOW = 30_000_000
 LARGE_VOLUME_HIGH = 100_000_000
 LARGE_FIXTURE_SEED = 123
 
-# Hourly-interval fixture parameters shared by hybrid tests
 HOURLY_ROW_COUNT = 250
 HOURLY_START = "2020-01-02 09:30"
 HOURLY_RETURN_STD = 0.005
 HOURLY_BASE_PRICE = 100.0
 
-# Seed for synthetic feature-column noise attached via ``attach_synthetic_features``.
-# Fixed so every integration test sees the same feature signal.
 FEATURE_NOISE_SEED = 11
 
 
@@ -147,20 +137,16 @@ def sample_spy_df() -> pd.DataFrame:
     np.random.seed(SPY_FIXTURE_SEED)
     idx = pd.bdate_range(start=SPY_START_DATE, periods=SPY_ROW_COUNT, freq="B")
 
-    # Generate realistic price series with random walk
     returns = np.random.normal(SPY_RETURN_MEAN, SPY_RETURN_STD, SPY_ROW_COUNT)
     close = SPY_BASE_PRICE * np.cumprod(1 + returns)
 
-    # Generate OHLCV from close
     daily_range = np.abs(np.random.normal(0, SPY_DAILY_RANGE_STD, SPY_ROW_COUNT))
     high = close * (1 + daily_range)
     low = close * (1 - daily_range)
 
-    # Open is close shifted by a small random amount
     open_offset = np.random.normal(0, SPY_OPEN_OFFSET_STD, SPY_ROW_COUNT)
     open_price = close * (1 + open_offset)
 
-    # Ensure OHLC constraints: high >= max(open, close), low <= min(open, close)
     high = np.maximum(high, np.maximum(open_price, close))
     low = np.minimum(low, np.minimum(open_price, close))
 
@@ -237,7 +223,6 @@ def make_synthetic_ohlcv_df(
     daily_range = np.abs(np.random.normal(0, SPY_DAILY_RANGE_STD, n_rows))
     high = np.maximum(close, open_) * (1 + daily_range)
     low = np.minimum(close, open_) * (1 - daily_range)
-    # Force HLOC ordering by construction (mirrors `large_daily_df`).
     high = np.maximum(high, np.maximum(open_, close))
     low = np.minimum(low, np.minimum(open_, close))
     volume = np.full(n_rows, SYNTH_FIXED_VOLUME)
@@ -326,10 +311,8 @@ _PAIR_MINI_DEFAULT_TEST_SIZE = 60
 _PAIR_MINI_DEFAULT_GAP = 1
 _PAIR_MINI_DEFAULT_SEED = 42
 _PAIR_MINI_START_DATE = "2020-01-02"
-# Cointegration parameters: close_b = alpha + beta * close_a + N(0, sigma).
-# Levels stay non-stationary (beta > 0 propagates leg A's random walk into B);
-# residuals are iid Gaussian (stationary). Engle-Granger ADF rejects the unit
-# root on residuals at p < 0.05 for any lookback >= ~50 bars at this sigma.
+# Cointegration parameters chosen so Engle-Granger ADF rejects the unit
+# root on residuals at p < 0.05 for any lookback >= ~50 bars.
 _PAIR_MINI_BETA = 0.5
 _PAIR_MINI_ALPHA = 50.0
 _PAIR_MINI_NOISE_STD = 1.0
@@ -661,7 +644,6 @@ def large_daily_df() -> pd.DataFrame:
     )
 
 
-# Shared benchmark-test defaults --------------------------------------------
 BENCH_TEST_RUN_ID = "rid"
 BENCH_TEST_TIMESTAMP = "2026-04-20T12:00:00Z"
 BENCH_TEST_HW_CPU = "test-cpu"

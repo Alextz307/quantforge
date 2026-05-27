@@ -11,21 +11,17 @@ from src.core.types import Interval
 from src.strategies.adaptive_bollinger import AdaptiveBollingerStrategy
 from tests.conftest import make_declining_close_df, make_synthetic_close_df
 
-# Compact GARCH search space for fast CI
 COMPACT_GARCH_P_MAX = 2
 COMPACT_GARCH_Q_MAX = 2
 
-# Bollinger defaults tuned for small synthetic fixtures
 BOLLINGER_WINDOW = 20
 BOLLINGER_TREND_WINDOW = 50
 BOLLINGER_K = 2.0
 
-# Out-of-sample eval data (different seed from training)
 EVAL_ROW_COUNT = 60
 EVAL_START_DATE = "2021-01-04"
 EVAL_SEED = 99
 
-# Valid discrete signal values
 VALID_SIGNALS = {-1.0, 0.0, 1.0}
 
 

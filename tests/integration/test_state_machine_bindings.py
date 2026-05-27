@@ -20,7 +20,6 @@ import quant_engine as qe
 
 F64Array = npt.NDArray[np.float64]
 
-# ───── Pairs thresholds (shared across z-score scenarios) ─────
 ENTRY_Z = 2.0
 EXIT_Z = 0.5
 STOP_LOSS_Z = 3.0
@@ -207,9 +206,7 @@ class TestFloat32Forcecast:
         lower = np.array([92.0, 92.0, 92.0], dtype=np.float32)
         trend_ma = np.array([80.0, 80.0, 80.0], dtype=np.float32)
 
-        # The stub declares f64; pybind11's ``forcecast`` accepts f32 and
-        # up-casts it. The inline casts pin the runtime behaviour while
-        # keeping mypy aligned with the declared-f64 signature.
+        # Stub declares f64; pybind11's forcecast accepts f32 and up-casts.
         got = qe.run_mean_reversion_state_machine(
             close=cast(F64Array, close),
             mid=cast(F64Array, mid),
@@ -256,7 +253,6 @@ class TestLongSeriesParity:
     def test_pairs_matches_python_reference(self) -> None:
         rng = np.random.default_rng(123)
         z = rng.normal(0.0, 1.5, 500)
-        # Inject stop-loss hit and NaN to exercise both branches.
         z[100] = 5.0
         z[200] = np.nan
         got = qe.run_pairs_state_machine(

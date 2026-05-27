@@ -10,7 +10,6 @@ from src.core.exceptions import LeakageError
 from src.core.types import Device, Interval
 from src.models.xgboost_classifier import DirectionalClassifier
 
-# Synthetic fixture data
 SYNTH_ROW_COUNT = 200
 SYNTH_START_DATE = "2020-01-02"
 SYNTH_BASE_PRICE = 100.0
@@ -24,7 +23,6 @@ RSI_LOW = 20.0
 RSI_HIGH = 80.0
 SYNTH_FIXTURE_SEED = 42
 
-# Compact XGBoost parameters (small for fast CI)
 COMPACT_N_ESTIMATORS = 10
 EARLY_STOP_N_ESTIMATORS = 100
 EARLY_STOP_ROUNDS = 5
@@ -49,7 +47,6 @@ def xgb_data() -> tuple[pd.DataFrame, pd.Series]:
         index=idx,
     )
 
-    # Target: next-day direction (exclude last row — no future)
     direction = (np.diff(close) > 0).astype(int)
     target = pd.Series(direction, index=idx[:-1], name="direction")
 
@@ -130,7 +127,6 @@ class TestDirectionalClassifier:
             early_stopping_rounds=EARLY_STOP_ROUNDS,
         )
         c.fit(features, target)
-        # eval_results should be populated from the validation split
         assert len(c._eval_results) > 0
 
     def test_training_metadata_populated(
@@ -191,7 +187,6 @@ class TestDirectionalClassifier:
         c = DirectionalClassifier(subset, n_estimators=COMPACT_N_ESTIMATORS)
         c.fit(features, target)
         assert c._feature_columns == subset
-        # rsi_14 and return_5d are ignored
         proba = c.predict_proba(features)
         assert isinstance(proba, pd.Series)
 

@@ -66,8 +66,6 @@ def test_validate_universe_happy_path() -> None:
 
 
 def test_validate_strategy_kind_always_passes() -> None:
-    # strategy has no Pydantic counterpart — HPO is validated against
-    # HPOConfig and has its own dedicated tests below.
     response = validate(ConfigKind.STRATEGY, {"arbitrary": "shape"})
     assert response.valid is True
     assert response.errors == []
@@ -135,7 +133,6 @@ def test_validate_experiment_missing_required_strategy_param() -> None:
     pre-flight (via ``describe_strategy``) catches missing required ctor
     kwargs so a doomed config never spawns a subprocess."""
     payload = make_valid_experiment_payload()
-    # ``ReturnForecast`` ctor declares ``feature_columns: list[str]`` (required).
     payload["strategy"] = {"name": "ReturnForecast", "params": {}}
 
     response = validate(ConfigKind.EXPERIMENT, payload)
@@ -195,7 +192,6 @@ def test_list_configs_returns_sorted_stems(config_root: Path) -> None:
 
 
 def test_list_configs_missing_dir_returns_empty(config_root: Path) -> None:
-    # `experiment` has no top-level dir under config/.
     entries = list_configs(config_root, ConfigKind.EXPERIMENT)
 
     assert entries == []

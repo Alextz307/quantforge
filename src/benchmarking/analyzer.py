@@ -127,8 +127,6 @@ def _summarize_group(name: str, times_ns: list[float]) -> BenchmarkStats:
     std = float(arr.std(ddof=1)) if n > 1 else 0.0
     p5 = float(np.percentile(arr, 5.0))
     p95 = float(np.percentile(arr, 95.0))
-    # Normal-approx 95% CI on the mean. Fine for n>=10; we note the limit
-    # in the thesis rather than pulling in scipy for a t-distribution.
     half = 1.96 * std / math.sqrt(n) if n > 0 else 0.0
     return BenchmarkStats(
         name=name,
@@ -152,8 +150,6 @@ def _compare_pair(
     cur_mean, cur_var, cur_n = _mean_var_n([r.real_time_ns for r in current])
     base_mean, base_var, base_n = _mean_var_n([r.real_time_ns for r in baseline])
     pct = 100.0 * (cur_mean - base_mean) / base_mean
-    # Welch pooled std. When both samples are n=1 (the common one-run case)
-    # std is 0, the pct-gate alone gates meaningfulness.
     pooled = math.sqrt((cur_var / cur_n) + (base_var / base_n))
     if pooled > 0:
         z = (cur_mean - base_mean) / pooled

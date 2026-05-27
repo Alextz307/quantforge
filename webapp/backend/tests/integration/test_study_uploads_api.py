@@ -27,7 +27,7 @@ def study_config_root(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     (root / "strategies" / "adaptive_bollinger.yaml").write_text("body\n")
     (root / "hpo" / "adaptive_bollinger.yaml").write_text("body\n")
     (root / "universes" / "spy_daily_5y.yaml").write_text("body\n")
-    (root / "study" / "library_only.yaml").write_text("body\n")  # collision target
+    (root / "study" / "library_only.yaml").write_text("body\n")
     monkeypatch.setenv("WEBAPP_CONFIG_ROOT", str(root))
     get_settings.cache_clear()
     return root
@@ -70,7 +70,6 @@ def test_schema_carries_descriptions(authed_client: TestClient) -> None:
     top = schema["properties"]
     assert "description" in top["name"]
     assert "study" in top["name"]["description"].lower()
-    # Nested StudyLeg surfaced via $defs with its own descriptions.
     defs = schema.get("$defs") or schema.get("definitions") or {}
     leg = defs["StudyLeg"]["properties"]
     assert "description" in leg["strategy"]
@@ -151,7 +150,6 @@ def test_create_returns_422_on_invalid_yaml(
         UPLOADS_PATH, json={"slug": "broken", "yaml": "name: [bad"}
     )
     assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
-    # FastAPI nests pydantic 422s under "detail"; ours is a list of error dicts.
     detail = response.json()["detail"]
     assert isinstance(detail, list)
     assert detail[0]["loc"] == ["yaml"]

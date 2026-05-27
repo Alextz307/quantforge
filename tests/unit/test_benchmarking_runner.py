@@ -39,7 +39,6 @@ def test_parse_extracts_family_and_size_params(fixture_text: str) -> None:
 def test_parse_converts_time_unit_to_ns(fixture_text: str) -> None:
     results = parse_gbench_json(fixture_text)
     macd = next(r for r in results if r.name == "BM_MACD/10000")
-    # fixture has real_time=60us -> must convert to 60000 ns
     assert macd.real_time_ns == 60.0 * US_TO_NS
 
 

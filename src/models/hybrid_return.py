@@ -206,9 +206,6 @@ class HybridReturnModel(IPredictor):
 
         First ``lstm_lookback`` rows inherit NaN from the LSTM component.
         """
-        # `_scaler is None` check narrows the type for mypy; once the
-        # metadata slot is set the scaler is always set too (assigned
-        # together inside `fit()`).
         self._assert_fitted_with_metadata()
         if self._scaler is None:
             raise RuntimeError(
@@ -248,7 +245,6 @@ class HybridReturnModel(IPredictor):
         Every ctor kwarg is persisted in the composite's own ``config.json``.
         """
         metadata = self._assert_fitted_with_metadata()
-        # ``_scaler`` is set atomically with metadata in fit() — assert for mypy.
         assert self._scaler is not None
 
         scaler = self._scaler

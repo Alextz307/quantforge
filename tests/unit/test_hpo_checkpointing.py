@@ -102,14 +102,13 @@ class TestBestConfigRefresh:
     def test_best_config_updated_on_new_best(self, tmp_path: Path) -> None:
         _run_study_with_callback(tmp_path, [0.1, 0.5, 0.3])
         raw = yaml.safe_load((tmp_path / BEST_CONFIG_YAML_NAME).read_text())
-        # Trial 1 had value 0.5 (the max) — its params define best_config.
         cfg = ExperimentConfig.model_validate(raw)
         assert cfg.strategy.name == "AdaptiveBollinger"
 
     def test_best_config_preserves_original_name(self, tmp_path: Path) -> None:
         _run_study_with_callback(tmp_path, [0.5])
         raw = yaml.safe_load((tmp_path / BEST_CONFIG_YAML_NAME).read_text())
-        assert raw["name"] == "cb_test"  # not "cb_test_trial"
+        assert raw["name"] == "cb_test"
 
 
 class TestNonCompleteStatesSkipBestRefresh:
@@ -136,11 +135,9 @@ class TestNonCompleteStatesSkipBestRefresh:
             catch=(RuntimeError,),
         )
 
-        # jsonl records the failed trial
         assert (tmp_path / TRIALS_JSONL_NAME).is_file()
         lines = (tmp_path / TRIALS_JSONL_NAME).read_text().splitlines()
         assert len(lines) == 1
-        # but best_config is absent (no COMPLETE trial ever landed)
         assert not (tmp_path / BEST_CONFIG_YAML_NAME).exists()
 
 
@@ -161,11 +158,10 @@ class TestCallbackDirectInvocation:
             value=None,
             state=optuna.trial.TrialState.PRUNED,
         )
-        # Attach datetimes manually (create_trial doesn't set them)
+        # create_trial doesn't set datetimes; attach them manually.
         object.__setattr__(pruned, "datetime_start", datetime(2026, 1, 1, 12, 0))
         object.__setattr__(pruned, "datetime_complete", datetime(2026, 1, 1, 12, 5))
 
-        # Type-erased call — duck-typed Study is fine at runtime.
         cb(_FakeStudy(), pruned)  # type: ignore[arg-type]
 
         assert (tmp_path / TRIALS_JSONL_NAME).is_file()
@@ -200,7 +196,6 @@ class TestEndToEndPruning:
         assert len(lines) == 2
         states = [json.loads(line)["state"] for line in lines]
         assert states == ["PRUNED", "COMPLETE"]
-        # Only the completed trial can define best_config
         assert (tmp_path / BEST_CONFIG_YAML_NAME).is_file()
 
 
@@ -226,7 +221,6 @@ class TestBestValueCache:
         the study with a ``best_trial`` that raises if accessed.
         """
         callback = _make_callback(tmp_path)
-        # Seed the cache by running one complete trial first.
         _run_study_with_callback_from(tmp_path, [0.5], callback=callback)
         assert callback._last_best_value == 0.5
 
