@@ -1,14 +1,19 @@
 """
 Reconstruct in-memory experiment artifacts from a persisted run directory.
 
-Two readers, both anchored on the canonical persistence layout
-(``<run_dir>/manifest.json`` + ``fold_results.jsonl`` + ``config.yaml``):
+Readers anchored on the canonical persistence layout
+(``<run_dir>/manifest.json`` + ``fold_results.jsonl`` + ``config.yaml`` +
+``strategy_state/``):
 
 * :func:`load_experiment_result` — used by ``experiment compare
   --reuse-runs`` so the comparison reporter can rank + bootstrap-test
   prior runs without retraining the underlying experiments.
 * :func:`load_experiment_config_from_run` — reads the frozen
   ``config.yaml`` back into a typed :class:`ExperimentConfig`.
+* :func:`load_strategy_from_run_dir` — reconstructs the trained
+  :class:`IStrategy` instance by resolving its registered class via
+  ``strategy_registry`` and dispatching to ``cls.load(strategy_state/)``.
+  Used by the deployment layer to predict from a previously trained run.
 * :func:`resolve_run_dir` — path helper that joins ``<store_root>/runs/<id>``.
 """
 
@@ -16,16 +21,20 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import src.strategies  # noqa: F401 — fires @strategy_registry.register decorators
 from src.core import json_io
 from src.core.config import ExperimentConfig, load_experiment_config
 from src.core.persistence import (
     EXPERIMENT_CONFIG_YAML,
     EXPERIMENT_MANIFEST_JSON,
+    EXPERIMENT_STRATEGY_SUBDIR,
     FOLD_RESULTS_JSONL,
     RUNS_SUBDIR,
 )
+from src.core.registry import strategy_registry
 from src.orchestration.manifest import Manifest
 from src.orchestration.types import ExperimentResult, FoldRecord
+from src.strategies.interface import IStrategy
 
 
 def load_experiment_result(run_dir: Path) -> ExperimentResult:
@@ -91,3 +100,42 @@ def resolve_run_dir(store_root: Path, experiment_id: str) -> Path:
     """
 
     return store_root / RUNS_SUBDIR / experiment_id
+
+
+def load_strategy_from_run_dir(run_dir: Path) -> IStrategy:
+    """
+    Reconstruct the trained strategy persisted under a run directory.
+
+    Reads ``config.yaml`` to discover the strategy's registered name
+    (``strategy.name``), resolves the concrete class via the project-wide
+    :data:`~src.core.registry.strategy_registry`, and dispatches to
+    ``cls.load(run_dir / strategy_state)``. The returned instance is
+    fully trained: ``generate_signals()`` works immediately and
+    ``training_metadata`` is populated from the saved ``metadata.json``.
+
+    The registry is the single source of truth for ``YAML name → class``
+    — no per-strategy switch lives here. Adding a new strategy file
+    under ``src/strategies/`` makes it loadable through this entry
+    point automatically.
+
+    Raises:
+        FileNotFoundError: ``run_dir`` is missing, its ``config.yaml`` is
+            missing, or its ``strategy_state/`` directory is missing.
+        KeyError: ``config.yaml`` names a strategy that is not registered.
+    """
+
+    if not run_dir.is_dir():
+        raise FileNotFoundError(
+            f"experiment run directory not found: {run_dir}; "
+            f"fix by passing the path to a completed run."
+        )
+    state_dir = run_dir / EXPERIMENT_STRATEGY_SUBDIR
+    if not state_dir.is_dir():
+        raise FileNotFoundError(
+            f"strategy state directory not found: {state_dir}; the source "
+            f"run may be incomplete — re-run the experiment or pass a "
+            f"different path."
+        )
+    cfg = load_experiment_config_from_run(run_dir)
+    cls = strategy_registry.get(cfg.strategy.name)
+    return cls.load(state_dir)

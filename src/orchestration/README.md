@@ -12,6 +12,9 @@ multiple runs into cross-strategy comparison reports.
 | `Experiment.run(options)` | Execute walk-forward; write `config.yaml`, `manifest.json`, `fold_results.jsonl`, `metrics.json`, `strategy_state/`, `run.log` (root-logger tee for the duration of the run), optional report. |
 | `run_comparison(configs, ..., reused_results=...)` | Run N strategies on aligned data, rank them, pairwise-bootstrap Sharpe differentials. With `reused_results=` set, the per-strategy walk-forward step is skipped and prior fold artifacts feed the rest of the pipeline; `configs=` may be omitted on the reuse path and strategy names are read from each result's `manifest.name`. |
 | `load_experiment_result(run_dir)` / `load_experiment_config_from_run(run_dir)` / `resolve_run_dir(store, id)` | Reconstruct an `ExperimentResult` (or its frozen `ExperimentConfig`) from a persisted run directory; powers `compare --reuse-runs`. |
+| `load_strategy_from_run_dir(run_dir)` | Registry-driven loader: returns a fully-trained `IStrategy` instance whose `generate_signals` works immediately. Used by the deployment layer. |
+| `create_deployment(...)` / `load_deployment(store, id)` / `predict(deployment_id, store_root, as_of=None)` / `read_signals(...)` | Live-deployment primitives: pin a trained run, generate today's signal, accumulate a signed log. Predict-only, no refit clock. |
+| `resolve_strategy_state_path(source_kind, source_id, store_root)` | Single source of truth for "where does this source's `strategy_state/` live" — handles both `run` and `hpo` (Optuna best-trial lookup). |
 | `run_holdout_eval(source, out_name, store_root)` | Refit a fresh strategy on the full dev region, evaluate once on the reserved holdout. Cross-checks `data_hash` + `holdout_start` against the source manifest before fitting. |
 | `run_study(spec_path, ...)` | Drive a full `StudySpec` end-to-end — cross-strategy × cross-universe sweep with per-leg resume. |
 | `consolidate_study(study_dir)` | Walk a completed study tree (`runs/`, `holdout_evals/`, `comparisons/`); return a `ConsolidatedStudyReport` value object covering every completed leg. |
@@ -27,7 +30,8 @@ multiple runs into cross-strategy comparison reports.
 | `experiment.py` | `Experiment` dataclass + `RunOptions`; ticker-count dispatch in `fetch_bars`; `_fetch_pair_bars` builds the wide-format `_a`/`_b` join for the 2-ticker path; persistence pipeline. |
 | `manifest.py` | `Manifest` (run-level provenance). |
 | `comparison.py` | `run_comparison` + sequential / `ProcessPoolExecutor` paths + paired stationary bootstrap. |
-| `run_loader.py` | `load_experiment_result` / `load_experiment_config_from_run` / `resolve_run_dir` — read manifest + folds + frozen YAML back into typed objects, used by `compare --reuse-runs`. |
+| `deployment.py` | `Deployment` / `SignalRow` dataclasses + `create_deployment` / `predict` / `read_signals` / `resolve_strategy_state_path`. Live-inference layer over a frozen trained run. |
+| `run_loader.py` | `load_experiment_result` / `load_experiment_config_from_run` / `load_strategy_from_run_dir` / `resolve_run_dir` — read manifest + folds + frozen YAML back into typed objects; the strategy loader is registry-driven and powers `deployment.predict`. |
 | `holdout_eval.py` | `run_holdout_eval` (one-shot honest-OOS) + `resolve_source` (CLI source-pair resolver). Writes a `holdout_eval.json` payload with the `is_holdout_eval: true` marker — does NOT write a `Manifest` (post-hoc evaluation, not a new experiment). |
 | `study.py` | Empirical-study orchestrator: leg expansion, universe-profile composition, per-universe cross-strategy compare. |
 | `study_state.py` | `LegState` + `StudyState` resume dataclasses; atomic write via `os.replace`; spec-hash guard refuses to resume against a mutated spec. |
@@ -59,9 +63,34 @@ result = build_experiment(cfg).run(RunOptions(write_report=True))
 print(result.experiment_id, len(result.folds))
 ```
 
+## Live-deployment flow
+
+`deployment.py` bridges the backtest world (frozen trained strategies
+on disk) and live decision support. A `Deployment` is *only* a pinned
+pointer to a trained run plus an accumulating `signals.jsonl`. No
+refit clock — refreshing a stale model is a new experiment run via
+the existing flow, then a new deployment pointed at it.
+
+`predict(deployment_id, as_of=None, store_root=…)` flow:
+
+1. Load the deployment manifest; resolve the source's run-dir via
+   `resolve_strategy_state_path`.
+2. Load the trained strategy via `run_loader.load_strategy_from_run_dir`
+   (registry-driven, supports every strategy that implements `save`/`load`).
+3. Read `training_metadata` (frozen on disk) for `train_end` + `interval`.
+4. Fetch a warmup window through `as_of` via the cadence-specific
+   `LiveBarFetcher`; the window may legitimately overlap training.
+5. **Anti-leakage guard**: `bars.index[-1] > train_end` — strictly
+   weaker than backtest's `validate_no_overlap`, but the right
+   contract in a live setting where the model is already validated.
+6. `strategy.generate_signals(bars).iloc[-1]` → today's signal.
+   NaN raises `WarmupInsufficientError`.
+7. Idempotent append to `signals.jsonl` (dedup by `bar_ts`).
+
 ## Cross-links
 
 - Drives `src/engine/` (walk-forward) and `src/strategies/` (concrete strategies).
-- Reads from `src/data/` (sources, fingerprint) and `src/core/` (config, persistence, registry, temporal).
+- Reads from `src/data/` (sources, fingerprint, `LiveBarFetcher`) and `src/core/` (config, persistence, registry, temporal).
 - Writes to `src/visualization/` (`StrategyReporter`, `ComparisonReporter`) on report opt-in.
 - HPO entry point lives in `src/optimization/tuner.py` and reuses `Experiment` per trial.
+- The live deployment surface (`deployment.py`) shares storage primitives with the experiment runner (`save_model_skeleton`, `attach_run_log_file`).

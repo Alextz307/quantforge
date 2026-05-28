@@ -9,6 +9,7 @@ import pandas as pd
 import pytest
 import torch
 
+from src.core.exceptions import WarmupInsufficientError
 from src.core.types import Device, Interval, LossFunction
 from src.models.lstm import LSTMPredictor, MarketLSTM
 
@@ -185,7 +186,7 @@ class TestLSTMPredictor:
         )
         p.fit(train, lstm_target)
 
-        with pytest.raises(ValueError, match="at least"):
+        with pytest.raises(WarmupInsufficientError, match="at least"):
             p.predict_single(train.iloc[:TOO_SHORT_WINDOW_SIZE])
 
     def test_training_reduces_loss(

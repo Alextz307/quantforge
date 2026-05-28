@@ -70,9 +70,17 @@ FOLD_DIR_PREFIX = "fold_"
 
 RUNS_SUBDIR = "runs"
 HPO_SUBDIR = "hpo"
+HPO_TRIALS_RUNS_SUBDIR = "runs"
 COMPARISONS_SUBDIR = "comparisons"
 HOLDOUT_EVALS_SUBDIR = "holdout_evals"
 CLI_LOGS_SUBDIR = "cli_logs"
+
+# Live deployment layout — each deployment is a directory under
+# ``<store_root>/deployments/<deployment_id>/`` holding the typed manifest
+# (round-trippable provenance) and an append-only signal log.
+DEPLOYMENTS_SUBDIR = "deployments"
+DEPLOYMENT_MANIFEST_JSON = "manifest.json"
+DEPLOYMENT_SIGNALS_JSONL = "signals.jsonl"
 
 # Holdout-eval bundles deliberately skip the typed ``Manifest`` — only
 # commands that CREATE an experiment write one (run / tune). Holdout-eval

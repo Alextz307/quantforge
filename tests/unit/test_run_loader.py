@@ -7,6 +7,10 @@ Behavioural surface:
   output (modulo dataclass identity).
 * ``load_experiment_config_from_run`` returns the frozen
   :class:`ExperimentConfig` from the run's ``config.yaml``.
+* ``load_strategy_from_run_dir`` resolves the registered concrete
+  class via ``strategy_registry`` and dispatches to ``cls.load``;
+  the returned instance is fully trained and produces signals
+  byte-identical to the source strategy.
 * Missing dir or missing artifact raises :class:`FileNotFoundError`
   with a pointed message — partial run dirs (mid-crash) must not look
   like analysable runs.
@@ -17,6 +21,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pandas as pd
 import pytest
 
 from src.core import json_io
@@ -24,18 +29,28 @@ from src.core.config import write_frozen_yaml
 from src.core.persistence import (
     EXPERIMENT_CONFIG_YAML,
     EXPERIMENT_MANIFEST_JSON,
+    EXPERIMENT_STRATEGY_SUBDIR,
     FOLD_RESULTS_JSONL,
 )
 from src.orchestration.run_loader import (
     load_experiment_config_from_run,
     load_experiment_result,
+    load_strategy_from_run_dir,
 )
+from src.strategies.adaptive_bollinger import AdaptiveBollingerStrategy
 from tests.conftest import (
     comparison_curve_seed,
     make_log_return_equity_curve,
     make_stub_experiment_result,
     make_stub_fold_record,
+    make_synthetic_ohlcv_df,
 )
+
+_STRATEGY_TRAIN_ROWS = 300
+_STRATEGY_BOLLINGER_WINDOW = 20
+_STRATEGY_BOLLINGER_TREND_WINDOW = 50
+_STRATEGY_GARCH_P_MAX = 1
+_STRATEGY_GARCH_Q_MAX = 1
 
 _N_FOLDS = 3
 _CURVE_LENGTH = 32
@@ -122,3 +137,65 @@ def test_load_config_missing_yaml_raises(tmp_path: Path) -> None:
     run_dir.mkdir()
     with pytest.raises(FileNotFoundError, match=EXPERIMENT_CONFIG_YAML):
         load_experiment_config_from_run(run_dir)
+
+
+def _materialise_trained_run_dir(tmp_path: Path) -> tuple[Path, AdaptiveBollingerStrategy, pd.DataFrame]:
+    """
+    Train AdaptiveBollinger on synthetic bars; persist a minimal run dir.
+
+    Layout matches the experiment runner's output: ``config.yaml`` next to
+    a ``strategy_state/`` produced by ``strategy.save()``. Returns the run
+    dir, the source strategy (still in memory) and the data the loader
+    will use to verify byte-identical signal output.
+    """
+
+    from src.core.config import load_experiment_config
+
+    run_dir = tmp_path / "trained"
+    run_dir.mkdir()
+
+    cfg = load_experiment_config("config/strategies/adaptive_bollinger.yaml")
+    write_frozen_yaml(run_dir / EXPERIMENT_CONFIG_YAML, cfg)
+
+    df = make_synthetic_ohlcv_df(n_rows=_STRATEGY_TRAIN_ROWS)
+    strategy = AdaptiveBollingerStrategy(
+        window=_STRATEGY_BOLLINGER_WINDOW,
+        trend_window=_STRATEGY_BOLLINGER_TREND_WINDOW,
+        garch_p_max=_STRATEGY_GARCH_P_MAX,
+        garch_q_max=_STRATEGY_GARCH_Q_MAX,
+    )
+    strategy.train(df)
+    strategy.save(run_dir / EXPERIMENT_STRATEGY_SUBDIR)
+    return run_dir, strategy, df
+
+
+def test_load_strategy_round_trip(tmp_path: Path) -> None:
+    """
+    Loader returns a trained strategy whose signals match the source.
+    """
+
+    run_dir, source, df = _materialise_trained_run_dir(tmp_path)
+
+    loaded = load_strategy_from_run_dir(run_dir)
+
+    assert type(loaded) is type(source)
+    assert loaded.training_metadata is not None
+    assert loaded.training_metadata.train_end == source.training_metadata.train_end  # type: ignore[union-attr]
+
+    expected = source.generate_signals(df)
+    actual = loaded.generate_signals(df)
+    pd.testing.assert_series_equal(actual, expected)
+
+
+def test_load_strategy_missing_run_dir_raises(tmp_path: Path) -> None:
+    with pytest.raises(FileNotFoundError, match="run directory not found"):
+        load_strategy_from_run_dir(tmp_path / "absent")
+
+
+def test_load_strategy_missing_state_dir_raises(tmp_path: Path) -> None:
+    run_dir = tmp_path / "no_state"
+    run_dir.mkdir()
+    with pytest.raises(FileNotFoundError, match="strategy state directory not found"):
+        load_strategy_from_run_dir(run_dir)
+
+

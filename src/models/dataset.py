@@ -9,6 +9,8 @@ import pandas as pd
 import torch
 from torch.utils.data import Dataset
 
+from src.core.exceptions import WarmupInsufficientError
+
 
 class TemporalDataset(Dataset[tuple[torch.Tensor, torch.Tensor]]):
     """
@@ -48,10 +50,10 @@ class TemporalDataset(Dataset[tuple[torch.Tensor, torch.Tensor]]):
                 f"one of {list(df.columns)}."
             )
         if len(df) <= lookback_window:
-            raise ValueError(
-                f"DataFrame has {len(df)} rows but needs > {lookback_window} "
-                f"for lookback_window={lookback_window}; fix by widening the "
-                f"input window or by shrinking lookback_window."
+            raise WarmupInsufficientError(
+                f"TemporalDataset: DataFrame has {len(df)} rows but needs > "
+                f"{lookback_window} for lookback_window={lookback_window}; fix "
+                f"by widening the input window or by shrinking lookback_window."
             )
         if not feature_columns:
             raise ValueError(

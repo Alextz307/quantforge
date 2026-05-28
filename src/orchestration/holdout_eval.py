@@ -54,6 +54,7 @@ from src.core.persistence import (
     EXPERIMENT_CONFIG_YAML,
     HOLDOUT_EVAL_JSON,
     HOLDOUT_EVALS_SUBDIR,
+    HPO_TRIALS_RUNS_SUBDIR,
     ensure_model_dir,
     read_experiment_manifest,
 )
@@ -73,8 +74,6 @@ from src.orchestration.git_info import read_git_sha
 _logger = get_logger(__name__)
 
 SourceKind = Literal["run", "hpo"]
-
-_HPO_RUNS_SUBDIR = "runs"
 
 
 @dataclass(frozen=True)
@@ -226,7 +225,7 @@ def resolve_source(
             f"may have no completed trials yet — run the study to completion "
             f"or pass --run-dir against a finished run instead."
         )
-    trials_root = hpo_dir / TRIAL_ARTIFACTS_SUBDIR / _HPO_RUNS_SUBDIR
+    trials_root = hpo_dir / TRIAL_ARTIFACTS_SUBDIR / HPO_TRIALS_RUNS_SUBDIR
     if not trials_root.is_dir():
         raise FileNotFoundError(
             f"missing {trials_root} under {hpo_dir}; no trial has produced "

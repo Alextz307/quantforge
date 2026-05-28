@@ -18,6 +18,8 @@ from src.core.temporal import TrackedMetadata, TrainingMetadata, collect_metadat
 if TYPE_CHECKING:
     import optuna
 
+RECURSIVE_LEAF_CONVERGENCE_MARGIN_BARS = 100
+
 
 class IStrategy(ABC):
     """
@@ -70,6 +72,21 @@ class IStrategy(ABC):
 
     uses_xgboost: ClassVar[bool] = False
     """True for strategies whose ML leaf is XGBoost-backed (no MPS GPU path)."""
+
+    convergence_margin_bars: ClassVar[int] = 0
+    """Extra bars beyond :attr:`required_warmup_bars` to let recursive leaves converge.
+
+    Pure rolling-window strategies (signals depend only on a bounded prefix of
+    bars once each indicator has warmed up) keep the default ``0`` — their
+    last-row signal is byte-identical for any input window longer than
+    ``required_warmup_bars``. Strategies with GARCH or ARMA leaves carry
+    recursive state whose forward iteration must converge out of the fitted
+    backcast before the last-row signal stabilises; these strategies override
+    to :data:`RECURSIVE_LEAF_CONVERGENCE_MARGIN_BARS` (geometric convergence
+    of the recursion's effective memory is well within that bound for fitted
+    equity-return models). The deployment layer reads this on auto-derive to
+    size the live warmup window without a user-supplied constant.
+    """
 
     is_pairs_strategy: ClassVar[bool] = False
     """True for two-leg (cointegration / pairs) strategies.

@@ -26,7 +26,7 @@ from src.core.temporal import TrackedMetadata, TrainingMetadata, collect_metadat
 from src.core.types import Interval
 from src.core.utils import compute_log_returns
 from src.models.garch import GARCHPredictor
-from src.strategies.interface import IStrategy
+from src.strategies.interface import RECURSIVE_LEAF_CONVERGENCE_MARGIN_BARS, IStrategy
 
 if TYPE_CHECKING:
     import optuna
@@ -46,6 +46,8 @@ class AdaptiveBollingerStrategy(IStrategy):
     A longer-window SMA filters trend direction: longs entered only in
     bullish regimes, shorts only in bearish regimes.
     """
+
+    convergence_margin_bars = RECURSIVE_LEAF_CONVERGENCE_MARGIN_BARS
 
     def __init__(
         self,

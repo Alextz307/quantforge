@@ -31,7 +31,7 @@ from src.core.temporal import (
 from src.core.types import Device, Interval, LossFunction
 from src.core.utils import annualized_garman_klass
 from src.models.hybrid_volatility import HybridVolatilityModel
-from src.strategies.interface import IStrategy
+from src.strategies.interface import RECURSIVE_LEAF_CONVERGENCE_MARGIN_BARS, IStrategy
 
 if TYPE_CHECKING:
     import optuna
@@ -85,6 +85,8 @@ class VolatilityTargetingStrategy(IStrategy):
     OHLC estimator over ``realized_vol_window`` bars. Input DataFrames must
     carry ``open``/``high``/``low``/``close`` columns.
     """
+
+    convergence_margin_bars = RECURSIVE_LEAF_CONVERGENCE_MARGIN_BARS
 
     def __init__(
         self,

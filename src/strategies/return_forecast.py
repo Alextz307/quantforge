@@ -28,7 +28,7 @@ from src.core.temporal import (
 from src.core.types import Device, InformationCriterion, Interval, LossFunction
 from src.core.utils import compute_log_returns
 from src.models.hybrid_return import HybridReturnModel
-from src.strategies.interface import IStrategy
+from src.strategies.interface import RECURSIVE_LEAF_CONVERGENCE_MARGIN_BARS, IStrategy
 
 if TYPE_CHECKING:
     import optuna
@@ -76,6 +76,8 @@ class ReturnForecastStrategy(IStrategy):
     forecast of next-bar log returns. Positive forecast → long, negative
     forecast → short, scaled linearly and then clipped.
     """
+
+    convergence_margin_bars = RECURSIVE_LEAF_CONVERGENCE_MARGIN_BARS
 
     def __init__(
         self,

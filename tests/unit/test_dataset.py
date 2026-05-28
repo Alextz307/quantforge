@@ -8,6 +8,7 @@ import pandas as pd
 import pytest
 import torch
 
+from src.core.exceptions import WarmupInsufficientError
 from src.models.dataset import TemporalDataset
 
 DF_DEFAULT_ROW_COUNT = 20
@@ -192,7 +193,7 @@ class TestTemporalDataset:
 
     def test_rejects_insufficient_rows(self) -> None:
         df = _make_df(TOO_SMALL_ROW_COUNT)
-        with pytest.raises(ValueError, match="needs >"):
+        with pytest.raises(WarmupInsufficientError, match="needs >"):
             TemporalDataset(
                 df,
                 target_column="target",

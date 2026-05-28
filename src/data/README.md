@@ -18,6 +18,9 @@ holdout-eval uses to detect vendor drift.
 | `DataCache` | Parquet on-disk cache keyed by SHA-256 of `(source, ticker, start, end, interval)`. |
 | `fingerprint_bars(df)` | SHA-256 content hash over (columns, timestamps, OHLCV bytes). Stable across pandas / numpy upgrades. |
 | `fingerprint_pair_bars(df)` | Same hash, wide-format pair columns (`open_a` … `volume_b`). |
+| `LiveBarFetcher` | Protocol: cadence-specific live OHLCV fetcher used by the deployment layer. |
+| `DailyLiveBarFetcher` | Daily implementation backed by `YFinanceSource`; rejects non-daily intervals defensively. |
+| `resolve_fetcher(interval)` | Dispatch site — picks the right `LiveBarFetcher` for an interval. Daily today; intraday is a future drop-in. |
 
 ## Layout
 
@@ -32,6 +35,7 @@ holdout-eval uses to detect vendor drift.
 | `validator.py` | `validate_bars` semantic checks. |
 | `cache.py` | `DataCache` (parquet, ~/.quant_cache by default). |
 | `fingerprint.py` | `_fingerprint` core + `fingerprint_bars` / `fingerprint_pair_bars` wrappers. |
+| `live_fetcher.py` | `LiveBarFetcher` protocol + `DailyLiveBarFetcher` + `resolve_fetcher` dispatcher (live-inference cadence layer). |
 
 ## Single vs pair fingerprint
 

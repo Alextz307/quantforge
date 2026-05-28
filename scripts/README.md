@@ -9,6 +9,7 @@ pyproject, leaf-keys vs. strategy ctors).
 | Script | Role |
 | --- | --- |
 | `experiment.py` (`make experiment`) | Click group with `run`, `tune`, `compare`, `holdout-eval`, `study`, `clean` subcommands. Drives the orchestration layer end to end. |
+| `deploy.py` | Click group with `create`, `predict`, `list`, `show`, `signals` subcommands. Live-inference layer over a frozen trained run; idempotent on `--as-of`. |
 | `check_ci_deps.py` | Drift guard: every runtime dep in `pyproject.toml` appears in CI's `python-test` pip install line; every `types-*` / `*-stubs` dev dep appears in CI's `lint-and-typecheck` pip install line. Runs in CI as an early lint step. (The `webapp` + `webapp-frontend` jobs use `pip install -e ".[webapp]"` so their installs cannot drift from `[webapp]` extras.) |
 | `check_constants_sync.py` | Drift guard: every numeric constant mirrored between `src/core/constants.py` and `cpp/include/quant/core/types.hpp` (trading-calendar counts, position limits) has the same value on both sides. Pairs to verify are listed in `MIRROR_PAIRS` in the script. |
 | `dump_openapi.py` (`make webapp-openapi-snapshot`) | Boot FastAPI, write its OpenAPI 3.1 spec to `webapp/frontend/openapi.snapshot.json` (the committed contract that `npm run gen:api` reads). |
@@ -23,6 +24,7 @@ pyproject, leaf-keys vs. strategy ctors).
 | --- | --- |
 | `experiment.py` | `experiment run / tune / compare / holdout-eval / study / clean`. |
 | `study.py` | `experiment study run / report` — sub-group registered under `experiment.py`'s `cli`. |
+| `deploy.py` | `deploy create / predict / list / show / signals` — thin click wrapper over `src/orchestration/deployment.py`. |
 | `check_ci_deps.py` | Stdlib-only (no PyYAML) so it runs in CI before deps install. |
 | `check_constants_sync.py` | Stdlib-only; text-parses both files via regex so it runs in the same early-CI lint step as `check_ci_deps.py`. |
 | `dump_openapi.py` | Lazy-imports `webapp.backend.app.main` so `--out` consumers without webapp deps can still load the module's `DEFAULT_SNAPSHOT_PATH` constant. |
@@ -46,6 +48,20 @@ pyproject, leaf-keys vs. strategy ctors).
 Multi-ticker pairs configs route through `experiment run` with no
 special flag — the builder dispatches on the strategy class's
 `is_pairs_strategy` capability flag.
+
+## `deploy` subcommands
+
+| Command | Output | Notes |
+| --- | --- | --- |
+| `create --from-run <run_id> \| --from-hpo <study_name> [--name X] [--warmup-bars N]` | `experiment_results/deployments/<id>/` | Pins a deployment to a completed run or HPO study (best trial). Sources are mutually exclusive. Auto-generates `name` as `<ticker>-<strategy>-<train_end>` (or `…-HPO-<study>` for HPO). |
+| `predict <deployment_id> [--as-of YYYY-MM-DD]` | one row appended to `signals.jsonl` | Generates (or recalls) the signal for the latest complete bar through `--as-of`. Idempotent on the target `bar_ts`. Anti-leakage: refuses to act on a bar ≤ `train_end`. |
+| `list` | one line per deployment | Sorted by id. |
+| `show <deployment_id>` | manifest JSON | The typed `Deployment` for one id. |
+| `signals <deployment_id> [--limit N]` | one JSON row per line | Most-recent first. |
+
+A deployment is pinned to one trained run — training a fresher model is
+a separate concern (use `quant experiment run`, then create a new
+deployment pointing at the resulting run).
 
 ### Shared flags across config-loading subcommands
 
@@ -116,4 +132,5 @@ make experiment ARGS="compare \
 - `experiment.py` is a thin click wrapper over
   `src/orchestration/builder.py`, `src/orchestration/comparison.py`, and
   `src/orchestration/holdout_eval.py`.
+- `deploy.py` is a thin click wrapper over `src/orchestration/deployment.py`.
 - The Makefile binds these CLIs to `make experiment` / `make stubs`.

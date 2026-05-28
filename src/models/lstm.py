@@ -17,6 +17,7 @@ from torch.utils.data import DataLoader
 
 from src.core import json_io
 from src.core.device import select_device
+from src.core.exceptions import WarmupInsufficientError
 from src.core.fs import atomic_write_path
 from src.core.logging import get_logger
 from src.core.persistence import (
@@ -361,9 +362,9 @@ class LSTMPredictor(IPredictor):
             )
 
         if len(recent_window) < self._lookback:
-            raise ValueError(
-                f"Need at least {self._lookback} rows, got {len(recent_window)}; "
-                f"fix by passing a window of >= lookback bars."
+            raise WarmupInsufficientError(
+                f"LSTMPredictor.predict_single needs at least {self._lookback} rows, "
+                f"got {len(recent_window)}; fix by passing a window of >= lookback bars."
             )
 
         self._model.eval()
