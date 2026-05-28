@@ -230,10 +230,9 @@ function PickerTable({ holdouts, onDeploy, deploying }: PickerTableProps) {
       }
     }
     return [...best.values()].sort((a, b) => {
-      if (a.sharpe === null && b.sharpe === null) return 0;
-      if (a.sharpe === null) return 1;
-      if (b.sharpe === null) return -1;
-      return b.sharpe - a.sharpe;
+      if (beatsSharpe(a.sharpe, b.sharpe)) return -1;
+      if (beatsSharpe(b.sharpe, a.sharpe)) return 1;
+      return 0;
     });
   }, [holdouts]);
 
