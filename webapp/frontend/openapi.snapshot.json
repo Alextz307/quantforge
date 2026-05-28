@@ -219,6 +219,216 @@
         "title": "ConfigKind",
         "type": "string"
       },
+      "DeploymentCreate": {
+        "description": "POST /deployments body.\n\n``name`` defaults to ``\"<ticker>-<strategy>-<train_end>\"`` and\n``warmup_bars`` defaults to the strategy's\n``required_warmup_bars + convergence_margin_bars`` (subject to an\nabsolute floor) when omitted.",
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "source_id": {
+            "title": "Source Id",
+            "type": "string"
+          },
+          "source_kind": {
+            "enum": [
+              "run",
+              "hpo"
+            ],
+            "title": "Source Kind",
+            "type": "string"
+          },
+          "warmup_bars": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Warmup Bars"
+          }
+        },
+        "required": [
+          "source_kind",
+          "source_id"
+        ],
+        "title": "DeploymentCreate",
+        "type": "object"
+      },
+      "DeploymentDetail": {
+        "description": "Summary + the tail of the signal log.",
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "interval": {
+            "$ref": "#/components/schemas/Interval"
+          },
+          "latest_signal": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SignalRowOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "owner_username": {
+            "title": "Owner Username",
+            "type": "string"
+          },
+          "source_id": {
+            "title": "Source Id",
+            "type": "string"
+          },
+          "source_kind": {
+            "enum": [
+              "run",
+              "hpo"
+            ],
+            "title": "Source Kind",
+            "type": "string"
+          },
+          "strategy_name": {
+            "title": "Strategy Name",
+            "type": "string"
+          },
+          "ticker": {
+            "title": "Ticker",
+            "type": "string"
+          },
+          "train_end": {
+            "format": "date-time",
+            "title": "Train End",
+            "type": "string"
+          },
+          "warmup_bars": {
+            "title": "Warmup Bars",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "source_kind",
+          "source_id",
+          "ticker",
+          "strategy_name",
+          "interval",
+          "train_end",
+          "warmup_bars",
+          "created_at",
+          "owner_username"
+        ],
+        "title": "DeploymentDetail",
+        "type": "object"
+      },
+      "DeploymentRename": {
+        "description": "PATCH /deployments/{id} body.",
+        "properties": {
+          "name": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "DeploymentRename",
+        "type": "object"
+      },
+      "DeploymentSummary": {
+        "description": "Row in the deployments list view.",
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "interval": {
+            "$ref": "#/components/schemas/Interval"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "owner_username": {
+            "title": "Owner Username",
+            "type": "string"
+          },
+          "source_id": {
+            "title": "Source Id",
+            "type": "string"
+          },
+          "source_kind": {
+            "enum": [
+              "run",
+              "hpo"
+            ],
+            "title": "Source Kind",
+            "type": "string"
+          },
+          "strategy_name": {
+            "title": "Strategy Name",
+            "type": "string"
+          },
+          "ticker": {
+            "title": "Ticker",
+            "type": "string"
+          },
+          "train_end": {
+            "format": "date-time",
+            "title": "Train End",
+            "type": "string"
+          },
+          "warmup_bars": {
+            "title": "Warmup Bars",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "source_kind",
+          "source_id",
+          "ticker",
+          "strategy_name",
+          "interval",
+          "train_end",
+          "warmup_bars",
+          "created_at",
+          "owner_username"
+        ],
+        "title": "DeploymentSummary",
+        "type": "object"
+      },
       "FoldRow": {
         "properties": {
           "annualized_return": {
@@ -795,6 +1005,20 @@
         "title": "HpoSummary",
         "type": "object"
       },
+      "Interval": {
+        "description": "Bar timeframe \u2014 used for annualization factor computation.",
+        "enum": [
+          "second",
+          "minute",
+          "five_minute",
+          "fifteen_minute",
+          "hour",
+          "daily",
+          "weekly"
+        ],
+        "title": "Interval",
+        "type": "string"
+      },
       "JobKind": {
         "enum": [
           "run",
@@ -1299,6 +1523,24 @@
         "title": "PerStrategyStatsRow",
         "type": "object"
       },
+      "PredictIfStaleResponse": {
+        "description": "Response for POST /deployments/{id}/predict-if-stale.\n\n``stale=False`` means the cached signal already covered the latest\navailable bar; ``stale=True`` means a fresh predict ran.",
+        "properties": {
+          "signal": {
+            "$ref": "#/components/schemas/SignalRowOut"
+          },
+          "stale": {
+            "title": "Stale",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "stale",
+          "signal"
+        ],
+        "title": "PredictIfStaleResponse",
+        "type": "object"
+      },
       "RegistryEntry": {
         "properties": {
           "name": {
@@ -1564,6 +1806,47 @@
           "offset"
         ],
         "title": "RunsPage",
+        "type": "object"
+      },
+      "SignalRowOut": {
+        "description": "One row from the deployment's signal log.",
+        "properties": {
+          "bar_ts": {
+            "format": "date-time",
+            "title": "Bar Ts",
+            "type": "string"
+          },
+          "signal": {
+            "title": "Signal",
+            "type": "number"
+          },
+          "source_run_id": {
+            "title": "Source Run Id",
+            "type": "string"
+          },
+          "submitted_at": {
+            "format": "date-time",
+            "title": "Submitted At",
+            "type": "string"
+          },
+          "warmup_bars_used": {
+            "title": "Warmup Bars Used",
+            "type": "integer"
+          },
+          "warmup_fingerprint": {
+            "title": "Warmup Fingerprint",
+            "type": "string"
+          }
+        },
+        "required": [
+          "submitted_at",
+          "bar_ts",
+          "signal",
+          "warmup_fingerprint",
+          "source_run_id",
+          "warmup_bars_used"
+        ],
+        "title": "SignalRowOut",
         "type": "object"
       },
       "SignificanceTest": {
@@ -3228,6 +3511,324 @@
         "summary": "Get Config Detail",
         "tags": [
           "configs"
+        ]
+      }
+    },
+    "/api/deployments": {
+      "get": {
+        "operationId": "get_deployments_api_deployments_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "all",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "All",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/DeploymentSummary"
+                  },
+                  "title": "Response Get Deployments Api Deployments Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Deployments",
+        "tags": [
+          "deployments"
+        ]
+      },
+      "post": {
+        "operationId": "post_deployment_api_deployments_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeploymentCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeploymentDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Post Deployment",
+        "tags": [
+          "deployments"
+        ]
+      }
+    },
+    "/api/deployments/{deployment_id}": {
+      "delete": {
+        "operationId": "delete_deployment_route_api_deployments__deployment_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "deployment_id",
+            "required": true,
+            "schema": {
+              "title": "Deployment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Deployment Route",
+        "tags": [
+          "deployments"
+        ]
+      },
+      "get": {
+        "operationId": "get_deployment_detail_api_deployments__deployment_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "deployment_id",
+            "required": true,
+            "schema": {
+              "title": "Deployment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeploymentDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Deployment Detail",
+        "tags": [
+          "deployments"
+        ]
+      },
+      "patch": {
+        "operationId": "patch_deployment_api_deployments__deployment_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "deployment_id",
+            "required": true,
+            "schema": {
+              "title": "Deployment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeploymentRename"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeploymentDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Patch Deployment",
+        "tags": [
+          "deployments"
+        ]
+      }
+    },
+    "/api/deployments/{deployment_id}/predict-if-stale": {
+      "post": {
+        "description": "Recall today's signal or compute it now.",
+        "operationId": "post_predict_if_stale_api_deployments__deployment_id__predict_if_stale_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "deployment_id",
+            "required": true,
+            "schema": {
+              "title": "Deployment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PredictIfStaleResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Post Predict If Stale",
+        "tags": [
+          "deployments"
+        ]
+      }
+    },
+    "/api/deployments/{deployment_id}/signals": {
+      "get": {
+        "operationId": "get_signal_log_api_deployments__deployment_id__signals_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "deployment_id",
+            "required": true,
+            "schema": {
+              "title": "Deployment Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 10000,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SignalRowOut"
+                  },
+                  "title": "Response Get Signal Log Api Deployments  Deployment Id  Signals Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Signal Log",
+        "tags": [
+          "deployments"
         ]
       }
     },

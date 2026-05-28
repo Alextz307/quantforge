@@ -33,6 +33,7 @@ already validated.
 from __future__ import annotations
 
 import uuid
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import cast
@@ -409,6 +410,7 @@ def predict(
     deployment_id: str,
     store_root: Path,
     as_of: pd.Timestamp | None = None,
+    strategy_loader: Callable[[Path], IStrategy] = load_strategy_from_run_dir,
 ) -> SignalRow:
     """
     Generate (or recall) today's signal for ``deployment_id``.
@@ -449,7 +451,7 @@ def predict(
         )
     ticker = cfg.data.tickers[0]
 
-    strategy = load_strategy_from_run_dir(source_run_dir)
+    strategy = strategy_loader(source_run_dir)
     metadata = strategy.training_metadata
     if metadata is None:
         raise RuntimeError(

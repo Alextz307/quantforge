@@ -114,7 +114,7 @@ TRIAL_STATE_FAIL = "FAIL"
 
 @pytest.fixture(autouse=True)
 def _webapp_test_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
-    from webapp.backend.app.services import _dir_cache, run_service
+    from webapp.backend.app.services import _dir_cache, deployment_service, run_service
 
     monkeypatch.setenv("WEBAPP_SECRET_KEY", TEST_SECRET_KEY)
     monkeypatch.setenv("WEBAPP_DB_PATH", str(tmp_path / "webapp.sqlite"))
@@ -123,11 +123,13 @@ def _webapp_test_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterato
     login_limiter.reset()
     run_service._SUMMARY_CACHE.clear()
     _dir_cache.clear()
+    deployment_service._clear_caches_for_tests()
     yield
     get_settings.cache_clear()
     login_limiter.reset()
     run_service._SUMMARY_CACHE.clear()
     _dir_cache.clear()
+    deployment_service._clear_caches_for_tests()
 
 
 @pytest.fixture
