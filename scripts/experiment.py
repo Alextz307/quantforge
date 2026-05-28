@@ -14,10 +14,6 @@ Subcommands:
                    on the full dev region, and evaluate once on the
                    reserved holdout window. Writes the honest OOS bundle
                    to ``experiment_results/holdout_evals/<out_name>/``.
-
-The CLI deliberately mirrors ``scripts/benchmark.py`` (same ``click.group`` +
-``--store-root`` convention + ``ClickException`` wrapping of runtime errors)
-so a user who knows ``make bench`` knows ``make experiment`` instantly.
 """
 
 from __future__ import annotations

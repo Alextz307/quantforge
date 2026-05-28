@@ -34,14 +34,6 @@ FetchContent_Declare(
     GIT_TAG        v1.14.0
 )
 
-# Google Benchmark
-FetchContent_Declare(
-    googlebenchmark
-    GIT_REPOSITORY https://github.com/google/benchmark.git
-    GIT_TAG        v1.8.3
-)
-set(BENCHMARK_ENABLE_TESTING OFF CACHE BOOL "" FORCE)
-
 # pybind11
 FetchContent_Declare(
     pybind11
@@ -49,7 +41,7 @@ FetchContent_Declare(
     GIT_TAG        v2.12.0
 )
 
-FetchContent_MakeAvailable(googletest googlebenchmark pybind11)
+FetchContent_MakeAvailable(googletest pybind11)
 
 # ── Core static library ──
 add_library(quant_core STATIC
@@ -73,16 +65,6 @@ target_include_directories(quant_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include
 # objects in shared modules with R_X86_64_PC32 relocation errors).
 set_target_properties(quant_core PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
-# ── Bench/test-only instrumentation ──
-# Cycle counter lives here rather than in quant_core because it is strictly a
-# measurement tool — shipping it into the production backtest engine would mix
-# profiling concerns with business logic.
-add_library(quant_bench_instrumentation OBJECT src/benchmark/cycle_counter.cpp)
-target_include_directories(quant_bench_instrumentation
-    PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
-set_target_properties(quant_bench_instrumentation
-    PROPERTIES POSITION_INDEPENDENT_CODE ON)
-
 # ── pybind11 module ──
 # Exposes BacktestEngine / MetricsCalculator / SlippageConfig (+ a `hello`
 # smoke hook) as the `quant_engine` Python module. Installed into the
@@ -95,6 +77,3 @@ install(TARGETS quant_engine LIBRARY DESTINATION quant_engine)
 # ── Tests ──
 enable_testing()
 add_subdirectory(tests)
-
-# ── Benchmarks ──
-add_subdirectory(benchmarks)

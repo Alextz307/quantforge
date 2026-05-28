@@ -26,8 +26,8 @@ def test_agg_backend_is_active() -> None:
 
 def test_dimensions_are_thesis_sized() -> None:
     """
-    Figure geometry matches the BenchmarkReporter convention so every
-    PNG / SVG across subsystems renders identically in thesis margins."""
+    Figure geometry stays pinned so every PNG / SVG across subsystems
+    renders identically in thesis margins."""
 
     assert FIGURE_WIDTH_IN == 6.5
     assert FIGURE_HEIGHT_IN == 4.0

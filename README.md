@@ -72,7 +72,7 @@ Anything that runs inside the backtest hot loop (bar iteration, indicators, metr
 - **Anti-leakage by construction.** No `.bfill()`, no `.fillna(0)`. Fit-once guards on scalers (a second `fit()` raises `LeakageError`), frozen params after `fit()` on GARCH and ARMA, `TrainingMetadata` populated on every model and checked at runtime by the backtest engine via `validate_no_overlap()`, and an intraday day-boundary rule so that even on hourly bars the training cutoff is always a daily close (enforced by `WalkForwardValidator(snap_to_day=True)` for intraday folds).
 - **Temporal contracts.** `TemporalSplit`, `TemporalTripleSplit`, and `WalkForwardValidator` enforce train-then-test ordering with embargo gaps. The holdout set is reserved for final thesis evaluation and is never touched during development or HPO.
 - **Strict typing.** `mypy --strict` across `src/`, `tests/`, and `scripts/`. No `Any` at internal boundaries. `**kwargs: object` rather than `**kwargs: Any`. Public APIs use pure `Enum` types — no `Enum | str` weak unions. CI enforces this on every push.
-- **Performance, measured.** C++ uses `std::span<const double>` interfaces, SoA layouts, and Welford's algorithm for rolling mean/std fused in one pass. Every hot-path indicator, metric, engine, and strategy exposes both an allocating convenience overload and a buffer-reuse (`out`-param / `Buffer&`) overload so HPO inner loops reuse scratch across scenarios. `TimeSeries::slice_view` returns a non-owning `std::span` for zero-copy walk-forward splitting. Pybind11 bindings emit zero-copy numpy views over C++-owned buffers via pybind11 `py::capsule` and `handle base` ownership — no `memcpy` at the Python↔C++ boundary. Release builds compile with `-O3 -march=native -flto`; rolling kernels are `noexcept` to unblock inlining + vectorization. C++ benchmarks emit wall time alongside `Cycles` / `CyclesPerItem` (and `Instructions` / `IPC` on PMU-capable hosts) so optimization is driven by measurement, not intuition.
+- **Performance in the hot loop.** C++ uses `std::span<const double>` interfaces, SoA layouts, and Welford's algorithm for rolling mean/std fused in one pass. Every hot-path indicator, metric, engine, and strategy exposes both an allocating convenience overload and a buffer-reuse (`out`-param / `Buffer&`) overload so HPO inner loops reuse scratch across scenarios. `TimeSeries::slice_view` returns a non-owning `std::span` for zero-copy walk-forward splitting. Pybind11 bindings emit zero-copy numpy views over C++-owned buffers via pybind11 `py::capsule` and `handle base` ownership — no `memcpy` at the Python↔C++ boundary. Release builds compile with `-O3 -march=native -flto`; rolling kernels are `noexcept` to unblock inlining + vectorization.
 - **Registry-driven composition.** Every model, data source, and strategy registers via a decorator, which will let a future config loader instantiate an entire pipeline from a YAML file.
 - **Drift guards over review vigilance.** Two sources of truth that must stay aligned (pyproject deps ↔ CI pip install, composite dataclass fields ↔ leaf ctor signature, Python `Interval` constants ↔ C++ `kTradingDaysPerYear`) get an automated stdlib-only script in `scripts/` plus a pytest, wired into the CI lint job as an early step.
 
@@ -317,7 +317,7 @@ cd quantforge
 # Python package in editable mode, plus dev tools (mypy, ruff, pytest)
 pip install -e ".[dev]"
 
-# C++ build — CMake FetchContent pulls GoogleTest, Google Benchmark, and pybind11
+# C++ build — CMake FetchContent pulls GoogleTest and pybind11
 cmake -B cpp/build -S cpp -DCMAKE_BUILD_TYPE=Debug
 cmake --build cpp/build -j
 ```
@@ -330,39 +330,8 @@ make test-cpp       # GoogleTest suite
 make test-python    # pytest suite
 make typecheck      # mypy --strict src/ tests/ scripts/
 make lint           # ruff check + ruff format --check
-make bench-cpp      # Google Benchmark indicator + engine + metrics + filter + state-machine + spread + C++ strategy micro-benches
 make thesis-demo    # End-to-end pipeline smoke on cached SPY (offline, ~20s)
-
-# Optional: verify each C++ path still beats its Python baseline
-PERF_GUARD=1 pytest tests/benchmarks/    # opt-in; CI does not gate on timing
 ```
-
-### Benchmarking
-
-Every C++ micro-benchmark emits wall time alongside `Cycles` / `CyclesPerItem` custom counters (sourced from `__rdtsc` on x86, `CNTVCT_EL0` on arm64, `steady_clock` elsewhere). The Python orchestrator subprocesses `quant_bench --benchmark_format=json`, parses it into `BenchmarkResult` dataclasses, persists under `benchmark_results/runs/`, and drives the comparator / reporter.
-
-```mermaid
-graph LR
-    cpp["quant_bench<br/>(Google Benchmark)"]
-    cc["CycleCounter<br/>rdtsc · CNTVCT · steady_clock"]
-    runner["BenchmarkRunner<br/>subprocesses + parses JSON"]
-    store["BenchmarkStore<br/>JSONL runs + baselines"]
-    analyzer["BenchmarkAnalyzer<br/>z-test · scaling fits"]
-    reporter["BenchmarkReporter<br/>LaTeX · plots"]
-    cc -. cycle counters .-> cpp
-    cpp --> runner --> store
-    store --> analyzer --> reporter
-```
-
-```bash
-make bench                                                   # build + run; dumps JSONL under benchmark_results/runs/
-make bench-baseline NAME=my-baseline                         # capture a named baseline (NAME required)
-python -m scripts.benchmark run --save-baseline my-baseline  # same, via the CLI directly
-python -m scripts.benchmark compare pre-optimization <run>   # regression gate (z-test + pct delta)
-python -m scripts.benchmark latex                            # LaTeX summary table of the newest run
-```
-
-Runs and reports are gitignored; `benchmark_results/baselines/` is tracked so the thesis has a reproducible anchor across machines.
 
 ### Minimal example — fit a strategy and generate signals
 
@@ -397,9 +366,9 @@ wall time on a 2024 laptop is well under a minute.
 make thesis-demo
 ```
 
-> ⚠️ **The demo's output is illustrative — not a benchmark and not an
-> empirical claim.** Strategies are not tuned and the walk-forward
-> window is short (~7 years of daily SPY across 4 expanding folds).
+> ⚠️ **The demo's output is illustrative, not an empirical claim.**
+> Strategies are not tuned and the walk-forward window is short
+> (~7 years of daily SPY across 4 expanding folds).
 > The comprehensive empirical study will land separately under
 > `experiment_results/studies/`.
 
@@ -431,8 +400,6 @@ cpp/
   src/                   Implementation files
   bindings/              pybind11 module entry point (python_module.cpp)
   tests/                 GoogleTest suite
-  benchmarks/            Google Benchmark micro-benches
-  benchmarks/detail/     Shared bench helpers (seeded RNG, cycle-counter measure wrapper)
 
 src/
   core/                  Types, constants, temporal contracts, registry, device selection, exceptions, persistence helpers, config schema
@@ -446,21 +413,15 @@ src/
   optimization/          Optuna StrategyTuner + samplers / pruners / objectives + checkpointing
   analysis/              Fold aggregator, ranking, paired-bootstrap significance
   visualization/         Strategy / Comparison / HPO reporters (plots + booktabs LaTeX)
-  benchmarking/          Runner + store + analyzer + reporter + comparator
 
 tests/
   unit/                  One unit-test file per component
   integration/           pybind11 module load + engine/indicator/filter/state-machine binding parity + walk-forward orchestrator
-  benchmarks/            Opt-in perf guards (PERF_GUARD=1) verifying C++ still beats Python baselines
   fixtures/              Committed offline fixtures (e.g. SPY.parquet for `make thesis-demo`)
   conftest.py            Shared fixtures (synthetic data, global seeds)
 
-scripts/                 experiment + benchmark CLIs + stdlib-only drift guards
+scripts/                 experiment CLI + stdlib-only drift guards
 config/                  Strategy / HPO / universe YAMLs + thesis-demo entry config
-benchmark_results/
-  baselines/             Tracked JSONL anchors (pre-/post-optimization)
-  runs/                  Per-run JSONL (gitignored)
-  reports/               LaTeX + plots (gitignored)
 experiment_results/
   thesis_demo/           Tracked: README + curated `sample/` from one demo run
   thesis_demo/runs/      Fresh per-`make thesis-demo` outputs (gitignored)
@@ -489,8 +450,7 @@ code.
 - [`src/models/`](src/models/README.md) — leaf predictors / classifiers / hybrids / cointegration / dataset.
 - [`src/analysis/`](src/analysis/README.md) — fold aggregator, ranking, significance.
 - [`src/visualization/`](src/visualization/README.md) — strategy / comparison / HPO reporters.
-- [`src/benchmarking/`](src/benchmarking/README.md) — benchmark runner / store / analyzer / reporter.
-- [`scripts/`](scripts/README.md) — `experiment` + `benchmark` CLIs and drift guards.
+- [`scripts/`](scripts/README.md) — `experiment` CLI and drift guards.
 - [`config/`](config/README.md) — strategy / HPO / model / universe YAMLs.
 - [`webapp/`](webapp/README.md) — FastAPI backend + React/Vite SPA: read-only artifact viewer, configurable runner (run + tune), live job + HPO monitors with WebSocket streaming.
 
@@ -498,7 +458,7 @@ code.
 
 | Layer     | Technology                                                                                       |
 |-----------|--------------------------------------------------------------------------------------------------|
-| C++ engine| C++20, CMake 3.20+, GoogleTest, Google Benchmark                                                  |
+| C++ engine| C++20, CMake 3.20+, GoogleTest                                                                    |
 | Python    | pandas 2.2+, numpy 1.26+, Pydantic v2, PyTorch 2.2+, XGBoost 2.x, arch, statsmodels, pmdarima, scikit-learn, Optuna |
 | Bridge    | pybind11 2.12+, scikit-build-core                                                                |
 | Quality   | mypy (strict), ruff (check + format), pandas-stubs, ASan/UBSan-ready C++ flags                   |

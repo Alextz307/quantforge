@@ -5,8 +5,6 @@ Runs the full CLI stack against a tiny synthetic CSV fixture — exercises
 the same code path the user invokes at the shell, modulo ``sys.argv``
 plumbing. Opt-in (``RUN_EXP_SMOKE=1``) because even at 100 bars the GARCH
 AIC grid search takes a few seconds.
-
-The gated convention matches ``tests/integration/test_benchmark_cli_smoke``.
 """
 
 from __future__ import annotations

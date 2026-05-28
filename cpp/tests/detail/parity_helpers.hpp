@@ -1,8 +1,7 @@
 #pragma once
 
 // Deterministic synthetic series + NaN-safe equality check for kernel
-// parity tests. Sibling of cpp/benchmarks/detail/random.hpp; consolidate
-// both if a single quant::testing/random.hpp is introduced.
+// parity tests.
 
 #include <cmath>
 #include <cstddef>

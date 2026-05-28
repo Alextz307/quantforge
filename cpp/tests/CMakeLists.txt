@@ -10,7 +10,6 @@ add_executable(quant_tests
     test_spread.cpp
     test_pairs_trading_strategy.cpp
     test_adaptive_bollinger_strategy.cpp
-    test_cycle_counter.cpp
     test_macd_fused_parity.cpp
     test_bollinger_rolling_mean_std_parity.cpp
     test_metrics_fused_parity.cpp
@@ -20,6 +19,6 @@ add_executable(quant_tests
 )
 target_include_directories(quant_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(quant_tests
-    PRIVATE quant_core quant_bench_instrumentation GTest::gtest_main)
+    PRIVATE quant_core GTest::gtest_main)
 include(GoogleTest)
 gtest_discover_tests(quant_tests)

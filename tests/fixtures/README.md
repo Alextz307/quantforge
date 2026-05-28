@@ -9,7 +9,6 @@ dependency on Yahoo or any other network endpoint.
 | File | Provenance | Used by |
 | --- | --- | --- |
 | `SPY.parquet` | yfinance `SPY` daily, `2018-01-01` → `2024-12-31`, `auto_adjust=True`. ~1760 bars, normalized to `open/high/low/close/volume` columns with a `DatetimeIndex`. ~93 KB. The bare-ticker filename matches the `ParquetSource` lookup convention (`{ticker}.parquet`); the date range lives in this README, not in the filename. | `make thesis-demo` (via `ParquetSource` pointed at this directory). |
-| `google_benchmark_sample.json` | Captured output of `quant_bench --benchmark_format=json`. | Benchmark runner unit tests. |
 
 ## Regenerating `SPY.parquet`
 

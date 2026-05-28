@@ -3,9 +3,7 @@ Shared matplotlib primitives for experiment + HPO reporters.
 
 Pins the Agg backend UNCONDITIONALLY (before ``pyplot`` is imported anywhere)
 and the figure geometry so every PNG / SVG produced by this codebase renders
-at exactly the same size and DPI across macOS / Linux / CI. The
-:class:`BenchmarkReporter` uses identical constants — drift between the two
-would show up as a subtle thesis-figure inconsistency.
+at exactly the same size and DPI across macOS / Linux / CI.
 
 Import this module (or any symbol from it) before any other module touches
 matplotlib.pyplot — the Agg backend setting is global and sticky.

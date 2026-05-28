@@ -217,10 +217,6 @@ class StrategyComparisonReport:
     ``per_strategy_experiment_id`` maps each strategy name back to the
     run directory under ``experiment_results/runs/`` so a user can
     drill into a specific strategy's fold records from the report.
-
-    Distinct from :class:`src.benchmarking.types.ComparisonReport` (which
-    compares perf benchmark runs); the qualified name keeps the two from
-    colliding when both packages are imported in the same module.
     """
 
     out_name: str

@@ -1,6 +1,6 @@
 # `scripts/`
 
-User-facing CLIs (experiment + benchmark) and stdlib-only drift guards
+User-facing CLIs (experiment) and stdlib-only drift guards
 that protect invariants between two on-disk sources of truth (CI vs.
 pyproject, leaf-keys vs. strategy ctors).
 
@@ -9,7 +9,6 @@ pyproject, leaf-keys vs. strategy ctors).
 | Script | Role |
 | --- | --- |
 | `experiment.py` (`make experiment`) | Click group with `run`, `tune`, `compare`, `holdout-eval`, `study`, `clean` subcommands. Drives the orchestration layer end to end. |
-| `benchmark.py` (`make bench`) | Click group with `run`, `compare`, `latex`, `history`, `show-baseline` over `BenchmarkRunner` / `BenchmarkStore`. |
 | `check_ci_deps.py` | Drift guard: every runtime dep in `pyproject.toml` appears in CI's `python-test` pip install line; every `types-*` / `*-stubs` dev dep appears in CI's `lint-and-typecheck` pip install line. Runs in CI as an early lint step. (The `webapp` + `webapp-frontend` jobs use `pip install -e ".[webapp]"` so their installs cannot drift from `[webapp]` extras.) |
 | `check_constants_sync.py` | Drift guard: every numeric constant mirrored between `src/core/constants.py` and `cpp/include/quant/core/types.hpp` (trading-calendar counts, position limits) has the same value on both sides. Pairs to verify are listed in `MIRROR_PAIRS` in the script. |
 | `dump_openapi.py` (`make webapp-openapi-snapshot`) | Boot FastAPI, write its OpenAPI 3.1 spec to `webapp/frontend/openapi.snapshot.json` (the committed contract that `npm run gen:api` reads). |
@@ -24,7 +23,6 @@ pyproject, leaf-keys vs. strategy ctors).
 | --- | --- |
 | `experiment.py` | `experiment run / tune / compare / holdout-eval / study / clean`. |
 | `study.py` | `experiment study run / report` — sub-group registered under `experiment.py`'s `cli`. |
-| `benchmark.py` | `benchmark run / compare / latex / history / show-baseline`. |
 | `check_ci_deps.py` | Stdlib-only (no PyYAML) so it runs in CI before deps install. |
 | `check_constants_sync.py` | Stdlib-only; text-parses both files via regex so it runs in the same early-CI lint step as `check_ci_deps.py`. |
 | `dump_openapi.py` | Lazy-imports `webapp.backend.app.main` so `--out` consumers without webapp deps can still load the module's `DEFAULT_SNAPSHOT_PATH` constant. |
@@ -118,6 +116,4 @@ make experiment ARGS="compare \
 - `experiment.py` is a thin click wrapper over
   `src/orchestration/builder.py`, `src/orchestration/comparison.py`, and
   `src/orchestration/holdout_eval.py`.
-- `benchmark.py` wraps `src/benchmarking/`.
-- The Makefile binds these CLIs to `make experiment` / `make bench` /
-  `make stubs`.
+- The Makefile binds these CLIs to `make experiment` / `make stubs`.

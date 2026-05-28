@@ -44,12 +44,6 @@ htmlcov/
 *.gcda
 *.gcno
 
-# ── Benchmark results (tracked selectively) ──
-# runs/ and reports/ are ephemeral per-developer artefacts; baselines/ is
-# committed so the thesis has a reproducible anchor.
-benchmark_results/runs/*.jsonl
-benchmark_results/reports/
-
 # ── Experiment results (tracked selectively) ──
 # All per-run outputs are ephemeral. The curated thesis-demo sample
 # (committed under experiment_results/thesis_demo/sample/) is the only

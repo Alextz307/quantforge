@@ -1,4 +1,4 @@
-.PHONY: install test test-cpp test-python lint typecheck bench bench-cpp bench-baseline bench-report experiment thesis-demo stubs clean webapp webapp-dev webapp-test webapp-typecheck webapp-lint webapp-frontend-install webapp-frontend-dev webapp-frontend-build webapp-frontend-test webapp-frontend-typecheck webapp-frontend-lint webapp-openapi-snapshot webapp-check-openapi-snapshot webapp-check-schema-mirror
+.PHONY: install test test-cpp test-python lint typecheck experiment thesis-demo stubs clean webapp webapp-dev webapp-test webapp-typecheck webapp-lint webapp-frontend-install webapp-frontend-dev webapp-frontend-build webapp-frontend-test webapp-frontend-typecheck webapp-frontend-lint webapp-openapi-snapshot webapp-check-openapi-snapshot webapp-check-schema-mirror
 
 install:
 	pip install -e ".[dev]"
@@ -17,20 +17,6 @@ typecheck:
 lint:
 	ruff check src/ tests/ scripts/
 	ruff format --check src/ tests/ scripts/
-
-bench:
-	python -m scripts.benchmark run
-
-bench-cpp:
-	cd cpp/build && ./quant_bench --benchmark_format=console
-
-bench-baseline:
-	@test -n "$(NAME)" || { echo "usage: make bench-baseline NAME=<baseline-name>"; exit 1; }
-	python -m scripts.benchmark run --save-baseline $(NAME)
-
-bench-report:
-	python -m scripts.benchmark run
-	@echo "Reports written under benchmark_results/reports/"
 
 experiment:
 	@test -n "$(CONFIG)" || { echo "usage: make experiment CONFIG=<path/to/config.yaml>"; exit 1; }
@@ -55,8 +41,8 @@ THESIS_DEMO_DATA_OVERRIDES := \
 thesis-demo:
 	@echo "──────────────────────────────────────────────────────────────"
 	@echo "  thesis-demo: end-to-end pipeline smoke on cached SPY"
-	@echo "  Output is illustrative — NOT a benchmark and NOT empirical"
-	@echo "  results. The comprehensive empirical study will land under"
+	@echo "  Output is illustrative — NOT empirical results. The"
+	@echo "  comprehensive empirical study will land under"
 	@echo "  experiment_results/studies/ separately."
 	@echo "──────────────────────────────────────────────────────────────"
 	@rm -rf $(THESIS_DEMO_DIR)/runs \

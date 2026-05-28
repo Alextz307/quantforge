@@ -22,8 +22,8 @@ def ensure_parent_dir(path: str | Path) -> Path:
     Create ``path``'s parent directory tree if missing and return ``Path(path)``.
 
     Idempotent (no-op when the parent already exists). Used by every file-
-    writer that can't assume the target's parent was pre-created — benchmark
-    plots, experiment reports, JSON manifests, LaTeX tables.
+    writer that can't assume the target's parent was pre-created — experiment
+    reports, HPO plots, JSON manifests, LaTeX tables.
 
     Returns the resolved ``Path`` for chaining:
 

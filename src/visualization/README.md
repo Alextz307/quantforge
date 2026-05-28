@@ -78,6 +78,3 @@ StrategyReporter().generate_full_report(
   ranking DataFrames from `src/analysis/ranking.py`, and
   `StrategyComparisonReport` / `ExperimentResult` from
   `src/orchestration/types.py`.
-- Benchmark reporting under `src/benchmarking/reporter.py` reuses
-  these figure geometry / LaTeX constants — keep them in sync if
-  changed.
