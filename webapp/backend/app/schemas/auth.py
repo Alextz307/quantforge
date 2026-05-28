@@ -1,4 +1,6 @@
-"""Wire DTOs for the auth endpoints."""
+"""
+Wire DTOs for the auth endpoints.
+"""
 
 from __future__ import annotations
 

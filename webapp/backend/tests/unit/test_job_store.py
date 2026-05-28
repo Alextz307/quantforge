@@ -1,4 +1,6 @@
-"""SQL-layer behaviour for the jobs table."""
+"""
+SQL-layer behaviour for the jobs table.
+"""
 
 from __future__ import annotations
 
@@ -76,7 +78,8 @@ def test_list_jobs_filters_by_user(db_conn: sqlite3.Connection) -> None:
 def test_list_jobs_orders_queued_first_then_started_newest_first(
     db_conn: sqlite3.Connection,
 ) -> None:
-    """Queued jobs surface above started ones; started jobs are newest-first.
+    """
+    Queued jobs surface above started ones; started jobs are newest-first.
 
     Pins the SQL ORDER BY contract so the UI doesn't need a sort widget.
     """

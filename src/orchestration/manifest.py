@@ -1,4 +1,5 @@
-"""Typed manifest for a persisted experiment run.
+"""
+Typed manifest for a persisted experiment run.
 
 Every field below is the answer to a question a post-run consumer
 (holdout-eval, HPO resume) MUST answer to run safely. A
@@ -37,7 +38,9 @@ from src.engine.scenarios import SlippageScenario
 
 @dataclass(frozen=True)
 class Manifest:
-    """Canonical, round-tripable manifest for an experiment run."""
+    """
+    Canonical, round-tripable manifest for an experiment run.
+    """
 
     experiment_id: str
     name: str

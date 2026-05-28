@@ -1,4 +1,6 @@
-"""YFinance data source implementation."""
+"""
+YFinance data source implementation.
+"""
 
 from __future__ import annotations
 
@@ -36,7 +38,8 @@ _INTERVAL_MAP: dict[Interval, str] = {
 
 @data_source_registry.register("yfinance")
 class YFinanceSource(IDataSource):
-    """Data source backed by the yfinance library.
+    """
+    Data source backed by the yfinance library.
 
     A persistent on-disk cache is non-optional in practice: yfinance's
     adjusted-close column shifts retroactively as new dividend/split
@@ -69,7 +72,9 @@ class YFinanceSource(IDataSource):
         end: datetime,
         interval: Interval = Interval.DAILY,
     ) -> pd.DataFrame:
-        """Fetch OHLCV data from Yahoo Finance with retry + exponential backoff."""
+        """
+        Fetch OHLCV data from Yahoo Finance with retry + exponential backoff.
+        """
 
         yf_interval = _INTERVAL_MAP[interval]
         last_exc: Exception | None = None
@@ -114,6 +119,8 @@ class YFinanceSource(IDataSource):
         raise last_exc
 
     def available_tickers(self) -> list[str]:
-        """YFinance supports any ticker — return empty list."""
+        """
+        YFinance supports any ticker — return empty list.
+        """
 
         return []

@@ -1,4 +1,5 @@
-"""Unit tests for :class:`StudyReportReporter`.
+"""
+Unit tests for :class:`StudyReportReporter`.
 
 Constructs a small in-memory :class:`ConsolidatedStudyReport`, runs the
 reporter against ``tmp_path``, and asserts the file tree shape + a few
@@ -15,17 +16,37 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from src.orchestration.study_report import ConsolidatedStudyReport, HoldoutSnapshot
+from src.analysis.baselines import BaselineResult
+from src.analysis.significance import BootstrapCI, DeflatedSharpe
+from src.orchestration.study_report import (
+    ConsolidatedStudyReport,
+    FloorBindStats,
+    HoldoutSnapshot,
+)
 from src.orchestration.types import PairwiseSignificance
 from src.visualization.plots import MANIFEST_FILENAME, PLOTS_SUBDIR, TABLES_SUBDIR
 from src.visualization.study_report_reporter import StudyReportReporter
 from tests.conftest import make_stub_aggregate_stats
 
 _PUBLISH_LABEL = "test_study_v1"
+_HOLDOUT_BAH_SHARPE = 0.5
+_HOLDOUT_BAH_TOTAL_RETURN = 0.04
+_HOLDOUT_BAH_MAX_DD = -0.10
+_HOLDOUT_CI_HALF_WIDTH = 0.2
+_HOLDOUT_CI_CONFIDENCE = 0.95
+_HOLDOUT_CI_RESAMPLES = 1000
+_HOLDOUT_CI_BLOCK_SIZE = 5
+_DSR_DEFAULT_N_TRIALS = 30
+_DSR_EXPECTED_GAP = 0.1
+_DSR_SAMPLE_LENGTH = 1000
+_DSR_TRIAL_VARIANCE = 0.05
+_DSR_TRIAL_SKEW = 0.0
+_DSR_TRIAL_KURTOSIS = 3.0
 
 
 def _make_report(study_dir: Path) -> ConsolidatedStudyReport:
-    """Build a 2-strategy × 2-universe consolidated report.
+    """
+    Build a 2-strategy × 2-universe consolidated report.
 
     Includes holdout data on two legs so the full set of conditional
     sections fires under one assertion sweep.
@@ -52,6 +73,13 @@ def _make_report(study_dir: Path) -> ConsolidatedStudyReport:
             ("StratA", "uni1"): _holdout(0.95),
             ("StratB", "uni2"): _holdout(1.10),
         },
+        per_leg_dsr={
+            ("StratA", "uni1"): _dsr(observed=0.95, deflated=0.90),
+            ("StratB", "uni2"): _dsr(observed=1.10, deflated=0.97),
+        },
+        per_leg_floor_bind={
+            ("StratA", "uni1"): FloorBindStats(mean=0.12, max=0.20, min=0.05, n_folds=4),
+        },
         per_universe_pairwise={
             "uni1": (
                 PairwiseSignificance(
@@ -69,6 +97,20 @@ def _make_report(study_dir: Path) -> ConsolidatedStudyReport:
     )
 
 
+def _dsr(observed: float, deflated: float, n_trials: int = _DSR_DEFAULT_N_TRIALS) -> DeflatedSharpe:
+    return DeflatedSharpe(
+        observed_sharpe=observed,
+        expected_max_sharpe=observed - _DSR_EXPECTED_GAP,
+        deflated_sharpe=deflated,
+        p_value=1.0 - deflated,
+        n_trials=n_trials,
+        sample_length=_DSR_SAMPLE_LENGTH,
+        trial_sharpe_variance=_DSR_TRIAL_VARIANCE,
+        trial_sharpe_skew=_DSR_TRIAL_SKEW,
+        trial_sharpe_kurtosis=_DSR_TRIAL_KURTOSIS,
+    )
+
+
 def _holdout(sharpe: float) -> HoldoutSnapshot:
     return HoldoutSnapshot(
         sharpe_ratio=sharpe,
@@ -83,11 +125,33 @@ def _holdout(sharpe: float) -> HoldoutSnapshot:
         holdout_start=pd.Timestamp("2024-01-01"),
         n_dev_bars=1000,
         n_holdout_bars=250,
+        sharpe_ci=BootstrapCI(
+            point_estimate=sharpe,
+            lower=sharpe - _HOLDOUT_CI_HALF_WIDTH,
+            upper=sharpe + _HOLDOUT_CI_HALF_WIDTH,
+            confidence=_HOLDOUT_CI_CONFIDENCE,
+            n_resamples=_HOLDOUT_CI_RESAMPLES,
+            block_size=_HOLDOUT_CI_BLOCK_SIZE,
+        ),
+        buy_and_hold=BaselineResult(
+            sharpe_ratio=_HOLDOUT_BAH_SHARPE,
+            sortino_ratio=0.55,
+            calmar_ratio=0.45,
+            max_drawdown=_HOLDOUT_BAH_MAX_DD,
+            annualized_return=0.07,
+            annualized_volatility=0.14,
+            total_return=_HOLDOUT_BAH_TOTAL_RETURN,
+            win_rate=0.50,
+            trade_count=1,
+            equity_curve=(1.0, 1.005, 1.01),
+        ),
     )
 
 
 def test_generate_full_report_writes_full_tree(tmp_path: Path) -> None:
-    """One-shot: every expected artifact path exists after a happy-path run."""
+    """
+    One-shot: every expected artifact path exists after a happy-path run.
+    """
 
     report = _make_report(study_dir=tmp_path)
     out = StudyReportReporter().generate_full_report(report, tmp_path, publish_label=_PUBLISH_LABEL)
@@ -116,7 +180,9 @@ def test_generate_full_report_writes_full_tree(tmp_path: Path) -> None:
 
 
 def test_master_ranking_sorts_by_sharpe_desc(tmp_path: Path) -> None:
-    """StratB__uni2 has the highest Sharpe (1.50) and should rank #1."""
+    """
+    StratB__uni2 has the highest Sharpe (1.50) and should rank #1.
+    """
 
     report = _make_report(study_dir=tmp_path)
     StudyReportReporter().generate_full_report(report, tmp_path)
@@ -136,6 +202,50 @@ def test_holdout_results_includes_dev_and_holdout_columns(tmp_path: Path) -> Non
     assert {"dev_sharpe", "holdout_sharpe", "n_dev_bars", "n_holdout_bars"} <= set(df.columns)
     assert len(df) == 2
     assert df["holdout_sharpe"].max() == pytest.approx(1.10)
+
+
+def test_holdout_results_includes_bah_and_ci_columns(tmp_path: Path) -> None:
+    report = _make_report(study_dir=tmp_path)
+    StudyReportReporter().generate_full_report(report, tmp_path)
+
+    df = pd.read_csv(tmp_path / TABLES_SUBDIR / "holdout_results.csv")
+    expected = {
+        "holdout_sharpe_ci_low",
+        "holdout_sharpe_ci_high",
+        "bah_sharpe",
+        "bah_total_return",
+        "bah_max_drawdown",
+        "excess_sharpe_vs_bah",
+        "excess_total_return_vs_bah",
+        "beats_bah",
+    }
+    assert expected <= set(df.columns)
+
+
+def test_master_ranking_includes_dsr_columns(tmp_path: Path) -> None:
+    report = _make_report(study_dir=tmp_path)
+    StudyReportReporter().generate_full_report(report, tmp_path)
+
+    df = pd.read_csv(tmp_path / TABLES_SUBDIR / "master_ranking.csv")
+    assert {"deflated_sharpe", "dsr_p_value", "n_trials"} <= set(df.columns)
+    # Legs with no DSR fall back to NaN / 0.
+    dsr_rows = df.dropna(subset=["deflated_sharpe"])
+    assert len(dsr_rows) == 2
+
+
+def test_floor_bind_by_leg_table_written_when_legs_carry_diagnostic(tmp_path: Path) -> None:
+    report = _make_report(study_dir=tmp_path)
+    StudyReportReporter().generate_full_report(report, tmp_path)
+
+    csv_path = tmp_path / TABLES_SUBDIR / "floor_bind_by_leg.csv"
+    json_path = tmp_path / TABLES_SUBDIR / "floor_bind_by_leg.json"
+    assert csv_path.is_file()
+    assert json_path.is_file()
+    df = pd.read_csv(csv_path)
+    assert {"strategy", "universe", "floor_bind_mean", "floor_bind_max", "n_folds"} <= set(
+        df.columns
+    )
+    assert len(df) == 1
 
 
 def test_pairwise_long_csv_records_one_row_per_pair(tmp_path: Path) -> None:
@@ -158,7 +268,9 @@ def test_pairwise_long_csv_records_one_row_per_pair(tmp_path: Path) -> None:
 
 
 def test_publish_label_appears_in_tex_caption(tmp_path: Path) -> None:
-    """``publish_label`` should land in every emitted .tex caption / label."""
+    """
+    ``publish_label`` should land in every emitted .tex caption / label.
+    """
 
     report = _make_report(study_dir=tmp_path)
     StudyReportReporter().generate_full_report(report, tmp_path, publish_label=_PUBLISH_LABEL)
@@ -168,7 +280,9 @@ def test_publish_label_appears_in_tex_caption(tmp_path: Path) -> None:
 
 
 def test_skips_sections_when_no_input_data(tmp_path: Path) -> None:
-    """Sparse report: no holdout / no pairwise → those tables not written."""
+    """
+    Sparse report: no holdout / no pairwise → those tables not written.
+    """
 
     sparse = ConsolidatedStudyReport(
         study_name="sparse",
@@ -178,6 +292,8 @@ def test_skips_sections_when_no_input_data(tmp_path: Path) -> None:
         per_leg_aggregate={("S", "u"): make_stub_aggregate_stats(sharpe=1.0, n_folds=3)},
         per_leg_run_id={("S", "u"): "stub_run"},
         per_leg_holdout={},
+        per_leg_dsr={},
+        per_leg_floor_bind={},
         per_universe_pairwise={},
         incomplete_leg_ids=(),
     )
@@ -190,7 +306,9 @@ def test_skips_sections_when_no_input_data(tmp_path: Path) -> None:
 
 
 def test_copies_per_universe_equity_overlay_when_source_exists(tmp_path: Path) -> None:
-    """Reporter copies ``comparisons/<universe>/plots/equity_overlay.{png,svg}`` if present."""
+    """
+    Reporter copies ``comparisons/<universe>/plots/equity_overlay.{png,svg}`` if present.
+    """
 
     report = _make_report(study_dir=tmp_path)
     src_dir = tmp_path / "comparisons" / "uni1" / "plots"

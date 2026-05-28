@@ -1,4 +1,5 @@
-"""Wire DTOs for the holdout-evaluations read API.
+"""
+Wire DTOs for the holdout-evaluations read API.
 
 Holdout artifacts are produced by ``experiment holdout-eval``. The on-disk
 ``holdout_eval.json`` carries identity, the source bundle reference

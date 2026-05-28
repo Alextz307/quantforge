@@ -1,4 +1,5 @@
-"""End-to-end driver for ``experiment holdout-eval``.
+"""
+End-to-end driver for ``experiment holdout-eval``.
 
 A post-HPO/post-run command. Loads a completed source (a single
 ``experiment run`` directory or an ``experiment tune`` study), refits a
@@ -40,9 +41,12 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Literal
 
+import numpy as np
 import pandas as pd
 
 from quant_engine import MetricsCalculator
+from src.analysis.baselines import BaselineResult, compute_buy_and_hold
+from src.analysis.significance import BootstrapCI, bootstrap_sharpe_ci
 from src.core import json_io
 from src.core.config import load_experiment_config
 from src.core.logging import get_logger
@@ -56,7 +60,11 @@ from src.core.persistence import (
 from src.core.temporal import TemporalSplit, resolve_holdout_boundary
 from src.data.fingerprint import assert_data_hash_matches
 from src.engine.scenarios import SlippageScenario
-from src.engine.walk_forward import dispatch_engine_run, validate_deep_metadata
+from src.engine.walk_forward import (
+    dispatch_engine_run,
+    dispatch_primary_ohlcv,
+    validate_deep_metadata,
+)
 from src.optimization.checkpointing import BEST_CONFIG_YAML_NAME, TRIAL_ARTIFACTS_SUBDIR
 from src.orchestration.builder import build_experiment
 from src.orchestration.experiment import compute_data_hash, fetch_bars
@@ -71,11 +79,17 @@ _HPO_RUNS_SUBDIR = "runs"
 
 @dataclass(frozen=True)
 class HoldoutEvalResult:
-    """In-memory output of :func:`run_holdout_eval`.
+    """
+    In-memory output of :func:`run_holdout_eval`.
 
     Mirrors :class:`ExperimentResult`'s shape (one record + provenance)
     so callers — tests, future reporters, the Streamlit workbench —
     don't have to round-trip through disk to read the metrics.
+
+    ``sharpe_ci`` carries the stationary-bootstrap 95% CI on the
+    strategy's holdout Sharpe; ``buy_and_hold`` is the long-only
+    reference baseline computed on the same holdout window under the
+    same slippage scenario, for excess-over-baseline framing.
     """
 
     out_name: str
@@ -99,9 +113,12 @@ class HoldoutEvalResult:
     win_rate: float
     trade_count: int
     equity_curve: tuple[float, ...]
+    sharpe_ci: BootstrapCI
+    buy_and_hold: BaselineResult
 
     def to_dict(self) -> dict[str, object]:
-        """Serialise to the canonical ``holdout_eval.json`` payload.
+        """
+        Serialise to the canonical ``holdout_eval.json`` payload.
 
         ``is_holdout_eval: true`` is the discriminator — automated tooling
         (study orchestrator, future ``experiment study`` consolidator)
@@ -131,14 +148,17 @@ class HoldoutEvalResult:
                 "max_drawdown": self.max_drawdown,
                 "win_rate": self.win_rate,
                 "trade_count": self.trade_count,
+                "sharpe_ci": self.sharpe_ci.to_dict(),
             },
             "equity_curve": list(self.equity_curve),
+            "buy_and_hold": self.buy_and_hold.to_dict(),
         }
 
 
 @dataclass(frozen=True)
 class _ResolvedSource:
-    """Internal: a source kind + the two paths the workflow needs.
+    """
+    Internal: a source kind + the two paths the workflow needs.
 
     ``config_path`` points at the source's frozen ExperimentConfig YAML
     (``config.yaml`` for a run, ``best_config.yaml`` for an HPO study).
@@ -159,7 +179,8 @@ def resolve_source(
     run_dir: Path | None,
     hpo_dir: Path | None,
 ) -> _ResolvedSource:
-    """Resolve a CLI source pair into the two on-disk anchors the workflow needs.
+    """
+    Resolve a CLI source pair into the two on-disk anchors the workflow needs.
 
     Exactly one of ``run_dir`` / ``hpo_dir`` must be set — the CLI layer
     enforces mutual exclusion and this guard is defence-in-depth.
@@ -232,7 +253,8 @@ def run_holdout_eval(
     out_name: str,
     store_root: Path,
 ) -> tuple[HoldoutEvalResult, Path]:
-    """Drive the full one-shot honest-OOS evaluation pipeline.
+    """
+    Drive the full one-shot honest-OOS evaluation pipeline.
 
     The five anti-leakage tripwires (see module docstring) fire in order
     along the workflow below; the rest is straight-line. Returns the
@@ -312,6 +334,25 @@ def run_holdout_eval(
     annualization = cfg.data.interval.annualization_factor()
     metrics = MetricsCalculator.compute(raw.equity_curve, annualization, cfg.risk_free_rate)
 
+    equity_arr = np.asarray(raw.equity_curve, dtype=np.float64)
+    if np.any(equity_arr <= 0.0):
+        raise ValueError(
+            f"holdout-eval {out_name}: equity curve contains a non-positive bar; "
+            f"the simple-return divisor would be zero or negative and poison the "
+            f"bootstrap. Investigate the strategy for blow-up behaviour."
+        )
+    returns = np.diff(equity_arr) / equity_arr[:-1]
+    sharpe_ci = bootstrap_sharpe_ci(returns)
+
+    bah_bars = dispatch_primary_ohlcv(experiment.strategy, holdout)
+    bah = compute_buy_and_hold(
+        bah_bars,
+        slippage=experiment.slippage,
+        interval=cfg.data.interval,
+        engine=experiment.engine,
+        risk_free_rate=cfg.risk_free_rate,
+    )
+
     result = HoldoutEvalResult(
         out_name=out_name,
         source_kind=source.kind,
@@ -334,6 +375,8 @@ def run_holdout_eval(
         win_rate=metrics.win_rate,
         trade_count=raw.trade_count,
         equity_curve=tuple(raw.equity_curve.tolist()),
+        sharpe_ci=sharpe_ci,
+        buy_and_hold=bah,
     )
 
     ensure_model_dir(out_dir)

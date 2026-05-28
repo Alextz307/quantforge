@@ -1,4 +1,6 @@
-"""Wire DTOs for the strategy schema-introspection endpoint."""
+"""
+Wire DTOs for the strategy schema-introspection endpoint.
+"""
 
 from __future__ import annotations
 

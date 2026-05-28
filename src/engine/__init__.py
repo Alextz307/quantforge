@@ -1,4 +1,6 @@
-"""Backtest engine — Python integration over the C++ ``quant_engine``."""
+"""
+Backtest engine — Python integration over the C++ ``quant_engine``.
+"""
 
 from __future__ import annotations
 

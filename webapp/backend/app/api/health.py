@@ -1,4 +1,6 @@
-"""Liveness probe for the webapp backend."""
+"""
+Liveness probe for the webapp backend.
+"""
 
 from __future__ import annotations
 

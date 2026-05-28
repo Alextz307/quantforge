@@ -1,4 +1,6 @@
-"""Tests for FeatureEngineeringPipeline."""
+"""
+Tests for FeatureEngineeringPipeline.
+"""
 
 from __future__ import annotations
 
@@ -82,13 +84,17 @@ class TestFeatureEngineeringPipeline:
     def test_leading_nan_preserved(
         self, fitted_pipeline: FeatureEngineeringPipeline, pipeline_df: pd.DataFrame
     ) -> None:
-        """Leading NaN from warmup must NOT be back-filled."""
+        """
+        Leading NaN from warmup must NOT be back-filled.
+        """
 
         result = fitted_pipeline.transform(pipeline_df)
         assert result["return_21d"].iloc[:RETURN_21D_WARMUP_BARS].isna().all()
 
     def test_scaler_normalizes_training_data(self, pipeline_df: pd.DataFrame) -> None:
-        """After scaling, valid training rows should have ~zero mean."""
+        """
+        After scaling, valid training rows should have ~zero mean.
+        """
 
         p = FeatureEngineeringPipeline()
         result = p.fit_transform(pipeline_df)
@@ -96,7 +102,9 @@ class TestFeatureEngineeringPipeline:
         assert abs(valid.mean()) < SCALED_MEAN_TOLERANCE
 
     def test_transform_uses_training_stats(self, pipeline_df: pd.DataFrame) -> None:
-        """Test data transformed using training scaler statistics."""
+        """
+        Test data transformed using training scaler statistics.
+        """
 
         train = pipeline_df.iloc[:TRAIN_TEST_SPLIT_INDEX]
         test = pipeline_df.iloc[TRAIN_TEST_SPLIT_INDEX:]
@@ -115,7 +123,9 @@ class TestFeatureEngineeringPipeline:
         assert "standard" in feature_registry
 
     def test_custom_periods(self, pipeline_df: pd.DataFrame) -> None:
-        """Pipeline works with non-default periods and names columns accordingly."""
+        """
+        Pipeline works with non-default periods and names columns accordingly.
+        """
 
         p = FeatureEngineeringPipeline(
             rsi_period=CUSTOM_RSI_PERIOD,
@@ -131,7 +141,9 @@ class TestFeatureEngineeringPipeline:
         assert f"vol_{CUSTOM_VOL_WINDOW}" in result.columns
 
     def test_keep_ohlc_passthrough(self) -> None:
-        """When keep_ohlc=True, OHLCV survives both fit_transform and transform."""
+        """
+        When keep_ohlc=True, OHLCV survives both fit_transform and transform.
+        """
 
         from tests.conftest import make_synthetic_ohlcv_df
 
@@ -151,7 +163,9 @@ class TestFeatureEngineeringPipeline:
 
 class TestComputeRSI:
     def test_rsi_range(self, pipeline_df: pd.DataFrame) -> None:
-        """RSI values must be in [0, 100]."""
+        """
+        RSI values must be in [0, 100].
+        """
 
         rsi = _compute_rsi(pipeline_df["close"])
         valid = rsi.dropna()
@@ -165,7 +179,9 @@ class TestComputeRSI:
 
 class TestComputeMACD:
     def test_macd_histogram_is_difference(self, pipeline_df: pd.DataFrame) -> None:
-        """Histogram = MACD line - signal line."""
+        """
+        Histogram = MACD line - signal line.
+        """
 
         macd, signal, hist = _compute_macd(pipeline_df["close"])
         np.testing.assert_allclose(

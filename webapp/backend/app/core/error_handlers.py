@@ -1,4 +1,5 @@
-"""App-level exception handlers — translate service-layer errors to HTTP responses.
+"""
+App-level exception handlers — translate service-layer errors to HTTP responses.
 
 Registers FastAPI handlers that map the small set of cross-cutting exception
 classes raised by service modules into the HTTP responses the frontend
@@ -68,7 +69,8 @@ async def _handle_invalid(_req: Request, exc: Exception) -> Response:
 
 
 async def _handle_access_denied(_req: Request, exc: Exception) -> Response:
-    """Map ``ArtifactAccessDeniedError`` to 404 (not 403).
+    """
+    Map ``ArtifactAccessDeniedError`` to 404 (not 403).
 
     Surfaced from artifact read endpoints when the caller is neither the
     artifact's owner nor an admin. 404 (not 403) so the response does not
@@ -82,7 +84,8 @@ async def _handle_access_denied(_req: Request, exc: Exception) -> Response:
 
 
 async def _handle_list_permission(_req: Request, exc: Exception) -> Response:
-    """Map non-admin ``?all=true`` PermissionError to 403.
+    """
+    Map non-admin ``?all=true`` PermissionError to 403.
 
     Scoped narrowly: only PermissionErrors raised from spec-upload list
     paths take this route. Other domain modules that may raise

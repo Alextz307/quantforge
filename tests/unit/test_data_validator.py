@@ -1,4 +1,6 @@
-"""Tests for src.data.validator.validate_bars."""
+"""
+Tests for src.data.validator.validate_bars.
+"""
 
 from __future__ import annotations
 

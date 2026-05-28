@@ -1,4 +1,5 @@
-"""TTL-cached artifact-directory listings shared by the read services.
+"""
+TTL-cached artifact-directory listings shared by the read services.
 
 Recursive `**/<subdir>/*/<manifest>` globs over the experiment-results tree
 are the dominant cost on warm list-endpoint calls. Each service kind (runs,
@@ -25,7 +26,9 @@ _CACHE: dict[tuple[str, str], tuple[float, tuple[Path, ...], dict[str, Path]]] =
 def cached_artifact_dirs(
     root: Path, kind: str, walker: Callable[[Path], Iterator[Path]]
 ) -> tuple[Path, ...]:
-    """Return the artifact directories under ``root`` for ``kind``, TTL-cached."""
+    """
+    Return the artifact directories under ``root`` for ``kind``, TTL-cached.
+    """
 
     paths, _ = _get_or_refresh(root, kind, walker)
     return paths
@@ -34,13 +37,16 @@ def cached_artifact_dirs(
 def cached_artifact_index(
     root: Path, kind: str, walker: Callable[[Path], Iterator[Path]]
 ) -> tuple[tuple[Path, ...], dict[str, Path]]:
-    """Return paths plus a ``{dir.name: dir}`` index, TTL-cached together."""
+    """
+    Return paths plus a ``{dir.name: dir}`` index, TTL-cached together.
+    """
 
     return _get_or_refresh(root, kind, walker)
 
 
 def warm_index(root: Path, kind: str, name: str, path: Path) -> None:
-    """Insert ``name → path`` into the cached id-index without bumping the TTL.
+    """
+    Insert ``name → path`` into the cached id-index without bumping the TTL.
 
     Used when a single artifact is resolved out-of-band (glob fallback for
     items written after the last snapshot) so successive lookups in the
@@ -67,6 +73,8 @@ def _get_or_refresh(
 
 
 def clear() -> None:
-    """Drop every cached entry. Test fixture hook."""
+    """
+    Drop every cached entry. Test fixture hook.
+    """
 
     _CACHE.clear()

@@ -1,4 +1,6 @@
-"""User CRUD — never surfaces password hashes outside this module."""
+"""
+User CRUD — never surfaces password hashes outside this module.
+"""
 
 from __future__ import annotations
 
@@ -56,7 +58,8 @@ def create_user(
     role: Role,
     auto_created: bool = False,
 ) -> UserPublic:
-    """Insert a new account or reactivate a soft-deleted one with the same username.
+    """
+    Insert a new account or reactivate a soft-deleted one with the same username.
 
     ``auto_created=True`` stamps ``users.auto_created_at`` so an admin
     cleanup view can distinguish CLI ``--user`` auto-creates from deliberate
@@ -102,7 +105,9 @@ def create_user(
 def upsert_user(
     conn: sqlite3.Connection, *, username: str, password: str, role: Role
 ) -> UserPublic:
-    """Create-or-overwrite — used by the bootstrap CLI."""
+    """
+    Create-or-overwrite — used by the bootstrap CLI.
+    """
 
     existing = conn.execute("SELECT id FROM users WHERE username = ?", (username,)).fetchone()
     password_hash = hash_password(password)

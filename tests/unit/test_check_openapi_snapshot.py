@@ -1,4 +1,6 @@
-"""Tests for the OpenAPI snapshot drift guard."""
+"""
+Tests for the OpenAPI snapshot drift guard.
+"""
 
 from __future__ import annotations
 
@@ -12,7 +14,8 @@ guard = load_script_module(GUARD_SCRIPT, "check_openapi_snapshot")
 
 
 class TestRepoStateIsClean:
-    """End-to-end: the committed snapshot must agree with the live FastAPI app.
+    """
+    End-to-end: the committed snapshot must agree with the live FastAPI app.
 
     Skipped automatically if fastapi isn't installed (e.g. in the python-test job
     that runs on the research-framework deps only).

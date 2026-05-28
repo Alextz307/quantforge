@@ -1,4 +1,5 @@
-"""Create or update a webapp account in the SQLite users table.
+"""
+Create or update a webapp account in the SQLite users table.
 
 Usage::
 

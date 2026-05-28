@@ -1,4 +1,5 @@
-"""Numerical-parity tests for the C++ state-machine bindings.
+"""
+Numerical-parity tests for the C++ state-machine bindings.
 
 The recursive position-carry logic is exhaustively covered by gtest in
 ``cpp/tests/test_state_machines.cpp``. These tests verify the **binding layer**:
@@ -32,7 +33,8 @@ def _python_mean_reversion(
     lower: F64Array,
     trend_ma: F64Array,
 ) -> F64Array:
-    """Pure-Python reference mirroring the original Python state machine.
+    """
+    Pure-Python reference mirroring the original Python state machine.
 
     Kept inlined so the test remains valid if the Python implementation is
     ever re-deleted or refactored.
@@ -198,7 +200,9 @@ class TestPairsBinding:
 
 
 class TestFloat32Forcecast:
-    """pybind11's ``py::array::forcecast`` should accept f32 and up-cast."""
+    """
+    pybind11's ``py::array::forcecast`` should accept f32 and up-cast.
+    """
 
     def test_mean_reversion_accepts_float32(self) -> None:
         close = np.array([90.0, 95.0, 100.0], dtype=np.float32)
@@ -229,7 +233,9 @@ class TestFloat32Forcecast:
 
 
 class TestLongSeriesParity:
-    """Smoke-check C++ / Python parity on a longer synthetic series."""
+    """
+    Smoke-check C++ / Python parity on a longer synthetic series.
+    """
 
     def test_mean_reversion_matches_python_reference(self) -> None:
         rng = np.random.default_rng(42)

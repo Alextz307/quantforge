@@ -1,4 +1,6 @@
-"""Temporal-aware PyTorch dataset for time-series ML models."""
+"""
+Temporal-aware PyTorch dataset for time-series ML models.
+"""
 
 from __future__ import annotations
 
@@ -9,7 +11,8 @@ from torch.utils.data import Dataset
 
 
 class TemporalDataset(Dataset[tuple[torch.Tensor, torch.Tensor]]):
-    """Sliding-window dataset that respects temporal boundaries.
+    """
+    Sliding-window dataset that respects temporal boundaries.
 
     Each sample is a (features, target) pair where features are a window
     of lookback_window rows and target is the value at the next timestep.
@@ -64,7 +67,8 @@ class TemporalDataset(Dataset[tuple[torch.Tensor, torch.Tensor]]):
         return len(self._features) - self._lookback
 
     def __getitem__(self, idx: int) -> tuple[torch.Tensor, torch.Tensor]:
-        """Return (feature_window, target) for sample idx.
+        """
+        Return (feature_window, target) for sample idx.
 
         feature_window: shape (lookback_window, n_features)
         target: scalar tensor

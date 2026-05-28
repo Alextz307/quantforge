@@ -1,4 +1,5 @@
-"""Fold-level → run-level metric aggregation.
+"""
+Fold-level → run-level metric aggregation.
 
 :class:`AggregateStats` collapses a tuple of :class:`FoldRecord` objects into
 a frozen dataclass holding per-metric mean / std / 95% CI plus a couple of
@@ -43,7 +44,8 @@ _DEFAULT_RNG_SEED = 42
 
 @dataclass(frozen=True)
 class AggregateStats:
-    """Summary of a walk-forward run's fold-level metrics.
+    """
+    Summary of a walk-forward run's fold-level metrics.
 
     All ``*_mean`` / ``*_std`` / ``*_ci95_*`` fields are ``float('nan')``
     when ``n_folds == 0`` — the zero-fold path is a degenerate case (empty
@@ -72,7 +74,8 @@ class AggregateStats:
     trade_count_total: int
 
     def to_dict(self) -> dict[str, object]:
-        """Flatten to the dict shape consumed by objectives + ``metrics.json``.
+        """
+        Flatten to the dict shape consumed by objectives + ``metrics.json``.
 
         Empty-fold path short-circuits to ``{"n_folds": 0}`` — matches the
         pre-refactor behavior that the HPO objectives rely on for clear
@@ -105,7 +108,8 @@ class AggregateStats:
 
     @classmethod
     def empty(cls) -> AggregateStats:
-        """Zero-fold sentinel: every numeric stat ``NaN``, trade-count 0.
+        """
+        Zero-fold sentinel: every numeric stat ``NaN``, trade-count 0.
 
         Discriminate via ``n_folds == 0`` before reading other fields —
         ``to_dict()`` short-circuits the dict view to ``{"n_folds": 0}``,
@@ -142,7 +146,8 @@ def aggregate_folds(
     *,
     rng: np.random.Generator | None = None,
 ) -> AggregateStats:
-    """Collapse ``folds`` into per-metric mean / std / 95% CI.
+    """
+    Collapse ``folds`` into per-metric mean / std / 95% CI.
 
     ``rng`` seeds the IID bootstrap resampler. Defaults to a fixed internal
     seed so ``metrics.json`` is a deterministic function of fold values —
@@ -202,7 +207,8 @@ def _mean_std_ci(
     values: _FloatArray,
     rng: np.random.Generator,
 ) -> tuple[float, float, float, float]:
-    """Return ``(mean, std_ddof1, ci95_low, ci95_high)`` via IID percentile bootstrap.
+    """
+    Return ``(mean, std_ddof1, ci95_low, ci95_high)`` via IID percentile bootstrap.
 
     NaN inputs (zero-vol folds produce NaN Sharpe/Sortino) propagate
     through ``np.mean`` / ``np.std`` as ``NaN`` — preserved on purpose so

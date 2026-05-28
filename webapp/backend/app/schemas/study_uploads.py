@@ -1,4 +1,6 @@
-"""Wire DTOs for user-authored study-spec uploads."""
+"""
+Wire DTOs for user-authored study-spec uploads.
+"""
 
 from __future__ import annotations
 
@@ -14,14 +16,18 @@ _SLUG_PATTERN = r"^[a-zA-Z0-9][a-zA-Z0-9_\-]*$"
 
 
 class StudySpecUploadCreate(BaseModel):
-    """POST /configs/study/uploads body."""
+    """
+    POST /configs/study/uploads body.
+    """
 
     slug: str = Field(min_length=1, max_length=64, pattern=_SLUG_PATTERN)
     yaml: str = Field(min_length=1, max_length=131072)
 
 
 class StudySpecUploadSummary(BaseModel):
-    """Listing entry — no YAML body, no validation errors."""
+    """
+    Listing entry — no YAML body, no validation errors.
+    """
 
     slug: str
     created_at: datetime
@@ -31,7 +37,9 @@ class StudySpecUploadSummary(BaseModel):
 
 
 class StudySpecUploadDetail(BaseModel):
-    """Single-upload read shape with the full YAML body."""
+    """
+    Single-upload read shape with the full YAML body.
+    """
 
     slug: str
     yaml: str

@@ -1,4 +1,6 @@
-"""Comparator tests: pairwise compare + multi-label configuration sweep."""
+"""
+Comparator tests: pairwise compare + multi-label configuration sweep.
+"""
 
 from __future__ import annotations
 

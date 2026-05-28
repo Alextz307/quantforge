@@ -1,4 +1,6 @@
-"""Tests for temporal validation: TemporalSplit and WalkForwardValidator."""
+"""
+Tests for temporal validation: TemporalSplit and WalkForwardValidator.
+"""
 
 from __future__ import annotations
 
@@ -79,7 +81,9 @@ class TestTemporalSplit:
             )
 
     def test_rejects_adjacent_train_test(self) -> None:
-        """Train end == test start (same timestamp) should be rejected."""
+        """
+        Train end == test start (same timestamp) should be rejected.
+        """
 
         idx = pd.DatetimeIndex(pd.date_range(ADJACENT_DF_START, periods=ADJACENT_DF_ROWS, freq="D"))
         data = pd.DataFrame({"v": range(ADJACENT_DF_ROWS)}, index=idx)
@@ -186,7 +190,9 @@ class TestWalkForwardValidator:
             assert train_sizes[i] > train_sizes[i - 1]
 
     def test_no_temporal_leakage(self) -> None:
-        """Every split's train max < test min (guaranteed by TemporalSplit)."""
+        """
+        Every split's train max < test min (guaranteed by TemporalSplit).
+        """
 
         df = make_daily_df(WF_LARGE_DF_ROWS)
         validator = WalkForwardValidator(
@@ -288,7 +294,8 @@ HB_FLOAT_EPS_PCT = 1e-20
 
 
 class TestResolveHoldoutBoundary:
-    """Exercises tripwire #2 of the holdout contract: boundary resolution.
+    """
+    Exercises tripwire #2 of the holdout contract: boundary resolution.
 
     The resolver is the single canonical place that turns the config's knobs
     (pct or pinned timestamp) into the absolute timestamp the runner uses
@@ -305,7 +312,9 @@ class TestResolveHoldoutBoundary:
         assert boundary == df.index[HB_CUTOFF]
 
     def test_pct_split_dev_and_holdout_are_strictly_temporal(self) -> None:
-        """The returned boundary, used as documented, yields a clean split."""
+        """
+        The returned boundary, used as documented, yields a clean split.
+        """
 
         df = make_daily_df(HB_DF_ROWS)
         boundary = resolve_holdout_boundary(df, holdout_pct=HB_PCT)
@@ -316,7 +325,9 @@ class TestResolveHoldoutBoundary:
         assert dev.index.max() < holdout.index.min()
 
     def test_pct_composes_cleanly_with_temporal_split(self) -> None:
-        """Tripwire #3: TemporalSplit accepts the resolved boundary."""
+        """
+        Tripwire #3: TemporalSplit accepts the resolved boundary.
+        """
 
         df = make_daily_df(HB_DF_ROWS)
         boundary = resolve_holdout_boundary(df, holdout_pct=HB_PCT)
@@ -336,7 +347,8 @@ class TestResolveHoldoutBoundary:
         assert boundary == pinned
 
     def test_pinned_timestamp_not_in_df_raises_leakage(self) -> None:
-        """Tripwire #2: data drift detection.
+        """
+        Tripwire #2: data drift detection.
 
         A pinned timestamp that is no longer present in the fetched data
         means the vendor adjusted / added / removed a bar since the
@@ -351,7 +363,8 @@ class TestResolveHoldoutBoundary:
             resolve_holdout_boundary(df, holdout_start=phantom)
 
     def test_both_knobs_set_raises(self) -> None:
-        """Defense in depth: even if config validation is bypassed, the
+        """
+        Defense in depth: even if config validation is bypassed, the
         helper refuses ambiguous input."""
 
         df = make_daily_df(HB_DF_ROWS)
@@ -366,7 +379,9 @@ class TestResolveHoldoutBoundary:
             resolve_holdout_boundary(df, holdout_pct=HB_TINY_PCT_ALL)
 
     def test_pct_too_small_empties_holdout_raises(self) -> None:
-        """Sub-per-bar fractions round to cutoff == len(df)."""
+        """
+        Sub-per-bar fractions round to cutoff == len(df).
+        """
 
         df = make_daily_df(HB_TINY_DF_ROWS)
         with pytest.raises(ValueError, match="empty holdout region"):
@@ -378,7 +393,8 @@ class TestResolveHoldoutBoundary:
             resolve_holdout_boundary(df, holdout_pct=HB_PCT)
 
     def test_pinned_timestamp_resolves_same_boundary_as_matching_pct(self) -> None:
-        """Two runs of the SAME boundary — one via pct, one via pinned timestamp
+        """
+        Two runs of the SAME boundary — one via pct, one via pinned timestamp
         derived from the pct's first run — yield identical results. This is
         how the manifest round-trip is supposed to work in practice: dev run
         records the derived timestamp, holdout eval reads it back pinned."""

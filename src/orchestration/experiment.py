@@ -1,4 +1,5 @@
-"""The wired, ready-to-run experiment primitive.
+"""
+The wired, ready-to-run experiment primitive.
 
 ``Experiment`` is a frozen bundle of every component that participates in a
 single walk-forward run: data source, strategy, validator, engine, slippage,
@@ -76,7 +77,8 @@ _EXPERIMENT_ID_SUFFIX_BYTES = 4  # → 8 hex chars, 2^32 combos; low collision r
 
 
 def _make_experiment_id(strategy_name: str, created_at: datetime, git_sha: str) -> str:
-    """Compose a unique experiment id: ``{utc_ts}_{strategy}_{sha}_{rand}``.
+    """
+    Compose a unique experiment id: ``{utc_ts}_{strategy}_{sha}_{rand}``.
 
     Random suffix (hex-encoded cryptographic bytes) disambiguates two
     invocations in the same second + same strategy + same sha — matters for
@@ -93,7 +95,8 @@ def fetch_bars(
     cfg: ExperimentConfig,
     strategy: IStrategy,
 ) -> pd.DataFrame:
-    """Fetch OHLCV bars dispatched by ``strategy``'s capability flags.
+    """
+    Fetch OHLCV bars dispatched by ``strategy``'s capability flags.
 
     Three shapes:
 
@@ -137,7 +140,9 @@ def _fetch_pair_bars(
     ticker_a: str,
     ticker_b: str,
 ) -> pd.DataFrame:
-    """Fetch both legs of a pair, inner-join, suffix the OHLCV columns."""
+    """
+    Fetch both legs of a pair, inner-join, suffix the OHLCV columns.
+    """
 
     bars_a = data_source.fetch(ticker_a, cfg.data.start, cfg.data.end, cfg.data.interval)
     bars_b = data_source.fetch(ticker_b, cfg.data.start, cfg.data.end, cfg.data.interval)
@@ -162,7 +167,8 @@ def _fetch_multi_bars(
     cfg: ExperimentConfig,
     tickers: Sequence[str],
 ) -> pd.DataFrame:
-    """Fetch N legs, inner-join on shared timestamps, suffix columns ``_<TICKER>``.
+    """
+    Fetch N legs, inner-join on shared timestamps, suffix columns ``_<TICKER>``.
 
     Same inner-join rationale as ``_fetch_pair_bars`` (NaN poisoning on the
     engine's bar-validity check rules out outer / left / right joins). The
@@ -190,7 +196,8 @@ def _fetch_multi_bars(
 
 
 def compute_data_hash(strategy: IStrategy, bars: pd.DataFrame, tickers: Sequence[str]) -> str:
-    """Dispatch to the correct fingerprint helper based on strategy shape.
+    """
+    Dispatch to the correct fingerprint helper based on strategy shape.
 
     Single source of truth for "which fingerprint applies" — call sites in
     ``Experiment.run`` and ``holdout_eval`` route through this so a future
@@ -205,7 +212,8 @@ def compute_data_hash(strategy: IStrategy, bars: pd.DataFrame, tickers: Sequence
 
 
 def _slice_dev(bars: pd.DataFrame, boundary: pd.Timestamp | None) -> pd.DataFrame:
-    """Return the dev region — everything strictly before ``boundary``.
+    """
+    Return the dev region — everything strictly before ``boundary``.
 
     ``boundary`` is the first bar OF the holdout (see
     ``resolve_holdout_boundary``). ``None`` disables the reservation.
@@ -218,7 +226,8 @@ def _slice_dev(bars: pd.DataFrame, boundary: pd.Timestamp | None) -> pd.DataFram
 
 @dataclass(frozen=True)
 class RunOptions:
-    """Per-invocation knobs for :meth:`Experiment.run`.
+    """
+    Per-invocation knobs for :meth:`Experiment.run`.
 
     Bundled so the run() signature doesn't grow a flag per concern. Defaults
     match the no-arguments behaviour: write to ``experiment_results/``, emit
@@ -238,7 +247,8 @@ class RunOptions:
 
 @dataclass(frozen=True)
 class Experiment:
-    """A fully-wired walk-forward experiment.
+    """
+    A fully-wired walk-forward experiment.
 
     Prefer constructing via :func:`build_experiment` — direct instantiation
     is intentional for tests that want to inject mocks per component.
@@ -253,7 +263,8 @@ class Experiment:
     feature_pipeline_factory: Callable[[], IFeaturePipeline] | None = None
 
     def run(self, options: RunOptions | None = None) -> ExperimentResult:
-        """Execute the full walk-forward loop and persist every artifact.
+        """
+        Execute the full walk-forward loop and persist every artifact.
 
         Pipeline:
         1. Seed numpy/torch/random deterministically from ``config.seed``.
@@ -382,7 +393,8 @@ class Experiment:
 
 
 def _maybe_save_strategy(strategy: IStrategy, path: Path) -> None:
-    """Call ``strategy.save(path)`` if supported; log + skip on NotImplementedError.
+    """
+    Call ``strategy.save(path)`` if supported; log + skip on NotImplementedError.
 
     Strategies without a ``save()`` override (and tests' ad-hoc strategies)
     shouldn't block the rest of the artifact tree from landing.

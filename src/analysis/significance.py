@@ -1,6 +1,7 @@
-"""Pairwise-strategy significance tests.
+"""
+Pairwise-strategy significance tests.
 
-Two families of test, each appropriate to a different workload:
+Three families of test, each appropriate to a different workload:
 
 * **Stationary bootstrap** (Politis & Romano, 1994) — autocorrelation-aware
   percentile bootstrap on daily return series. Used for:
@@ -17,6 +18,12 @@ Two families of test, each appropriate to a different workload:
   plus realised values. Used by :func:`diebold_mariano_test` for
   forecaster strategies (ARMA / LSTM / hybrids) that expose predicted
   returns or variances.
+
+* **Deflated Sharpe ratio** (Bailey & López de Prado, 2014) —
+  multiple-testing-adjusted significance for an HPO study's best Sharpe.
+  Used by :func:`deflated_sharpe_ratio` after a tuning run completes;
+  inputs are the per-trial Sharpes from the Optuna study (no per-trial
+  return series required).
 
 Block-size default
 ------------------
@@ -40,13 +47,15 @@ a seeded generator to vary the bootstrap across runs.
 from __future__ import annotations
 
 import math
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
 
 import numpy as np
 import numpy.typing as npt
 import scipy.stats as scipy_stats
+
+from src.core import json_io
 
 _FloatArray = npt.NDArray[np.float64]
 _IntArray = npt.NDArray[np.int64]
@@ -60,14 +69,17 @@ _DEFAULT_N_RESAMPLES = 10_000
 
 
 class DMLoss(StrEnum):
-    """Per-observation loss for the Diebold-Mariano test."""
+    """
+    Per-observation loss for the Diebold-Mariano test.
+    """
 
     MSE = "mse"
     MAE = "mae"
 
 
 class DMDirection(StrEnum):
-    """Sign of the Diebold-Mariano mean loss differential.
+    """
+    Sign of the Diebold-Mariano mean loss differential.
 
     ``A`` / ``B`` indicate which of the two forecasts has the smaller
     expected loss; ``TIE`` is the exact-zero degenerate case.
@@ -80,7 +92,8 @@ class DMDirection(StrEnum):
 
 @dataclass(frozen=True)
 class BootstrapCI:
-    """Percentile-bootstrap confidence interval.
+    """
+    Percentile-bootstrap confidence interval.
 
     ``point_estimate`` is computed on the full (non-resampled) sample.
     ``lower`` / ``upper`` are the ``(1-confidence)/2`` and
@@ -95,16 +108,100 @@ class BootstrapCI:
     block_size: int
 
     def excludes(self, value: float) -> bool:
-        """``True`` if ``value`` falls outside ``[lower, upper]`` — common
+        """
+        ``True`` if ``value`` falls outside ``[lower, upper]`` — common
         significance check for a differential CI against zero.
         """
 
         return value < self.lower or value > self.upper
 
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "point_estimate": self.point_estimate,
+            "lower": self.lower,
+            "upper": self.upper,
+            "confidence": self.confidence,
+            "n_resamples": self.n_resamples,
+            "block_size": self.block_size,
+        }
+
+    @classmethod
+    def from_dict(cls, d: dict[str, object]) -> BootstrapCI:
+        return cls(
+            point_estimate=json_io.get_float(d, "point_estimate"),
+            lower=json_io.get_float(d, "lower"),
+            upper=json_io.get_float(d, "upper"),
+            confidence=json_io.get_float(d, "confidence"),
+            n_resamples=json_io.get_int(d, "n_resamples"),
+            block_size=json_io.get_int(d, "block_size"),
+        )
+
+
+_EULER_MASCHERONI = 0.5772156649015329
+_TRIAL_VARIANCE_EPS = 1e-12
+
+
+@dataclass(frozen=True)
+class DeflatedSharpe:
+    """
+    Bailey-López de Prado (2014) deflated Sharpe ratio.
+
+    Quantifies how much of an HPO study's best Sharpe is plausibly
+    chance, given that the search tried many configurations. The
+    deflated value is a probability in ``[0, 1]`` — values close to
+    ``1`` indicate the best Sharpe is unlikely to be a multiple-testing
+    artefact; values near ``0.5`` indicate it is consistent with noise.
+
+    Implementation follows the practical post-hoc form used by López de
+    Prado's MlFinLab and similar libraries: the moments of the trial
+    Sharpe distribution stand in for the unobserved selected-strategy
+    return moments in BLP eq.(9). This is the only form that works
+    when only the Optuna ``study.db`` (not per-trial return series) is
+    available downstream.
+    """
+
+    observed_sharpe: float
+    expected_max_sharpe: float
+    deflated_sharpe: float
+    p_value: float
+    n_trials: int
+    sample_length: int
+    trial_sharpe_variance: float
+    trial_sharpe_skew: float
+    trial_sharpe_kurtosis: float
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "observed_sharpe": self.observed_sharpe,
+            "expected_max_sharpe": self.expected_max_sharpe,
+            "deflated_sharpe": self.deflated_sharpe,
+            "p_value": self.p_value,
+            "n_trials": self.n_trials,
+            "sample_length": self.sample_length,
+            "trial_sharpe_variance": self.trial_sharpe_variance,
+            "trial_sharpe_skew": self.trial_sharpe_skew,
+            "trial_sharpe_kurtosis": self.trial_sharpe_kurtosis,
+        }
+
+    @classmethod
+    def from_dict(cls, d: dict[str, object]) -> DeflatedSharpe:
+        return cls(
+            observed_sharpe=json_io.get_float(d, "observed_sharpe"),
+            expected_max_sharpe=json_io.get_float(d, "expected_max_sharpe"),
+            deflated_sharpe=json_io.get_float(d, "deflated_sharpe"),
+            p_value=json_io.get_float(d, "p_value"),
+            n_trials=json_io.get_int(d, "n_trials"),
+            sample_length=json_io.get_int(d, "sample_length"),
+            trial_sharpe_variance=json_io.get_float(d, "trial_sharpe_variance"),
+            trial_sharpe_skew=json_io.get_float(d, "trial_sharpe_skew"),
+            trial_sharpe_kurtosis=json_io.get_float(d, "trial_sharpe_kurtosis"),
+        )
+
 
 @dataclass(frozen=True)
 class DMResult:
-    """Diebold-Mariano test outcome.
+    """
+    Diebold-Mariano test outcome.
 
     ``direction`` reports the sign of the mean loss differential
     (``d = L(e_a) - L(e_b)``): :attr:`DMDirection.B` if ``mean(d) > 0``
@@ -129,7 +226,8 @@ def bootstrap_sharpe_ci(
     confidence: float = 0.95,
     rng: np.random.Generator | None = None,
 ) -> BootstrapCI:
-    """Stationary-bootstrap 95% CI for the Sharpe ratio of ``returns``.
+    """
+    Stationary-bootstrap 95% CI for the Sharpe ratio of ``returns``.
 
     ``returns`` is a 1-D array of periodic (per-bar) returns; annualisation
     is deliberately NOT applied here — feed pre-annualised returns if
@@ -177,7 +275,8 @@ def paired_bootstrap_sharpe_differential(
     confidence: float = 0.95,
     rng: np.random.Generator | None = None,
 ) -> BootstrapCI:
-    """Stationary-bootstrap 95% CI on ``sharpe(a) - sharpe(b)``.
+    """
+    Stationary-bootstrap 95% CI on ``sharpe(a) - sharpe(b)``.
 
     The two return series must be aligned in time — same bars, same
     length — so a single set of bootstrap indices can be applied to both,
@@ -229,7 +328,8 @@ def diebold_mariano_test(
     h: int = 1,
     loss: DMLoss = DMLoss.MSE,
 ) -> DMResult:
-    """Harvey-Leybourne-Newbold-corrected Diebold-Mariano (1995) test.
+    """
+    Harvey-Leybourne-Newbold-corrected Diebold-Mariano (1995) test.
 
     Null hypothesis: the two forecasts have equal expected loss.
     Alternative (two-sided): unequal expected loss. ``h`` is the forecast
@@ -302,6 +402,123 @@ def diebold_mariano_test(
     )
 
 
+def deflated_sharpe_ratio(
+    trial_sharpes: Sequence[float],
+    *,
+    sample_length: int,
+) -> DeflatedSharpe:
+    """
+    Compute the Bailey-López de Prado (2014) deflated Sharpe ratio.
+
+    The deflated Sharpe asks: given that an HPO search tried N
+    candidate configurations and selected the best one, how much of
+    the observed peak Sharpe is plausibly genuine vs. selection bias?
+    Returns a probability — values near ``1`` are evidence of a real
+    signal, values near ``0.5`` are indistinguishable from noise.
+
+    Inputs:
+        trial_sharpes: per-trial Sharpe ratios from the completed
+            Optuna study. The maximum across trials is the observed
+            (selected) Sharpe. Length must be ≥ 2.
+        sample_length: number of return observations the selected
+            strategy was evaluated on (typically ``n_dev_bars``).
+            Must be ≥ 2.
+
+    Formula (BLP eq. 9, post-hoc trial-based form):
+
+    ``E[max{Sh_n}] ≈ sqrt(V[Sh]) * ((1-γ)*Z⁻¹(1-1/N) + γ*Z⁻¹(1-1/(N·e)))``
+    where γ is Euler-Mascheroni and ``Z⁻¹`` is the standard-normal quantile.
+
+    ``ψ(Sh*) = (Sh* - E[max{Sh_n}]) * sqrt(T-1) /
+                sqrt(1 - γ̂₃·Sh* + ((γ̂₄ - 1)/4)·Sh*²)``
+
+    ``DSR = Φ(ψ)`` — standard-normal CDF of the test statistic.
+
+    Degenerate cases:
+        - Single trial (``N=1``): ``E[max] = 0`` (no selection); DSR
+          collapses to the plain Sharpe's one-sided p-value.
+        - Zero trial variance: ``E[max] = 0``; DSR computes as if
+          there were no multiple-testing penalty.
+        - Denominator ≤ 0 (extreme negative skew × large Sharpe):
+          DSR = 0.5 (treat as undefined / non-significant).
+    """
+
+    if sample_length < 2:
+        raise ValueError(
+            f"sample_length must be >= 2, got {sample_length}; fix by passing "
+            f"the dev-region bar count."
+        )
+    arr = _as_1d_float(np.asarray(trial_sharpes, dtype=np.float64), "trial_sharpes")
+    n_trials = len(arr)
+    if n_trials < 1:
+        raise ValueError(
+            "trial_sharpes must be non-empty; got 0 trials. Fix by passing the "
+            "completed-trial Sharpes from the Optuna study."
+        )
+
+    observed = float(np.max(arr))
+    if n_trials >= 2:
+        trial_var = float(np.var(arr, ddof=1))
+        # Catastrophic-cancellation guard: scipy.stats.skew/kurtosis warn
+        # and return nonsensical moments when the input is numerically
+        # constant. Treat near-zero variance as "all trials identical"
+        # and fall back to Normal-baseline moments (skew=0, kurtosis=3),
+        # which collapses the BLP eq.(9) penalty cleanly.
+        if trial_var > _TRIAL_VARIANCE_EPS:
+            trial_skew = float(scipy_stats.skew(arr, bias=False))
+            trial_kurt = float(scipy_stats.kurtosis(arr, fisher=False, bias=False))
+        else:
+            trial_var = 0.0
+            trial_skew = 0.0
+            trial_kurt = 3.0
+    else:
+        trial_var = 0.0
+        trial_skew = 0.0
+        trial_kurt = 3.0
+
+    expected_max = _expected_max_sharpe(n_trials=n_trials, trial_variance=trial_var)
+
+    denom_sq = 1.0 - trial_skew * observed + ((trial_kurt - 1.0) / 4.0) * observed * observed
+    if denom_sq <= 0.0:
+        deflated = 0.5
+        psi = 0.0
+    else:
+        psi = (observed - expected_max) * math.sqrt(sample_length - 1) / math.sqrt(denom_sq)
+        deflated = float(scipy_stats.norm.cdf(psi))
+
+    p_value = 1.0 - deflated
+
+    return DeflatedSharpe(
+        observed_sharpe=observed,
+        expected_max_sharpe=expected_max,
+        deflated_sharpe=deflated,
+        p_value=p_value,
+        n_trials=n_trials,
+        sample_length=sample_length,
+        trial_sharpe_variance=trial_var,
+        trial_sharpe_skew=trial_skew,
+        trial_sharpe_kurtosis=trial_kurt,
+    )
+
+
+def _expected_max_sharpe(*, n_trials: int, trial_variance: float) -> float:
+    """
+    Expected maximum of ``n_trials`` iid normal Sharpes (BLP 2014 appendix).
+
+    ``E[max] ≈ sqrt(V) * ((1-γ)·Z⁻¹(1 - 1/N) + γ·Z⁻¹(1 - 1/(N·e)))``
+    where ``γ`` is Euler-Mascheroni and ``Z⁻¹`` is the standard-normal
+    quantile function. Collapses to ``0`` for ``N=1`` (no selection) or
+    ``trial_variance == 0`` (flat trial distribution).
+    """
+
+    if n_trials < 2 or trial_variance <= 0.0:
+        return 0.0
+    std = math.sqrt(trial_variance)
+    q1 = float(scipy_stats.norm.ppf(1.0 - 1.0 / n_trials))
+    q2 = float(scipy_stats.norm.ppf(1.0 - 1.0 / (n_trials * math.e)))
+    return std * ((1.0 - _EULER_MASCHERONI) * q1 + _EULER_MASCHERONI * q2)
+
+
 def _run_block_bootstrap(
     statistic_at_idx: Callable[[_IntArray], float],
     n: int,
@@ -310,7 +527,8 @@ def _run_block_bootstrap(
     block: int,
     rng: np.random.Generator,
 ) -> _FloatArray:
-    """Drive ``n_resamples`` stationary-bootstrap draws of a scalar statistic.
+    """
+    Drive ``n_resamples`` stationary-bootstrap draws of a scalar statistic.
 
     Single source of truth for both the single-series and paired Sharpe
     bootstraps: each iteration draws a length-``n`` Politis-Romano index
@@ -327,7 +545,8 @@ def _run_block_bootstrap(
 
 
 def _stationary_bootstrap_indices(n: int, block_size: int, rng: np.random.Generator) -> _IntArray:
-    """Draw a length-``n`` index vector per Politis-Romano (1994).
+    """
+    Draw a length-``n`` index vector per Politis-Romano (1994).
 
     Block lengths are geometrically distributed with mean ``block_size``;
     block starts are uniform on ``[0, n)``; indices wrap modulo ``n`` so
@@ -355,7 +574,8 @@ def _stationary_bootstrap_indices(n: int, block_size: int, rng: np.random.Genera
 
 
 def _sharpe(returns: _FloatArray) -> float:
-    """Unannualised Sharpe: ``mean / std_ddof1``, zero when std vanishes.
+    """
+    Unannualised Sharpe: ``mean / std_ddof1``, zero when std vanishes.
 
     Zero-std short-circuits to ``0.0`` instead of raising or returning
     ``inf`` — a flat-return resample produces an ill-defined Sharpe and
@@ -371,7 +591,8 @@ def _sharpe(returns: _FloatArray) -> float:
 
 
 def _newey_west_long_run_var(d: _FloatArray, mean_d: float, *, lag: int) -> float:
-    """Bartlett-kernel HAC long-run variance estimator.
+    """
+    Bartlett-kernel HAC long-run variance estimator.
 
     ``lag == 0`` collapses to the plain sample variance (what DM with
     ``h=1`` wants); ``lag > 0`` sums weighted autocovariances up to ``lag``
@@ -389,7 +610,9 @@ def _newey_west_long_run_var(d: _FloatArray, mean_d: float, *, lag: int) -> floa
 
 
 def percentile_ci(samples: _FloatArray, confidence: float) -> tuple[float, float]:
-    """Symmetric percentile CI from a bootstrap sample distribution."""
+    """
+    Symmetric percentile CI from a bootstrap sample distribution.
+    """
 
     alpha = 1.0 - confidence
     lo = float(np.percentile(samples, 100 * alpha / 2.0))
@@ -398,7 +621,9 @@ def percentile_ci(samples: _FloatArray, confidence: float) -> tuple[float, float
 
 
 def _resolve_block_size(block_size: int | None, n: int) -> int:
-    """Heuristic default: ``max(1, round(2 * sqrt(n)))``."""
+    """
+    Heuristic default: ``max(1, round(2 * sqrt(n)))``.
+    """
 
     if block_size is not None:
         if block_size < 1:
@@ -411,7 +636,9 @@ def _resolve_block_size(block_size: int | None, n: int) -> int:
 
 
 def _as_1d_float(arr: _FloatArray, name: str) -> _FloatArray:
-    """Coerce to contiguous 1-D float64, raising on wrong shape."""
+    """
+    Coerce to contiguous 1-D float64, raising on wrong shape.
+    """
 
     out = np.asarray(arr, dtype=np.float64)
     if out.ndim != 1:

@@ -1,4 +1,6 @@
-"""Read-only services for the persisted holdout-evaluations tree."""
+"""
+Read-only services for the persisted holdout-evaluations tree.
+"""
 
 from __future__ import annotations
 
@@ -42,7 +44,9 @@ __all__ = [
 
 
 def _optional_metric(metrics: object, key: str) -> float | None:
-    """Pull a numeric metric from a ``metrics`` block tolerant of missing/typed-wrong entries."""
+    """
+    Pull a numeric metric from a ``metrics`` block tolerant of missing/typed-wrong entries.
+    """
 
     if not isinstance(metrics, dict):
         return None
@@ -59,7 +63,9 @@ def list_holdout_evals(
     user: UserPublic,
     all_users: bool,
 ) -> list[HoldoutEvalSummary]:
-    """List every holdout eval under ``root`` visible to ``user``, newest first."""
+    """
+    List every holdout eval under ``root`` visible to ``user``, newest first.
+    """
 
     summaries: list[HoldoutEvalSummary] = []
     for eval_dir in cached_artifact_dirs(root, "holdout", iter_holdout_eval_dirs):
@@ -91,7 +97,8 @@ def get_holdout_eval(
     conn: sqlite3.Connection,
     user: UserPublic,
 ) -> HoldoutEvalDetail:
-    """Read the full detail payload for one holdout eval.
+    """
+    Read the full detail payload for one holdout eval.
 
     Raises :class:`ArtifactAccessDeniedError` when ``user`` is neither owner
     nor admin; the router maps that to 404.
@@ -138,7 +145,9 @@ def resolve_plot(
     conn: sqlite3.Connection,
     user: UserPublic,
 ) -> Path:
-    """Resolve a holdout-eval plot filename to an absolute path, blocking traversal."""
+    """
+    Resolve a holdout-eval plot filename to an absolute path, blocking traversal.
+    """
 
     check_artifact_access(conn, experiment_id=name, user=user)
     return resolve_plot_path(find_holdout_eval_dir(root, name), plot_name)

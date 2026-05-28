@@ -1,4 +1,5 @@
-"""Path-walking helpers over the experiment_results/ artifact tree.
+"""
+Path-walking helpers over the experiment_results/ artifact tree.
 
 The store layout under :data:`WebappSettings.store_root` is uniform: every
 persisted artifact lives at some ``<root>/<arbitrary>/<subdir>/<artifact_name>/``,
@@ -27,34 +28,47 @@ STUDIES_SUBDIR = "studies"
 
 
 class ArtifactNotFoundError(LookupError):
-    """Raised when an artifact name does not match anything under the store root."""
+    """
+    Raised when an artifact name does not match anything under the store root.
+    """
 
 
 class RunNotFoundError(ArtifactNotFoundError):
-    """Raised when an ``experiment_id`` does not match any run under the store root."""
+    """
+    Raised when an ``experiment_id`` does not match any run under the store root.
+    """
 
 
 class ComparisonNotFoundError(ArtifactNotFoundError):
-    """Raised when a comparison name does not match anything under the store root."""
+    """
+    Raised when a comparison name does not match anything under the store root.
+    """
 
 
 class HoldoutEvalNotFoundError(ArtifactNotFoundError):
-    """Raised when a holdout-eval name does not match anything under the store root."""
+    """
+    Raised when a holdout-eval name does not match anything under the store root.
+    """
 
 
 class StudyNotFoundError(ArtifactNotFoundError):
-    """Raised when a study name does not match anything under the store root."""
+    """
+    Raised when a study name does not match anything under the store root.
+    """
 
 
 class HpoStudyNotFoundError(ArtifactNotFoundError):
-    """Raised when an HPO-study name does not match anything under the store root."""
+    """
+    Raised when an HPO-study name does not match anything under the store root.
+    """
 
 
 _RUNS_SUBDIR = "runs"
 
 
 def iter_artifact_dirs(root: Path, subdir: str, manifest_filename: str) -> Iterator[Path]:
-    """Yield every artifact directory of one kind under ``root``.
+    """
+    Yield every artifact directory of one kind under ``root``.
 
     An artifact directory is the parent of its identity file (``manifest.json``
     for runs/comparisons, ``holdout_eval.json`` for holdouts). The
@@ -77,7 +91,8 @@ def find_artifact_dir(
     *,
     not_found: type[ArtifactNotFoundError],
 ) -> Path:
-    """Resolve an artifact ``name`` to its directory.
+    """
+    Resolve an artifact ``name`` to its directory.
 
     Raises ``not_found`` (a subclass of :class:`ArtifactNotFoundError`) when
     no artifact with that name exists under ``root``.
@@ -90,7 +105,8 @@ def find_artifact_dir(
 
 
 def store_label(artifact_dir: Path, root: Path) -> str:
-    """Human-readable provenance label for an artifact (path of its parent dir relative to root).
+    """
+    Human-readable provenance label for an artifact (path of its parent dir relative to root).
 
     For ``<root>/hpo/<name>`` returns ``"hpo"``;
     for ``<root>/thesis_demo/runs/<name>`` returns ``"thesis_demo/runs"``;
@@ -108,13 +124,17 @@ def store_label(artifact_dir: Path, root: Path) -> str:
 
 
 def iter_run_dirs(root: Path) -> Iterator[Path]:
-    """Yield every run directory under ``root``."""
+    """
+    Yield every run directory under ``root``.
+    """
 
     return iter_artifact_dirs(root, _RUNS_SUBDIR, EXPERIMENT_MANIFEST_JSON)
 
 
 def find_run_dir(root: Path, experiment_id: str) -> Path:
-    """Resolve an ``experiment_id`` to its run directory."""
+    """
+    Resolve an ``experiment_id`` to its run directory.
+    """
 
     return find_artifact_dir(
         root,
@@ -126,13 +146,17 @@ def find_run_dir(root: Path, experiment_id: str) -> Path:
 
 
 def iter_comparison_dirs(root: Path) -> Iterator[Path]:
-    """Yield every comparison directory under ``root``."""
+    """
+    Yield every comparison directory under ``root``.
+    """
 
     return iter_artifact_dirs(root, COMPARISONS_SUBDIR, EXPERIMENT_MANIFEST_JSON)
 
 
 def find_comparison_dir(root: Path, name: str) -> Path:
-    """Resolve a comparison ``name`` to its directory."""
+    """
+    Resolve a comparison ``name`` to its directory.
+    """
 
     return find_artifact_dir(
         root,
@@ -144,13 +168,17 @@ def find_comparison_dir(root: Path, name: str) -> Path:
 
 
 def iter_holdout_eval_dirs(root: Path) -> Iterator[Path]:
-    """Yield every holdout-eval directory under ``root``."""
+    """
+    Yield every holdout-eval directory under ``root``.
+    """
 
     return iter_artifact_dirs(root, HOLDOUT_EVALS_SUBDIR, HOLDOUT_EVAL_JSON)
 
 
 def find_holdout_eval_dir(root: Path, name: str) -> Path:
-    """Resolve a holdout-eval ``name`` to its directory."""
+    """
+    Resolve a holdout-eval ``name`` to its directory.
+    """
 
     return find_artifact_dir(
         root,
@@ -162,13 +190,17 @@ def find_holdout_eval_dir(root: Path, name: str) -> Path:
 
 
 def iter_study_dirs(root: Path) -> Iterator[Path]:
-    """Yield every study directory under ``root``."""
+    """
+    Yield every study directory under ``root``.
+    """
 
     return iter_artifact_dirs(root, STUDIES_SUBDIR, STUDY_STATE_FILENAME)
 
 
 def find_study_dir(root: Path, name: str) -> Path:
-    """Resolve a study ``name`` to its directory."""
+    """
+    Resolve a study ``name`` to its directory.
+    """
 
     return find_artifact_dir(
         root,
@@ -180,13 +212,16 @@ def find_study_dir(root: Path, name: str) -> Path:
 
 
 def iter_hpo_study_dirs(root: Path) -> Iterator[Path]:
-    """Yield every HPO-study directory under ``root``."""
+    """
+    Yield every HPO-study directory under ``root``.
+    """
 
     return iter_artifact_dirs(root, HPO_SUBDIR, TRIALS_JSONL_NAME)
 
 
 def find_hpo_study_dir(root: Path, name: str) -> Path:
-    """Resolve an HPO-study ``name`` to its directory.
+    """
+    Resolve an HPO-study ``name`` to its directory.
 
     Glob-by-basename — returns whichever matching dir is found first when two
     studies share the same name. Use :func:`find_hpo_study_dir_by_wire_id`
@@ -206,7 +241,8 @@ HPO_WIRE_DELIMITER = "~"
 
 
 def hpo_wire_id_from_dir(study_dir: Path, root: Path) -> str:
-    """Encode a store-relative HPO path with ``~`` as a URL-safe separator.
+    """
+    Encode a store-relative HPO path with ``~`` as a URL-safe separator.
 
     The slug pattern allowed in artifact basenames is ``[A-Za-z0-9_\\-:]``
     (see ``_SLUG_PATTERN`` in jobs schemas), so ``~`` (RFC 3986 unreserved,
@@ -226,7 +262,8 @@ def hpo_wire_id_from_dir(study_dir: Path, root: Path) -> str:
 
 
 def find_hpo_study_dir_by_wire_id(root: Path, wire_id: str) -> Path:
-    """Resolve an HPO-study by its ``~``-encoded store-relative path.
+    """
+    Resolve an HPO-study by its ``~``-encoded store-relative path.
 
     Decodes the wire id to a relative POSIX path, resolves against
     ``root``, verifies the result is still under ``root`` (path-traversal

@@ -1,4 +1,6 @@
-"""Registry introspection: list registered predictors + classifiers."""
+"""
+Registry introspection: list registered predictors + classifiers.
+"""
 
 from __future__ import annotations
 

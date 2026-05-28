@@ -1,4 +1,5 @@
-"""Typed config for ``StrategyTuner`` / ``experiment tune``.
+"""
+Typed config for ``StrategyTuner`` / ``experiment tune``.
 
 Kept deliberately separate from :class:`ExperimentConfig`:
 
@@ -24,7 +25,9 @@ from src.core.config import load_yaml_config
 
 
 class SamplerKind(StrEnum):
-    """Optuna sampler selector for :func:`build_sampler`."""
+    """
+    Optuna sampler selector for :func:`build_sampler`.
+    """
 
     TPE = "tpe"
     RANDOM = "random"
@@ -33,7 +36,8 @@ class SamplerKind(StrEnum):
 
 
 class PrunerKind(StrEnum):
-    """Optuna pruner selector for :func:`build_pruner`.
+    """
+    Optuna pruner selector for :func:`build_pruner`.
 
     ``NONE`` maps to ``optuna.pruners.NopPruner`` — keeps the field
     uniformly enum-typed instead of carrying an ``Optional`` in every
@@ -47,7 +51,8 @@ class PrunerKind(StrEnum):
 
 
 class ObjectiveKind(StrEnum):
-    """Which aggregate metric the study maximises.
+    """
+    Which aggregate metric the study maximises.
 
     All three read from ``ExperimentResult.aggregate_metrics`` keys — the
     objective layer is a thin adapter, no per-fold maths lives in the
@@ -60,7 +65,8 @@ class ObjectiveKind(StrEnum):
 
 
 class HPOConfig(BaseModel):
-    """Typed knobs for one Optuna study.
+    """
+    Typed knobs for one Optuna study.
 
     ``study_name`` doubles as the on-disk directory under
     ``experiment_results/hpo/<study_name>/`` — keep it filesystem-safe.
@@ -101,7 +107,8 @@ class HPOConfig(BaseModel):
 
 
 def load_hpo_config(path: str | Path) -> HPOConfig:
-    """Read a YAML file and validate it as an :class:`HPOConfig`.
+    """
+    Read a YAML file and validate it as an :class:`HPOConfig`.
 
     Delegates to :func:`src.core.config.load_yaml_config` so the
     "not found / empty / validation failed" framing stays identical

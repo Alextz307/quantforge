@@ -1,4 +1,5 @@
-"""Numerical-parity tests for the C++ ``garch_filter`` binding.
+"""
+Numerical-parity tests for the C++ ``garch_filter`` binding.
 
 The recursive filter logic is exhaustively covered by gtest in
 ``cpp/tests/test_garch_filter.cpp``. These tests verify the **binding layer**:
@@ -45,7 +46,8 @@ GIL_STRESS_TIMEOUT_SECONDS = 10.0
 
 
 def _python_garch_filter(scaled_returns: F64Array, params: qe.GarchParams) -> F64Array:
-    """Pure-Python reference mirroring the original ``_manual_garch_filter``.
+    """
+    Pure-Python reference mirroring the original ``_manual_garch_filter``.
 
     Kept inlined here (not imported) so the test remains valid even if the
     Python implementation is later deleted.
@@ -147,7 +149,8 @@ class TestGarchFilterBinding:
 
 class TestGarchFilterGILRelease:
     def test_concurrent_invocations_do_not_deadlock(self) -> None:
-        """Smoke-check that the GIL is released during the recursion.
+        """
+        Smoke-check that the GIL is released during the recursion.
 
         If the binding forgot its ``py::gil_scoped_release``, Python threads
         would serialize inside the C++ loop; the test only asserts correctness

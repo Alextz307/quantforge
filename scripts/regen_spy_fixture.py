@@ -1,4 +1,5 @@
-"""Regenerate the committed ``tests/fixtures/SPY.parquet`` test fixture.
+"""
+Regenerate the committed ``tests/fixtures/SPY.parquet`` test fixture.
 
 Fetches SPY daily bars from yfinance for the date range cited in
 ``tests/fixtures/README.md``, flattens the multi-index column header that

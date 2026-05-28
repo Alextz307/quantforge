@@ -1,4 +1,5 @@
-"""Admin CLI for inspecting and cleaning up webapp accounts.
+"""
+Admin CLI for inspecting and cleaning up webapp accounts.
 
 Subcommands:
 
@@ -66,7 +67,9 @@ def _format_row(row: _UserRow) -> str:
 
 @click.group("users")
 def users() -> None:
-    """Inspect and clean up webapp accounts."""
+    """
+    Inspect and clean up webapp accounts.
+    """
 
 
 @users.command("list")
@@ -80,7 +83,9 @@ def users() -> None:
     ),
 )
 def list_cmd(auto_created: bool) -> None:
-    """List active webapp users, optionally filtered to CLI auto-creates."""
+    """
+    List active webapp users, optionally filtered to CLI auto-creates.
+    """
 
     with open_db() as conn:
         bootstrap_schema(conn)
@@ -104,7 +109,8 @@ def list_cmd(auto_created: bool) -> None:
     help="Skip the interactive confirmation prompt (required in non-TTY contexts).",
 )
 def delete_cmd(username: str, yes: bool) -> None:
-    """Soft-delete a webapp user by username.
+    """
+    Soft-delete a webapp user by username.
 
     The user can no longer log in and disappears from list views, but
     artifacts they own (via ``jobs.user_id``) keep their attribution

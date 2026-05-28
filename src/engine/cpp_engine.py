@@ -1,4 +1,5 @@
-"""Python adapter for the compiled ``quant_engine`` C++ extension.
+"""
+Python adapter for the compiled ``quant_engine`` C++ extension.
 
 Marshals pandas DataFrames + Series to the six contiguous numpy arrays
 the binding expects (``timestamps`` int64 epoch seconds; OHLCV float64),
@@ -84,7 +85,8 @@ def _bars_to_arrays(
 
 
 class CppBacktestEngine(IBacktestEngine):
-    """Thin pandas → numpy → ``quant_engine.BacktestEngine`` adapter.
+    """
+    Thin pandas → numpy → ``quant_engine.BacktestEngine`` adapter.
 
     The underlying ``BacktestEngine`` is injected so the adapter never
     duplicates the binding's defaults — pass ``BacktestEngine(...)`` to

@@ -1,4 +1,5 @@
-"""Best-effort git-sha reader shared by experiment + standalone-model runs.
+"""
+Best-effort git-sha reader shared by experiment + standalone-model runs.
 
 Lives in a dedicated module rather than inside either ``experiment.py`` or
 ``standalone_training.py`` so both callers converge on one implementation
@@ -16,7 +17,8 @@ _GIT_SUBPROCESS_TIMEOUT_S = 2
 
 
 def read_git_sha() -> str:
-    """Short git SHA for the current HEAD, or ``"unknown"`` if unavailable.
+    """
+    Short git SHA for the current HEAD, or ``"unknown"`` if unavailable.
 
     "Unavailable" covers: not in a git tree, git not on PATH, subprocess
     timeout, or a corrupt repo. Callers persist the returned string

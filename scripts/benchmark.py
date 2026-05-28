@@ -1,4 +1,5 @@
-"""Command-line driver for the benchmarking suite.
+"""
+Command-line driver for the benchmarking suite.
 
 Subcommands:
 
@@ -33,7 +34,9 @@ REPORTS_SUBDIR = "reports"
 
 @click.group()
 def cli() -> None:
-    """Quant-engine benchmark orchestrator."""
+    """
+    Quant-engine benchmark orchestrator.
+    """
 
 
 @cli.command("run")

@@ -1,4 +1,6 @@
-"""Tests for :class:`StrategyReporter` — per-experiment artifact bundle."""
+"""
+Tests for :class:`StrategyReporter` — per-experiment artifact bundle.
+"""
 
 from __future__ import annotations
 
@@ -73,7 +75,8 @@ class TestGenerateFullReport:
         assert _EXPERIMENT_ID in tex  # surfaced via caption + label
 
     def test_empty_folds_produces_metrics_but_no_plots(self, tmp_path: Path) -> None:
-        """A zero-fold ExperimentResult (pathological config) still writes the
+        """
+        A zero-fold ExperimentResult (pathological config) still writes the
         table skeleton so the consuming command sees a predictable layout."""
 
         StrategyReporter().generate_full_report(_make_result(n_folds=0), tmp_path)
@@ -82,7 +85,8 @@ class TestGenerateFullReport:
 
 
 class TestNormaliseCurve:
-    """Pure-logic tests for the ``normalise_to_unit_base`` helper. No matplotlib,
+    """
+    Pure-logic tests for the ``normalise_to_unit_base`` helper. No matplotlib,
     no disk I/O — cheap to run and focused on the predicate that decides
     which folds get plotted vs logged+skipped.
     """
@@ -95,7 +99,8 @@ class TestNormaliseCurve:
 
     @pytest.mark.parametrize("bad_base", [math.nan, math.inf, -math.inf, 0.0, -1.0, -0.0001])
     def test_non_finite_or_non_positive_base_returns_none(self, bad_base: float) -> None:
-        """Every class of degenerate first-value that the integration path
+        """
+        Every class of degenerate first-value that the integration path
         defensively rejects: NaN (zero-trade fold), ±inf (overflow), zero
         (catastrophic exit at bar 0), negative (debt-at-start)."""
 
@@ -103,7 +108,8 @@ class TestNormaliseCurve:
 
 
 class TestDegenerateFoldsAreSkippedIntegration:
-    """Integration test for the defensive path — verifies the equity plot
+    """
+    Integration test for the defensive path — verifies the equity plot
     method logs and skips without crashing when fed a degenerate fold.
     Pure predicate logic is covered by ``TestNormaliseCurve`` above; this
     test exercises the plotting-side wiring (one fold good, one bad →

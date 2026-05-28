@@ -1,4 +1,6 @@
-"""Wire DTOs for the jobs subsystem."""
+"""
+Wire DTOs for the jobs subsystem.
+"""
 
 from __future__ import annotations
 
@@ -43,7 +45,8 @@ TERMINAL_STATUSES: frozenset[JobStatus] = frozenset(
 
 
 class ComparePayload(BaseModel):
-    """Inputs for ``experiment compare`` in ``--reuse-runs`` mode.
+    """
+    Inputs for ``experiment compare`` in ``--reuse-runs`` mode.
 
     Each ``run_ids[i]`` must resolve to a completed run dir under the
     server's ``store_root``. The webapp passes each run's existing
@@ -61,7 +64,8 @@ class ComparePayload(BaseModel):
 
 
 class HoldoutPayload(BaseModel):
-    """Inputs for ``experiment holdout-eval`` (run-dir XOR hpo-best source).
+    """
+    Inputs for ``experiment holdout-eval`` (run-dir XOR hpo-best source).
 
     ``source_id`` is interpreted as a run id when ``source_kind='run'``
     and as an HPO study name when ``source_kind='hpo'``. The job_service
@@ -78,7 +82,8 @@ class HoldoutPayload(BaseModel):
 
 
 class StudyPayload(BaseModel):
-    """Inputs for ``experiment study run`` (cross-strategy × cross-universe sweep).
+    """
+    Inputs for ``experiment study run`` (cross-strategy × cross-universe sweep).
 
     ``spec_name`` resolves to ``config/study/<spec_name>.yaml``; the
     job_service parses it via ``StudySpec.model_validate`` and surfaces a

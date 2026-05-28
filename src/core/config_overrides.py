@@ -1,4 +1,5 @@
-"""Dotted-path overrides for config dicts before pydantic validation.
+"""
+Dotted-path overrides for config dicts before pydantic validation.
 
 The empirical study drives the same strategy YAML across many universes
 without copying the ``strategy:`` section into one YAML per universe.
@@ -34,7 +35,8 @@ import yaml
 
 
 def apply_overrides(payload: dict[str, object], overrides: Sequence[str]) -> dict[str, object]:
-    """Apply each ``key.path=value`` override in order; return ``payload``.
+    """
+    Apply each ``key.path=value`` override in order; return ``payload``.
 
     The dict is mutated; callers that need to keep the original
     untouched should ``copy.deepcopy`` first.

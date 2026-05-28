@@ -1,4 +1,6 @@
-"""Cross-layer enums shared by schemas, services, and dependencies."""
+"""
+Cross-layer enums shared by schemas, services, and dependencies.
+"""
 
 from __future__ import annotations
 

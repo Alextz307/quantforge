@@ -1,4 +1,6 @@
-"""Read-only HTTP endpoints over persisted holdout evaluations."""
+"""
+Read-only HTTP endpoints over persisted holdout evaluations.
+"""
 
 from __future__ import annotations
 

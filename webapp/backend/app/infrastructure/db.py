@@ -1,4 +1,6 @@
-"""SQLite connection factory + idempotent schema bootstrap for the webapp store."""
+"""
+SQLite connection factory + idempotent schema bootstrap for the webapp store.
+"""
 
 from __future__ import annotations
 
@@ -100,7 +102,8 @@ def get_connection(db_path: Path) -> sqlite3.Connection:
 
 
 def _ensure_column(conn: sqlite3.Connection, table: str, column: str, definition: str) -> None:
-    """Idempotently ``ALTER TABLE ... ADD COLUMN``.
+    """
+    Idempotently ``ALTER TABLE ... ADD COLUMN``.
 
     SQLite supports ``ADD COLUMN`` but not ``ADD COLUMN IF NOT EXISTS``;
     introspect ``PRAGMA table_info`` first so re-running on an already-

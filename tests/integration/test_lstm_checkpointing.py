@@ -1,4 +1,5 @@
-"""Tests for LSTMPredictor best-state checkpointing.
+"""
+Tests for LSTMPredictor best-state checkpointing.
 
 Two invariants:
 
@@ -103,7 +104,8 @@ def test_checkpoint_survives_mid_fit_interrupt(
     target: pd.Series,
     features: list[str],
 ) -> None:
-    """Force ``torch.save`` to raise on the third call.
+    """
+    Force ``torch.save`` to raise on the third call.
 
     The first two best-state writes land on disk. The third call raises
     ``KeyboardInterrupt`` from inside ``fit()``, simulating a Ctrl+C between

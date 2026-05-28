@@ -1,4 +1,5 @@
-"""Reconstruct in-memory experiment artifacts from a persisted run directory.
+"""
+Reconstruct in-memory experiment artifacts from a persisted run directory.
 
 Two readers, both anchored on the canonical persistence layout
 (``<run_dir>/manifest.json`` + ``fold_results.jsonl`` + ``config.yaml``):
@@ -28,7 +29,8 @@ from src.orchestration.types import ExperimentResult, FoldRecord
 
 
 def load_experiment_result(run_dir: Path) -> ExperimentResult:
-    """Reconstruct an :class:`ExperimentResult` from a persisted run directory.
+    """
+    Reconstruct an :class:`ExperimentResult` from a persisted run directory.
 
     Reads ``manifest.json`` + ``fold_results.jsonl`` only; the frozen
     ``config.yaml`` is intentionally NOT required here so the comparison
@@ -64,7 +66,9 @@ def load_experiment_result(run_dir: Path) -> ExperimentResult:
 
 
 def load_experiment_config_from_run(run_dir: Path) -> ExperimentConfig:
-    """Read the frozen ``config.yaml`` from a persisted run directory."""
+    """
+    Read the frozen ``config.yaml`` from a persisted run directory.
+    """
 
     if not run_dir.is_dir():
         raise FileNotFoundError(
@@ -82,6 +86,8 @@ def load_experiment_config_from_run(run_dir: Path) -> ExperimentConfig:
 
 
 def resolve_run_dir(store_root: Path, experiment_id: str) -> Path:
-    """Resolve ``store_root / runs / <experiment_id>``."""
+    """
+    Resolve ``store_root / runs / <experiment_id>``.
+    """
 
     return store_root / RUNS_SUBDIR / experiment_id

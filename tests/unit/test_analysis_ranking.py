@@ -1,4 +1,5 @@
-"""Behavioral tests for :func:`src.analysis.ranking.rank_strategies`.
+"""
+Behavioral tests for :func:`src.analysis.ranking.rank_strategies`.
 
 Validates the deterministic sort (primary metric desc → tiebreaker
 metric desc → name asc) and the tidy column set.
@@ -49,7 +50,9 @@ class TestRankStrategiesMultiple:
         assert list(df["rank"]) == [1, 2, 3]
 
     def test_calmar_selects_different_winner_than_sharpe(self) -> None:
-        """Sanity: ``by`` actually switches the primary sort axis."""
+        """
+        Sanity: ``by`` actually switches the primary sort axis.
+        """
 
         alpha = make_stub_aggregate_stats(sharpe=1.6)
         bravo = replace(make_stub_aggregate_stats(sharpe=0.9), calmar_mean=2.1)
@@ -62,7 +65,8 @@ class TestRankStrategiesMultiple:
 
 class TestRankStrategiesTieBreaking:
     def test_ties_on_primary_broken_by_secondary_descending(self) -> None:
-        """Two strategies tie on Sharpe; the one with higher Sortino wins.
+        """
+        Two strategies tie on Sharpe; the one with higher Sortino wins.
 
         Uses ``dataclasses.replace`` to diverge Sortino because
         ``make_stub_aggregate_stats`` mirrors Sortino to Sharpe.

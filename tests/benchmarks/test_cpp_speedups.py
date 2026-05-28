@@ -1,4 +1,5 @@
-"""Opt-in perf guard: the C++ paths stay faster than their Python baselines.
+"""
+Opt-in perf guard: the C++ paths stay faster than their Python baselines.
 
 Enable with ``PERF_GUARD=1``. CI does not gate on these (timing-flaky).
 Each test measures best-of-N wall time for the C++ path vs a Python baseline

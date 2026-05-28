@@ -1,4 +1,6 @@
-"""Tests for domain value types."""
+"""
+Tests for domain value types.
+"""
 
 from __future__ import annotations
 
@@ -54,7 +56,9 @@ PAIR_MAX_COMBINED_LEVERAGE = 3.0
 
 
 def _valid_bar(**overrides: object) -> BarData:
-    """Build a BarData with valid OHLCV defaults, overridable per-test."""
+    """
+    Build a BarData with valid OHLCV defaults, overridable per-test.
+    """
 
     fields: dict[str, object] = {
         "timestamp": SAMPLE_TIMESTAMP,
@@ -86,7 +90,9 @@ class TestInterval:
             assert interval.annualization_factor() > 0
 
     def test_intraday_consistency(self) -> None:
-        """Verify that intraday intervals are consistent with each other."""
+        """
+        Verify that intraday intervals are consistent with each other.
+        """
 
         assert (
             Interval.MINUTE.annualization_factor()

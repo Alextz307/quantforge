@@ -1,4 +1,5 @@
-"""Predefined slippage scenarios for robustness sweeps.
+"""
+Predefined slippage scenarios for robustness sweeps.
 
 Values are in basis points (1 bp = 0.01%). ``ZERO`` is the friction-free
 upper bound; ``NORMAL`` matches typical retail SPY conditions; ``HIGH``
@@ -16,7 +17,9 @@ from quant_engine import SlippageConfig, SlippageModel
 
 
 class SlippageScenario(StrEnum):
-    """Named lookup keys for ``SLIPPAGE_SCENARIOS``."""
+    """
+    Named lookup keys for ``SLIPPAGE_SCENARIOS``.
+    """
 
     ZERO = "zero"
     NORMAL = "normal"

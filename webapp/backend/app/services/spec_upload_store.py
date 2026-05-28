@@ -1,4 +1,5 @@
-"""Generic CRUD over ``*_spec_uploads`` tables.
+"""
+Generic CRUD over ``*_spec_uploads`` tables.
 
 A ``SpecUploadStore`` instance binds a single upload kind (e.g. study,
 universe) to its table name, library subdir, DTO classes, exception
@@ -44,7 +45,8 @@ from webapp.backend.app.schemas.users import UserPublic
 
 
 class LibrarySlugCollisionError(ValueError):
-    """Raised when a save would shadow an existing library spec.
+    """
+    Raised when a save would shadow an existing library spec.
 
     Carries ``library_path`` so the router can format the 409 detail
     message without re-deriving the subdir.
@@ -57,7 +59,8 @@ class LibrarySlugCollisionError(ValueError):
 
 
 class SpecUploadNotFoundError(LookupError):
-    """Raised when a slug is absent (or soft-deleted) for the caller.
+    """
+    Raised when a slug is absent (or soft-deleted) for the caller.
 
     Per-kind subclasses set ``kind_label`` so the app-level 404 handler
     can format ``{label} spec upload not found: {slug}`` without
@@ -68,7 +71,8 @@ class SpecUploadNotFoundError(LookupError):
 
 
 class SpecUploadInvalidError(ValueError):
-    """Raised when an upload payload fails YAML parse / schema / path checks.
+    """
+    Raised when an upload payload fails YAML parse / schema / path checks.
 
     Carries the same ``ValidationErrorItem`` shape the jobs API uses so
     routers can surface inline errors verbatim under the editor.
@@ -84,7 +88,8 @@ class SpecUploadInvalidError(ValueError):
 
 
 class InvalidErrorFactory(Protocol):
-    """Callable shape the store uses to construct kind-specific invalid errors.
+    """
+    Callable shape the store uses to construct kind-specific invalid errors.
 
     Per-kind subclasses of :class:`SpecUploadInvalidError` accept just
     the errors list (and inject the kind string themselves); this Protocol
@@ -110,7 +115,8 @@ def _upload_path(uploads_root: Path, user_id: int, slug: str) -> Path:
 
 
 def find_upload_path(uploads_root: Path, user_id: int, slug: str) -> Path | None:
-    """Return the on-disk YAML path for an upload if the file exists, else None.
+    """
+    Return the on-disk YAML path for an upload if the file exists, else None.
 
     Pure filesystem lookup — does not touch the DB. Used by job handlers
     on the spawn path where the row has already been verified by a prior
@@ -124,7 +130,8 @@ def find_upload_path(uploads_root: Path, user_id: int, slug: str) -> Path | None
 def parse_yaml_mapping(
     yaml_text: str,
 ) -> tuple[dict[str, object] | None, list[ValidationErrorItem]]:
-    """Parse YAML text and confirm the top level is a mapping.
+    """
+    Parse YAML text and confirm the top level is a mapping.
 
     Returns ``(parsed, [])`` on success or ``(None, [errors])`` on parse
     error, empty body, or non-mapping top level. Caller chains its own
@@ -157,7 +164,8 @@ def parse_yaml_mapping(
 def validate_against_pydantic(
     parsed: dict[str, object], model_cls: type[BaseModel]
 ) -> list[ValidationErrorItem]:
-    """Run ``model_cls.model_validate(parsed)`` and surface Pydantic errors.
+    """
+    Run ``model_cls.model_validate(parsed)`` and surface Pydantic errors.
 
     Returns ``[]`` on success or a list of editor-friendly
     ``ValidationErrorItem`` rows on failure.
@@ -177,7 +185,8 @@ def validate_against_pydantic(
 
 @dataclass(frozen=True)
 class SpecUploadStore(Generic[SummaryT, DetailT]):
-    """Per-kind CRUD over a ``*_spec_uploads`` table.
+    """
+    Per-kind CRUD over a ``*_spec_uploads`` table.
 
     Bound once per upload kind (study, universe, ...) at the module level
     of the kind-specific service module. The store owns the SQL + on-disk

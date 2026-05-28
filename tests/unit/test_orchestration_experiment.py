@@ -1,4 +1,5 @@
-"""End-to-end unit tests for :meth:`Experiment.run`.
+"""
+End-to-end unit tests for :meth:`Experiment.run`.
 
 These tests construct a CSV-source-backed ``Experiment`` against a tiny
 synthetic bars fixture written to a tmp_path, so the run completes in
@@ -94,7 +95,9 @@ def cfg_dict(csv_dir: Path) -> dict[str, Any]:
 
 @pytest.fixture
 def run_result(cfg_dict: dict[str, Any], tmp_path: Path) -> tuple[Path, ExperimentResult]:
-    """Execute a single run once per test — GARCH fit is the slow step."""
+    """
+    Execute a single run once per test — GARCH fit is the slow step.
+    """
 
     cfg = ExperimentConfig.model_validate(cfg_dict)
     exp = build_experiment(cfg)
@@ -151,7 +154,9 @@ class TestExperimentRun:
         self,
         run_result: tuple[Path, ExperimentResult],
     ) -> None:
-        """Walk-forward never sees bars at or past holdout_start."""
+        """
+        Walk-forward never sees bars at or past holdout_start.
+        """
 
         _, result = run_result
         boundary = result.manifest.holdout_start
@@ -222,7 +227,9 @@ class TestExperimentIdUniqueness:
         cfg_dict: dict[str, Any],
         tmp_path: Path,
     ) -> None:
-        """Suffix disambiguates two invocations in the same second."""
+        """
+        Suffix disambiguates two invocations in the same second.
+        """
 
         cfg = ExperimentConfig.model_validate(cfg_dict)
         store = tmp_path / "experiment_results"
@@ -238,7 +245,9 @@ class TestTickerCountValidation:
         cfg_dict: dict[str, Any],
         tmp_path: Path,  # noqa: ARG002
     ) -> None:
-        """Single-asset strategy + two tickers must fail at build time."""
+        """
+        Single-asset strategy + two tickers must fail at build time.
+        """
 
         df = make_synthetic_ohlcv_df(n_rows=_N_ROWS, start="2020-01-02", seed=99)
         df.index.name = "date"
@@ -259,7 +268,9 @@ class TestTickerCountValidation:
         cfg_dict: dict[str, Any],
         tmp_path: Path,  # noqa: ARG002
     ) -> None:
-        """Three-ticker configs are not in scope for any registered strategy."""
+        """
+        Three-ticker configs are not in scope for any registered strategy.
+        """
 
         for extra in ("OTHER", "THIRD"):
             df = make_synthetic_ohlcv_df(n_rows=_N_ROWS, start="2020-01-02", seed=99)
@@ -286,7 +297,8 @@ _PAIRS_HEDGE_TRUE = 0.85
 
 @pytest.fixture
 def pairs_csv_dir(tmp_path: Path) -> Path:
-    """Two synthetic cointegrated tickers written as CSV for the pairs run.
+    """
+    Two synthetic cointegrated tickers written as CSV for the pairs run.
 
     Leg A is GBM-style geometric noise; leg B = ``hedge * A + spread`` where
     ``spread`` is a mean-reverting OU process. The Engle-Granger test only
@@ -329,7 +341,8 @@ class TestPairsExperimentEndToEnd:
         pairs_csv_dir: Path,
         tmp_path: Path,
     ) -> None:
-        """A PairsTrading config with two tickers walks forward without error.
+        """
+        A PairsTrading config with two tickers walks forward without error.
 
         Validates the full chain: multi-ticker fetch → wide-format frame
         → walk-forward dispatch to ``engine.run_pairs`` → equity curve
@@ -379,7 +392,9 @@ class TestFetchPairBars:
         self,
         pairs_csv_dir: Path,
     ) -> None:
-        """`fetch_bars` for two tickers returns a wide-format frame."""
+        """
+        `fetch_bars` for two tickers returns a wide-format frame.
+        """
 
         from src.core.config import ExperimentConfig
         from src.core.registry import data_source_registry
@@ -418,7 +433,9 @@ class TestFetchPairBars:
 
 class TestWalkForwardPairsSplit:
     def test_split_pairs_frame_extracts_leg_subframes(self) -> None:
-        """The wide → two-OHLCV split helper round-trips."""
+        """
+        The wide → two-OHLCV split helper round-trips.
+        """
 
         from src.engine.walk_forward import split_pairs_frame
 

@@ -1,4 +1,5 @@
-"""LaTeX table builder shared by strategy / HPO reporters.
+"""
+LaTeX table builder shared by strategy / HPO reporters.
 
 ``build_booktabs_table`` is the single call site between pandas DataFrames
 and a booktabs-styled LaTeX ``tabular`` environment. Every reporter writes
@@ -14,7 +15,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from src.core.fs import ensure_parent_dir
+from src.core.fs import atomic_write_text
 
 LATEX_FLOAT_FORMAT = "%.3f"
 
@@ -27,7 +28,8 @@ _PUBLISH_LABEL_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_:\-]*$")
 
 
 def validate_publish_label(slug: str) -> str:
-    """Return ``slug`` unchanged when valid; raise :class:`ValueError` otherwise.
+    """
+    Return ``slug`` unchanged when valid; raise :class:`ValueError` otherwise.
 
     Used by every reporter that accepts a ``publish_label`` override —
     one regex, one error message, no per-reporter drift.
@@ -51,7 +53,8 @@ def build_booktabs_table(
     float_format: str = LATEX_FLOAT_FORMAT,
     index: bool = False,
 ) -> str:
-    """Render ``df`` as a booktabs LaTeX table string.
+    """
+    Render ``df`` as a booktabs LaTeX table string.
 
     Uses :meth:`pandas.DataFrame.to_latex` with booktabs styling and
     ``escape=False`` so callers can pass LaTeX math directly in cell values
@@ -79,11 +82,11 @@ def write_booktabs_table(
     float_format: str = LATEX_FLOAT_FORMAT,
     index: bool = False,
 ) -> Path:
-    """Convenience wrapper: build table + write UTF-8 bytes, ensuring parent dir."""
+    """
+    Convenience wrapper: build table + write UTF-8 bytes, ensuring parent dir.
+    """
 
     latex = build_booktabs_table(
         df, caption=caption, label=label, float_format=float_format, index=index
     )
-    ensure_parent_dir(path)
-    path.write_text(latex, encoding="utf-8")
-    return path
+    return atomic_write_text(path, latex)

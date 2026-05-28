@@ -1,4 +1,5 @@
-"""Model-persistence layout + skeletons + sklearn-scaler round-trip.
+"""
+Model-persistence layout + skeletons + sklearn-scaler round-trip.
 
 No pickle, no joblib. Every persisted artifact is JSON (metadata + configs +
 small numeric weights) or the model's own native binary format (``.pt`` for
@@ -30,6 +31,7 @@ import numpy as np
 from sklearn.preprocessing import StandardScaler
 
 from src.core import json_io
+from src.core.fs import atomic_write_path
 
 if TYPE_CHECKING:
     from src.core.temporal import TrainingMetadata
@@ -78,10 +80,19 @@ CLI_LOGS_SUBDIR = "cli_logs"
 # and ``is_holdout_eval: true`` so automated tooling can't confuse this
 # artifact for a normal run).
 HOLDOUT_EVAL_JSON = "holdout_eval.json"
+DSR_JSON_FILENAME = "dsr.json"
+
+# Marker file written as the FINAL step of every model/strategy save(); its
+# presence is the load-time invariant that all sibling files (config.json,
+# weights.*, metadata.json, scaler.json, sub-leaf dirs) are on disk. The
+# marker is dot-prefixed so it sorts at the top of ``ls -la`` and does not
+# collide with any real artifact name.
+SAVE_COMPLETE_MARKER = ".save_complete"
 
 
 def ensure_model_dir(path: str | Path) -> Path:
-    """Create ``path`` as an empty directory and return the Path.
+    """
+    Create ``path`` as an empty directory and return the Path.
 
     Raises ``FileExistsError`` if ``path`` exists and is non-empty — prevents
     silent overwrite of an existing save. If ``path`` exists and is empty it is
@@ -109,7 +120,8 @@ def frozen_params_to_json(
     *,
     omit: Iterable[str] = (),
 ) -> dict[str, object]:
-    """Convert a frozen ctor-params dataclass to a JSON-safe dict.
+    """
+    Convert a frozen ctor-params dataclass to a JSON-safe dict.
 
     Centralises three conversions that every composite's
     ``_ctor_kwargs_as_json()`` would otherwise reinvent:
@@ -145,7 +157,8 @@ def frozen_params_to_json(
 
 
 def write_experiment_manifest(path: str | Path, manifest: Manifest) -> None:
-    """Write ``manifest.json`` under the experiment run directory.
+    """
+    Write ``manifest.json`` under the experiment run directory.
 
     The directory MUST already exist (the experiment runner creates it as
     part of its own save skeleton). Centralised here so a future manifest
@@ -162,7 +175,8 @@ def write_experiment_manifest(path: str | Path, manifest: Manifest) -> None:
 
 
 def read_experiment_manifest(path: str | Path) -> Manifest:
-    """Read ``<path>/manifest.json`` and reconstruct a typed :class:`Manifest`.
+    """
+    Read ``<path>/manifest.json`` and reconstruct a typed :class:`Manifest`.
 
     Companion to :func:`write_experiment_manifest`. ``path`` is the run
     directory (not the JSON file itself), mirroring the writer's contract.
@@ -183,6 +197,41 @@ def read_experiment_manifest(path: str | Path) -> Manifest:
     return _Manifest.from_dict(json_io.read_dict(manifest_path))
 
 
+def mark_save_complete(root: str | Path) -> None:
+    """
+    Write the ``.save_complete`` marker as the FINAL step of a save().
+
+    Every other artifact in the save dir must already be on disk when this
+    is called; presence of the marker is the load-time invariant that the
+    dir is consistent.
+    """
+
+    with atomic_write_path(Path(root) / SAVE_COMPLETE_MARKER) as tmp:
+        tmp.write_text("", encoding="utf-8")
+
+
+def assert_save_complete(root: str | Path) -> Path:
+    """
+    Verify ``<root>/.save_complete`` exists; return the resolved ``Path``.
+
+    Called at the top of every model/strategy ``load()`` before any sibling
+    file is read. A missing marker means the source save was interrupted
+    (SIGKILL, OOM, Ctrl+C between the per-file writes) — loading from such
+    a directory would silently return an inconsistent model (e.g. fresh
+    config + stale weights). Raise loudly instead.
+    """
+
+    p = Path(root)
+    marker = p / SAVE_COMPLETE_MARKER
+    if not marker.is_file():
+        raise FileNotFoundError(
+            f"save at {p} is incomplete: missing {SAVE_COMPLETE_MARKER!r} marker. "
+            f"The producing save() either crashed mid-write or never finished — "
+            f"refit and re-save rather than loading a half-written directory."
+        )
+    return p
+
+
 def save_model_skeleton(
     path: str | Path,
     *,
@@ -190,22 +239,27 @@ def save_model_skeleton(
     training_metadata: TrainingMetadata,
     write_weights: Callable[[Path], None],
 ) -> Path:
-    """Canonical 4-step save-directory skeleton for every model + strategy.
+    """
+    Canonical 5-step save-directory skeleton for every model + strategy.
 
     Steps: ``ensure_model_dir`` → write ``config.json`` → user-provided
-    weights write → write ``metadata.json``. The caller validates preconditions
-    (fitted, internal handles non-None) before invoking.
+    weights write → write ``metadata.json`` → write ``.save_complete`` marker.
+    The caller validates preconditions (fitted, internal handles non-None)
+    before invoking; the marker (always the last write) is the load-time
+    invariant that every prior step landed on disk.
     """
 
     root = ensure_model_dir(path)
     json_io.write(root / CONFIG_JSON, config)
     write_weights(root)
     json_io.write(root / METADATA_JSON, training_metadata.to_dict())
+    mark_save_complete(root)
     return root
 
 
 def save_standard_scaler(scaler: StandardScaler, path: str | Path) -> None:
-    """Serialize a fitted ``StandardScaler`` to JSON.
+    """
+    Serialize a fitted ``StandardScaler`` to JSON.
 
     Captures the public fitted attributes (``mean_``, ``scale_``, ``var_``,
     ``n_features_in_``, ``n_samples_seen_``). Sklearn's private ``__getstate__``
@@ -241,7 +295,8 @@ def save_standard_scaler(scaler: StandardScaler, path: str | Path) -> None:
 
 
 def load_standard_scaler(path: str | Path) -> StandardScaler:
-    """Reconstruct a ``StandardScaler`` from the JSON emitted by ``save_standard_scaler``.
+    """
+    Reconstruct a ``StandardScaler`` from the JSON emitted by ``save_standard_scaler``.
 
     The loaded scaler is marked fitted — ``transform()`` works immediately,
     ``fit()`` would re-enter sklearn's normal flow. ``feature_names_in_`` is

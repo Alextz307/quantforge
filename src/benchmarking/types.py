@@ -1,4 +1,5 @@
-"""Dataclasses for benchmarking runs, summary stats, and comparison reports.
+"""
+Dataclasses for benchmarking runs, summary stats, and comparison reports.
 
 On-disk format is JSONL: one ``BenchmarkRun`` per file under
 ``benchmark_results/runs/<timestamp>_<sha7>.jsonl`` (or
@@ -29,7 +30,8 @@ SCALING_UNCLEAR = "unclear"
 
 @dataclass(frozen=True)
 class HardwareInfo:
-    """Host machine signature for a benchmark run.
+    """
+    Host machine signature for a benchmark run.
 
     ``git_sha`` + ``git_dirty`` anchor the measurement to a specific code
     state; baselines committed to the repo must document the SHA they were
@@ -73,7 +75,8 @@ class HardwareInfo:
 
 @dataclass(frozen=True)
 class BenchmarkResult:
-    """One measurement emitted by Google Benchmark (or the hybrid runner).
+    """
+    One measurement emitted by Google Benchmark (or the hybrid runner).
 
     ``params`` pulls the size/variant arguments out of the benchmark name
     (e.g., ``BM_RSI/10000`` -> ``{"n": 10000}``) so scaling analysis does not
@@ -177,7 +180,9 @@ class BenchmarkRun:
 
 @dataclass(frozen=True)
 class BenchmarkStats:
-    """Aggregated statistics when a benchmark is run repeatedly."""
+    """
+    Aggregated statistics when a benchmark is run repeatedly.
+    """
 
     name: str
     mean_ns: float
@@ -216,7 +221,8 @@ class BenchmarkStats:
 
 @dataclass(frozen=True)
 class RegressionReport:
-    """Per-benchmark before/after delta with a significance flag.
+    """
+    Per-benchmark before/after delta with a significance flag.
 
     ``is_regression`` uses a two-gate rule (|z| >= threshold_z AND |pct| >=
     threshold_pct) to avoid flagging statistically-significant microscopic
@@ -257,7 +263,9 @@ class RegressionReport:
 
 @dataclass(frozen=True)
 class ScalingAnalysis:
-    """Log-log polyfit across sizes for one benchmark family."""
+    """
+    Log-log polyfit across sizes for one benchmark family.
+    """
 
     family: str
     sizes: tuple[int, ...]
@@ -293,7 +301,9 @@ class ScalingAnalysis:
 
 @dataclass(frozen=True)
 class ComparisonReport:
-    """Full regression sweep across two runs."""
+    """
+    Full regression sweep across two runs.
+    """
 
     baseline_run_id: str
     current_run_id: str

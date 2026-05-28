@@ -1,4 +1,5 @@
-"""CliRunner smoke tests for ``experiment compare``.
+"""
+CliRunner smoke tests for ``experiment compare``.
 
 Monkeypatches ``build_experiment`` in the comparison module so the test
 stays in CLI-glue territory (option parsing, config loading,
@@ -79,7 +80,9 @@ class _StubExperiment:
 
 @pytest.fixture
 def patched_build(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Map each config's ``name`` to a deterministic sharpe for the stub."""
+    """
+    Map each config's ``name`` to a deterministic sharpe for the stub.
+    """
 
     name_to_sharpe = {"Alpha": 1.2, "Bravo": 0.7, "Charlie": 1.8}
 
@@ -170,7 +173,8 @@ class TestCompareSubcommandSmoke:
 
 
 def _materialise_run_dir(run_dir: Path, name: str, *, data_hash: str | None = None) -> None:
-    """Persist a stub :class:`ExperimentResult` to disk in the canonical layout.
+    """
+    Persist a stub :class:`ExperimentResult` to disk in the canonical layout.
 
     Mirrors what :meth:`Experiment.run` writes — manifest.json and
     fold_results.jsonl — so the loader has real on-disk artifacts to
@@ -202,7 +206,9 @@ def _materialise_run_dir(run_dir: Path, name: str, *, data_hash: str | None = No
 
 @pytest.fixture
 def build_experiment_must_not_run(monkeypatch: pytest.MonkeyPatch) -> None:
-    """If --reuse-runs is wired correctly, no experiment is built/run."""
+    """
+    If --reuse-runs is wired correctly, no experiment is built/run.
+    """
 
     def _boom(_cfg: ExperimentConfig) -> object:
         raise AssertionError("build_experiment must not be called when --reuse-runs is set")

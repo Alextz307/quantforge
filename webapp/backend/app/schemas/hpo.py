@@ -1,4 +1,6 @@
-"""Wire DTOs for the HPO studies read API."""
+"""
+Wire DTOs for the HPO studies read API.
+"""
 
 from __future__ import annotations
 
@@ -10,7 +12,8 @@ from pydantic import BaseModel
 
 
 class StudyDirection(StrEnum):
-    """Optimization direction surfaced from the Optuna study.
+    """
+    Optimization direction surfaced from the Optuna study.
 
     The framework hardcodes ``maximize`` (loss-style metrics negate at
     the objective layer); this enum exists so the chart layer can pick
@@ -72,14 +75,17 @@ class HpoDetail(BaseModel):
 
 
 class TrialFrame(BaseModel):
-    """WebSocket frame published whenever a new trial lands in ``trials.jsonl``."""
+    """
+    WebSocket frame published whenever a new trial lands in ``trials.jsonl``.
+    """
 
     type: Literal["trial"] = "trial"
     trial: TrialRow
 
 
 class ParamImportanceResponse(BaseModel):
-    """Per-hyperparameter relative importance for the live HPO monitor.
+    """
+    Per-hyperparameter relative importance for the live HPO monitor.
 
     ``importance`` is empty and ``message`` is set when the study has too few
     completed trials, the optuna DB is missing, or the importance evaluator

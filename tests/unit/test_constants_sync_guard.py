@@ -1,4 +1,6 @@
-"""Tests for the Python / C++ constants drift guard."""
+"""
+Tests for the Python / C++ constants drift guard.
+"""
 
 from __future__ import annotations
 
@@ -90,7 +92,9 @@ class TestParsers:
 
 
 class TestRepoStateIsClean:
-    """End-to-end: the real repo's mirrored constants must agree."""
+    """
+    End-to-end: the real repo's mirrored constants must agree.
+    """
 
     def test_real_repo_constants_in_sync(self) -> None:
         errors = guard.find_mismatches(PY_CONSTANTS.read_text(), CPP_TYPES.read_text())

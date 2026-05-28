@@ -1,4 +1,6 @@
-"""Read-only HTTP endpoints over persisted runs."""
+"""
+Read-only HTTP endpoints over persisted runs.
+"""
 
 from __future__ import annotations
 

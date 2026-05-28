@@ -1,4 +1,5 @@
-"""Shared matplotlib primitives for experiment + HPO reporters.
+"""
+Shared matplotlib primitives for experiment + HPO reporters.
 
 Pins the Agg backend UNCONDITIONALLY (before ``pyplot`` is imported anywhere)
 and the figure geometry so every PNG / SVG produced by this codebase renders
@@ -17,17 +18,17 @@ from collections.abc import Sequence
 from pathlib import Path
 
 import matplotlib
+import numpy as np
+import numpy.typing as npt
 
-matplotlib.use("Agg")  # noqa: E402  — set backend before importing pyplot
+from src.core.fs import atomic_write_path
+from src.core.logging import get_logger
+
+matplotlib.use("Agg")  # must precede any pyplot import
 
 import matplotlib.pyplot as plt  # noqa: E402
-import numpy as np  # noqa: E402
-import numpy.typing as npt  # noqa: E402
 from matplotlib.colors import Normalize  # noqa: E402
 from matplotlib.figure import Figure  # noqa: E402
-
-from src.core.fs import ensure_parent_dir  # noqa: E402
-from src.core.logging import get_logger  # noqa: E402
 
 _logger = get_logger(__name__)
 
@@ -41,7 +42,8 @@ MANIFEST_FILENAME = "manifest.json"
 
 
 def normalise_to_unit_base(curve: Sequence[float]) -> list[float] | None:
-    """Divide ``curve`` by its first value so the series starts at 1.0.
+    """
+    Divide ``curve`` by its first value so the series starts at 1.0.
 
     Returns ``None`` if the first value is missing, non-finite, or
     non-positive — cases where naive division would produce a misleading
@@ -59,8 +61,23 @@ def normalise_to_unit_base(curve: Sequence[float]) -> list[float] | None:
     return [v / base for v in curve]
 
 
+def atomic_savefig(fig: Figure, path: Path) -> Path:
+    """
+    Atomically write ``fig`` to ``path`` via :func:`atomic_write_path`.
+
+    Lives in ``visualization`` rather than ``src.core.fs`` because ``fs`` is
+    intentionally matplotlib-free; this helper carries the Figure-dependent
+    half of the atomic-write convenience pair.
+    """
+
+    with atomic_write_path(path) as tmp:
+        fig.savefig(tmp)
+    return path
+
+
 def save_png_and_svg(fig: Figure, png_path: Path) -> Path:
-    """Save ``fig`` as both PNG (at ``png_path``) and SVG (``png_path`` with
+    """
+    Save ``fig`` as both PNG (at ``png_path``) and SVG (``png_path`` with
     ``.svg`` suffix), ensuring the parent directory exists. Returns
     ``png_path`` for chaining. Callers remain responsible for ``plt.close(fig)``.
 
@@ -68,9 +85,8 @@ def save_png_and_svg(fig: Figure, png_path: Path) -> Path:
     vector-quality inclusion in LaTeX via ``\\includegraphics``.
     """
 
-    ensure_parent_dir(png_path)
-    fig.savefig(png_path)
-    fig.savefig(png_path.with_suffix(".svg"))
+    atomic_savefig(fig, png_path)
+    atomic_savefig(fig, png_path.with_suffix(".svg"))
     return png_path
 
 
@@ -85,7 +101,8 @@ def render_value_heatmap(
     ylabel: str,
     placeholder_log_label: str,
 ) -> Path:
-    """Render a 2D value matrix as a viridis heatmap with masked NaN cells.
+    """
+    Render a 2D value matrix as a viridis heatmap with masked NaN cells.
 
     NaN cells render in light grey, finite cells in viridis with .3f text
     coloured white below the midpoint and black above. ``placeholder_log_label``

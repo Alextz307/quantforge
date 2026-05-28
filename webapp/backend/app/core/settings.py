@@ -1,4 +1,6 @@
-"""Webapp runtime configuration loaded from the environment."""
+"""
+Webapp runtime configuration loaded from the environment.
+"""
 
 from __future__ import annotations
 

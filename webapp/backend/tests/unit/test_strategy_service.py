@@ -1,4 +1,6 @@
-"""Unit tests for `webapp.backend.app.services.strategy_service`."""
+"""
+Unit tests for `webapp.backend.app.services.strategy_service`.
+"""
 
 from __future__ import annotations
 
@@ -41,7 +43,8 @@ def test_adaptive_bollinger_classification() -> None:
 
 
 def test_str_list_annotations_classify_as_str_list() -> None:
-    """``list[str]`` / ``tuple[str, ...]`` / ``Sequence[str]`` render as a
+    """
+    ``list[str]`` / ``tuple[str, ...]`` / ``Sequence[str]`` render as a
     comma-or-space separated text input — far better UX than hand-writing JSON."""
 
     schema = describe_strategy("ReturnForecast")
@@ -57,7 +60,8 @@ def test_str_list_annotations_classify_as_str_list() -> None:
 
 
 def test_optional_enum_unwraps_to_typed_dropdown() -> None:
-    """``T | None`` peels to T's kind with ``nullable=True`` so the form can
+    """
+    ``T | None`` peels to T's kind with ``nullable=True`` so the form can
     render Device etc. as a typed dropdown instead of a JSON textarea."""
 
     schema = describe_strategy("ReturnForecast")
@@ -74,7 +78,8 @@ def test_optional_enum_unwraps_to_typed_dropdown() -> None:
 def test_device_choices_pruned_to_host_availability(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """On a CPU-only host the device dropdown only offers ``auto`` + ``cpu``,
+    """
+    On a CPU-only host the device dropdown only offers ``auto`` + ``cpu``,
     so a user can't pick ``cuda`` / ``mps`` and hit a runtime RuntimeError."""
 
     monkeypatch.setattr("torch.cuda.is_available", lambda: False)
@@ -102,7 +107,8 @@ def test_device_choices_include_cuda_when_host_has_it(
 def test_xgboost_strategies_drop_mps_from_device_choices(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """XGBoost-backed strategies (``uses_xgboost = True``) must not offer
+    """
+    XGBoost-backed strategies (``uses_xgboost = True``) must not offer
     ``mps`` even on Apple Silicon — XGBoost's GPU path is NVIDIA-only,
     so picking MPS would raise ``ValueError`` at runtime."""
 
@@ -120,7 +126,8 @@ def test_xgboost_strategies_drop_mps_from_device_choices(
 
 
 def test_canonical_params_loads_from_yaml(tmp_path: Path) -> None:
-    """``get_canonical_strategy_params`` reads ``strategy.params`` from the
+    """
+    ``get_canonical_strategy_params`` reads ``strategy.params`` from the
     canonical YAML so the form can pre-fill working defaults. Hidden params
     (``interval``) are filtered out."""
 

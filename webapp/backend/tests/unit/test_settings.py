@@ -1,4 +1,6 @@
-"""Verify settings defaults, WEBAPP_* env-prefix resolution, and frozen behaviour."""
+"""
+Verify settings defaults, WEBAPP_* env-prefix resolution, and frozen behaviour.
+"""
 
 from __future__ import annotations
 

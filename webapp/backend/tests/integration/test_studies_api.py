@@ -1,4 +1,6 @@
-"""Integration tests for /api/studies (auth-gated)."""
+"""
+Integration tests for /api/studies (auth-gated).
+"""
 
 from __future__ import annotations
 

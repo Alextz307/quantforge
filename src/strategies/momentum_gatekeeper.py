@@ -1,4 +1,6 @@
-"""Momentum strategy gated by a long-horizon trend filter and a classifier."""
+"""
+Momentum strategy gated by a long-horizon trend filter and a classifier.
+"""
 
 from __future__ import annotations
 
@@ -16,6 +18,7 @@ from src.core.persistence import (
     CONFIG_JSON,
     METADATA_JSON,
     PIPELINE_SCALER_JSON,
+    assert_save_complete,
     frozen_params_to_json,
     load_standard_scaler,
     save_model_skeleton,
@@ -41,7 +44,8 @@ logger = get_logger(__name__)
 
 @dataclass(frozen=True)
 class _MomentumConfig:
-    """Frozen snapshot of every ``MomentumGatekeeperStrategy.__init__`` kwarg.
+    """
+    Frozen snapshot of every ``MomentumGatekeeperStrategy.__init__`` kwarg.
 
     One source of truth for save/load + drift-guard tests. ``feature_columns``
     is ``tuple[str, ...] | None`` so ``frozen=True`` actually guarantees
@@ -72,7 +76,8 @@ class _MomentumConfig:
 
 @strategy_registry.register("MomentumGatekeeper")
 class MomentumGatekeeperStrategy(IStrategy):
-    """Long-only momentum strategy gated by a trend MA and a directional classifier.
+    """
+    Long-only momentum strategy gated by a trend MA and a directional classifier.
 
     Pipeline:
       1. ``FeatureEngineeringPipeline`` produces standard features (returns,
@@ -163,7 +168,9 @@ class MomentumGatekeeperStrategy(IStrategy):
     def _build_classifier_batch(
         self, data: pd.DataFrame, resolved: list[str]
     ) -> tuple[pd.DataFrame, pd.Series]:
-        """Compute valid-row features + next-bar direction target from ``data``."""
+        """
+        Compute valid-row features + next-bar direction target from ``data``.
+        """
 
         features = self._pipeline.transform(data)[resolved]
         return align_features_for_directional_target(features, data["close"])
@@ -175,7 +182,9 @@ class MomentumGatekeeperStrategy(IStrategy):
         checkpoint_path: Path | None = None,
         **kwargs: object,
     ) -> None:
-        """Fit feature pipeline + directional classifier on training data."""
+        """
+        Fit feature pipeline + directional classifier on training data.
+        """
 
         logger.info("%s train: %d bars", type(self).__name__, len(train_data))
 
@@ -217,7 +226,9 @@ class MomentumGatekeeperStrategy(IStrategy):
         )
 
     def generate_signals(self, data: pd.DataFrame) -> pd.Series:
-        """Produce {0, 1} long-only signals. Bars with NaN features stay NaN."""
+        """
+        Produce {0, 1} long-only signals. Bars with NaN features stay NaN.
+        """
 
         self._assert_fitted_with_metadata()
         if self._classifier is None:
@@ -243,7 +254,8 @@ class MomentumGatekeeperStrategy(IStrategy):
         return signal
 
     def save(self, path: str | Path) -> None:
-        """Persist MomentumGatekeeper config + nested DirectionalClassifier.
+        """
+        Persist MomentumGatekeeper config + nested DirectionalClassifier.
 
         Feature-pipeline hyperparams live in this config alongside strategy
         hyperparams — the pipeline is stateless (no scaler to round-trip),
@@ -276,7 +288,8 @@ class MomentumGatekeeperStrategy(IStrategy):
         )
 
     def _ctor_kwargs_as_json(self) -> dict[str, object]:
-        """Snapshot of this strategy's constructor kwargs as JSON-ready values.
+        """
+        Snapshot of this strategy's constructor kwargs as JSON-ready values.
 
         Delegates tuple→list + Enum→value conversions to
         ``frozen_params_to_json``; ``device`` is dropped (re-resolved on load
@@ -293,7 +306,8 @@ class MomentumGatekeeperStrategy(IStrategy):
 
     @classmethod
     def load(cls, path: str | Path) -> Self:
-        """Reconstruct a trained MomentumGatekeeperStrategy from ``path``.
+        """
+        Reconstruct a trained MomentumGatekeeperStrategy from ``path``.
 
         Narrow the strategy's ``config.json`` into ctor kwargs BEFORE loading
         the classifier + pipeline scaler — a corrupt composite config
@@ -301,7 +315,7 @@ class MomentumGatekeeperStrategy(IStrategy):
         a sub-loader.
         """
 
-        root = Path(path)
+        root = assert_save_complete(path)
         config = json_io.read_dict(root / CONFIG_JSON)
         metadata = json_io.read_dict(root / METADATA_JSON)
         resolved = json_io.get_str_list(config, "feature_columns")
@@ -345,7 +359,9 @@ class MomentumGatekeeperStrategy(IStrategy):
         return max(self._params.ma_window, self._pipeline.hard_nan_warmup_bars)
 
     def get_all_training_metadata(self) -> tuple[TrackedMetadata, ...]:
-        """Expose strategy + owned classifier metadata for the deep leakage check."""
+        """
+        Expose strategy + owned classifier metadata for the deep leakage check.
+        """
 
         classifier_meta = (
             self._classifier.training_metadata if self._classifier is not None else None
@@ -357,7 +373,9 @@ class MomentumGatekeeperStrategy(IStrategy):
 
     @staticmethod
     def suggest_params(trial: optuna.trial.BaseTrial) -> dict[str, object]:
-        """Optuna search space for MomentumGatekeeper hyperparameters."""
+        """
+        Optuna search space for MomentumGatekeeper hyperparameters.
+        """
 
         macd_fast = trial.suggest_int("momentum_macd_fast", 8, 16)
         macd_slow = trial.suggest_int("momentum_macd_slow", macd_fast + 4, 40)

@@ -1,4 +1,6 @@
-"""Shared scaffolding for local-file data sources (CSV, Parquet)."""
+"""
+Shared scaffolding for local-file data sources (CSV, Parquet).
+"""
 
 from __future__ import annotations
 
@@ -16,7 +18,8 @@ from src.data.normalizer import DataNormalizer
 
 
 class LocalFileSource(IDataSource):
-    """ABC for sources that read OHLCV from a per-ticker file under a directory.
+    """
+    ABC for sources that read OHLCV from a per-ticker file under a directory.
 
     Concrete subclasses provide:
 
@@ -51,7 +54,9 @@ class LocalFileSource(IDataSource):
 
     @abstractmethod
     def _read_file(self, path: Path) -> pd.DataFrame:
-        """Read the on-disk file and return an OHLCV frame with DatetimeIndex."""
+        """
+        Read the on-disk file and return an OHLCV frame with DatetimeIndex.
+        """
 
     def fetch_raw(
         self,

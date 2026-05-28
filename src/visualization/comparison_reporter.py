@@ -1,4 +1,5 @@
-"""Cross-strategy comparison report generator.
+"""
+Cross-strategy comparison report generator.
 
 Consumes an in-memory :class:`StrategyComparisonReport` and writes:
 
@@ -58,7 +59,9 @@ EQUITY_OVERLAY_FILENAME = "equity_overlay.png"
 
 
 class ComparisonReporter:
-    """Generate the cross-strategy report bundle."""
+    """
+    Generate the cross-strategy report bundle.
+    """
 
     def generate_full_report(
         self,
@@ -68,7 +71,8 @@ class ComparisonReporter:
         folds_by_strategy: dict[str, tuple[FoldRecord, ...]] | None = None,
         publish_label: str | None = None,
     ) -> Path:
-        """Write every artifact under ``out_dir`` and return ``out_dir``.
+        """
+        Write every artifact under ``out_dir`` and return ``out_dir``.
 
         ``folds_by_strategy`` feeds the equity overlay — it lives
         alongside :class:`StrategyComparisonReport` rather than inside it
@@ -127,7 +131,8 @@ class ComparisonReporter:
         return out_dir
 
     def _build_pairwise_table(self, pairwise: tuple[PairwiseSignificance, ...]) -> pd.DataFrame:
-        """Upper-triangular pairwise Sharpe-differential matrix.
+        """
+        Upper-triangular pairwise Sharpe-differential matrix.
 
         Each cell reads ``point [low, high]*`` where the trailing star
         indicates significance at the stored confidence level (CI
@@ -158,7 +163,8 @@ class ComparisonReporter:
         folds_by_strategy: dict[str, tuple[FoldRecord, ...]],
         out_path: Path,
     ) -> Path:
-        """Overlay each strategy's concatenated equity curve.
+        """
+        Overlay each strategy's concatenated equity curve.
 
         Each concatenated curve is normalised to 1.0 at its first bar —
         strategies with very different absolute equity levels would
@@ -192,7 +198,8 @@ class ComparisonReporter:
 
 
 def _build_manifest_dict(report: StrategyComparisonReport) -> dict[str, object]:
-    """Flatten :class:`StrategyComparisonReport` identity + stats for ``manifest.json``.
+    """
+    Flatten :class:`StrategyComparisonReport` identity + stats for ``manifest.json``.
 
     DataFrames and heavy per-fold data are omitted; the ranking is covered
     by ``ranking.tex`` and fold-level data belongs under ``runs/``.
@@ -213,7 +220,9 @@ def _build_manifest_dict(report: StrategyComparisonReport) -> dict[str, object]:
 
 
 def _unique_names(pairwise: tuple[PairwiseSignificance, ...]) -> list[str]:
-    """Preserve first-seen order from the pairwise list (matches comparison order)."""
+    """
+    Preserve first-seen order from the pairwise list (matches comparison order).
+    """
 
     return list(dict.fromkeys(name for p in pairwise for name in (p.name_a, p.name_b)))
 
@@ -221,7 +230,8 @@ def _unique_names(pairwise: tuple[PairwiseSignificance, ...]) -> list[str]:
 def _concatenated_equity_normalised(
     folds: tuple[FoldRecord, ...],
 ) -> npt.NDArray[np.float64] | None:
-    """Concatenate fold equity curves and normalise to ``curve[0] = 1.0``.
+    """
+    Concatenate fold equity curves and normalise to ``curve[0] = 1.0``.
 
     Returns ``None`` if the concatenated curve is empty or its first
     value is non-finite / non-positive — matplotlib would silently NaN

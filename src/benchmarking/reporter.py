@@ -1,4 +1,5 @@
-"""Plot + LaTeX-table generation for benchmark reports.
+"""
+Plot + LaTeX-table generation for benchmark reports.
 
 Uses the matplotlib ``Agg`` backend unconditionally so thesis-quality PNGs
 render identically on macOS / Linux / CI. Tables go through
@@ -16,7 +17,7 @@ render identically on macOS / Linux / CI. Tables go through
     scaling.tex
 """
 
-# ruff: noqa: I001, E402
+# ruff: noqa: I001
 # Import order is semantically load-bearing: ``src.visualization.plots`` pins
 # matplotlib's Agg backend at import time, and that MUST run before
 # ``matplotlib.pyplot`` is first imported in this process. Sorting these
@@ -40,9 +41,9 @@ from src.benchmarking.types import (
     ComparisonReport,
     ScalingAnalysis,
 )
-from src.core.fs import ensure_parent_dir
+from src.core.fs import atomic_write_text
 from src.visualization.latex import LATEX_FLOAT_FORMAT
-from src.visualization.plots import save_png_and_svg
+from src.visualization.plots import atomic_savefig, save_png_and_svg
 
 
 def _ns_per_item(result: BenchmarkResult) -> float:
@@ -50,7 +51,8 @@ def _ns_per_item(result: BenchmarkResult) -> float:
 
 
 class BenchmarkReporter:
-    """Materialises plots + LaTeX tables from :class:`BenchmarkAnalyzer` output.
+    """
+    Materialises plots + LaTeX tables from :class:`BenchmarkAnalyzer` output.
 
     Each public method emits one artifact (PNG + SVG for plots, ``.tex``
     for tables); :meth:`generate_full_report` chains them into a single
@@ -96,8 +98,7 @@ class BenchmarkReporter:
         ax.set_xlabel("pct delta (current vs baseline)")
         ax.set_title(f"{report.current_run_id} vs {report.baseline_run_id}")
         fig.tight_layout()
-        ensure_parent_dir(out_path)
-        fig.savefig(out_path)
+        atomic_savefig(fig, out_path)
         plt.close(fig)
         return out_path
 
@@ -118,8 +119,7 @@ class BenchmarkReporter:
         ax.set_xlabel("ns per item (median across sizes)")
         ax.set_title(f"component cost breakdown — run {run.run_id}")
         fig.tight_layout()
-        ensure_parent_dir(out_path)
-        fig.savefig(out_path)
+        atomic_savefig(fig, out_path)
         plt.close(fig)
         return out_path
 
@@ -141,9 +141,7 @@ class BenchmarkReporter:
             caption=f"Benchmark summary — run {run.run_id}",
             label=f"tab:bench_summary_{run.run_id}",
         )
-        ensure_parent_dir(out_path)
-        out_path.write_text(latex, encoding="utf-8")
-        return out_path
+        return atomic_write_text(out_path, latex)
 
     def generate_regression_table(self, report: ComparisonReport, out_path: Path) -> Path:
         rows = [
@@ -172,9 +170,7 @@ class BenchmarkReporter:
             label=f"tab:bench_regression_{report.current_run_id}",
         )
 
-        ensure_parent_dir(out_path)
-        out_path.write_text(latex, encoding="utf-8")
-        return out_path
+        return atomic_write_text(out_path, latex)
 
     def generate_full_report(
         self,

@@ -1,4 +1,6 @@
-"""SQLite CRUD for the jobs table; FSM ``queued → running → {completed, failed, cancelled}``."""
+"""
+SQLite CRUD for the jobs table; FSM ``queued → running → {completed, failed, cancelled}``.
+"""
 
 from __future__ import annotations
 
@@ -86,7 +88,8 @@ def get_job(conn: sqlite3.Connection, job_id: str) -> JobRow:
 
 
 def list_jobs(conn: sqlite3.Connection, *, user_id: int | None = None) -> list[JobRow]:
-    """List jobs newest-first by ``started_at``. ``user_id=None`` returns every job (admin view).
+    """
+    List jobs newest-first by ``started_at``. ``user_id=None`` returns every job (admin view).
 
     Ordering: ``started_at DESC NULLS FIRST, id DESC``. Queued jobs (no
     ``started_at``) surface at the top — they're the freshest activity even
@@ -106,7 +109,9 @@ def list_jobs(conn: sqlite3.Connection, *, user_id: int | None = None) -> list[J
 
 
 def list_running_jobs(conn: sqlite3.Connection) -> list[JobRow]:
-    """Used by lifespan-startup orphan reconcile."""
+    """
+    Used by lifespan-startup orphan reconcile.
+    """
 
     rows = conn.execute(
         f"{_JOB_SELECT} WHERE j.status = ?",

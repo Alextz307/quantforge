@@ -1,4 +1,5 @@
-"""Dispatch + seeding tests for :mod:`src.optimization.samplers` and
+"""
+Dispatch + seeding tests for :mod:`src.optimization.samplers` and
 :mod:`src.optimization.pruners`.
 
 These are shallow factories — the Optuna classes themselves are
@@ -56,7 +57,8 @@ class TestSamplerSeedReproducibility:
         [SamplerKind.TPE, SamplerKind.RANDOM, SamplerKind.QMC],
     )
     def test_same_seed_same_first_draw(self, kind: SamplerKind) -> None:
-        """A fresh study + same-seed sampler draws the same first value.
+        """
+        A fresh study + same-seed sampler draws the same first value.
 
         CMA-ES is skipped here: it needs at least two numerical
         parameters to warm up, which makes the one-parameter smoke

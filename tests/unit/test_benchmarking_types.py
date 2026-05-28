@@ -1,4 +1,6 @@
-"""Round-trip tests for benchmarking dataclass ``to_dict`` / ``from_dict``."""
+"""
+Round-trip tests for benchmarking dataclass ``to_dict`` / ``from_dict``.
+"""
 
 from __future__ import annotations
 

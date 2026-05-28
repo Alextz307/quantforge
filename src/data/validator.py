@@ -1,4 +1,5 @@
-"""Semantic quality checks for a post-normalized OHLCV DataFrame.
+"""
+Semantic quality checks for a post-normalized OHLCV DataFrame.
 
 Runs once per fetch (see ``IDataSource.fetch``), between ``DataNormalizer`` and
 the cache write. Catches bad data at ingestion so it doesn't reach cached
@@ -26,7 +27,8 @@ _PRICE_COLUMNS = OHLCV_COLUMNS[:4]
 
 
 def validate_bars(df: pd.DataFrame) -> None:
-    """Raise ``DataQualityError`` if a normalized OHLCV frame fails sanity checks.
+    """
+    Raise ``DataQualityError`` if a normalized OHLCV frame fails sanity checks.
 
     Precondition: ``df`` has already been through ``DataNormalizer`` (lowercase
     OHLCV columns present, ``DatetimeIndex``, sorted by time). Defensive checks

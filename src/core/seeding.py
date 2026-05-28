@@ -1,4 +1,5 @@
-"""Single-knob reproducibility seeding for numpy + random + torch.
+"""
+Single-knob reproducibility seeding for numpy + random + torch.
 
 Shared by the experiment runner and the standalone-training dispatcher
 so both paths seed identically. Torch is imported lazily — callers that
@@ -13,7 +14,9 @@ import numpy as np
 
 
 def seed_all(seed: int) -> None:
-    """Seed numpy + stdlib random + torch (if available) from one scalar."""
+    """
+    Seed numpy + stdlib random + torch (if available) from one scalar.
+    """
 
     np.random.seed(seed)
     random.seed(seed)

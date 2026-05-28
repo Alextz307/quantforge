@@ -1,4 +1,6 @@
-"""Tests for AdaptiveBollingerStrategy (GARCH-adaptive Bollinger bands)."""
+"""
+Tests for AdaptiveBollingerStrategy (GARCH-adaptive Bollinger bands).
+"""
 
 from __future__ import annotations
 
@@ -131,7 +133,9 @@ class TestAdaptiveBollingerStrategy:
         pd.testing.assert_series_equal(s1, s2)
 
     def test_bearish_regime_shorts_only(self, fitted_strategy: AdaptiveBollingerStrategy) -> None:
-        """In a declining-trend window, non-zero signals must be short (-1), never long (+1)."""
+        """
+        In a declining-trend window, non-zero signals must be short (-1), never long (+1).
+        """
 
         df = make_declining_close_df()
         signals = fitted_strategy.generate_signals(df)

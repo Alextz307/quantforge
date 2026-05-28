@@ -1,4 +1,5 @@
-"""Wire DTOs for the comparisons read API.
+"""
+Wire DTOs for the comparisons read API.
 
 Comparison artifacts are produced by ``experiment compare``. The on-disk
 ``manifest.json`` carries identity (``out_name`` / ``created_at`` /

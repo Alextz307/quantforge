@@ -1,4 +1,6 @@
-"""Volatility-targeting strategy driven by HybridVolatilityModel forecasts."""
+"""
+Volatility-targeting strategy driven by HybridVolatilityModel forecasts.
+"""
 
 from __future__ import annotations
 
@@ -17,6 +19,7 @@ from src.core.persistence import (
     CONFIG_JSON,
     HYBRID_VOL_SUBDIR,
     METADATA_JSON,
+    assert_save_complete,
     save_model_skeleton,
 )
 from src.core.registry import strategy_registry
@@ -35,10 +38,13 @@ if TYPE_CHECKING:
 
 logger = get_logger(__name__)
 
+FLOOR_BIND_DIAGNOSTIC_KEY = "floor_bind_fraction"
+
 
 @dataclass(frozen=True)
 class _HybridVolParams:
-    """Immutable bundle of HybridVolatilityModel constructor kwargs.
+    """
+    Immutable bundle of HybridVolatilityModel constructor kwargs.
 
     Stored on the strategy so ``train()`` can rebuild a fresh hybrid with a
     clean scaler each invocation (the hybrid's fit-once guard rejects a
@@ -68,7 +74,8 @@ class _HybridVolParams:
 
 @strategy_registry.register("VolatilityTargeting")
 class VolatilityTargetingStrategy(IStrategy):
-    """Scale long exposure to hit a target portfolio volatility.
+    """
+    Scale long exposure to hit a target portfolio volatility.
 
     Leverage = ``target_vol / forecast_vol`` clipped to ``[0, max_leverage]``.
     A trend MA gates the regime: in bearish windows, leverage is multiplied
@@ -170,7 +177,9 @@ class VolatilityTargetingStrategy(IStrategy):
         return HybridVolatilityModel(**kwargs)
 
     def _compute_realized_vol(self, bars: pd.DataFrame) -> pd.Series:
-        """Annualized Garman-Klass realized volatility at the strategy's interval."""
+        """
+        Annualized Garman-Klass realized volatility at the strategy's interval.
+        """
 
         return annualized_garman_klass(
             bars, window=self._realized_vol_window, interval=self._interval
@@ -183,7 +192,9 @@ class VolatilityTargetingStrategy(IStrategy):
         checkpoint_path: Path | None = None,
         **kwargs: object,
     ) -> None:
-        """Fit HybridVolatilityModel on an internally-computed realized-vol target."""
+        """
+        Fit HybridVolatilityModel on an internally-computed realized-vol target.
+        """
 
         logger.info("%s train: %d bars", type(self).__name__, len(train_data))
         self._hybrid_vol = self._build_hybrid_vol()
@@ -200,7 +211,9 @@ class VolatilityTargetingStrategy(IStrategy):
         )
 
     def generate_signals(self, data: pd.DataFrame) -> pd.Series:
-        """Produce leverage signals in ``[0, max_leverage]``. Warmup bars are NaN."""
+        """
+        Produce leverage signals in ``[0, max_leverage]``. Warmup bars are NaN.
+        """
 
         self._assert_fitted_with_metadata()
 
@@ -216,7 +229,8 @@ class VolatilityTargetingStrategy(IStrategy):
         return gated
 
     def save(self, path: str | Path) -> None:
-        """Persist VolatilityTargeting config + nested HybridVolatility.
+        """
+        Persist VolatilityTargeting config + nested HybridVolatility.
 
         Strategy-specific kwargs (``target_vol``, ``trend_window``,
         ``max_leverage``, ``bearish_exposure``, ``realized_vol_window``) are
@@ -236,7 +250,9 @@ class VolatilityTargetingStrategy(IStrategy):
         )
 
     def _ctor_kwargs_as_json(self) -> dict[str, object]:
-        """Snapshot of this strategy's constructor kwargs as JSON-ready values."""
+        """
+        Snapshot of this strategy's constructor kwargs as JSON-ready values.
+        """
 
         p = self._hybrid_params
         return {
@@ -265,7 +281,8 @@ class VolatilityTargetingStrategy(IStrategy):
 
     @classmethod
     def load(cls, path: str | Path) -> Self:
-        """Reconstruct a trained VolatilityTargetingStrategy from ``path``.
+        """
+        Reconstruct a trained VolatilityTargetingStrategy from ``path``.
 
         Narrow the strategy's ``config.json`` into ctor kwargs BEFORE loading
         the nested ``hybrid_vol/`` subdir — a corrupt strategy config
@@ -273,7 +290,7 @@ class VolatilityTargetingStrategy(IStrategy):
         HybridVolatilityModel's nested GARCH + LSTM + scaler loads.
         """
 
-        root = Path(path)
+        root = assert_save_complete(path)
         config = json_io.read_dict(root / CONFIG_JSON)
         metadata = json_io.read_dict(root / METADATA_JSON)
 
@@ -314,7 +331,9 @@ class VolatilityTargetingStrategy(IStrategy):
         return max(self._trend_window, self._lstm_lookback, self._realized_vol_window)
 
     def get_all_training_metadata(self) -> tuple[TrackedMetadata, ...]:
-        """Expose strategy + recursively-owned hybrid-vol leaves (garch + lstm)."""
+        """
+        Expose strategy + recursively-owned hybrid-vol leaves (garch + lstm).
+        """
 
         return (
             collect_metadata(
@@ -324,7 +343,8 @@ class VolatilityTargetingStrategy(IStrategy):
         )
 
     def get_fold_diagnostics(self) -> Mapping[str, float]:
-        """Surface HybridVolatility's σ_min floor-saturation rate for this fold.
+        """
+        Surface HybridVolatility's σ_min floor-saturation rate for this fold.
 
         ``floor_bind_fraction`` is the fraction of non-NaN bars where the
         most recent ``predict()`` clipped ``garch_vol + lstm_residual`` up
@@ -337,11 +357,13 @@ class VolatilityTargetingStrategy(IStrategy):
         frac = self._hybrid_vol.last_floor_bind_fraction
         if frac is None:
             return MappingProxyType({})
-        return MappingProxyType({"floor_bind_fraction": frac})
+        return MappingProxyType({FLOOR_BIND_DIAGNOSTIC_KEY: frac})
 
     @staticmethod
     def suggest_params(trial: optuna.trial.BaseTrial) -> dict[str, object]:
-        """Optuna search space for VolatilityTargeting hyperparameters."""
+        """
+        Optuna search space for VolatilityTargeting hyperparameters.
+        """
 
         return {
             "target_vol": trial.suggest_float("volt_target_vol", 0.05, 0.30),

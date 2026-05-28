@@ -1,4 +1,6 @@
-"""Verify slowapi rate-limit on /api/auth/login: 6th attempt within window 429s."""
+"""
+Verify slowapi rate-limit on /api/auth/login: 6th attempt within window 429s.
+"""
 
 from __future__ import annotations
 

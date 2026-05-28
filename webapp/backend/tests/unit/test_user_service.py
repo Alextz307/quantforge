@@ -1,4 +1,6 @@
-"""Verify user_service CRUD: create, list, get, soft-delete, upsert."""
+"""
+Verify user_service CRUD: create, list, get, soft-delete, upsert.
+"""
 
 from __future__ import annotations
 
@@ -59,7 +61,8 @@ def test_create_user_reactivates_soft_deleted_username(db_conn: sqlite3.Connecti
 
 
 def test_reactivate_preserves_artifact_ownership(db_conn: sqlite3.Connection) -> None:
-    """Reactivating a soft-deleted username keeps the FK link from jobs alive.
+    """
+    Reactivating a soft-deleted username keeps the FK link from jobs alive.
 
     Load-bearing invariant the reactivate-on-collision pattern guards: any
     artifact attributed to ``user_id=X`` before the soft-delete must still

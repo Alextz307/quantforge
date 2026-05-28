@@ -1,4 +1,5 @@
-"""Numerical-parity tests for the C++ indicator pybind11 bindings.
+"""
+Numerical-parity tests for the C++ indicator pybind11 bindings.
 
 The underlying C++ logic is exhaustively covered by gtest in
 ``cpp/tests/test_indicators.cpp``. These tests verify the **binding layer**:
@@ -87,7 +88,9 @@ class TestRSIBinding:
             qe.RSI(0)
 
     def test_hand_computed_reference(self) -> None:
-        """Mirrors the C++ KnownReferenceValue test — Wilder's smoothing."""
+        """
+        Mirrors the C++ KnownReferenceValue test — Wilder's smoothing.
+        """
 
         prices = np.array(RSI_HAND_PRICES, dtype=np.float64)
         out = qe.RSI(RSI_HAND_PERIOD).compute(prices)
@@ -113,7 +116,8 @@ class TestRSIBinding:
 def _pandas_macd(
     close: F64Array, fast: int, slow: int, signal: int
 ) -> tuple[F64Array, F64Array, F64Array]:
-    """Pandas reference matching the C++ seeding of both EMAs.
+    """
+    Pandas reference matching the C++ seeding of both EMAs.
 
     C++ seeds the fast/slow EMAs at ``data[0]`` and the signal EMA at the
     first valid MACD bar (index ``slow-1``). Pandas ``ewm(adjust=False)``
@@ -261,7 +265,9 @@ class TestParkinsonBinding:
             qe.Parkinson(0)
 
     def test_single_bar_hand_reference(self) -> None:
-        """Closed-form: PK_daily = (1/(4*ln2)) * ln(H/L)^2, annualized with sqrt(252)."""
+        """
+        Closed-form: PK_daily = (1/(4*ln2)) * ln(H/L)^2, annualized with sqrt(252).
+        """
 
         o = np.array([SINGLE_BAR_OPEN], dtype=np.float64)
         h = np.array([SINGLE_BAR_HIGH], dtype=np.float64)
@@ -309,7 +315,9 @@ class TestGarmanKlassBinding:
             qe.GarmanKlass(0)
 
     def test_single_bar_hand_reference(self) -> None:
-        """Closed-form: GK_daily = 0.5*ln(H/L)^2 - (2ln2-1)*ln(C/O)^2."""
+        """
+        Closed-form: GK_daily = 0.5*ln(H/L)^2 - (2ln2-1)*ln(C/O)^2.
+        """
 
         o = np.array([SINGLE_BAR_OPEN], dtype=np.float64)
         h = np.array([SINGLE_BAR_HIGH], dtype=np.float64)
@@ -345,7 +353,8 @@ class TestGarmanKlassBinding:
 
 
 class TestForcecastCoercion:
-    """All bindings type the inputs as `ContigF64` with ``py::array::forcecast``.
+    """
+    All bindings type the inputs as `ContigF64` with ``py::array::forcecast``.
 
     Feeding an f32 array should coerce to f64 transparently. Covered for
     every indicator so regressions in a single binding don't slip through.
@@ -397,7 +406,8 @@ class TestForcecastCoercion:
 
 
 class TestGILRelease:
-    """The plan mandates `gil_scoped_release` on every new compute method so
+    """
+    The plan mandates `gil_scoped_release` on every new compute method so
     that Python-side parallelism (Optuna HPO, pytest-xdist) can actually run
     indicators concurrently. A busted release would deadlock, reference-count
     races, or serialize — this test detects all three classes of failure by
@@ -477,7 +487,8 @@ def _backtest_equity_curve(_field: str) -> npt.NDArray[np.float64]:
     ],
 )
 def test_zero_copy_view_survives_parent_gc(view_factory: object, field: str) -> None:
-    """The numpy view's base must keep the C++ parent alive after the factory
+    """
+    The numpy view's base must keep the C++ parent alive after the factory
     drops its local handle — otherwise forcing GC would dangle the storage."""
 
     import gc

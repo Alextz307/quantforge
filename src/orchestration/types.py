@@ -1,4 +1,5 @@
-"""Serializable value types for the orchestration layer.
+"""
+Serializable value types for the orchestration layer.
 
 Each record round-trips through ``to_dict`` / ``from_dict`` so experiment
 output can be written as JSONL (one line per fold, diffable and appendable)
@@ -26,7 +27,8 @@ from src.orchestration.manifest import Manifest
 
 @dataclass(frozen=True)
 class FoldRecord:
-    """Per-fold metrics snapshot, JSON-serializable.
+    """
+    Per-fold metrics snapshot, JSON-serializable.
 
     Run-wide context (slippage scenario, seed, git sha) lives on
     :class:`ExperimentResult.manifest`, not here — a fold record carries
@@ -52,7 +54,9 @@ class FoldRecord:
 
     @classmethod
     def from_fold_result(cls, fr: FoldResult) -> FoldRecord:
-        """Flatten a :class:`FoldResult` into scalars + an equity tuple."""
+        """
+        Flatten a :class:`FoldResult` into scalars + an equity tuple.
+        """
 
         return cls(
             fold_index=fr.fold_index,
@@ -124,7 +128,8 @@ class FoldRecord:
 
 @dataclass(frozen=True)
 class ExperimentResult:
-    """Root output of ``Experiment.run()``: manifest + per-fold records.
+    """
+    Root output of ``Experiment.run()``: manifest + per-fold records.
 
     ``experiment_id`` is exposed as a top-level field for convenience but is
     ALSO carried inside ``manifest``; the two are always equal (the manifest
@@ -156,7 +161,8 @@ class ExperimentResult:
 
 @dataclass(frozen=True)
 class PairwiseSignificance:
-    """One pairwise Sharpe-differential bootstrap result.
+    """
+    One pairwise Sharpe-differential bootstrap result.
 
     The differential is ``sharpe(name_a) - sharpe(name_b)`` computed on
     the concatenated per-fold returns of the two strategies. ``significant``
@@ -198,7 +204,8 @@ class PairwiseSignificance:
 
 @dataclass(frozen=True)
 class StrategyComparisonReport:
-    """Aggregate output of :func:`run_comparison`.
+    """
+    Aggregate output of :func:`run_comparison`.
 
     Value object — not persisted whole. The comparison reporter writes
     ``ranking.tex`` from ``ranking``, ``pairwise_significance.tex`` from

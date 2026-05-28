@@ -1,4 +1,6 @@
-"""Tests for VolatilityTargetingStrategy (HybridVolatilityModel-backed)."""
+"""
+Tests for VolatilityTargetingStrategy (HybridVolatilityModel-backed).
+"""
 
 from __future__ import annotations
 
@@ -104,7 +106,9 @@ class TestVolatilityTargetingStrategy:
     def test_fold_diagnostics_empty_before_predict(
         self, fitted_strategy: VolatilityTargetingStrategy
     ) -> None:
-        """No predict yet — the floor-bind metric is not reported."""
+        """
+        No predict yet — the floor-bind metric is not reported.
+        """
 
         assert dict(fitted_strategy.get_fold_diagnostics()) == {}
 
@@ -193,7 +197,9 @@ class TestVolatilityTargetingStrategy:
     def test_hourly_interval_rescales_realized_vol(
         self, train_df: pd.DataFrame, synthetic_feature_columns: list[str]
     ) -> None:
-        """HOUR interval multiplies the C++ GK output by sqrt(ann_factor / 252)."""
+        """
+        HOUR interval multiplies the C++ GK output by sqrt(ann_factor / 252).
+        """
 
         daily = VolatilityTargetingStrategy(
             feature_columns=synthetic_feature_columns,
@@ -218,7 +224,9 @@ class TestVolatilityTargetingStrategy:
         fitted_strategy: VolatilityTargetingStrategy,
         synthetic_feature_columns: list[str],
     ) -> None:
-        """In a declining-trend window, leverage collapses to 0 (bearish_exposure=0)."""
+        """
+        In a declining-trend window, leverage collapses to 0 (bearish_exposure=0).
+        """
 
         df = make_declining_ohlcv_df()
         rng = np.random.default_rng(FEATURE_RNG_SEED)

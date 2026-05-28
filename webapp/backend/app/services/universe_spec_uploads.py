@@ -1,4 +1,5 @@
-"""User-authored universe-spec uploads: validate, persist, soft-delete.
+"""
+User-authored universe-spec uploads: validate, persist, soft-delete.
 
 The CRUD shape is owned by :class:`SpecUploadStore` in
 :mod:`spec_upload_store`; this module supplies the universe-specific
@@ -30,7 +31,9 @@ from webapp.backend.app.services.spec_upload_store import (
 
 
 class UniverseSpecUploadNotFoundError(SpecUploadNotFoundError):
-    """Raised when a slug is absent (or soft-deleted) for the caller."""
+    """
+    Raised when a slug is absent (or soft-deleted) for the caller.
+    """
 
     kind_label = "universe"
 
@@ -41,7 +44,8 @@ class UniverseSpecUploadInvalidError(SpecUploadInvalidError):
 
 
 def validate_universe_spec_text(yaml_text: str) -> ValidateResponse:
-    """YAML parse + UniverseProfile pydantic validation.
+    """
+    YAML parse + UniverseProfile pydantic validation.
 
     Errors carry the ``loc`` shape from pydantic ``ValidationError.errors()``
     so the editor can mark the offending line. Empty / non-mapping YAML is

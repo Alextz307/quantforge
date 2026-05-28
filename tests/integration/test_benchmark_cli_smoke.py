@@ -1,4 +1,5 @@
-"""End-to-end smoke test for ``scripts/benchmark.py``.
+"""
+End-to-end smoke test for ``scripts/benchmark.py``.
 
 Builds the quant_bench binary is a prerequisite; this test is gated by
 ``RUN_BENCH_SMOKE=1`` so CI does not have to build ``quant_bench`` before

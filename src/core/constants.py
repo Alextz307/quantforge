@@ -1,4 +1,5 @@
-"""Domain constants for the quant trading framework.
+"""
+Domain constants for the quant trading framework.
 
 Centralizes magic numbers used across the codebase.
 """

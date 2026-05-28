@@ -1,10 +1,12 @@
-"""Unit tests for src/core/json_io.py — generic JSON read/write + typed
+"""
+Unit tests for src/core/json_io.py — generic JSON read/write + typed
 field-extraction helpers. This module has no business-logic dependencies;
 these tests only exercise the IO + narrowing contract.
 """
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
@@ -101,6 +103,29 @@ class TestReadJsonl:
         with pytest.raises(ValueError, match="line 2 must be an object"):
             json_io.read_jsonl(path)
 
+    def test_tolerates_partial_trailing_record(self, tmp_path: Path) -> None:
+        """
+        ``append_jsonl`` can be interrupted mid-write, leaving the last
+        record truncated. ``read_jsonl`` drops that record instead of raising
+        so future consumers (post-hoc readers of the HPO trial log) can
+        recover earlier records.
+        """
+
+        path = tmp_path / "interrupted.jsonl"
+        path.write_text('{"a": 1}\n{"a": 2}\n{"a": 3, "b": "tru', encoding="utf-8")
+        assert json_io.read_jsonl(path) == [{"a": 1}, {"a": 2}]
+
+    def test_partial_record_in_middle_still_raises(self, tmp_path: Path) -> None:
+        """
+        Only the FINAL line is tolerated as crash-truncated; mid-file
+        corruption is real data damage and must surface.
+        """
+
+        path = tmp_path / "corrupt.jsonl"
+        path.write_text('{"a": 1}\n{"a": 2, "b": "tru\n{"a": 3}\n', encoding="utf-8")
+        with pytest.raises(json.JSONDecodeError):
+            json_io.read_jsonl(path)
+
 
 class TestWriteJsonl:
     def test_round_trip_via_read_jsonl(self, tmp_path: Path) -> None:
@@ -141,7 +166,9 @@ class TestAppendJsonl:
 
 
 class TestGetScalars:
-    """Single sample payload feeds every happy + error-path test below."""
+    """
+    Single sample payload feeds every happy + error-path test below.
+    """
 
     SAMPLE: dict[str, object] = {
         "an_int": 7,

@@ -1,4 +1,5 @@
-"""Tests for the multi-feature single-asset dispatch path.
+"""
+Tests for the multi-feature single-asset dispatch path.
 
 Verifies the third dispatcher arm: strategies that read a wide multi-ticker
 frame for features but trade exactly one asset. The C++ engine sees only
@@ -44,7 +45,9 @@ _FAKE_SOURCE_SEED_MASK = 0xFFFF
 
 
 def _wide_frame(tickers: Sequence[str], *, seed: int = GLOBAL_NUMPY_SEED) -> pd.DataFrame:
-    """Build a wide ``<col>_<TICKER>`` frame for ``tickers``."""
+    """
+    Build a wide ``<col>_<TICKER>`` frame for ``tickers``.
+    """
 
     suffixed = [
         make_synthetic_ohlcv_df(n_rows=_N_BARS, seed=seed + offset).add_suffix(f"_{ticker}")
@@ -57,7 +60,8 @@ def _wide_frame(tickers: Sequence[str], *, seed: int = GLOBAL_NUMPY_SEED) -> pd.
 
 
 class _FakeDataSource(IDataSource):
-    """Returns a deterministic synthetic OHLCV per ticker; ignores date range.
+    """
+    Returns a deterministic synthetic OHLCV per ticker; ignores date range.
 
     Overrides ``fetch`` directly so the parent's normalize / validate pipeline
     never runs on the synthetic frame (which already has canonical columns).
@@ -193,7 +197,9 @@ class TestFetchBarsMultiFeature:
                 assert f"{col}_{ticker}" in bars.columns
 
     def test_single_ticker_multi_feature_path(self) -> None:
-        """N=1 multi-feature is degenerate but legal — only the primary is fetched."""
+        """
+        N=1 multi-feature is degenerate but legal — only the primary is fetched.
+        """
 
         source = _FakeDataSource()
         cfg = _build_cfg(
@@ -207,7 +213,9 @@ class TestFetchBarsMultiFeature:
         assert source.call_log == [_PRIMARY]
 
     def test_two_ticker_multi_feature_uses_ticker_suffix_not_pairs_suffix(self) -> None:
-        """Critical: 2-ticker multi-feature ≠ pairs at the data layer."""
+        """
+        Critical: 2-ticker multi-feature ≠ pairs at the data layer.
+        """
 
         source = _FakeDataSource()
         cfg = _build_cfg(
@@ -289,7 +297,8 @@ def _zero_slippage() -> SlippageConfig:
 
 class TestWalkForwardDispatch:
     def test_evaluate_walk_forward_routes_through_slice(self) -> None:
-        """Wide-format input → engine sees sliced primary OHLCV; strategy sees wide frame.
+        """
+        Wide-format input → engine sees sliced primary OHLCV; strategy sees wide frame.
 
         ``MultiFeatureTestStub.generate_signals`` indexes ``data[f"close_{primary}"]``;
         if the dispatcher had wrongly handed the strategy a sliced single-asset

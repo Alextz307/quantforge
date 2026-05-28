@@ -1,4 +1,6 @@
-"""Tests for the Pydantic ↔ zod schema-mirror drift guard."""
+"""
+Tests for the Pydantic ↔ zod schema-mirror drift guard.
+"""
 
 from __future__ import annotations
 
@@ -31,7 +33,8 @@ class TestExtractFieldShape:
 
 
 class TestRepoStateIsClean:
-    """End-to-end: the committed mirror snapshot must agree with the live models.
+    """
+    End-to-end: the committed mirror snapshot must agree with the live models.
 
     Skipped automatically if fastapi/webapp deps aren't installed.
     """

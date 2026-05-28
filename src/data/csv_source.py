@@ -1,4 +1,6 @@
-"""CSV file data source implementation."""
+"""
+CSV file data source implementation.
+"""
 
 from __future__ import annotations
 
@@ -13,7 +15,8 @@ from src.data.local_file_source import LocalFileSource
 
 @data_source_registry.register("csv")
 class CSVSource(LocalFileSource):
-    """Data source for local CSV files.
+    """
+    Data source for local CSV files.
 
     Expects the first column to be a parseable timestamp (``parse_dates=[0]``)
     so the index round-trips as ``DatetimeIndex``. Adds a NaT post-check

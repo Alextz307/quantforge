@@ -1,4 +1,6 @@
-"""Tests for :func:`build_experiment` — config → wired :class:`Experiment`."""
+"""
+Tests for :func:`build_experiment` — config → wired :class:`Experiment`.
+"""
 
 from __future__ import annotations
 
@@ -81,7 +83,8 @@ class TestBuildExperiment:
         assert isinstance(exp.strategy, AdaptiveBollingerStrategy)
 
     def test_strategy_params_flow_through_ctor(self) -> None:
-        """Garbage params must surface as the ctor's own ValueError, proving
+        """
+        Garbage params must surface as the ctor's own ValueError, proving
         they travel through the registry dispatch untouched."""
 
         d = _cfg_dict()
@@ -130,7 +133,8 @@ class TestBuildExperiment:
         assert isinstance(pipeline, FeatureEngineeringPipeline)
 
     def test_feature_factory_yields_fresh_instance_each_call(self) -> None:
-        """Per-fold fit_once contract: each factory call MUST return a new
+        """
+        Per-fold fit_once contract: each factory call MUST return a new
         pipeline so the scaler fit_once guard doesn't fire across folds."""
 
         d = _cfg_dict()
@@ -144,7 +148,8 @@ class TestBuildExperiment:
         assert first is not second
 
     def test_run_is_callable(self) -> None:
-        """``Experiment.run()`` behaviour is covered end-to-end by
+        """
+        ``Experiment.run()`` behaviour is covered end-to-end by
         ``test_orchestration_experiment.py`` and the gated smoke test.
         This builder-level check only asserts the method isn't a leftover
         ``NotImplementedError`` stub.

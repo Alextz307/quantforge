@@ -1,4 +1,6 @@
-"""WebSocket streaming behaviour for /api/jobs/{id}/stream."""
+"""
+WebSocket streaming behaviour for /api/jobs/{id}/stream.
+"""
 
 from __future__ import annotations
 

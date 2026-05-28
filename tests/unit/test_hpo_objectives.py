@@ -1,4 +1,5 @@
-"""Unit tests for :mod:`src.optimization.objectives`.
+"""
+Unit tests for :mod:`src.optimization.objectives`.
 
 Each objective is a pure function over the ``aggregate_metrics`` dict
 produced by :meth:`src.analysis.metrics_aggregator.AggregateStats.to_dict`
@@ -25,7 +26,9 @@ _DRAWDOWN_VALUE = -0.15  # aggregate_metrics reports max_drawdown_worst negative
 
 
 def _aggregate_fixture() -> dict[str, object]:
-    """Sample aggregate_metrics dict shaped like the experiment runner's."""
+    """
+    Sample aggregate_metrics dict shaped like the experiment runner's.
+    """
 
     return {
         "n_folds": 4,
@@ -73,7 +76,8 @@ class TestSortinoMinusDrawdownPenaltyObjective:
         assert obj(_aggregate_fixture()) == _SORTINO_VALUE
 
     def test_penalty_uses_abs_of_drawdown(self) -> None:
-        """Whether drawdown is stored negative or positive, the penalty
+        """
+        Whether drawdown is stored negative or positive, the penalty
         should land on the same number."""
 
         obj = SortinoMinusDrawdownPenaltyObjective(penalty=1.0)

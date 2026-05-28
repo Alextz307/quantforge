@@ -1,4 +1,5 @@
-"""Regenerate + clean pybind11 type stubs for the ``quant_engine`` extension.
+"""
+Regenerate + clean pybind11 type stubs for the ``quant_engine`` extension.
 
 pybind11-stubgen produces a working stub but its default output fails
 ``ruff check``:

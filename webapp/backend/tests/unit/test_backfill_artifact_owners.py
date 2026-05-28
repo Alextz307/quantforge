@@ -1,4 +1,5 @@
-"""Unit tests for ``scripts.backfill_artifact_owners``.
+"""
+Unit tests for ``scripts.backfill_artifact_owners``.
 
 Covers the happy path against the canonical synthetic store, idempotency
 on re-run, dry-run no-op semantics, user-not-found error, and the
@@ -33,7 +34,9 @@ def _seed_admin(conn: sqlite3.Connection) -> int:
 def test_backfill_attributes_every_artifact(
     db_conn: sqlite3.Connection, webapp_store: Path
 ) -> None:
-    """A fresh DB + the canonical synthetic store → every artifact gets one row."""
+    """
+    A fresh DB + the canonical synthetic store → every artifact gets one row.
+    """
 
     admin_id = _seed_admin(db_conn)
     plans = backfill(
@@ -117,7 +120,9 @@ def test_empty_store_root_is_no_op(
 def test_existing_jobs_row_is_preserved(
     db_conn: sqlite3.Connection, webapp_store: Path
 ) -> None:
-    """An artifact that already has an owner is not overwritten."""
+    """
+    An artifact that already has an owner is not overwritten.
+    """
 
     admin_id = _seed_admin(db_conn)
     bob = create_user(

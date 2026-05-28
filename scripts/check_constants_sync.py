@@ -1,4 +1,5 @@
-"""Guard against Python / C++ numeric-constant drift.
+"""
+Guard against Python / C++ numeric-constant drift.
 
 Several scalar constants are mirrored between ``src/core/constants.py`` and
 ``cpp/include/quant/core/types.hpp`` (trading-calendar counts, position
@@ -48,25 +49,33 @@ _CPP_DECL_RE = re.compile(
 
 
 def parse_python_constants(text: str) -> dict[str, str]:
-    """Return ``{name: raw_value_text}`` for top-level UPPER_SNAKE_CASE assignments."""
+    """
+    Return ``{name: raw_value_text}`` for top-level UPPER_SNAKE_CASE assignments.
+    """
 
     return {m.group("name"): m.group("value").strip() for m in _PY_ASSIGN_RE.finditer(text)}
 
 
 def parse_cpp_constants(text: str) -> dict[str, str]:
-    """Return ``{name: raw_value_text}`` for ``inline constexpr`` declarations."""
+    """
+    Return ``{name: raw_value_text}`` for ``inline constexpr`` declarations.
+    """
 
     return {m.group("name"): m.group("value").strip() for m in _CPP_DECL_RE.finditer(text)}
 
 
 def _normalize(value: str) -> str:
-    """Compare-friendly form: drop digit-grouping underscores, trim whitespace."""
+    """
+    Compare-friendly form: drop digit-grouping underscores, trim whitespace.
+    """
 
     return value.replace("_", "").strip()
 
 
 def find_mismatches(py_text: str, cpp_text: str) -> list[str]:
-    """Return a sorted list of human-readable mismatch messages (empty = OK)."""
+    """
+    Return a sorted list of human-readable mismatch messages (empty = OK).
+    """
 
     py = parse_python_constants(py_text)
     cpp = parse_cpp_constants(cpp_text)

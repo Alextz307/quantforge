@@ -1,4 +1,5 @@
-"""Unit tests for the artifact-ownership helpers.
+"""
+Unit tests for the artifact-ownership helpers.
 
 Covers the three resolution states (matching jobs row → owner;
 no jobs row → ownerless = shared; admin override) and the helpers'
@@ -42,7 +43,9 @@ def _seed_job(
     user: UserPublic,
     experiment_id: str,
 ) -> JobRow:
-    """Insert a queued job row with the given experiment_id link."""
+    """
+    Insert a queued job row with the given experiment_id link.
+    """
 
     job = insert_job(
         db_conn,

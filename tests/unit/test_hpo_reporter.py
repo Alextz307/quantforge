@@ -1,4 +1,5 @@
-"""HPOReporter tests — verify artifacts are produced under the expected paths.
+"""
+HPOReporter tests — verify artifacts are produced under the expected paths.
 
 Uses real Optuna studies (they're cheap to create). The plots/tables
 themselves aren't parsed — file-existence + non-trivial size is the
@@ -16,7 +17,8 @@ from src.visualization.hpo_reporter import HPOReporter
 
 
 def _run_study(n_trials: int, *, two_params: bool = False) -> optuna.Study:
-    """Run a toy study that accepts at least one parameter.
+    """
+    Run a toy study that accepts at least one parameter.
 
     ``two_params=True`` adds a second param so Optuna's fANOVA importance
     calculation doesn't degenerate into a single-axis trivial answer.

@@ -1,4 +1,6 @@
-"""Model abstract interfaces for predictors and classifiers."""
+"""
+Model abstract interfaces for predictors and classifiers.
+"""
 
 from __future__ import annotations
 
@@ -13,7 +15,8 @@ from src.core.temporal import TrackedMetadata, TrainingMetadata, collect_metadat
 
 
 class IPredictor(ABC):
-    """Interface for all predictive models (volatility, price).
+    """
+    Interface for all predictive models (volatility, price).
 
     Follows the same fit/transform pattern as IFeaturePipeline:
     fit on training data only, then predict on new data.
@@ -28,7 +31,8 @@ class IPredictor(ABC):
         checkpoint_path: Path | None = None,
         **kwargs: object,
     ) -> None:
-        """Train the model on training data only.
+        """
+        Train the model on training data only.
 
         ``checkpoint_path`` is honored by NN-style leaves that benefit from
         best-state checkpointing (LSTM, XGBoost); statistical leaves
@@ -38,14 +42,19 @@ class IPredictor(ABC):
 
     @abstractmethod
     def predict(self, data: pd.DataFrame) -> pd.Series:
-        """Generate predictions for the given data."""
+        """
+        Generate predictions for the given data.
+        """
 
     @abstractmethod
     def predict_single(self, recent_window: pd.DataFrame) -> float:
-        """Predict a single value from a recent data window."""
+        """
+        Predict a single value from a recent data window.
+        """
 
     def save(self, path: str | Path) -> None:
-        """Persist the fitted model to a directory at ``path``.
+        """
+        Persist the fitted model to a directory at ``path``.
 
         Subclasses write ``metadata.json`` + ``config.json`` + model-specific
         weights. Must raise if called before ``fit()`` and raise
@@ -63,7 +72,8 @@ class IPredictor(ABC):
 
     @classmethod
     def load(cls, path: str | Path) -> Self:
-        """Reconstruct a fitted model from a directory at ``path``.
+        """
+        Reconstruct a fitted model from a directory at ``path``.
 
         Must return a fully-fitted instance: ``predict()`` works immediately,
         ``training_metadata`` is populated from the saved ``metadata.json``.
@@ -82,7 +92,9 @@ class IPredictor(ABC):
         checkpoint_path: Path | None = None,
         **kwargs: object,
     ) -> pd.Series:
-        """Convenience: fit + predict on training data."""
+        """
+        Convenience: fit + predict on training data.
+        """
 
         self.fit(train_data, target, checkpoint_path=checkpoint_path, **kwargs)
         return self.predict(train_data)
@@ -91,12 +103,15 @@ class IPredictor(ABC):
 
     @property
     def training_metadata(self) -> TrainingMetadata | None:
-        """Training period metadata, populated after fit()."""
+        """
+        Training period metadata, populated after fit().
+        """
 
         return getattr(self, "_training_metadata", None)
 
     def _assert_fitted_with_metadata(self, *, caller: str | None = None) -> TrainingMetadata:
-        """Return ``self.training_metadata`` narrowed to non-None, raising otherwise.
+        """
+        Return ``self.training_metadata`` narrowed to non-None, raising otherwise.
 
         Canonical read-side guard — every method that requires a completed
         ``fit()`` (``predict``, ``predict_single``, ``save``, ``update``)
@@ -121,7 +136,8 @@ class IPredictor(ABC):
         return meta
 
     def _set_fitted_with_metadata(self, metadata: TrainingMetadata) -> None:
-        """Atomic write-side counterpart to :meth:`_assert_fitted_with_metadata`.
+        """
+        Atomic write-side counterpart to :meth:`_assert_fitted_with_metadata`.
 
         ``fit()`` and ``load()`` overrides call this as the very last step.
         ``training_metadata is not None`` is the sole fitted-state signal —
@@ -142,7 +158,8 @@ class IPredictor(ABC):
         self._training_metadata = metadata
 
     def get_all_training_metadata(self) -> tuple[TrackedMetadata, ...]:
-        """Every metadata object this predictor and its owned leaves expose.
+        """
+        Every metadata object this predictor and its owned leaves expose.
 
         Default: just the predictor's own metadata tagged with the class name
         (lower-cased). Composites (HybridVolatility, HybridReturn) override to
@@ -155,7 +172,8 @@ class IPredictor(ABC):
 
 
 class IClassifier(ABC):
-    """Interface for directional classifiers.
+    """
+    Interface for directional classifiers.
 
     Follows the same fit/predict pattern as IPredictor with
     consistent parameter naming: train_data, target.
@@ -170,7 +188,8 @@ class IClassifier(ABC):
         checkpoint_path: Path | None = None,
         **kwargs: object,
     ) -> None:
-        """Train the classifier on training data only.
+        """
+        Train the classifier on training data only.
 
         ``checkpoint_path`` is honored by classifiers that support best-state
         checkpointing (XGBoost). ``None`` disables checkpointing.
@@ -178,14 +197,19 @@ class IClassifier(ABC):
 
     @abstractmethod
     def predict_proba(self, data: pd.DataFrame) -> pd.Series:
-        """Predict class probabilities."""
+        """
+        Predict class probabilities.
+        """
 
     @abstractmethod
     def predict(self, data: pd.DataFrame) -> pd.Series:
-        """Predict class labels."""
+        """
+        Predict class labels.
+        """
 
     def save(self, path: str | Path) -> None:
-        """Persist the fitted classifier to a directory at ``path``.
+        """
+        Persist the fitted classifier to a directory at ``path``.
 
         The base implementation raises ``NotImplementedError``; concrete
         classifiers must override.
@@ -198,7 +222,9 @@ class IClassifier(ABC):
 
     @classmethod
     def load(cls, path: str | Path) -> Self:
-        """Reconstruct a fitted classifier from a directory at ``path``."""
+        """
+        Reconstruct a fitted classifier from a directory at ``path``.
+        """
 
         raise NotImplementedError(
             f"{cls.__name__}.load() not implemented; fix by overriding load() "
@@ -213,7 +239,9 @@ class IClassifier(ABC):
         checkpoint_path: Path | None = None,
         **kwargs: object,
     ) -> pd.Series:
-        """Convenience: fit + predict on training data."""
+        """
+        Convenience: fit + predict on training data.
+        """
 
         self.fit(train_data, target, checkpoint_path=checkpoint_path, **kwargs)
         return self.predict(train_data)
@@ -222,12 +250,16 @@ class IClassifier(ABC):
 
     @property
     def training_metadata(self) -> TrainingMetadata | None:
-        """Training period metadata, populated after fit()."""
+        """
+        Training period metadata, populated after fit().
+        """
 
         return getattr(self, "_training_metadata", None)
 
     def _assert_fitted_with_metadata(self, *, caller: str | None = None) -> TrainingMetadata:
-        """Mirror of :meth:`IPredictor._assert_fitted_with_metadata` for classifiers."""
+        """
+        Mirror of :meth:`IPredictor._assert_fitted_with_metadata` for classifiers.
+        """
 
         meta = self.training_metadata
         if meta is None:
@@ -239,7 +271,9 @@ class IClassifier(ABC):
         return meta
 
     def _set_fitted_with_metadata(self, metadata: TrainingMetadata) -> None:
-        """Mirror of :meth:`IPredictor._set_fitted_with_metadata` for classifiers."""
+        """
+        Mirror of :meth:`IPredictor._set_fitted_with_metadata` for classifiers.
+        """
 
         if metadata is None:
             raise ValueError(
@@ -250,6 +284,8 @@ class IClassifier(ABC):
         self._training_metadata = metadata
 
     def get_all_training_metadata(self) -> tuple[TrackedMetadata, ...]:
-        """Every metadata object this classifier and its owned leaves expose."""
+        """
+        Every metadata object this classifier and its owned leaves expose.
+        """
 
         return collect_metadata((type(self).__name__, self.training_metadata))

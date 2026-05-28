@@ -1,4 +1,5 @@
-"""Trial-parameter composition for :func:`sample_trial_params`.
+"""
+Trial-parameter composition for :func:`sample_trial_params`.
 
 Each strategy already owns its ``suggest_params`` — the sampler delegates
 to the registered ``strategy_cls`` and returns a fresh dict per call.
@@ -24,7 +25,9 @@ _FEATURE_COLUMNS = ["return_5d", "rsi_14", "vol_20"]
 
 
 def _fresh_trial() -> optuna.Trial:
-    """One-shot Optuna Trial that accepts arbitrary ``suggest_*`` calls."""
+    """
+    One-shot Optuna Trial that accepts arbitrary ``suggest_*`` calls.
+    """
 
     study = optuna.create_study(direction="maximize")
     return study.ask()

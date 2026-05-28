@@ -1,4 +1,6 @@
-"""Tests for HybridReturnModel (ARMA + LSTM residual)."""
+"""
+Tests for HybridReturnModel (ARMA + LSTM residual).
+"""
 
 from __future__ import annotations
 
@@ -48,7 +50,9 @@ def hybrid_train_df(synthetic_feature_columns: list[str]) -> pd.DataFrame:
 
 @pytest.fixture
 def log_return_target(hybrid_train_df: pd.DataFrame) -> pd.Series:
-    """Log returns target — leading NaN dropped internally by HybridReturnModel."""
+    """
+    Log returns target — leading NaN dropped internally by HybridReturnModel.
+    """
 
     return compute_log_returns(hybrid_train_df["close"])
 
@@ -106,7 +110,8 @@ class TestHybridReturnModel:
         log_return_target: pd.Series,
         synthetic_feature_columns: list[str],
     ) -> None:
-        """Leading NaN feature rows (real-world: rsi_14 / return_21d warmup
+        """
+        Leading NaN feature rows (real-world: rsi_14 / return_21d warmup
         on a short-warmup target like log returns) must be dropped before the
         scaler + LSTM see them. Otherwise sklearn's StandardScaler propagates
         NaN through ``transform`` and the LSTM's first forward pass produces

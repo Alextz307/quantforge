@@ -1,4 +1,6 @@
-"""Tests for HybridVolatilityModel (GARCH + LSTM residual)."""
+"""
+Tests for HybridVolatilityModel (GARCH + LSTM residual).
+"""
 
 from __future__ import annotations
 
@@ -41,7 +43,9 @@ RESIDUAL_DIVERGENCE_ATOL = 1e-12
 
 @pytest.fixture
 def hybrid_train_df(synthetic_feature_columns: list[str]) -> pd.DataFrame:
-    """Close + two synthetic feature columns."""
+    """
+    Close + two synthetic feature columns.
+    """
 
     df = make_synthetic_close_df(n_rows=SYNTH_ROW_COUNT)
     rng = np.random.default_rng(FEATURE_RNG_SEED)
@@ -52,7 +56,8 @@ def hybrid_train_df(synthetic_feature_columns: list[str]) -> pd.DataFrame:
 
 @pytest.fixture
 def realized_vol_target(hybrid_train_df: pd.DataFrame) -> pd.Series:
-    """Synthetic annualized realized vol — rolling std of log returns x sqrt(annualization).
+    """
+    Synthetic annualized realized vol — rolling std of log returns x sqrt(annualization).
 
     Leading NaN from the rolling window is preserved; the hybrid drops them
     via ``residuals.dropna()`` during fit.
@@ -117,7 +122,8 @@ class TestHybridVolatilityModel:
         realized_vol_target: pd.Series,
         synthetic_feature_columns: list[str],
     ) -> None:
-        """Symmetric with the HybridReturn test: defensive guard against
+        """
+        Symmetric with the HybridReturn test: defensive guard against
         NaN warmup feature rows reaching the scaler + LSTM. The vol target's
         20-bar warmup usually absorbs feature warmup in practice, but a future
         config with longer-warmup features (or shorter-warmup target) would
@@ -173,7 +179,8 @@ class TestHybridVolatilityModel:
         realized_vol_target: pd.Series,
         synthetic_feature_columns: list[str],
     ) -> None:
-        """min_vol set far above any plausible volatility forecast forces
+        """
+        min_vol set far above any plausible volatility forecast forces
         every bar to clip; the tracked fraction should saturate at 1.0."""
 
         from src.models.hybrid_volatility import HybridVolatilityModel

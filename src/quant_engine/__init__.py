@@ -1,4 +1,6 @@
-"""Python wrapper around the compiled ``quant_engine`` C++ extension."""
+"""
+Python wrapper around the compiled ``quant_engine`` C++ extension.
+"""
 
 from __future__ import annotations
 

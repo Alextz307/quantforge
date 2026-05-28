@@ -1,4 +1,5 @@
-"""Tidy up the experiment-results store before a fresh study run.
+"""
+Tidy up the experiment-results store before a fresh study run.
 
 The CLI command ``experiment clean`` wraps :func:`plan_clean` (dry-run)
 and :func:`apply_clean` (wipe) so the destructive step is explicit and
@@ -48,7 +49,8 @@ _ALWAYS_PRESERVE: frozenset[str] = frozenset({"thesis_demo"})
 
 @dataclass(frozen=True)
 class CleanCandidate:
-    """One directory the cleaner would (or would not) delete.
+    """
+    One directory the cleaner would (or would not) delete.
 
     ``size_bytes`` is the recursive on-disk size — used to print a tally
     in the dry-run output so the user can spot oversized leftover study
@@ -67,7 +69,9 @@ class CleanCandidate:
 
 @dataclass(frozen=True)
 class CleanPlan:
-    """Outcome of :func:`plan_clean` — every candidate plus the kept set."""
+    """
+    Outcome of :func:`plan_clean` — every candidate plus the kept set.
+    """
 
     store_root: Path
     candidates: tuple[CleanCandidate, ...]
@@ -85,7 +89,8 @@ class CleanPlan:
 def plan_clean(
     store_root: Path, *, keep: Iterable[str] = (), repo_root: Path | None = None
 ) -> CleanPlan:
-    """Walk ``store_root`` and classify every immediate-child directory.
+    """
+    Walk ``store_root`` and classify every immediate-child directory.
 
     ``keep`` is appended to the unconditional preserve set. ``repo_root``
     is the directory used as the cwd for ``git ls-files``; defaults to
@@ -125,7 +130,8 @@ def plan_clean(
 
 
 def apply_clean(plan: CleanPlan) -> tuple[Path, ...]:
-    """Wipe the contents of every safe candidate in ``plan`` and return the wiped paths.
+    """
+    Wipe the contents of every safe candidate in ``plan`` and return the wiped paths.
 
     The candidate directories themselves are kept as empty placeholders
     so the canonical store layout (``runs/``, ``hpo/``, ``studies/``, ...)
@@ -154,7 +160,9 @@ def apply_clean(plan: CleanPlan) -> tuple[Path, ...]:
 
 
 def _empty_directory(directory: Path) -> None:
-    """Remove every entry inside ``directory`` while keeping ``directory`` itself."""
+    """
+    Remove every entry inside ``directory`` while keeping ``directory`` itself.
+    """
 
     for entry in directory.iterdir():
         if entry.is_dir() and not entry.is_symlink():
@@ -164,7 +172,9 @@ def _empty_directory(directory: Path) -> None:
 
 
 def format_plan(plan: CleanPlan) -> str:
-    """Human-readable rendering of a :class:`CleanPlan` for the dry-run output."""
+    """
+    Human-readable rendering of a :class:`CleanPlan` for the dry-run output.
+    """
 
     if not plan.candidates:
         return (
@@ -195,7 +205,8 @@ def format_plan(plan: CleanPlan) -> str:
 
 
 def _git_tracked_by_child(store_root: Path, *, git_root: Path) -> dict[str, tuple[Path, ...]]:
-    """Map every immediate-child directory name to its git-tracked files.
+    """
+    Map every immediate-child directory name to its git-tracked files.
 
     Returns an empty dict when ``git_root`` isn't a git repository or
     ``store_root`` lives outside it — both cases mean "safe to delete".
@@ -233,7 +244,8 @@ def _git_tracked_by_child(store_root: Path, *, git_root: Path) -> dict[str, tupl
 
 
 def _dir_size_bytes(directory: Path) -> int:
-    """Recursive sum of file sizes under ``directory`` (best-effort).
+    """
+    Recursive sum of file sizes under ``directory`` (best-effort).
 
     Symlinks aren't followed (``rglob`` already obeys this); broken
     symlinks and permission errors are skipped silently — a wrong size

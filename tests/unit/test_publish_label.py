@@ -1,4 +1,5 @@
-"""Tests for the ``--publish-label`` flow.
+"""
+Tests for the ``--publish-label`` flow.
 
 Two surfaces:
 1. :func:`src.visualization.latex.validate_publish_label` — the regex
@@ -160,7 +161,8 @@ class TestComparisonReporterPublishLabel:
 
 class TestHoldoutPublishLabel:
     def test_invalid_slug_raises_through_reporter(self, tmp_path: Path) -> None:
-        """Invalid slugs raise from the validator, regardless of which
+        """
+        Invalid slugs raise from the validator, regardless of which
         reporter receives the value — covers the shared codepath without
         materialising heavy fixtures for every reporter."""
 

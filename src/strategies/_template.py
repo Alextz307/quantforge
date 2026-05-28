@@ -1,4 +1,5 @@
-"""Skeleton single-asset strategy. Copy this file (drop the underscore) and fill in the stubs.
+"""
+Skeleton single-asset strategy. Copy this file (drop the underscore) and fill in the stubs.
 
 The leading underscore in the filename is intentional:
 ``src.core.registry.autoload_package`` skips ``_``-prefixed modules so this
@@ -48,7 +49,8 @@ if TYPE_CHECKING:
 #
 #     @strategy_registry.register("MyStrategyName")
 class _TemplateStrategy(IStrategy):
-    """Replace this docstring with one paragraph: WHAT signal this strategy emits and WHY.
+    """
+    Replace this docstring with one paragraph: WHAT signal this strategy emits and WHY.
 
     State the asset shape (single-asset / pairs / multi-feature), the
     methodology lineage if any (paper or textbook reference), and the position
@@ -88,7 +90,9 @@ class _TemplateStrategy(IStrategy):
         checkpoint_path: Path | None = None,  # noqa: ARG002 — accept for NN-style leaves; ignore here
         **kwargs: object,
     ) -> None:
-        """Fit any per-strategy state on ``train_data``. Called once before backtesting."""
+        """
+        Fit any per-strategy state on ``train_data``. Called once before backtesting.
+        """
 
         # Fill in this method by following the two numbered steps below, then
         # delete the trailing ``raise NotImplementedError`` that marks the stub.
@@ -115,7 +119,9 @@ class _TemplateStrategy(IStrategy):
         )
 
     def generate_signals(self, data: pd.DataFrame) -> pd.Series:
-        """Return position signals at time t (the engine shifts to t+1 — do NOT shift here)."""
+        """
+        Return position signals at time t (the engine shifts to t+1 — do NOT shift here).
+        """
 
         # Read-side guard: raises a descriptive RuntimeError if train() was
         # not called. Returns the metadata narrowed to non-None for use
@@ -148,7 +154,8 @@ class _TemplateStrategy(IStrategy):
 
     @staticmethod
     def suggest_params(trial: optuna.trial.BaseTrial) -> dict[str, object]:
-        """Declare this strategy's Optuna search space.
+        """
+        Declare this strategy's Optuna search space.
 
         The returned dict's KEYS must exactly match this strategy's __init__
         kwarg names — ``StrategyTuner`` merges this dict into the ctor.

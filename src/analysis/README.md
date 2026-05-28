@@ -14,6 +14,8 @@ pairwise / forecaster significance tests.
 | `paired_bootstrap_sharpe_differential(returns_a, returns_b, ...)` | Stationary bootstrap on aligned bar-level returns; returns a 95% CI on the Sharpe differential. |
 | `bootstrap_sharpe_ci(returns, ...)` | 95% CI on a single strategy's Sharpe via stationary bootstrap. |
 | `diebold_mariano_test(forecasts_a, forecasts_b, realised, *, loss=...)` | DM test on aligned forecaster outputs (with Harvey-Leybourne-Newbold small-sample correction). |
+| `deflated_sharpe_ratio(trial_sharpes, *, sample_length)` → `DeflatedSharpe` | Bailey-López de Prado 2014 multiple-testing-adjusted significance for an HPO study's best Sharpe. Inputs come from the Optuna `study.db`. |
+| `compute_buy_and_hold(bars, *, slippage, interval, ...)` → `BaselineResult` | Long-only "do nothing" baseline on canonical OHLCV; runs through the same `IBacktestEngine` + slippage scenario as the strategy. |
 | `percentile_ci(samples, confidence)` | Symmetric percentile bounds; reused by aggregator and bootstrap helpers. |
 
 ## Layout
@@ -22,7 +24,8 @@ pairwise / forecaster significance tests.
 | --- | --- |
 | `metrics_aggregator.py` | `AggregateStats`, `aggregate_folds`, `_mean_std_ci` (IID percentile bootstrap over fold means). |
 | `ranking.py` | `RankingMetric` (StrEnum) + `rank_strategies` (stable mergesort tie-break). |
-| `significance.py` | Stationary bootstrap (Politis-Romano), Diebold-Mariano (HLN-corrected), `DMLoss`, `DMDirection`. |
+| `significance.py` | Stationary bootstrap (Politis-Romano), Diebold-Mariano (HLN-corrected), deflated Sharpe (Bailey-López de Prado), `DMLoss`, `DMDirection`, `DeflatedSharpe`. |
+| `baselines.py` | `BaselineResult` + `compute_buy_and_hold` — per-universe long-only reference. |
 
 ## Aggregation choices worth knowing
 

@@ -1,4 +1,6 @@
-"""Tests for DirectionalClassifier (XGBoost)."""
+"""
+Tests for DirectionalClassifier (XGBoost).
+"""
 
 from __future__ import annotations
 
@@ -30,7 +32,9 @@ EARLY_STOP_ROUNDS = 5
 
 @pytest.fixture
 def xgb_data() -> tuple[pd.DataFrame, pd.Series]:
-    """Feature DataFrame and binary target for XGBoost testing."""
+    """
+    Feature DataFrame and binary target for XGBoost testing.
+    """
 
     np.random.seed(SYNTH_FIXTURE_SEED)
     idx = pd.bdate_range(start=SYNTH_START_DATE, periods=SYNTH_ROW_COUNT, freq="B")
@@ -56,7 +60,9 @@ def xgb_data() -> tuple[pd.DataFrame, pd.Series]:
 
 @pytest.fixture
 def xgb_features() -> list[str]:
-    """Feature column list matching xgb_data."""
+    """
+    Feature column list matching xgb_data.
+    """
 
     return ["return_1d", "return_5d", "vol_20", "rsi_14"]
 
@@ -168,7 +174,9 @@ class TestDirectionalClassifier:
     def test_explicit_cpu_device_trains_and_predicts(
         self, xgb_data: tuple[pd.DataFrame, pd.Series], xgb_features: list[str]
     ) -> None:
-        """End-to-end fit → predict with device='cpu' pinned (portable on CI)."""
+        """
+        End-to-end fit → predict with device='cpu' pinned (portable on CI).
+        """
 
         features, target = xgb_data
         c = DirectionalClassifier(
@@ -184,7 +192,9 @@ class TestDirectionalClassifier:
             DirectionalClassifier(xgb_features, device=Device.MPS)
 
     def test_feature_columns_honored(self, xgb_data: tuple[pd.DataFrame, pd.Series]) -> None:
-        """Explicit feature_columns restricts which columns XGBoost trains on."""
+        """
+        Explicit feature_columns restricts which columns XGBoost trains on.
+        """
 
         features, target = xgb_data
         subset = ["return_1d", "vol_20"]

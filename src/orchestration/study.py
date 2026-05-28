@@ -1,4 +1,5 @@
-"""Empirical-study orchestrator: drive (strategy x universe) sweeps end-to-end.
+"""
+Empirical-study orchestrator: drive (strategy x universe) sweeps end-to-end.
 
 For each (strategy, universe) leg in a :class:`StudySpec`, compose the
 experiment config (deep-merge universe profile onto strategy YAML), run
@@ -29,6 +30,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import cast
 
+import pandas as pd
 import yaml
 
 from src.core.config import (
@@ -38,16 +40,19 @@ from src.core.config import (
     load_study_spec,
     load_universe_profile,
 )
+from src.core.fs import atomic_write_path
 from src.core.hpo_config import HPOConfig
 from src.core.logging import get_logger
 from src.core.persistence import (
     COMPARISONS_SUBDIR,
     HPO_SUBDIR,
 )
+from src.core.temporal import resolve_holdout_boundary
 from src.optimization.checkpointing import BEST_CONFIG_YAML_NAME
+from src.optimization.dsr import compute_and_write_dsr
 from src.orchestration.builder import build_experiment
 from src.orchestration.comparison import SignificanceTest, run_comparison
-from src.orchestration.experiment import RunOptions
+from src.orchestration.experiment import RunOptions, fetch_bars
 from src.orchestration.holdout_eval import resolve_source, run_holdout_eval
 from src.orchestration.run_loader import (
     load_experiment_result,
@@ -76,7 +81,8 @@ SPEC_SNAPSHOT_FILENAME = "spec.yaml"
 
 @dataclass(frozen=True)
 class StudyLegRun:
-    """One (strategy, universe) pair expanded from a :class:`StudySpec`.
+    """
+    One (strategy, universe) pair expanded from a :class:`StudySpec`.
 
     The composed :class:`ExperimentConfig` is built lazily by
     :func:`compose_leg_config` rather than stored here so leg-state
@@ -93,7 +99,9 @@ class StudyLegRun:
 
 @dataclass(frozen=True)
 class StudyRunResult:
-    """End-of-sweep summary returned by :func:`run_study`."""
+    """
+    End-of-sweep summary returned by :func:`run_study`.
+    """
 
     study_dir: Path
     state: StudyState
@@ -104,13 +112,16 @@ class StudyRunResult:
 
 
 def make_leg_id(strategy: str, universe: str) -> str:
-    """Canonical leg identifier — also the directory-name suffix on artifacts."""
+    """
+    Canonical leg identifier — also the directory-name suffix on artifacts.
+    """
 
     return f"{strategy}__{universe}"
 
 
 def expand_spec_into_legs(spec: StudySpec, *, repo_root: Path) -> list[StudyLegRun]:
-    """Cross-product the spec into per-(strategy x universe) legs.
+    """
+    Cross-product the spec into per-(strategy x universe) legs.
 
     Universe profile paths are resolved as
     ``repo_root / "config/universes" / f"{name}.yaml"`` so spec YAMLs
@@ -139,7 +150,8 @@ def expand_spec_into_legs(spec: StudySpec, *, repo_root: Path) -> list[StudyLegR
 
 
 def compose_leg_config(leg: StudyLegRun) -> ExperimentConfig:
-    """Deep-merge universe profile onto strategy YAML.
+    """
+    Deep-merge universe profile onto strategy YAML.
 
     The strategy YAML provides ``strategy``, ``features``, ``slippage``,
     ``risk_free_rate`` and any base ``validation`` defaults. The universe
@@ -166,8 +178,35 @@ def compose_leg_config(leg: StudyLegRun) -> ExperimentConfig:
     return ExperimentConfig.model_validate(base)
 
 
+def _resolve_dev_bar_count(cfg: ExperimentConfig) -> int:
+    """
+    Return the dev region bar count for ``cfg`` (cached-bars cost).
+
+    Computes ``len(bars_full.loc[bars_full.index < boundary])`` from one
+    ``fetch_bars`` call. The upcoming run step calls ``fetch_bars`` again
+    on the same config — yfinance caching keeps this a disk read, not a
+    network round-trip.
+    """
+
+    experiment = build_experiment(cfg)
+    bars_full = fetch_bars(experiment.data_source, cfg, experiment.strategy)
+    boundary = resolve_holdout_boundary(
+        bars_full,
+        holdout_pct=cfg.validation.holdout_pct,
+        holdout_start=(
+            pd.Timestamp(cfg.validation.holdout_start)
+            if cfg.validation.holdout_start is not None
+            else None
+        ),
+    )
+    if boundary is None:
+        return len(bars_full)
+    return int((bars_full.index < boundary).sum())
+
+
 def compose_hpo_config(leg: StudyLegRun) -> HPOConfig:
-    """Load the HPO YAML and override ``study_name`` to the leg id.
+    """
+    Load the HPO YAML and override ``study_name`` to the leg id.
 
     Without this rewrite, every universe sharing one HPO YAML (e.g. all
     12 AdaptiveBollinger universes) would write into the same Optuna
@@ -186,7 +225,8 @@ def run_leg(
     skip_holdout_eval: bool,
     prior_state: LegState,
 ) -> LegState:
-    """Execute one leg's tune -> run -> holdout pipeline.
+    """
+    Execute one leg's tune -> run -> holdout pipeline.
 
     Returns the updated :class:`LegState`. Steps already in
     ``prior_state.steps_completed`` are skipped (mid-leg resume). Any
@@ -219,6 +259,11 @@ def run_leg(
             )
             study = tuner.run(progress=False)
             HPOReporter().generate_full_report(study, tuner.study_dir)
+            try:
+                n_dev_bars = _resolve_dev_bar_count(cfg)
+                compute_and_write_dsr(study, tuner.study_dir, n_dev_bars=n_dev_bars)
+            except (ValueError, FileNotFoundError) as exc:
+                _logger.warning("leg %s: DSR computation failed (%s)", leg.leg_id, exc)
             state = state.with_step_completed(LEG_STEP_TUNE)
             _logger.info("leg %s: tune done", leg.leg_id)
 
@@ -279,7 +324,8 @@ def run_leg(
 
 
 def resolve_study_dir(spec: StudySpec, store_root: Path) -> Path:
-    """Compose the study's output directory.
+    """
+    Compose the study's output directory.
 
     ``spec.output_dir`` is relative-to-store-root (e.g. ``studies/main``)
     unless it's already absolute. Centralising the rule here keeps the
@@ -299,7 +345,8 @@ def run_study(
     skip_holdout_eval: bool = False,
     repo_root: Path | None = None,
 ) -> StudyRunResult:
-    """Top-level: expand legs, run each, then per-universe cross-strategy compares.
+    """
+    Top-level: expand legs, run each, then per-universe cross-strategy compares.
 
     Resume rule: a leg with ``is_complete=True`` in the loaded
     ``study_state.json`` is skipped unless ``force_rerun=True``. The
@@ -338,9 +385,8 @@ def run_study(
             legs=tuple(LegState.initial(leg.leg_id, leg.strategy, leg.universe) for leg in legs),
             cross_strategy_compares_done=(),
         )
-        (study_dir / SPEC_SNAPSHOT_FILENAME).write_text(
-            spec_path.read_text(encoding="utf-8"), encoding="utf-8"
-        )
+        with atomic_write_path(study_dir / SPEC_SNAPSHOT_FILENAME) as tmp:
+            tmp.write_text(spec_path.read_text(encoding="utf-8"), encoding="utf-8")
         write_study_state(state_path, state)
 
     only = set(only_legs) if only_legs else None
@@ -407,7 +453,8 @@ def _run_per_universe_compares(
     study_dir: Path,
     force_rerun: bool,
 ) -> tuple[StudyState, int]:
-    """Group completed runs by universe; run cross-strategy compare per universe.
+    """
+    Group completed runs by universe; run cross-strategy compare per universe.
 
     Universes covered by a single strategy (e.g. ivv_voo_daily_5y, the
     only pairs universe) are silently skipped — pairwise ranking against

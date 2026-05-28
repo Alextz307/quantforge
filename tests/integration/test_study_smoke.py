@@ -1,4 +1,5 @@
-"""End-to-end smoke test for the study orchestrator (``experiment study run``).
+"""
+End-to-end smoke test for the study orchestrator (``experiment study run``).
 
 Drives the full CLI stack against a tiny synthetic CSV fixture: writes
 two CSV-backed universe profiles + a 1-strategy x 2-universe study spec,
@@ -50,7 +51,9 @@ _HOLDOUT_PCT = 0.20
 def _write_universe(
     path: Path, ticker: str, csv_dir: Path, holdout_pct: float = _HOLDOUT_PCT
 ) -> None:
-    """Render a universe profile YAML pointing at a CSV fixture."""
+    """
+    Render a universe profile YAML pointing at a CSV fixture.
+    """
 
     payload: dict[str, object] = {
         "data": {
@@ -71,7 +74,8 @@ def _write_universe(
 
 
 def _write_strategy(path: Path) -> None:
-    """Render a tiny AdaptiveBollinger strategy YAML (no data block).
+    """
+    Render a tiny AdaptiveBollinger strategy YAML (no data block).
 
     The orchestrator's ``compose_leg_config`` overlays the universe's
     ``data`` + ``validation`` blocks, so the strategy YAML only needs
@@ -110,7 +114,9 @@ def _write_strategy(path: Path) -> None:
 
 
 def _write_hpo(path: Path) -> None:
-    """Tiny HPO config — n_trials=2 to keep the smoke under a minute."""
+    """
+    Tiny HPO config — n_trials=2 to keep the smoke under a minute.
+    """
 
     payload: dict[str, object] = {
         "study_name": "_placeholder_will_be_overridden",
@@ -125,7 +131,9 @@ def _write_hpo(path: Path) -> None:
 
 
 def _write_csv(csv_dir: Path, ticker: str, *, seed_offset: int) -> None:
-    """Synthesise a 300-bar OHLCV CSV under ``csv_dir/<ticker>.csv``."""
+    """
+    Synthesise a 300-bar OHLCV CSV under ``csv_dir/<ticker>.csv``.
+    """
 
     df = make_synthetic_ohlcv_df(n_rows=_N_BARS, start="2020-01-02", seed=42 + seed_offset)
     df.index.name = "date"
@@ -133,7 +141,8 @@ def _write_csv(csv_dir: Path, ticker: str, *, seed_offset: int) -> None:
 
 
 def _build_smoke_workspace(tmp_path: Path) -> tuple[Path, Path]:
-    """Materialise CSVs + universe / strategy / hpo / spec YAMLs.
+    """
+    Materialise CSVs + universe / strategy / hpo / spec YAMLs.
 
     Layout (tests chdir to ``tmp_path`` so ``config/universes/`` resolves
     against the orchestrator's ``<repo_root>/config/universes/<name>.yaml``
@@ -194,7 +203,9 @@ def _build_smoke_workspace(tmp_path: Path) -> tuple[Path, Path]:
 def test_study_run_produces_complete_leg_state(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Happy path: 2 legs run, both complete, state file round-trips."""
+    """
+    Happy path: 2 legs run, both complete, state file round-trips.
+    """
 
     spec_path, store = _build_smoke_workspace(tmp_path)
     monkeypatch.chdir(tmp_path)
@@ -236,7 +247,9 @@ def test_study_run_produces_complete_leg_state(
 def test_study_run_resume_skips_complete_legs(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Second invocation against the same store skips legs flagged complete."""
+    """
+    Second invocation against the same store skips legs flagged complete.
+    """
 
     spec_path, store = _build_smoke_workspace(tmp_path)
     monkeypatch.chdir(tmp_path)
@@ -261,7 +274,9 @@ def test_study_run_resume_skips_complete_legs(
 def test_study_report_consolidates_completed_run(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """After a happy-path study run, ``study report`` produces the consolidated tree."""
+    """
+    After a happy-path study run, ``study report`` produces the consolidated tree.
+    """
 
     spec_path, store = _build_smoke_workspace(tmp_path)
     monkeypatch.chdir(tmp_path)

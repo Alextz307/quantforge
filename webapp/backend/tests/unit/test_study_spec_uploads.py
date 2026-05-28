@@ -1,4 +1,5 @@
-"""Unit tests for the study-spec uploads service.
+"""
+Unit tests for the study-spec uploads service.
 
 Covers: YAML-text validation (parse, schema, referenced-file existence),
 create / update / soft-delete round trips, the tombstone-collision
@@ -35,7 +36,9 @@ def _user(db_conn: sqlite3.Connection, username: str) -> UserPublic:
 
 
 def _seed_library_files(config_root: Path) -> None:
-    """Plant the strategy/hpo/universe files a valid 1-leg spec references."""
+    """
+    Plant the strategy/hpo/universe files a valid 1-leg spec references.
+    """
 
     (config_root / "strategies").mkdir(parents=True)
     (config_root / "hpo").mkdir()
@@ -60,7 +63,9 @@ legs:
 
 
 def _valid_yaml(config_root: Path) -> str:
-    """Render the canonical 1-leg spec with absolute leg paths under ``config_root``."""
+    """
+    Render the canonical 1-leg spec with absolute leg paths under ``config_root``.
+    """
 
     return VALID_YAML.replace(
         "STRAT_PATH", str(config_root / "strategies" / "adaptive_bollinger.yaml")
@@ -292,7 +297,8 @@ def test_soft_delete_removes_file_and_hides_row(
 def test_save_after_soft_delete_reactivates_row(
     db_conn: sqlite3.Connection, tmp_path: Path
 ) -> None:
-    """Tombstone-collision regression — see [[soft-delete-schema-pattern]].
+    """
+    Tombstone-collision regression — see [[soft-delete-schema-pattern]].
 
     A previously-soft-deleted (user_id, slug) row must be re-savable. The
     partial unique index plus the UPDATE-on-existing branch in save_upload

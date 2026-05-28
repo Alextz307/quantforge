@@ -1,4 +1,6 @@
-"""Tests for :class:`ExperimentConfig` and :func:`load_experiment_config`."""
+"""
+Tests for :class:`ExperimentConfig` and :func:`load_experiment_config`.
+"""
 
 from __future__ import annotations
 
@@ -33,7 +35,9 @@ _RISK_FREE = 0.01
 
 
 def _minimal_config_dict() -> dict[str, Any]:
-    """Smallest valid config dict — every required field set, defaults elsewhere."""
+    """
+    Smallest valid config dict — every required field set, defaults elsewhere.
+    """
 
     return {
         "name": "test_run",
@@ -166,7 +170,9 @@ class TestLoadExperimentConfig:
 
 
 class TestReferenceConfigLoads:
-    """The committed reference ``config/example.yaml`` must validate."""
+    """
+    The committed reference ``config/example.yaml`` must validate.
+    """
 
     def test_example_yaml_validates(self) -> None:
         cfg = load_experiment_config(REPO_ROOT / "config/example.yaml")
@@ -194,7 +200,9 @@ _HOLDOUT_START_ISO = "2023-01-03T00:00:00"
 
 
 class TestValidationConfigHoldout:
-    """Holdout contract (ValidationConfig docstring, tripwire #1)."""
+    """
+    Holdout contract (ValidationConfig docstring, tripwire #1).
+    """
 
     def test_holdout_fields_default_to_unset(self) -> None:
         cfg = ExperimentConfig.model_validate(_minimal_config_dict())
@@ -228,7 +236,9 @@ class TestValidationConfigHoldout:
         assert cfg.validation.holdout_pct == 0.0
 
     def test_both_holdout_fields_raises_exclusivity(self) -> None:
-        """Tripwire #1: config-level exclusivity between pct and start."""
+        """
+        Tripwire #1: config-level exclusivity between pct and start.
+        """
 
         d = _minimal_config_dict()
         d["validation"]["holdout_pct"] = _HOLDOUT_PCT

@@ -1,4 +1,6 @@
-"""Tests for :func:`fingerprint_bars` — deterministic OHLCV content hash."""
+"""
+Tests for :func:`fingerprint_bars` — deterministic OHLCV content hash.
+"""
 
 from __future__ import annotations
 
@@ -52,7 +54,8 @@ class TestFingerprintColumnSetGuard:
             fingerprint_bars(df)
 
     def test_extra_column_does_not_affect_ohlcv_bytes_but_changes_column_set(self) -> None:
-        """Adding a non-OHLCV column changes the hash (column set enters
+        """
+        Adding a non-OHLCV column changes the hash (column set enters
         the digest) but doesn't leak bytes through the OHLCV sub-hash."""
 
         a = make_synthetic_ohlcv_df()

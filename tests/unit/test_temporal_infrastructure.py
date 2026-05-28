@@ -1,4 +1,6 @@
-"""Tests for TemporalTripleSplit and TrainingMetadata."""
+"""
+Tests for TemporalTripleSplit and TrainingMetadata.
+"""
 
 from __future__ import annotations
 
@@ -195,7 +197,9 @@ class TestTrainingMetadata:
         sample_metadata.validate_no_overlap(future)
 
     def test_validate_no_overlap_boundary(self, sample_metadata: TrainingMetadata) -> None:
-        """Eval data starting exactly at train_end should be rejected."""
+        """
+        Eval data starting exactly at train_end should be rejected.
+        """
 
         boundary = make_daily_df(META_BOUNDARY_DF_ROWS, start=META_BOUNDARY_START)
         with pytest.raises(LeakageError):
@@ -229,7 +233,9 @@ class TestTrainingMetadata:
         assert isinstance(d["feature_columns"], list)
 
     def test_training_metadata_none_before_fit(self) -> None:
-        """IPredictor.training_metadata returns None before fit()."""
+        """
+        IPredictor.training_metadata returns None before fit().
+        """
 
         from src.models.interface import IPredictor
 

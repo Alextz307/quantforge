@@ -1,4 +1,5 @@
-"""End-to-end HTTP behaviour of the jobs router.
+"""
+End-to-end HTTP behaviour of the jobs router.
 
 Real subprocess spawning is exercised: each test submits a payload that
 bypasses the actual ``experiment run`` command via a monkeypatched
@@ -43,7 +44,9 @@ POLL_INTERVAL_S = 0.05
 def _quick_command_factory(
     lines: list[str],
 ) -> Callable[..., tuple[str, ...]]:
-    """Build a ``build_run_command`` replacement that prints + exits cleanly."""
+    """
+    Build a ``build_run_command`` replacement that prints + exits cleanly.
+    """
 
     body = "; ".join(f"print({line!r})" for line in lines)
 
@@ -224,7 +227,9 @@ def test_unauthenticated_post_redirects_to_401(
 
 
 def test_post_invalid_config_payload_returns_422(authed_jobs_client: TestClient) -> None:
-    """D3: validate-on-submit short-circuits before persisting any state."""
+    """
+    D3: validate-on-submit short-circuits before persisting any state.
+    """
 
     bad_payload = make_valid_experiment_payload()
     del bad_payload["data"]
@@ -242,7 +247,9 @@ def test_get_log_for_unstarted_log_returns_empty(
     authed_jobs_client: TestClient,
     db_conn: sqlite3.Connection,
 ) -> None:
-    """Cover the FileResponse short-circuit when the log file doesn't exist."""
+    """
+    Cover the FileResponse short-circuit when the log file doesn't exist.
+    """
 
     from webapp.backend.app.infrastructure.job_store import NewJob, insert_job
     from webapp.backend.app.schemas.jobs import JobKind
@@ -266,7 +273,8 @@ def test_get_log_for_unstarted_log_returns_empty(
 def test_post_tune_job_writes_dual_yamls_and_stamps_study_name(
     authed_jobs_client: TestClient, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    """End-to-end: POST kind=tune triggers build_tune_command (monkeypatched),
+    """
+    End-to-end: POST kind=tune triggers build_tune_command (monkeypatched),
     persists experiment_id=study_name, and the spawned subprocess flows through
     the same ProcessManager log/status pipeline."""
 
@@ -287,7 +295,8 @@ def test_post_tune_job_writes_dual_yamls_and_stamps_study_name(
 
 
 def test_post_tune_rejects_missing_hpo_payload(authed_jobs_client: TestClient) -> None:
-    """The JobSubmission validator rejects kind=tune without an hpo_payload at
+    """
+    The JobSubmission validator rejects kind=tune without an hpo_payload at
     the 422 wire layer (matches pydantic's missing-field semantics)."""
 
     resp = authed_jobs_client.post(
@@ -300,7 +309,8 @@ def test_post_tune_rejects_missing_hpo_payload(authed_jobs_client: TestClient) -
 def test_post_tune_rejects_invalid_hpo_payload(
     authed_jobs_client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """An ``hpo_payload`` that fails HPOConfig validation surfaces as a
+    """
+    An ``hpo_payload`` that fails HPOConfig validation surfaces as a
     422 with ``loc`` paths prefixed by ``hpo_payload``."""
 
     monkeypatch.setattr(
@@ -322,7 +332,9 @@ _COMPARE_RUN_B = "20260201_090000_AdaptiveBollinger_def5678_cafebabe"
 
 
 def _seed_compare_runs(monkeypatch: pytest.MonkeyPatch, run_ids: tuple[str, ...]) -> Path:
-    """Provision a per-test store-root + synthetic runs at ``run_ids``."""
+    """
+    Provision a per-test store-root + synthetic runs at ``run_ids``.
+    """
 
     from webapp.backend.app.core.settings import get_settings
 

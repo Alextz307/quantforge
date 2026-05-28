@@ -1,4 +1,6 @@
-"""Login rate-limiter wired into the FastAPI app via slowapi."""
+"""
+Login rate-limiter wired into the FastAPI app via slowapi.
+"""
 
 from __future__ import annotations
 

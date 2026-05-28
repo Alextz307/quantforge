@@ -1,4 +1,5 @@
-"""Drift guard for ``webapp/frontend/openapi.snapshot.json``.
+"""
+Drift guard for ``webapp/frontend/openapi.snapshot.json``.
 
 The committed snapshot is the contract between the FastAPI backend and the
 TypeScript frontend (``npm run gen:api`` reads it). When backend routes or

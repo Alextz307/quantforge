@@ -1,4 +1,5 @@
-"""HTTP endpoints for config validation, browsing, and user-authored uploads.
+"""
+HTTP endpoints for config validation, browsing, and user-authored uploads.
 
 Spec-upload routes raise pure service-layer exceptions
 (:class:`SpecUploadNotFoundError`, :class:`SpecUploadInvalidError`,
@@ -65,7 +66,8 @@ router = APIRouter(
 
 
 class StudySpecValidateRequest(BaseModel):
-    """``POST /configs/study_spec/validate`` body — raw YAML text.
+    """
+    ``POST /configs/study_spec/validate`` body — raw YAML text.
 
     A dedicated wire type keeps the existing ValidateRequest (parsed payload)
     uncoupled from the YAML-text path, which has to handle parse errors before
@@ -76,7 +78,9 @@ class StudySpecValidateRequest(BaseModel):
 
 
 class UniverseSpecValidateRequest(BaseModel):
-    """``POST /configs/universe_spec/validate`` body — raw YAML text."""
+    """
+    ``POST /configs/universe_spec/validate`` body — raw YAML text.
+    """
 
     yaml: str
 

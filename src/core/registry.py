@@ -1,4 +1,5 @@
-"""Generic typed component registry for pluggable components.
+"""
+Generic typed component registry for pluggable components.
 
 Uses TYPE_CHECKING imports to avoid circular dependencies at runtime.
 The type parameter T provides compile-time safety via mypy.
@@ -33,7 +34,8 @@ if TYPE_CHECKING:
 
 
 def _enum_type_in_annotation(annotation: object) -> type[Enum] | None:
-    """Return the first Enum subclass in ``annotation`` (walks unions).
+    """
+    Return the first Enum subclass in ``annotation`` (walks unions).
 
     Handles direct ``E``, ``Optional[E]``, ``E | None``, and ``Union[E, ...]``.
     """
@@ -59,7 +61,8 @@ def _ctor_hints(cls: type) -> dict[str, object]:
 
 
 def _coerce_enum_kwargs(cls: type, kwargs: dict[str, object]) -> dict[str, object]:
-    """Coerce string kwargs to Enum members when the ctor annotation expects them.
+    """
+    Coerce string kwargs to Enum members when the ctor annotation expects them.
 
     The registry is the YAML/dict→ctor boundary: ``ComponentConfig.params``
     is dict-typed, so Enum coercion lives here rather than in leaf ctors.
@@ -80,7 +83,8 @@ def _coerce_enum_kwargs(cls: type, kwargs: dict[str, object]) -> dict[str, objec
 
 
 class ComponentRegistry[T]:
-    """Generic typed registry for pluggable components.
+    """
+    Generic typed registry for pluggable components.
 
     Components are registered via decorator and can be created by name.
     """
@@ -89,7 +93,9 @@ class ComponentRegistry[T]:
         self._registry: dict[str, type[T]] = {}
 
     def register(self, name: str) -> Callable[[type[T]], type[T]]:
-        """Decorator that registers a component class."""
+        """
+        Decorator that registers a component class.
+        """
 
         def decorator(cls: type[T]) -> type[T]:
             if name in self._registry:
@@ -103,7 +109,9 @@ class ComponentRegistry[T]:
         return decorator
 
     def get(self, name: str) -> type[T]:
-        """Get a registered component class by name."""
+        """
+        Get a registered component class by name.
+        """
 
         if name not in self._registry:
             raise KeyError(
@@ -115,7 +123,8 @@ class ComponentRegistry[T]:
         return self._registry[name]
 
     def list_all(self) -> list[str]:
-        """List all registered component names — including test stubs.
+        """
+        List all registered component names — including test stubs.
 
         Use ``list_public()`` for the production-facing surface.
         """
@@ -123,7 +132,8 @@ class ComponentRegistry[T]:
         return list(self._registry.keys())
 
     def list_public(self) -> list[str]:
-        """List registered components excluding ``_``-prefixed test stubs.
+        """
+        List registered components excluding ``_``-prefixed test stubs.
 
         Test fixtures register stubs (``_MultiFeatureTestStub``,
         ``_BothFlagsStub``) into the same global registries that production
@@ -136,7 +146,8 @@ class ComponentRegistry[T]:
         return [name for name in self._registry if not name.startswith("_")]
 
     def create(self, name: str, **kwargs: object) -> T:
-        """Create an instance of a registered component.
+        """
+        Create an instance of a registered component.
 
         String kwargs whose ctor annotation is an Enum (or Enum union) are
         coerced to Enum members before the call so YAML/dict params don't
@@ -147,7 +158,8 @@ class ComponentRegistry[T]:
         return cls(**_coerce_enum_kwargs(cls, kwargs))
 
     def create_from_config(self, config: ComponentConfig) -> T:
-        """Create an instance from a :class:`ComponentConfig`.
+        """
+        Create an instance from a :class:`ComponentConfig`.
 
         Equivalent to ``self.create(config.name, **config.params)``, but gives
         callers a single uniform entry point when dispatching pluggable
@@ -169,7 +181,8 @@ def autoload_package(
     *,
     skip: tuple[str, ...] = ("interface",),
 ) -> None:
-    """Import every non-private, non-``skip`` module in a package.
+    """
+    Import every non-private, non-``skip`` module in a package.
 
     Fires each module's ``@..._registry.register`` decorator side-effects so
     registry-populating packages (``src.strategies`` / ``src.data`` /

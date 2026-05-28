@@ -1,4 +1,5 @@
-"""Trial-parameter sampling for :class:`StrategyTuner`.
+"""
+Trial-parameter sampling for :class:`StrategyTuner`.
 
 The strategy's own ``suggest_params(trial)`` is the single source of truth
 for the ctor-kwarg search space — every strategy and model exposes one,
@@ -20,7 +21,8 @@ if TYPE_CHECKING:
 
 
 def sample_trial_params(cfg: ExperimentConfig, trial: optuna.trial.BaseTrial) -> dict[str, object]:
-    """Draw one set of strategy ctor kwargs for ``trial``.
+    """
+    Draw one set of strategy ctor kwargs for ``trial``.
 
     Returns a fresh dict each call; the caller merges it into the base
     ``ExperimentConfig.strategy.params`` with sampled values winning —

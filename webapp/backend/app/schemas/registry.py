@@ -1,4 +1,6 @@
-"""Wire DTOs for registry-introspection endpoints."""
+"""
+Wire DTOs for registry-introspection endpoints.
+"""
 
 from __future__ import annotations
 

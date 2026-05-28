@@ -1,4 +1,5 @@
-"""Regression test: parallel requests must not trip SQLite's same-thread guard.
+"""
+Regression test: parallel requests must not trip SQLite's same-thread guard.
 
 FastAPI resolves a `with`-yielding sync dependency in its threadpool, then may
 invoke the consuming endpoint on a different worker. Without

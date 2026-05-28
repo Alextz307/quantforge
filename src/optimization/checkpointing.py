@@ -1,4 +1,5 @@
-"""Per-trial callback writing ``trials.jsonl`` + ``best_config.yaml``.
+"""
+Per-trial callback writing ``trials.jsonl`` + ``best_config.yaml``.
 
 Optuna calls the registered callback after every trial finishes (complete,
 pruned, or failed). We:
@@ -43,7 +44,8 @@ TRIAL_ARTIFACTS_SUBDIR = "trials_artifacts"
 
 @dataclass
 class TrialCallback:
-    """Optuna ``callback`` wrapper invoked after every trial.
+    """
+    Optuna ``callback`` wrapper invoked after every trial.
 
     Not frozen: ``_last_best_value`` is a local cache that short-circuits
     the O(n) ``study.best_trial`` scan on every COMPLETE trial that
@@ -89,7 +91,8 @@ class TrialCallback:
         json_io.append_jsonl(self.study_dir / TRIALS_JSONL_NAME, record)
 
     def _refresh_best_config(self, best: optuna.trial.FrozenTrial) -> None:
-        """Write ``best_config.yaml`` = base config + best trial's sampled kwargs.
+        """
+        Write ``best_config.yaml`` = base config + best trial's sampled kwargs.
 
         Uses :class:`optuna.trial.FixedTrial` to replay the strategy's
         ``suggest_params`` with the stored Optuna-namespaced params —
@@ -112,7 +115,8 @@ class TrialCallback:
 
 
 def _merge_params(base: ExperimentConfig, sampled: dict[str, object]) -> ExperimentConfig:
-    """Return a fresh ``ExperimentConfig`` with ``sampled`` merged into strategy.params.
+    """
+    Return a fresh ``ExperimentConfig`` with ``sampled`` merged into strategy.params.
 
     Separate from :func:`src.optimization.tuner._materialize_trial_config`
     because the ``best_config.yaml`` output keeps the ORIGINAL name (a

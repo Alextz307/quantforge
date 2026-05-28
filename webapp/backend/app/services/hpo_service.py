@@ -1,4 +1,6 @@
-"""Read-only services for the persisted HPO-studies tree."""
+"""
+Read-only services for the persisted HPO-studies tree.
+"""
 
 from __future__ import annotations
 
@@ -65,7 +67,8 @@ def list_hpo_studies(
     user: UserPublic,
     all_users: bool,
 ) -> list[HpoSummary]:
-    """List every HPO study under ``root`` visible to ``user``, newest first.
+    """
+    List every HPO study under ``root`` visible to ``user``, newest first.
 
     Top-level studies (``hpo/<basename>``) are scoped via the jobs table
     using basename as the join key; nested studies (``studies/<x>/hpo/...``)
@@ -95,7 +98,8 @@ def get_hpo_study(
     user: UserPublic,
     live_job_id: str | None = None,
 ) -> HpoDetail:
-    """Read the full detail payload for one HPO study.
+    """
+    Read the full detail payload for one HPO study.
 
     ``live_job_id`` is resolved by the router via :func:`find_live_job_for`
     against the jobs DB; passed through here to avoid coupling this layer
@@ -137,7 +141,9 @@ def list_trials(
     user: UserPublic,
     after_trial: int | None = None,
 ) -> list[TrialRow]:
-    """Read the trial feed, optionally filtered to ``trial.number > after_trial``."""
+    """
+    Read the trial feed, optionally filtered to ``trial.number > after_trial``.
+    """
 
     key = _top_level_basename(wire_id)
     if key is not None:
@@ -158,7 +164,8 @@ def get_param_importance(
     conn: sqlite3.Connection,
     user: UserPublic,
 ) -> ParamImportanceResponse:
-    """Compute fANOVA-style hyperparameter importance for an HPO study.
+    """
+    Compute fANOVA-style hyperparameter importance for an HPO study.
 
     Returns ``importance={}`` plus a human-readable ``message`` (rather than
     raising) for the three "no useful answer yet" cases the frontend has to
@@ -197,7 +204,8 @@ def get_param_importance(
 
 
 def find_live_job_for(conn: sqlite3.Connection, wire_id: str) -> str | None:
-    """Return the id of a non-terminal TUNE job that's populating ``wire_id``.
+    """
+    Return the id of a non-terminal TUNE job that's populating ``wire_id``.
 
     Only top-level HPO studies (``wire_id == "hpo/<basename>"``) can have a
     matching TUNE job: nested studies are produced by STUDY jobs that don't
@@ -223,7 +231,8 @@ def find_live_job_for(conn: sqlite3.Connection, wire_id: str) -> str | None:
 
 
 def _top_level_basename(wire_id: str) -> str | None:
-    """Return the basename iff the study sits at ``hpo/<basename>`` directly.
+    """
+    Return the basename iff the study sits at ``hpo/<basename>`` directly.
 
     Top-level HPO studies (``hpo/<basename>``) persist their basename as
     ``jobs.experiment_id`` at submission time, so the basename is also
@@ -239,7 +248,8 @@ def _top_level_basename(wire_id: str) -> str | None:
 
 
 def trial_row_from_record(trial: dict[str, object]) -> TrialRow:
-    """Materialise a ``TrialRow`` from one parsed ``trials.jsonl`` record.
+    """
+    Materialise a ``TrialRow`` from one parsed ``trials.jsonl`` record.
 
     The Optuna callback stamps ``user_attrs.experiment_id`` after the
     per-trial ``Experiment.run()`` resolves a name, so the row can
@@ -294,7 +304,8 @@ def _summary_from_trials(
 
 
 def best_config_reserves_holdout(study_dir: Path) -> bool:
-    """Peek at ``best_config.yaml`` and return True iff it reserves a holdout.
+    """
+    Peek at ``best_config.yaml`` and return True iff it reserves a holdout.
 
     The webapp uses this to filter the holdout-launcher picker to eligible
     HPO studies (and as a defense-in-depth check inside the job-service

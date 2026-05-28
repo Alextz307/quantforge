@@ -1,4 +1,5 @@
-"""Tests for the cross-trial GARCH grid cache (``src/models/_garch_cache.py``).
+"""
+Tests for the cross-trial GARCH grid cache (``src/models/_garch_cache.py``).
 
 The cache exists to amortise the ``(p, q)`` AIC sweep across HPO trials
 that share a fold's training window. These tests pin the contract:
@@ -105,7 +106,8 @@ class TestGarchGridCache:
         assert active_cache() is None
 
     def test_strategy_anti_leakage_invariant_holds_with_cache(self) -> None:
-        """AdaptiveBollinger's TrainingMetadata overlap guard must still
+        """
+        AdaptiveBollinger's TrainingMetadata overlap guard must still
         fire when the cache is active — the cache is pure memoisation
         and must not weaken any anti-leakage invariant.
         """

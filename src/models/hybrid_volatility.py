@@ -1,4 +1,6 @@
-"""Hybrid volatility predictor: GARCH conditional variance + LSTM residual correction."""
+"""
+Hybrid volatility predictor: GARCH conditional variance + LSTM residual correction.
+"""
 
 from __future__ import annotations
 
@@ -18,6 +20,7 @@ from src.core.persistence import (
     LSTM_SUBDIR,
     METADATA_JSON,
     SCALER_JSON,
+    assert_save_complete,
     frozen_params_to_json,
     load_standard_scaler,
     save_model_skeleton,
@@ -40,7 +43,8 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True)
 class _HybridVolConfig:
-    """Frozen snapshot of every ``HybridVolatilityModel.__init__`` kwarg.
+    """
+    Frozen snapshot of every ``HybridVolatilityModel.__init__`` kwarg.
 
     One source of truth for save/load + drift-guard tests. ``feature_columns``
     is a tuple so ``frozen=True`` actually guarantees immutability (a list
@@ -69,7 +73,8 @@ class _HybridVolConfig:
 
 @model_registry.register("hybrid_volatility")
 class HybridVolatilityModel(IPredictor):
-    """GARCH + LSTM hybrid: GARCH provides the base conditional-variance
+    """
+    GARCH + LSTM hybrid: GARCH provides the base conditional-variance
     forecast, an LSTM corrects the residual between realized volatility and
     the GARCH forecast. The final output is ``garch_vol + lstm_residual``
     clipped to ``min_vol``.
@@ -151,7 +156,8 @@ class HybridVolatilityModel(IPredictor):
 
     @property
     def last_floor_bind_fraction(self) -> float | None:
-        """Fraction of non-NaN bars where the most recent ``predict()`` clipped
+        """
+        Fraction of non-NaN bars where the most recent ``predict()`` clipped
         ``(garch_vol + lstm_residual)`` up to ``min_vol``.
 
         ``None`` before any predict call. Surfaces to the manifest via
@@ -169,7 +175,8 @@ class HybridVolatilityModel(IPredictor):
         checkpoint_path: Path | None = None,
         **kwargs: object,
     ) -> None:
-        """Fit GARCH on log returns, then fit LSTM on realized-vol residuals.
+        """
+        Fit GARCH on log returns, then fit LSTM on realized-vol residuals.
 
         Args:
             train_data: DataFrame with ``close`` column and all
@@ -216,7 +223,8 @@ class HybridVolatilityModel(IPredictor):
         )
 
     def predict(self, data: pd.DataFrame) -> pd.Series:
-        """Produce hybrid volatility forecasts aligned with ``data.index``.
+        """
+        Produce hybrid volatility forecasts aligned with ``data.index``.
 
         First ``lstm_lookback`` rows inherit NaN from the LSTM component.
         Output is clipped to ``min_vol``.
@@ -249,7 +257,8 @@ class HybridVolatilityModel(IPredictor):
         return final_vol
 
     def _scale_to_frame(self, feature_frame: pd.DataFrame) -> pd.DataFrame:
-        """Transform ``feature_frame`` through the fitted scaler and rewrap as a
+        """
+        Transform ``feature_frame`` through the fitted scaler and rewrap as a
         DataFrame the LSTM can consume. Callers must ensure ``training_metadata``
         is set first (the ``cast`` is safe under that precondition; ``_scaler``
         is assigned alongside the metadata commit inside ``fit()``).
@@ -260,13 +269,16 @@ class HybridVolatilityModel(IPredictor):
         return pd.DataFrame(scaled, index=feature_frame.index, columns=self._feature_columns)
 
     def predict_single(self, recent_window: pd.DataFrame) -> float:
-        """Single hybrid-vol forecast from a recent window."""
+        """
+        Single hybrid-vol forecast from a recent window.
+        """
 
         self._assert_fitted_with_metadata()
         return float(self.predict(recent_window).iloc[-1])
 
     def save(self, path: str | Path) -> None:
-        """Persist HybridVolatility to ``path`` as ``<path>/garch/`` +
+        """
+        Persist HybridVolatility to ``path`` as ``<path>/garch/`` +
         ``<path>/lstm/`` + ``<path>/scaler.json`` + config + metadata.
 
         Every ctor kwarg is persisted in the composite's own ``config.json``
@@ -293,7 +305,8 @@ class HybridVolatilityModel(IPredictor):
         )
 
     def _ctor_kwargs_as_json(self) -> dict[str, object]:
-        """Snapshot of this composite's constructor kwargs as JSON-ready values.
+        """
+        Snapshot of this composite's constructor kwargs as JSON-ready values.
 
         ``frozen_params_to_json`` handles the tuple→list + Enum→value
         conversions uniformly; ``lstm_device`` is dropped so the saved JSON
@@ -306,14 +319,15 @@ class HybridVolatilityModel(IPredictor):
 
     @classmethod
     def load(cls, path: str | Path) -> Self:
-        """Reconstruct a fitted HybridVolatilityModel from ``path``.
+        """
+        Reconstruct a fitted HybridVolatilityModel from ``path``.
 
         Construct the composite instance from its own ``config.json`` BEFORE
         loading sub-models — a corrupt composite config fast-fails with a
         named-field error, without wasting I/O on the GARCH/LSTM subdirs.
         """
 
-        root = Path(path)
+        root = assert_save_complete(path)
         config = json_io.read_dict(root / CONFIG_JSON)
         metadata = json_io.read_dict(root / METADATA_JSON)
 
@@ -343,7 +357,9 @@ class HybridVolatilityModel(IPredictor):
         return instance
 
     def get_all_training_metadata(self) -> tuple[TrackedMetadata, ...]:
-        """Expose hybrid + owned GARCH + LSTM metadata for the deep leakage check."""
+        """
+        Expose hybrid + owned GARCH + LSTM metadata for the deep leakage check.
+        """
 
         return collect_metadata(
             ("hybrid_volatility", self._training_metadata),
@@ -353,7 +369,9 @@ class HybridVolatilityModel(IPredictor):
 
     @staticmethod
     def suggest_params(trial: optuna.Trial) -> dict[str, object]:
-        """Optuna search space combining GARCH and LSTM hyperparameters."""
+        """
+        Optuna search space combining GARCH and LSTM hyperparameters.
+        """
 
         return {
             "garch_p_max": trial.suggest_int("hybrid_vol_garch_p_max", 1, 5),

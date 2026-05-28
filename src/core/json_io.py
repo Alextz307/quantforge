@@ -1,4 +1,5 @@
-"""Pure JSON read/write + typed field-extraction helpers.
+"""
+Pure JSON read/write + typed field-extraction helpers.
 
 Intentionally free of domain imports (sklearn, torch, our own
 ``TrainingMetadata`` etc.): this module is a generic namespace usable
@@ -23,17 +24,23 @@ surface actionable errors instead of late-binding ``TypeError`` further down.
 from __future__ import annotations
 
 import json
+import logging
 from collections.abc import Iterable
 from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from src.core.fs import atomic_write_path
+
 if TYPE_CHECKING:
     import pandas as pd
 
+_logger = logging.getLogger(__name__)
+
 
 def write(path: str | Path, obj: object) -> None:
-    """Write ``obj`` as UTF-8 JSON at ``path`` with sorted keys and 2-space indent.
+    """
+    Write ``obj`` as UTF-8 JSON at ``path`` with sorted keys and 2-space indent.
 
     Accepts ``object`` rather than a narrow union to match ``json.dump``'s own
     duck-typed contract — callers pass arbitrarily-nested dict/list/scalar
@@ -41,18 +48,23 @@ def write(path: str | Path, obj: object) -> None:
     every call site.
     """
 
-    Path(path).write_text(json.dumps(obj, indent=2, sort_keys=True), encoding="utf-8")
+    with atomic_write_path(path) as tmp:
+        tmp.write_text(json.dumps(obj, indent=2, sort_keys=True), encoding="utf-8")
 
 
 def read(path: str | Path) -> object:
-    """Load JSON from ``path``. Caller narrows the return type via ``isinstance``."""
+    """
+    Load JSON from ``path``. Caller narrows the return type via ``isinstance``.
+    """
 
     parsed: object = json.loads(Path(path).read_text(encoding="utf-8"))
     return parsed
 
 
 def read_dict(path: str | Path) -> dict[str, object]:
-    """Load JSON from ``path`` and require the top level to be an object."""
+    """
+    Load JSON from ``path`` and require the top level to be an object.
+    """
 
     raw = read(path)
     if not isinstance(raw, dict):
@@ -67,7 +79,8 @@ def diff_against_snapshot(
     label: str,
     fix_command: str,
 ) -> list[str]:
-    """Return error lines describing how the JSON file at ``snapshot_path`` drifts from ``actual``.
+    """
+    Return error lines describing how the JSON file at ``snapshot_path`` drifts from ``actual``.
 
     Empty list means the snapshot is current. ``label`` appears verbatim in
     the human-readable messages (e.g. ``"OpenAPI snapshot"``); ``fix_command``
@@ -91,48 +104,79 @@ def diff_against_snapshot(
 
 
 def read_jsonl(path: str | Path) -> list[dict[str, object]]:
-    """Load a JSON-lines file (one JSON object per non-blank line).
+    """
+    Load a JSON-lines file (one JSON object per non-blank line).
 
-    Each line must parse to an object; non-object lines raise
-    :class:`ValueError` with the offending 1-based line number so a
-    malformed record surfaces actionably instead of late-binding deep
-    in caller code. Blank lines are skipped (trailing newlines are the
-    common case).
+    Middle-line decode failures + non-object lines raise :class:`ValueError`
+    with the offending 1-based line number — real corruption surfaces
+    actionably instead of late-binding deep in caller code. A SINGLE
+    malformed trailing record is tolerated and logged at WARN: the
+    :func:`append_jsonl` producers used by streaming writers (HPO trial
+    logs) can be interrupted mid-write, leaving the last record truncated.
+
+    Streams line-by-line with a one-line lookahead so the trailing-line
+    tolerance does not force materializing the whole file in memory.
     """
 
     records: list[dict[str, object]] = []
+    pending: tuple[int, str] | None = None
+
+    def commit(lineno: int, line: str) -> None:
+        parsed = json.loads(line)
+        if not isinstance(parsed, dict):
+            raise ValueError(
+                f"JSONL at {path} line {lineno} must be an object, got {type(parsed).__name__}"
+            )
+        records.append(parsed)
+
     with Path(path).open("r", encoding="utf-8") as f:
-        for lineno, line in enumerate(f, start=1):
-            stripped = line.strip()
-            if not stripped:
+        for lineno, raw in enumerate(f, start=1):
+            line = raw.strip()
+            if not line:
                 continue
-            parsed = json.loads(stripped)
-            if not isinstance(parsed, dict):
-                raise ValueError(
-                    f"JSONL at {path} line {lineno} must be an object, got {type(parsed).__name__}"
-                )
-            records.append(parsed)
+            if pending is not None:
+                commit(*pending)
+            pending = (lineno, line)
+
+    if pending is not None:
+        prev_lineno, prev_line = pending
+        try:
+            commit(prev_lineno, prev_line)
+        except json.JSONDecodeError:
+            _logger.warning(
+                "JSONL at %s line %d failed to parse — treating as crash-truncated "
+                "trailing record from an append_jsonl producer and dropping it",
+                path,
+                prev_lineno,
+            )
+
     return records
 
 
 def write_jsonl(path: str | Path, records: Iterable[object]) -> None:
-    """Write ``records`` to ``path`` as JSON-lines (one object per line).
+    """
+    Write ``records`` to ``path`` as JSON-lines (one object per line).
 
     JSONL over one-big-JSON-array lets long-running writers be tailed
     via ``tail -f`` and the record count read via ``wc -l`` without
     parsing. ``records`` is iterated once and each element is dumped
     with sorted keys so two equivalent runs produce byte-identical
     files (load paths can hash for cache invalidation).
+
+    Use :func:`append_jsonl` for streaming writers where partial state
+    IS the intended semantics.
     """
 
-    with Path(path).open("w", encoding="utf-8") as f:
-        for record in records:
-            f.write(json.dumps(record, sort_keys=True))
-            f.write("\n")
+    with atomic_write_path(path) as tmp:
+        with tmp.open("w", encoding="utf-8") as f:
+            for record in records:
+                f.write(json.dumps(record, sort_keys=True))
+                f.write("\n")
 
 
 def append_jsonl(path: str | Path, record: object) -> None:
-    """Append a single ``record`` to ``path`` as one JSON line.
+    """
+    Append a single ``record`` to ``path`` as one JSON line.
 
     Used by streaming writers (HPO trial logs, progressive run dumps)
     where each call adds one record. ``sort_keys=True`` mirrors
@@ -146,7 +190,9 @@ def append_jsonl(path: str | Path, record: object) -> None:
 
 
 def get_int(d: dict[str, object], key: str) -> int:
-    """Pull ``key`` out of ``d`` and narrow to ``int`` with a named error."""
+    """
+    Pull ``key`` out of ``d`` and narrow to ``int`` with a named error.
+    """
 
     if key not in d:
         raise KeyError(f"missing required JSON field {key!r}")
@@ -157,7 +203,9 @@ def get_int(d: dict[str, object], key: str) -> int:
 
 
 def get_float(d: dict[str, object], key: str) -> float:
-    """Pull ``key`` out of ``d`` and narrow to ``float`` (accepting ``int``)."""
+    """
+    Pull ``key`` out of ``d`` and narrow to ``float`` (accepting ``int``).
+    """
 
     if key not in d:
         raise KeyError(f"missing required JSON field {key!r}")
@@ -168,7 +216,8 @@ def get_float(d: dict[str, object], key: str) -> float:
 
 
 def get_bool(d: dict[str, object], key: str) -> bool:
-    """Pull ``key`` out of ``d`` and require a ``bool``.
+    """
+    Pull ``key`` out of ``d`` and require a ``bool``.
 
     Rejects ``int`` explicitly even though ``True``/``False`` are int
     subclasses — JSON ``true``/``false`` round-trip to Python ``bool``,
@@ -184,7 +233,9 @@ def get_bool(d: dict[str, object], key: str) -> bool:
 
 
 def get_str(d: dict[str, object], key: str) -> str:
-    """Pull ``key`` out of ``d`` and require a ``str``."""
+    """
+    Pull ``key`` out of ``d`` and require a ``str``.
+    """
 
     if key not in d:
         raise KeyError(f"missing required JSON field {key!r}")
@@ -195,7 +246,8 @@ def get_str(d: dict[str, object], key: str) -> str:
 
 
 def _get_list(d: dict[str, object], key: str) -> list[object]:
-    """Module-private: pull ``key`` and require a ``list``. Callers should use
+    """
+    Module-private: pull ``key`` and require a ``list``. Callers should use
     a typed variant (``get_int_list``, ``get_float_list``, ``get_str_list``)
     — untyped element access leaves mypy unhappy."""
 
@@ -208,7 +260,9 @@ def _get_list(d: dict[str, object], key: str) -> list[object]:
 
 
 def get_float_list(d: dict[str, object], key: str) -> list[float]:
-    """Pull ``key`` out of ``d`` and require a list of numbers."""
+    """
+    Pull ``key`` out of ``d`` and require a list of numbers.
+    """
 
     raw = _get_list(d, key)
     out: list[float] = []
@@ -220,7 +274,9 @@ def get_float_list(d: dict[str, object], key: str) -> list[float]:
 
 
 def get_int_list(d: dict[str, object], key: str) -> list[int]:
-    """Pull ``key`` out of ``d`` and require a list of integers."""
+    """
+    Pull ``key`` out of ``d`` and require a list of integers.
+    """
 
     raw = _get_list(d, key)
     out: list[int] = []
@@ -232,7 +288,9 @@ def get_int_list(d: dict[str, object], key: str) -> list[int]:
 
 
 def get_str_list(d: dict[str, object], key: str) -> list[str]:
-    """Pull ``key`` out of ``d`` and require a list of strings."""
+    """
+    Pull ``key`` out of ``d`` and require a list of strings.
+    """
 
     raw = _get_list(d, key)
     for i, item in enumerate(raw):
@@ -242,7 +300,9 @@ def get_str_list(d: dict[str, object], key: str) -> list[str]:
 
 
 def get_dict(d: dict[str, object], key: str) -> dict[str, object]:
-    """Pull ``key`` out of ``d`` and require a nested object."""
+    """
+    Pull ``key`` out of ``d`` and require a nested object.
+    """
 
     if key not in d:
         raise KeyError(f"missing required JSON field {key!r}")
@@ -253,7 +313,8 @@ def get_dict(d: dict[str, object], key: str) -> dict[str, object]:
 
 
 def get_list_of_dicts(d: dict[str, object], key: str) -> list[dict[str, object]]:
-    """Pull ``key`` out of ``d`` and require a list of nested objects.
+    """
+    Pull ``key`` out of ``d`` and require a list of nested objects.
 
     Each element is validated to be a dict; callers can then hand them off
     to a per-element ``from_dict`` without re-checking.
@@ -269,7 +330,8 @@ def get_list_of_dicts(d: dict[str, object], key: str) -> list[dict[str, object]]
 
 
 def get_timestamp(d: dict[str, object], key: str) -> pd.Timestamp:
-    """Pull ``key`` out of ``d`` and parse as a ``pd.Timestamp``.
+    """
+    Pull ``key`` out of ``d`` and parse as a ``pd.Timestamp``.
 
     Accepts ISO strings (the canonical JSON round-trip format) and
     pre-parsed ``pd.Timestamp`` instances for callers that pass already-
@@ -291,7 +353,9 @@ def get_timestamp(d: dict[str, object], key: str) -> pd.Timestamp:
 
 
 def get_optional_str(d: dict[str, object], key: str) -> str | None:
-    """Pull ``key`` if present and non-null; ``None`` otherwise."""
+    """
+    Pull ``key`` if present and non-null; ``None`` otherwise.
+    """
 
     raw = d.get(key)
     if raw is None:
@@ -302,7 +366,9 @@ def get_optional_str(d: dict[str, object], key: str) -> str | None:
 
 
 def get_optional_float(d: dict[str, object], key: str) -> float | None:
-    """Pull ``key`` if present and non-null and narrow to ``float``."""
+    """
+    Pull ``key`` if present and non-null and narrow to ``float``.
+    """
 
     raw = d.get(key)
     if raw is None:
@@ -313,7 +379,9 @@ def get_optional_float(d: dict[str, object], key: str) -> float | None:
 
 
 def get_optional_iso_datetime(d: dict[str, object], key: str) -> datetime | None:
-    """Pull ``key`` if present and non-null and parse as ``datetime``."""
+    """
+    Pull ``key`` if present and non-null and parse as ``datetime``.
+    """
 
     raw = d.get(key)
     if raw is None:
@@ -326,7 +394,9 @@ def get_optional_iso_datetime(d: dict[str, object], key: str) -> datetime | None
 
 
 def get_optional_timestamp(d: dict[str, object], key: str) -> pd.Timestamp | None:
-    """Pull ``key`` if present and non-null and parse as ``pd.Timestamp``."""
+    """
+    Pull ``key`` if present and non-null and parse as ``pd.Timestamp``.
+    """
 
     import pandas as pd
 

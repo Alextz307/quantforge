@@ -1,4 +1,6 @@
-"""Verify scripts/create_user.py inserts/updates rows via Click's CliRunner."""
+"""
+Verify scripts/create_user.py inserts/updates rows via Click's CliRunner.
+"""
 
 from __future__ import annotations
 

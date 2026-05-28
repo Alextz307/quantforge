@@ -1,4 +1,5 @@
-"""JSONL-backed persistence for ``BenchmarkRun``.
+"""
+JSONL-backed persistence for ``BenchmarkRun``.
 
 Layout on disk:
 
@@ -29,7 +30,8 @@ BASELINES_DIR = "baselines"
 
 
 class BenchmarkStore:
-    """Filesystem-backed persistence for :class:`BenchmarkRun` objects.
+    """
+    Filesystem-backed persistence for :class:`BenchmarkRun` objects.
 
     Routes ephemeral runs to ``runs/`` and durable thesis anchors to
     ``baselines/`` under the same root. Baseline writes refuse to clobber
@@ -90,7 +92,8 @@ class BenchmarkStore:
         tags: Iterable[str] | None = None,
         commit: str | None = None,
     ) -> tuple[BenchmarkRun, ...]:
-        """Load runs matching all provided filters.
+        """
+        Load runs matching all provided filters.
 
         ``since`` is an ISO-timestamp prefix comparison — filenames sort
         correctly by timestamp, so no datetime parsing needed. ``tags``

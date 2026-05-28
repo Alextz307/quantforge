@@ -1,4 +1,5 @@
-"""Behavioral tests for :mod:`src.analysis.metrics_aggregator`.
+"""
+Behavioral tests for :mod:`src.analysis.metrics_aggregator`.
 
 Verifies:
 
@@ -71,7 +72,8 @@ def _make_fold(
 
 class TestEmptyFolds:
     def test_returns_sentinel_aggregate(self) -> None:
-        """Equality would fail on NaN scalars — check the sentinel via the
+        """
+        Equality would fail on NaN scalars — check the sentinel via the
         discriminator field instead.
         """
 
@@ -158,7 +160,8 @@ class TestDeterminism:
 
 class TestNanPropagation:
     def test_nan_fold_sharpe_flows_into_mean_and_ci(self) -> None:
-        """Zero-vol folds produce NaN metrics. Aggregate must surface NaN
+        """
+        Zero-vol folds produce NaN metrics. Aggregate must surface NaN
         rather than silently hiding the degenerate fold — callers can then
         decide whether to treat the run as invalid.
         """

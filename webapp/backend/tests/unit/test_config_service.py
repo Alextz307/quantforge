@@ -1,4 +1,6 @@
-"""Unit tests for `webapp.backend.app.services.config_service`."""
+"""
+Unit tests for `webapp.backend.app.services.config_service`.
+"""
 
 from __future__ import annotations
 
@@ -30,7 +32,9 @@ VALID_UNIVERSE_PAYLOAD: dict[str, object] = {
 
 @pytest.fixture
 def config_root(tmp_path: Path) -> Path:
-    """Synthetic ``config/`` tree mirroring the real layout's plurals."""
+    """
+    Synthetic ``config/`` tree mirroring the real layout's plurals.
+    """
 
     (tmp_path / "strategies").mkdir()
     (tmp_path / "universes").mkdir()
@@ -130,7 +134,8 @@ def test_validate_invalid_enum() -> None:
 
 
 def test_validate_experiment_missing_required_strategy_param() -> None:
-    """Pydantic accepts ``strategy.params`` as a generic dict; the post-pass
+    """
+    Pydantic accepts ``strategy.params`` as a generic dict; the post-pass
     pre-flight (via ``describe_strategy``) catches missing required ctor
     kwargs so a doomed config never spawns a subprocess."""
 
@@ -158,7 +163,9 @@ def test_validate_experiment_required_strategy_param_filled_passes() -> None:
 
 
 def test_validate_experiment_extra_field_rejected_before_strategy_check() -> None:
-    """A Pydantic-level error short-circuits the strategy-completeness pre-flight."""
+    """
+    A Pydantic-level error short-circuits the strategy-completeness pre-flight.
+    """
 
     payload = make_valid_experiment_payload()
     payload["typo_field"] = "oops"

@@ -1,4 +1,6 @@
-"""Async generator that replays + tails a log file via 100ms polling."""
+"""
+Async generator that replays + tails a log file via 100ms polling.
+"""
 
 from __future__ import annotations
 
@@ -15,7 +17,9 @@ async def tail_log(
     stop: asyncio.Event,
     poll_interval: float = DEFAULT_POLL_INTERVAL,
 ) -> AsyncIterator[str]:
-    """Yield each line from ``log_path``; replays from byte 0, stops when ``stop`` is set."""
+    """
+    Yield each line from ``log_path``; replays from byte 0, stops when ``stop`` is set.
+    """
 
     pos = 0
     pending = ""

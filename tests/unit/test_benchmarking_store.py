@@ -1,4 +1,6 @@
-"""JSONL store round-trip and filter-query tests."""
+"""
+JSONL store round-trip and filter-query tests.
+"""
 
 from __future__ import annotations
 

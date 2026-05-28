@@ -1,4 +1,6 @@
-"""Wire DTOs for user resources — password hashes never appear here."""
+"""
+Wire DTOs for user resources — password hashes never appear here.
+"""
 
 from __future__ import annotations
 

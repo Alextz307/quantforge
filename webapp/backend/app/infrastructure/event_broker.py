@@ -1,4 +1,6 @@
-"""Generic in-process pub/sub keyed by ``str``; one queue per subscriber."""
+"""
+Generic in-process pub/sub keyed by ``str``; one queue per subscriber.
+"""
 
 from __future__ import annotations
 
@@ -6,7 +8,8 @@ import asyncio
 
 
 class EventBroker[V]:
-    """Per-key pub/sub of ``V``-typed frames.
+    """
+    Per-key pub/sub of ``V``-typed frames.
 
     Queues are unbounded — a slow consumer can grow its own queue but
     never blocks the producer or other consumers. ``None`` is the

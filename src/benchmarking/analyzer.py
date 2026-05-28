@@ -1,4 +1,5 @@
-"""Statistical summaries, regression detection, and scaling-law fits.
+"""
+Statistical summaries, regression detection, and scaling-law fits.
 
 All analysis runs on ``BenchmarkRun`` objects loaded from the store — no
 subprocess access, no filesystem writes. This module is cpu-bound pandas /
@@ -43,7 +44,8 @@ SCALING_MIN_R_SQUARED = 0.9
 
 class BenchmarkAnalyzer:
     def summarize(self, results: list[BenchmarkResult]) -> list[BenchmarkStats]:
-        """Group results by name and compute per-group summary stats.
+        """
+        Group results by name and compute per-group summary stats.
 
         Within a single run, Google Benchmark typically emits one row per
         benchmark; repeated rows appear when the user passes
@@ -63,7 +65,8 @@ class BenchmarkAnalyzer:
         z_threshold: float = DEFAULT_Z_THRESHOLD,
         pct_threshold: float = DEFAULT_PCT_THRESHOLD,
     ) -> list[RegressionReport]:
-        """Per-benchmark paired comparison between two runs.
+        """
+        Per-benchmark paired comparison between two runs.
 
         Benchmarks present in ``current`` but missing from ``baseline`` (or
         vice versa) are silently skipped — the caller decides whether the
@@ -85,7 +88,8 @@ class BenchmarkAnalyzer:
         ]
 
     def analyze_scaling(self, run: BenchmarkRun, family: str) -> ScalingAnalysis:
-        """Fit ``log(time) ~ slope * log(n) + intercept`` over one family.
+        """
+        Fit ``log(time) ~ slope * log(n) + intercept`` over one family.
 
         ``family`` is the prefix before the ``/`` in a Google Benchmark name
         (e.g., ``BM_RSI`` for ``BM_RSI/10000``). The size is read from
@@ -176,7 +180,8 @@ def _compare_pair(
 
 
 def _mean_var_n(samples: list[float]) -> tuple[float, float, int]:
-    """Return (mean, variance, n). Fast path avoids a numpy array allocation
+    """
+    Return (mean, variance, n). Fast path avoids a numpy array allocation
     for the common one-run-per-bench case where n == 1."""
 
     n = len(samples)
@@ -191,7 +196,9 @@ def _mean_var_n(samples: list[float]) -> tuple[float, float, int]:
 def _log_log_fit(
     sizes: npt.NDArray[np.int64 | np.float64], times: npt.NDArray[np.float64]
 ) -> tuple[float, float, float]:
-    """Returns (slope, intercept, r_squared) of ``log(times) ~ slope*log(sizes) + intercept``."""
+    """
+    Returns (slope, intercept, r_squared) of ``log(times) ~ slope*log(sizes) + intercept``.
+    """
 
     xs = np.log(sizes.astype(np.float64))
     ys = np.log(times.astype(np.float64))

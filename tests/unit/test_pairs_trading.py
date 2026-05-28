@@ -1,4 +1,6 @@
-"""Tests for PairsTradingStrategy (cointegration + z-score mean reversion)."""
+"""
+Tests for PairsTradingStrategy (cointegration + z-score mean reversion).
+"""
 
 from __future__ import annotations
 
@@ -50,7 +52,9 @@ def fitted_strategy(pair_df: pd.DataFrame) -> PairsTradingStrategy:
 
 
 def _make_independent_random_walks() -> pd.DataFrame:
-    """Two independent random walks — not cointegrated."""
+    """
+    Two independent random walks — not cointegrated.
+    """
 
     idx = pd.bdate_range(start=RW_START_DATE, periods=RW_ROW_COUNT, freq="B")
     rng_a = np.random.default_rng(RW_SEED_A)
@@ -115,7 +119,8 @@ class TestPairsTradingStrategy:
     def test_non_finite_prices_raise(
         self, fitted_strategy: PairsTradingStrategy, pair_df: pd.DataFrame
     ) -> None:
-        """The C++ Welford z-score is poisoned by any NaN/inf in the price
+        """
+        The C++ Welford z-score is poisoned by any NaN/inf in the price
         inputs and cannot recover once the NaN slides out — unlike pandas'
         rolling std. Inject a NaN / inf and expect a loud boundary error
         instead of silently-NaN signals."""
@@ -176,7 +181,9 @@ class TestPairsTradingStrategy:
     def test_deterministic_signals(
         self, fitted_strategy: PairsTradingStrategy, pair_df: pd.DataFrame
     ) -> None:
-        """Signals are a pure function of data once trained."""
+        """
+        Signals are a pure function of data once trained.
+        """
 
         np.random.seed(GLOBAL_NUMPY_SEED)
         s1 = fitted_strategy.generate_signals(pair_df)

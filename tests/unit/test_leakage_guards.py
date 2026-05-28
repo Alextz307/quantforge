@@ -1,4 +1,6 @@
-"""Tests for anti-leakage validation decorators."""
+"""
+Tests for anti-leakage validation decorators.
+"""
 
 from __future__ import annotations
 

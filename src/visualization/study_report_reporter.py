@@ -1,4 +1,5 @@
-"""Render a :class:`ConsolidatedStudyReport` to disk.
+"""
+Render a :class:`ConsolidatedStudyReport` to disk.
 
 Produces the cross-leg artifact tree required by the empirical-study
 writeup (master ranking, holdout-vs-dev scatter, strategy × universe
@@ -27,14 +28,20 @@ import numpy as np
 import pandas as pd
 
 from src.analysis.metrics_aggregator import AggregateStats
+from src.analysis.significance import DeflatedSharpe
 from src.core import json_io
+from src.core.fs import atomic_write_path
 from src.core.logging import get_logger
 from src.core.persistence import (
     COMPARISONS_SUBDIR,
     HOLDOUT_EVALS_SUBDIR,
 )
 from src.orchestration.study import make_leg_id
-from src.orchestration.study_report import ConsolidatedStudyReport, HoldoutSnapshot
+from src.orchestration.study_report import (
+    ConsolidatedStudyReport,
+    FloorBindStats,
+    HoldoutSnapshot,
+)
 from src.orchestration.types import PairwiseSignificance
 from src.visualization.comparison_reporter import EQUITY_OVERLAY_FILENAME
 from src.visualization.holdout_eval_reporter import HOLDOUT_EQUITY_FILENAME
@@ -55,6 +62,7 @@ _logger = get_logger(__name__)
 _MASTER_RANKING_FILENAME = "master_ranking"
 _PER_UNIVERSE_RANKING_FILENAME = "per_universe_ranking"
 _HOLDOUT_RESULTS_FILENAME = "holdout_results"
+_FLOOR_BIND_FILENAME = "floor_bind_by_leg"
 _PAIRWISE_LONG_CSV_FILENAME = "pairwise_significance.csv"
 _PAIRWISE_PER_UNIVERSE_SUBDIR = "pairwise_significance"
 
@@ -66,7 +74,9 @@ _HOLDOUT_EQUITY_CURVES_SUBDIR = "holdout_equity_curves"
 
 
 class StudyReportReporter:
-    """Consume a :class:`ConsolidatedStudyReport` and write the artifact tree."""
+    """
+    Consume a :class:`ConsolidatedStudyReport` and write the artifact tree.
+    """
 
     def generate_full_report(
         self,
@@ -75,7 +85,8 @@ class StudyReportReporter:
         *,
         publish_label: str | None = None,
     ) -> Path:
-        """Write every artifact under ``out_dir`` and return ``out_dir``.
+        """
+        Write every artifact under ``out_dir`` and return ``out_dir``.
 
         ``publish_label`` overrides ``report.study_name`` in every
         emitted ``\\caption`` and ``\\label``. Pass it for committed
@@ -105,10 +116,11 @@ class StudyReportReporter:
 
         json_io.write(out_dir / MANIFEST_FILENAME, _build_manifest_dict(report, slug=slug))
 
-        ranking_df = _build_ranking_df(report.per_leg_aggregate)
+        ranking_df = _build_ranking_df(report.per_leg_aggregate, report.per_leg_dsr)
         self._write_master_ranking(ranking_df, tables_dir, slug=slug)
         self._write_per_universe_ranking(ranking_df, tables_dir, slug=slug)
         self._write_holdout_results(report, tables_dir, slug=slug)
+        self._write_floor_bind_by_leg(report, tables_dir, slug=slug)
         self._write_pairwise_significance(report, tables_dir, slug=slug)
 
         self._plot_strategy_x_universe_heatmap(report, plots_dir)
@@ -168,6 +180,44 @@ class StudyReportReporter:
             label=f"tab:holdout_results_{slug}",
         )
 
+    def _write_floor_bind_by_leg(
+        self, report: ConsolidatedStudyReport, tables_dir: Path, *, slug: str
+    ) -> None:
+        """
+        Write the σ_min floor-saturation table for legs that emit the diagnostic.
+
+        Only VolatilityTargeting legs populate ``per_leg_floor_bind``; when
+        the map is empty the section is skipped without emitting an empty
+        table (LaTeX builds reject zero-row long tables).
+        """
+
+        if not report.per_leg_floor_bind:
+            _logger.info(
+                "no leg emitted floor_bind_fraction — skipping floor_bind_by_leg "
+                "(non-VolatilityTargeting sweep)"
+            )
+            return
+        df = _build_floor_bind_df(report.per_leg_floor_bind)
+        if df.empty:
+            return
+        df = df.sort_values("floor_bind_mean", ascending=False).reset_index(drop=True)
+        _write_table_pair(
+            df,
+            tables_dir,
+            stem=_FLOOR_BIND_FILENAME,
+            caption=(
+                f"VolatilityTargeting $\\sigma_{{\\min}}$ floor-saturation fractions "
+                f"per leg — {slug}"
+            ),
+            label=f"tab:floor_bind_{slug}",
+        )
+
+        payload = {
+            make_leg_id(strategy, universe): stats.to_dict()
+            for (strategy, universe), stats in report.per_leg_floor_bind.items()
+        }
+        json_io.write(tables_dir / f"{_FLOOR_BIND_FILENAME}.json", payload)
+
     def _write_pairwise_significance(
         self, report: ConsolidatedStudyReport, tables_dir: Path, *, slug: str
     ) -> None:
@@ -178,7 +228,8 @@ class StudyReportReporter:
             )
             return
         long_df = _build_pairwise_long_df(report.per_universe_pairwise)
-        long_df.to_csv(tables_dir / _PAIRWISE_LONG_CSV_FILENAME, index=False)
+        with atomic_write_path(tables_dir / _PAIRWISE_LONG_CSV_FILENAME) as tmp:
+            long_df.to_csv(tmp, index=False)
 
         per_universe_dir = tables_dir / _PAIRWISE_PER_UNIVERSE_SUBDIR
         per_universe_dir.mkdir(parents=True, exist_ok=True)
@@ -313,7 +364,8 @@ def _write_table_pair(
     caption: str,
     label: str,
 ) -> None:
-    """Write the same DataFrame as a booktabs ``.tex`` and a flat ``.csv``.
+    """
+    Write the same DataFrame as a booktabs ``.tex`` and a flat ``.csv``.
 
     The two formats serve different consumers: ``.tex`` for direct LaTeX
     inclusion in the writeup; ``.csv`` for re-pivoting in pandas at
@@ -322,18 +374,28 @@ def _write_table_pair(
 
     tables_dir.mkdir(parents=True, exist_ok=True)
     write_booktabs_table(df, tables_dir / f"{stem}.tex", caption=caption, label=label)
-    df.to_csv(tables_dir / f"{stem}.csv", index=False)
+    with atomic_write_path(tables_dir / f"{stem}.csv") as tmp:
+        df.to_csv(tmp, index=False)
 
 
 def _build_ranking_df(
     per_leg_aggregate: Mapping[tuple[str, str], AggregateStats],
+    per_leg_dsr: Mapping[tuple[str, str], DeflatedSharpe],
 ) -> pd.DataFrame:
-    """Build a long-form DataFrame: one row per (strategy, universe) leg."""
+    """
+    Build a long-form DataFrame: one row per (strategy, universe) leg.
+
+    Legs that produced a ``dsr.json`` post-tune get three extra columns
+    (``deflated_sharpe``, ``dsr_p_value``, ``n_trials``); legs without
+    DSR (zero-trial study, single-strategy universe before tune)
+    receive ``NaN`` so the column shape stays uniform.
+    """
 
     rows: list[dict[str, object]] = []
     for (strategy, universe), stats in per_leg_aggregate.items():
         if stats.n_folds == 0:
             continue
+        dsr = per_leg_dsr.get((strategy, universe))
         rows.append(
             {
                 "strategy": strategy,
@@ -347,6 +409,9 @@ def _build_ranking_df(
                 "total_return_mean": stats.total_return_mean,
                 "win_rate_mean": stats.win_rate_mean,
                 "trade_count_total": stats.trade_count_total,
+                "deflated_sharpe": dsr.deflated_sharpe if dsr is not None else float("nan"),
+                "dsr_p_value": dsr.p_value if dsr is not None else float("nan"),
+                "n_trials": dsr.n_trials if dsr is not None else 0,
             }
         )
     return pd.DataFrame(rows)
@@ -360,12 +425,15 @@ def _build_holdout_df(
     for (strategy, universe), holdout in per_leg_holdout.items():
         dev = per_leg_aggregate.get((strategy, universe))
         dev_sharpe = dev.sharpe_mean if dev is not None and dev.n_folds > 0 else float("nan")
+        bah = holdout.buy_and_hold
         rows.append(
             {
                 "strategy": strategy,
                 "universe": universe,
                 "dev_sharpe": dev_sharpe,
                 "holdout_sharpe": holdout.sharpe_ratio,
+                "holdout_sharpe_ci_low": holdout.sharpe_ci.lower,
+                "holdout_sharpe_ci_high": holdout.sharpe_ci.upper,
                 "holdout_sortino": holdout.sortino_ratio,
                 "holdout_calmar": holdout.calmar_ratio,
                 "holdout_max_drawdown": holdout.max_drawdown,
@@ -375,6 +443,12 @@ def _build_holdout_df(
                 "holdout_start": holdout.holdout_start.isoformat(),
                 "n_dev_bars": holdout.n_dev_bars,
                 "n_holdout_bars": holdout.n_holdout_bars,
+                "bah_sharpe": bah.sharpe_ratio,
+                "bah_total_return": bah.total_return,
+                "bah_max_drawdown": bah.max_drawdown,
+                "excess_sharpe_vs_bah": holdout.sharpe_ratio - bah.sharpe_ratio,
+                "excess_total_return_vs_bah": holdout.total_return - bah.total_return,
+                "beats_bah": holdout.sharpe_ratio > bah.sharpe_ratio,
             }
         )
     return pd.DataFrame(rows)
@@ -402,7 +476,8 @@ def _build_pairwise_long_df(
 
 
 def _build_pairwise_matrix_df(pairs: tuple[PairwiseSignificance, ...]) -> pd.DataFrame:
-    """Upper-triangular matrix DataFrame: ``point [low, high]*`` per cell.
+    """
+    Upper-triangular matrix DataFrame: ``point [low, high]*`` per cell.
 
     Mirrors :meth:`ComparisonReporter._build_pairwise_table` so the
     consolidated per-universe ``.tex`` matches the per-comparison
@@ -426,8 +501,31 @@ def _build_pairwise_matrix_df(pairs: tuple[PairwiseSignificance, ...]) -> pd.Dat
     return df
 
 
+def _build_floor_bind_df(
+    per_leg_floor_bind: Mapping[tuple[str, str], FloorBindStats],
+) -> pd.DataFrame:
+    """
+    Long-form floor-saturation table — one row per leg with stats.
+    """
+
+    rows: list[dict[str, object]] = []
+    for (strategy, universe), stats in per_leg_floor_bind.items():
+        rows.append(
+            {
+                "strategy": strategy,
+                "universe": universe,
+                "floor_bind_mean": stats.mean,
+                "floor_bind_max": stats.max,
+                "floor_bind_min": stats.min,
+                "n_folds": stats.n_folds,
+            }
+        )
+    return pd.DataFrame(rows)
+
+
 def _copy_per_leg_artifact(src_png: Path, dst_png: Path, *, missing_label: str) -> None:
-    """Copy a PNG (and sibling SVG when present) from a per-leg artifact tree.
+    """
+    Copy a PNG (and sibling SVG when present) from a per-leg artifact tree.
 
     Skips with an info log when ``src_png`` does not exist — single-strategy
     universes have no equity overlay; older runs may lack the SVG twin.
@@ -448,7 +546,8 @@ def _copy_per_leg_artifact(src_png: Path, dst_png: Path, *, missing_label: str) 
 
 
 def _build_manifest_dict(report: ConsolidatedStudyReport, *, slug: str) -> dict[str, object]:
-    """Identity sidecar for the consolidated tree.
+    """
+    Identity sidecar for the consolidated tree.
 
     Lists let a reader sanity-check coverage without walking the per-leg
     tree; ``per_leg_run_id`` maps leg ids back to their source run dirs.
@@ -468,6 +567,8 @@ def _build_manifest_dict(report: ConsolidatedStudyReport, *, slug: str) -> dict[
             for (strategy, universe), run_id in report.per_leg_run_id.items()
         },
         "n_legs_with_holdout": len(report.per_leg_holdout),
+        "n_legs_with_dsr": len(report.per_leg_dsr),
+        "n_legs_with_floor_bind": len(report.per_leg_floor_bind),
         "n_universes_with_pairwise": len(report.per_universe_pairwise),
     }
 

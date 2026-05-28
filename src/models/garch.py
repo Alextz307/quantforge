@@ -1,4 +1,6 @@
-"""GARCH volatility predictor using the arch library."""
+"""
+GARCH volatility predictor using the arch library.
+"""
 
 from __future__ import annotations
 
@@ -18,6 +20,7 @@ from src.core.persistence import (
     CONFIG_JSON,
     METADATA_JSON,
     WEIGHTS_JSON,
+    assert_save_complete,
     save_model_skeleton,
 )
 from src.core.registry import model_registry
@@ -38,7 +41,8 @@ _SCALE_FACTOR = 100.0
 
 @model_registry.register("garch")
 class GARCHPredictor(IPredictor):
-    """GARCH(p,q) volatility predictor with AIC-based order selection.
+    """
+    GARCH(p,q) volatility predictor with AIC-based order selection.
 
     Fits a GARCH model on returns scaled x100 (arch library convention),
     then produces conditional volatility forecasts using fixed parameters.
@@ -64,7 +68,8 @@ class GARCHPredictor(IPredictor):
         self._garch_params: quant_engine.GarchParams | None = None
 
     def tune(self, returns: pd.Series) -> tuple[int, int]:
-        """Grid search over (p,q) in [1, p_max] x [1, q_max] using AIC.
+        """
+        Grid search over (p,q) in [1, p_max] x [1, q_max] using AIC.
 
         Args:
             returns: Raw (unscaled) log returns with DatetimeIndex.
@@ -77,7 +82,8 @@ class GARCHPredictor(IPredictor):
         return best_p, best_q
 
     def _grid_search(self, scaled: pd.Series) -> tuple[ARCHModelResult, int, int]:
-        """Run AIC grid search and return (fitted_result, best_p, best_q).
+        """
+        Run AIC grid search and return (fitted_result, best_p, best_q).
 
         When a :class:`GarchGridCache` is bound via
         :func:`garch_cache_context` (set by ``StrategyTuner.run`` for
@@ -139,7 +145,8 @@ class GARCHPredictor(IPredictor):
         checkpoint_path: Path | None = None,  # noqa: ARG002
         **kwargs: object,
     ) -> None:
-        """Fit GARCH on training returns.
+        """
+        Fit GARCH on training returns.
 
         Args:
             train_data: DataFrame with DatetimeIndex (used for metadata).
@@ -176,7 +183,8 @@ class GARCHPredictor(IPredictor):
         *,
         returns: pd.Series | None = None,
     ) -> pd.Series:
-        """Produce annualized conditional volatility series.
+        """
+        Produce annualized conditional volatility series.
 
         Args:
             data: DataFrame with 'close' column and DatetimeIndex — used for
@@ -217,13 +225,16 @@ class GARCHPredictor(IPredictor):
         return vol_series.reindex(data.index).ffill()
 
     def predict_single(self, recent_window: pd.DataFrame) -> float:
-        """Predict a single annualized volatility value from recent data."""
+        """
+        Predict a single annualized volatility value from recent data.
+        """
 
         vol_series = self.predict(recent_window)
         return float(vol_series.iloc[-1])
 
     def generate_vol_series(self, returns: pd.Series) -> pd.Series:
-        """Convenience: run the GARCH filter on a returns series.
+        """
+        Convenience: run the GARCH filter on a returns series.
 
         Args:
             returns: Raw (unscaled) log returns.
@@ -249,13 +260,16 @@ class GARCHPredictor(IPredictor):
     def _manual_garch_filter(
         self, scaled_returns: np.ndarray[tuple[int], np.dtype[np.float64]]
     ) -> np.ndarray[tuple[int], np.dtype[np.float64]]:
-        """Run the GARCH(p,q) recursion via the C++ filter on the cached params."""
+        """
+        Run the GARCH(p,q) recursion via the C++ filter on the cached params.
+        """
 
         params = cast(quant_engine.GarchParams, self._garch_params)
         return quant_engine.garch_filter(scaled_returns, params)
 
     def save(self, path: str | Path) -> None:
-        """Persist fitted GARCH params to ``path`` as a directory.
+        """
+        Persist fitted GARCH params to ``path`` as a directory.
 
         ``best_p`` and ``best_q`` are NOT persisted — they are always equal to
         ``len(alpha)`` and ``len(beta)`` respectively, so storing them would
@@ -289,9 +303,11 @@ class GARCHPredictor(IPredictor):
 
     @classmethod
     def load(cls, path: str | Path) -> Self:
-        """Reconstruct a fitted GARCHPredictor from ``path``."""
+        """
+        Reconstruct a fitted GARCHPredictor from ``path``.
+        """
 
-        root = Path(path)
+        root = assert_save_complete(path)
         config = json_io.read_dict(root / CONFIG_JSON)
         weights = json_io.read_dict(root / WEIGHTS_JSON)
         metadata = json_io.read_dict(root / METADATA_JSON)
@@ -325,7 +341,9 @@ class GARCHPredictor(IPredictor):
 
     @staticmethod
     def suggest_params(trial: optuna.Trial) -> dict[str, object]:
-        """Optuna search space for GARCH hyperparameters."""
+        """
+        Optuna search space for GARCH hyperparameters.
+        """
 
         return {
             "p_max": trial.suggest_int("garch_p_max", 1, 5),

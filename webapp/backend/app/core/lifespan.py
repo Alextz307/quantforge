@@ -1,4 +1,6 @@
-"""FastAPI lifespan: bootstrap the SQLite schema and wire the job substrate."""
+"""
+FastAPI lifespan: bootstrap the SQLite schema and wire the job substrate.
+"""
 
 from __future__ import annotations
 

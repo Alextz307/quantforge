@@ -1,10 +1,13 @@
-"""Domain-specific exceptions for the quant trading framework."""
+"""
+Domain-specific exceptions for the quant trading framework.
+"""
 
 from __future__ import annotations
 
 
 class LeakageError(RuntimeError):
-    """Raised when temporal data leakage (lookahead bias) is detected.
+    """
+    Raised when temporal data leakage (lookahead bias) is detected.
 
     This indicates a programming error where future data has leaked
     into a computation that should only use past/present data.
@@ -12,7 +15,8 @@ class LeakageError(RuntimeError):
 
 
 class DataQualityError(ValueError):
-    """Raised when input data fails ingestion-time quality validation.
+    """
+    Raised when input data fails ingestion-time quality validation.
 
     Covers the cases checked by ``src.data.validator.validate_bars``: NaN in
     OHLCV columns, non-positive OHLC prices, negative volume, OHLC ordering
@@ -24,7 +28,8 @@ class DataQualityError(ValueError):
 
 
 def guard_scaler_fit_once(scaler: object | None, component: str) -> None:
-    """Raise ``LeakageError`` if ``scaler`` has already been fitted.
+    """
+    Raise ``LeakageError`` if ``scaler`` has already been fitted.
 
     Centralizes the fit-once guard pattern shared by feature pipelines and
     composite models so a second ``fit()`` call on training data is caught

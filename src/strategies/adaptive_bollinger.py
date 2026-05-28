@@ -1,4 +1,6 @@
-"""Adaptive Bollinger Bands strategy with GARCH-scaled band widths."""
+"""
+Adaptive Bollinger Bands strategy with GARCH-scaled band widths.
+"""
 
 from __future__ import annotations
 
@@ -16,6 +18,7 @@ from src.core.persistence import (
     CONFIG_JSON,
     GARCH_SUBDIR,
     METADATA_JSON,
+    assert_save_complete,
     save_model_skeleton,
 )
 from src.core.registry import strategy_registry
@@ -35,7 +38,8 @@ _STRATEGY_NAME = "AdaptiveBollinger"
 
 @strategy_registry.register(_STRATEGY_NAME)
 class AdaptiveBollingerStrategy(IStrategy):
-    """Mean-reversion Bollinger-band strategy with GARCH-adaptive band widths.
+    """
+    Mean-reversion Bollinger-band strategy with GARCH-adaptive band widths.
 
     Bands are computed as ``mid ± k * daily_price_sigma`` where
     ``daily_price_sigma = (garch_vol_annual / sqrt(ann_factor)) * close``.
@@ -91,7 +95,9 @@ class AdaptiveBollingerStrategy(IStrategy):
         checkpoint_path: Path | None = None,  # noqa: ARG002
         **kwargs: object,
     ) -> None:
-        """Fit the GARCH volatility model on training log returns."""
+        """
+        Fit the GARCH volatility model on training log returns.
+        """
 
         logger.info("%s train: %d bars", type(self).__name__, len(train_data))
         log_returns = compute_log_returns(train_data["close"]).dropna()
@@ -103,7 +109,9 @@ class AdaptiveBollingerStrategy(IStrategy):
         )
 
     def generate_signals(self, data: pd.DataFrame) -> pd.Series:
-        """Produce {-1, 0, +1} position signals. Leading warmup bars are NaN."""
+        """
+        Produce {-1, 0, +1} position signals. Leading warmup bars are NaN.
+        """
 
         self._assert_fitted_with_metadata()
 
@@ -119,7 +127,9 @@ class AdaptiveBollingerStrategy(IStrategy):
         return pd.Series(signal, index=data.index, name="adaptive_bollinger_signal")
 
     def save(self, path: str | Path) -> None:
-        """Persist AdaptiveBollinger config + nested GARCH to ``path``."""
+        """
+        Persist AdaptiveBollinger config + nested GARCH to ``path``.
+        """
 
         metadata = self._assert_fitted_with_metadata()
 
@@ -134,7 +144,9 @@ class AdaptiveBollingerStrategy(IStrategy):
         )
 
     def _ctor_kwargs_as_json(self) -> dict[str, object]:
-        """Snapshot of this strategy's constructor kwargs as JSON-ready values."""
+        """
+        Snapshot of this strategy's constructor kwargs as JSON-ready values.
+        """
 
         return {
             "window": self._window,
@@ -147,14 +159,15 @@ class AdaptiveBollingerStrategy(IStrategy):
 
     @classmethod
     def load(cls, path: str | Path) -> Self:
-        """Reconstruct a trained AdaptiveBollingerStrategy from ``path``.
+        """
+        Reconstruct a trained AdaptiveBollingerStrategy from ``path``.
 
         Narrow the strategy's ``config.json`` into ctor kwargs BEFORE loading
         the GARCH subdir — a corrupt composite config fast-fails with a
         named-field error rather than crashing deep inside ``GARCH.load()``.
         """
 
-        root = Path(path)
+        root = assert_save_complete(path)
         config = json_io.read_dict(root / CONFIG_JSON)
         metadata = json_io.read_dict(root / METADATA_JSON)
 
@@ -180,7 +193,9 @@ class AdaptiveBollingerStrategy(IStrategy):
         return max(self._window, self._trend_window)
 
     def get_all_training_metadata(self) -> tuple[TrackedMetadata, ...]:
-        """Expose strategy + owned GARCH metadata for the deep leakage check."""
+        """
+        Expose strategy + owned GARCH metadata for the deep leakage check.
+        """
 
         return collect_metadata(
             ("strategy", self._training_metadata),
@@ -189,7 +204,9 @@ class AdaptiveBollingerStrategy(IStrategy):
 
     @staticmethod
     def suggest_params(trial: optuna.trial.BaseTrial) -> dict[str, object]:
-        """Optuna search space for AdaptiveBollinger hyperparameters."""
+        """
+        Optuna search space for AdaptiveBollinger hyperparameters.
+        """
 
         return {
             "window": trial.suggest_int("bollinger_window", 10, 50),

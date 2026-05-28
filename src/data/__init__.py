@@ -1,4 +1,5 @@
-"""Auto-imports every concrete data source so ``@data_source_registry.register``
+"""
+Auto-imports every concrete data source so ``@data_source_registry.register``
 decorators fire at package-import time. Drop a new source file here and
 it registers automatically."""
 

@@ -1,4 +1,5 @@
-"""Tests for the ``feature_pipeline_factory`` kwarg on ``evaluate_walk_forward``.
+"""
+Tests for the ``feature_pipeline_factory`` kwarg on ``evaluate_walk_forward``.
 
 The factory shape is load-bearing: a single pre-fit instance would either
 leak scaler stats across folds or trip the fit-once scaler guard. These
@@ -27,7 +28,8 @@ _GAP = 1
 
 @dataclass
 class _RecordingPipeline(IFeaturePipeline):
-    """Pipeline that records how many times fit() was called on THIS instance.
+    """
+    Pipeline that records how many times fit() was called on THIS instance.
 
     Lets the test distinguish between "single instance refit per fold" (wrong)
     and "fresh instance per fold" (right).
@@ -48,7 +50,9 @@ class _RecordingPipeline(IFeaturePipeline):
 
 @dataclass
 class _FactoryRecorder:
-    """Closure over ``instances`` so the test can inspect every pipeline built."""
+    """
+    Closure over ``instances`` so the test can inspect every pipeline built.
+    """
 
     instances: list[_RecordingPipeline] = field(default_factory=list)
 
@@ -59,7 +63,9 @@ class _FactoryRecorder:
 
 
 class _PassThroughStrategy(IStrategy):
-    """Strategy that emits zero signals — tests the wiring, not the logic."""
+    """
+    Strategy that emits zero signals — tests the wiring, not the logic.
+    """
 
     def train(self, train_data: pd.DataFrame, **kwargs: object) -> None:
         self._set_fitted_with_metadata(
@@ -107,7 +113,9 @@ class TestFeatureFactory:
         assert len(recorder.instances) == _N_SPLITS
 
     def test_each_instance_fit_exactly_once(self) -> None:
-        """No fit-once guard trips because every instance is fresh."""
+        """
+        No fit-once guard trips because every instance is fresh.
+        """
 
         bars = make_synthetic_ohlcv_df()
         validator = WalkForwardValidator(n_splits=_N_SPLITS, test_size=_TEST_SIZE, gap=_GAP)
@@ -141,7 +149,8 @@ class TestFeatureFactory:
             assert p.transform_call_count == 2
 
     def test_default_no_factory_produces_same_fold_count(self) -> None:
-        """No factory means no feature application; strategy sees raw bars.
+        """
+        No factory means no feature application; strategy sees raw bars.
         Smoke check that the existing default path still works."""
 
         bars = make_synthetic_ohlcv_df()

@@ -1,4 +1,5 @@
-"""Drift guard for the Pydantic ↔ zod form-validation mirror.
+"""
+Drift guard for the Pydantic ↔ zod form-validation mirror.
 
 The frontend mirrors a small set of Pydantic write-DTOs as zod schemas under
 ``webapp/frontend/src/lib/schemas/`` so forms validate before hitting the
@@ -27,20 +28,20 @@ from typing import Any
 
 import click
 
+from src.core import json_io
+
 DEFAULT_SNAPSHOT_PATH = Path("webapp/frontend/schema-mirror.snapshot.json")
 DUMMY_SECRET = "x" * 64
 
 # Webapp settings refuse a short secret; seed a dummy before any webapp import.
 os.environ.setdefault("WEBAPP_SECRET_KEY", DUMMY_SECRET)
 
-from src.core import json_io  # noqa: E402
-from src.core.fs import ensure_parent_dir  # noqa: E402
-
 _FIX_COMMAND = "python -m scripts.check_webapp_schema_mirror --write"
 
 
 def _build_mirror_shape() -> dict[str, dict[str, dict[str, Any]]]:
-    """Extract the canonical field shape for every mirrored Pydantic model.
+    """
+    Extract the canonical field shape for every mirrored Pydantic model.
 
     Lazy webapp import keeps this script importable in environments without
     fastapi installed (e.g. the unit-test path that exercises the diff function
@@ -55,7 +56,8 @@ def _build_mirror_shape() -> dict[str, dict[str, dict[str, Any]]]:
 
 
 def extract_field_shape(model: type) -> dict[str, dict[str, Any]]:
-    """Return ``{field_name: {type, min, max, default, enum?}}`` for a Pydantic model.
+    """
+    Return ``{field_name: {type, min, max, default, enum?}}`` for a Pydantic model.
 
     Constraints are introspected from the field's ``metadata`` (pydantic v2
     moves ``min_length``/``max_length`` etc into annotated metadata).
@@ -71,7 +73,9 @@ def extract_field_shape(model: type) -> dict[str, dict[str, Any]]:
 
 
 def _field_to_shape(info: object) -> dict[str, Any]:
-    """Convert a single pydantic v2 ``FieldInfo`` into a canonical dict."""
+    """
+    Convert a single pydantic v2 ``FieldInfo`` into a canonical dict.
+    """
 
     annotation = getattr(info, "annotation", None)
     out: dict[str, Any] = {"type": _annotation_to_type(annotation)}
@@ -89,7 +93,9 @@ def _field_to_shape(info: object) -> dict[str, Any]:
 
 
 def _annotation_to_type(annotation: Any) -> str:
-    """Render a python annotation as a stable string the frontend can match."""
+    """
+    Render a python annotation as a stable string the frontend can match.
+    """
 
     if annotation is str:
         return "string"
@@ -108,7 +114,8 @@ def _annotation_to_type(annotation: Any) -> str:
 
 
 def _serialize_default(default: object) -> str | int | float | bool:
-    """Render a default value as JSON-friendly data.
+    """
+    Render a default value as JSON-friendly data.
 
     Currently only StrEnum-like defaults appear in the mirrored set; extend
     when a new default type lands rather than silently falling back.
@@ -131,7 +138,7 @@ def _serialize_default(default: object) -> str | int | float | bool:
 def main(snapshot_path: Path, write: bool) -> None:
     shape = _build_mirror_shape()
     if write:
-        json_io.write(ensure_parent_dir(snapshot_path), shape)
+        json_io.write(snapshot_path, shape)
         click.echo(f"Wrote {snapshot_path}")
         return
     errors = json_io.diff_against_snapshot(

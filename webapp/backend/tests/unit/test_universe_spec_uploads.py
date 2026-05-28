@@ -1,4 +1,5 @@
-"""Unit tests for the universe-spec uploads service.
+"""
+Unit tests for the universe-spec uploads service.
 
 Mirrors the study-uploads test surface: YAML-text validation
 (parse + schema), create/update/soft-delete round trips, tombstone-reuse
@@ -235,7 +236,8 @@ def test_soft_delete_removes_file_and_row(
 def test_resave_after_soft_delete_reactivates_tombstone(
     db_conn: sqlite3.Connection, tmp_path: Path
 ) -> None:
-    """Re-saving a previously soft-deleted slug must reactivate the
+    """
+    Re-saving a previously soft-deleted slug must reactivate the
     tombstoned row rather than collide on the unique index.
     """
 

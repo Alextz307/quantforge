@@ -1,4 +1,6 @@
-"""Async generator tailing ``trials.jsonl``; yields ``TrialFrame``."""
+"""
+Async generator tailing ``trials.jsonl``; yields ``TrialFrame``.
+"""
 
 from __future__ import annotations
 
@@ -21,7 +23,8 @@ async def tail_hpo_trials(
     stop: asyncio.Event,
     after_trial: int | None = None,
 ) -> AsyncIterator[TrialFrame]:
-    """Yield ``TrialFrame`` for every line written to ``trials.jsonl``.
+    """
+    Yield ``TrialFrame`` for every line written to ``trials.jsonl``.
 
     Replays existing lines from byte 0 then live-tails new ones — the WS
     endpoint can stream both phases through a single async loop. Works

@@ -1,4 +1,6 @@
-"""Read-only services for the persisted run tree."""
+"""
+Read-only services for the persisted run tree.
+"""
 
 from __future__ import annotations
 
@@ -99,7 +101,8 @@ def list_runs(
     user: UserPublic,
     all_users: bool,
 ) -> list[RunSummary]:
-    """List every run under ``root`` visible to ``user``, newest first.
+    """
+    List every run under ``root`` visible to ``user``, newest first.
 
     Runs missing ``config.yaml`` are skipped (they cannot populate the
     strategy/tickers/interval columns); runs missing ``metrics.json``
@@ -119,7 +122,8 @@ def list_runs(
 
 
 def _summarize_all(root: Path) -> list[RunSummary]:
-    """All summaries, unsorted. Sort is the caller's job.
+    """
+    All summaries, unsorted. Sort is the caller's job.
 
     Per-run summarization runs in a thread pool — the work is dominated by
     blocking file reads (manifest + metrics + config), which release the GIL,
@@ -142,7 +146,8 @@ def _safe_summarize(run_dir: Path, root: Path) -> RunSummary | None:
 
 
 def _lookup_run_dir(root: Path, experiment_id: str) -> Path:
-    """Resolve ``experiment_id`` via the cached id index; fall back to a glob.
+    """
+    Resolve ``experiment_id`` via the cached id index; fall back to a glob.
 
     Glob fallback handles freshly written runs that the path-cache snapshot
     pre-dates. On hit, the id-index is warmed in place so successive
@@ -159,7 +164,8 @@ def _lookup_run_dir(root: Path, experiment_id: str) -> Path:
 
 
 def _cached_summarize(run_dir: Path, root: Path) -> RunSummary:
-    """``_summarize`` with manifest-mtime invalidation.
+    """
+    ``_summarize`` with manifest-mtime invalidation.
 
     A run dir is identified by its absolute path; once the manifest has been
     written it's effectively immutable, so any change in mtime invalidates the
@@ -193,7 +199,8 @@ def list_runs_page(
     ticker: str | None = None,
     since: datetime | None = None,
 ) -> RunsPage:
-    """Paginated + sorted + filtered run listing.
+    """
+    Paginated + sorted + filtered run listing.
 
     The full run set is scanned and summarised before slicing — there is no
     cheaper way today since per-run metadata lives in two files per directory.
@@ -240,7 +247,8 @@ def _sort_key(sort_by: RunSortBy) -> Callable[[RunSummary], float]:
 
 
 def _ensure_plots(run_dir: Path) -> None:
-    """Render the canonical static plots into ``<run_dir>/plots/`` if missing.
+    """
+    Render the canonical static plots into ``<run_dir>/plots/`` if missing.
 
     Idempotent: no-op if any plot file already exists, or if fold data is
     unavailable (partial/aborted runs surface via the empty PlotIndex).
@@ -265,7 +273,8 @@ def get_run(
     conn: sqlite3.Connection,
     user: UserPublic,
 ) -> RunDetail:
-    """Read the full detail payload for one run.
+    """
+    Read the full detail payload for one run.
 
     Plot generation is NOT triggered here — it's deferred to ``resolve_plot``,
     which renders lazily on the first plot fetch. The detail page returns
@@ -315,7 +324,9 @@ def get_folds(
     conn: sqlite3.Connection,
     user: UserPublic,
 ) -> list[FoldRow]:
-    """Read per-fold metric rows for one run."""
+    """
+    Read per-fold metric rows for one run.
+    """
 
     check_artifact_access(conn, experiment_id=experiment_id, user=user)
     run_dir = _lookup_run_dir(root, experiment_id)
@@ -351,7 +362,8 @@ def resolve_plot(
     conn: sqlite3.Connection,
     user: UserPublic,
 ) -> Path:
-    """Resolve a plot filename to an absolute path, blocking ``..`` traversal.
+    """
+    Resolve a plot filename to an absolute path, blocking ``..`` traversal.
 
     Lazily renders missing plots on first access (covers direct/bookmarked
     plot URLs that bypass ``get_run``).
@@ -391,7 +403,8 @@ def _summarize(run_dir: Path, root: Path) -> RunSummary:
 
 
 def _read_config_summary(run_dir: Path) -> tuple[str, list[str], str]:
-    """Pluck strategy name, tickers, interval from config.yaml without Pydantic validation.
+    """
+    Pluck strategy name, tickers, interval from config.yaml without Pydantic validation.
 
     The list endpoint runs this per row (thousands of rows); skipping the full
     ``ExperimentConfig.model_validate`` saves the bulk of the cold-pass latency

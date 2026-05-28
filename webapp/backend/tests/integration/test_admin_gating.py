@@ -1,4 +1,6 @@
-"""Verify /api/users gating: admin-only access + CRUD round-trip."""
+"""
+Verify /api/users gating: admin-only access + CRUD round-trip.
+"""
 
 from __future__ import annotations
 

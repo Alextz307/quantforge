@@ -1,4 +1,6 @@
-"""Real-spawn lifecycle tests for ProcessManager + JobEventBroker."""
+"""
+Real-spawn lifecycle tests for ProcessManager + JobEventBroker.
+"""
 
 from __future__ import annotations
 

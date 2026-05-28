@@ -1,4 +1,6 @@
-"""Async generator tailing ``study_state.json`` mtime; yields ``StudyDetail``."""
+"""
+Async generator tailing ``study_state.json`` mtime; yields ``StudyDetail``.
+"""
 
 from __future__ import annotations
 
@@ -22,7 +24,8 @@ async def tail_study_state(
     stop: asyncio.Event,
     poll_interval: float = DEFAULT_POLL_INTERVAL,
 ) -> AsyncIterator[StudyDetail]:
-    """Yield ``StudyDetail`` on every ``study_state.json`` mtime change.
+    """
+    Yield ``StudyDetail`` on every ``study_state.json`` mtime change.
 
     Emits the current snapshot immediately on the first iteration, then
     on every detected mtime bump. The caller is responsible for resolving

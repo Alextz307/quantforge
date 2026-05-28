@@ -1,4 +1,5 @@
-"""Per-experiment report generator.
+"""
+Per-experiment report generator.
 
 Consumes a persisted or in-memory :class:`ExperimentResult` and writes
 thesis-ready artifacts under ``<run_dir>/plots/`` + ``<run_dir>/tables/``.
@@ -41,7 +42,9 @@ _METRICS_FILENAME = "metrics_summary.tex"
 
 
 class StrategyReporter:
-    """Generate the single-experiment report bundle."""
+    """
+    Generate the single-experiment report bundle.
+    """
 
     def generate_full_report(
         self,
@@ -50,7 +53,8 @@ class StrategyReporter:
         *,
         publish_label: str | None = None,
     ) -> Path:
-        """Write every artifact under ``out_dir/{plots,tables}/`` and return ``out_dir``.
+        """
+        Write every artifact under ``out_dir/{plots,tables}/`` and return ``out_dir``.
 
         ``publish_label`` overrides the volatile ``experiment_id`` in the
         ``\\caption`` text and ``\\label`` of the metrics table; pass it
@@ -117,7 +121,8 @@ class StrategyReporter:
         )
 
     def _plot_equity_curves(self, folds: tuple[FoldRecord, ...], out_path: Path) -> Path:
-        """Overlay per-fold equity curves normalised to 1.0 at fold start.
+        """
+        Overlay per-fold equity curves normalised to 1.0 at fold start.
 
         Normalisation is per-fold (divide by the first value) so folds with
         very different absolute equity levels stay visually comparable —

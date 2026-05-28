@@ -1,4 +1,5 @@
-"""Auto-imports every concrete strategy so ``@strategy_registry.register``
+"""
+Auto-imports every concrete strategy so ``@strategy_registry.register``
 decorators fire at package-import time. Drop a new strategy file here and
 it registers automatically."""
 

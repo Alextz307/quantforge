@@ -1,4 +1,6 @@
-"""Wire DTOs for the studies read API."""
+"""
+Wire DTOs for the studies read API.
+"""
 
 from __future__ import annotations
 
@@ -48,7 +50,9 @@ class StudyDetail(BaseModel):
 
 
 class StudyConsolidatedDTO(BaseModel):
-    """Read view of a study's consolidated report (tables + plots tree)."""
+    """
+    Read view of a study's consolidated report (tables + plots tree).
+    """
 
     study_name: str
     publish_label: str

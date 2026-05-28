@@ -1,4 +1,5 @@
-"""Strategy ranking across :class:`AggregateStats` bundles.
+"""
+Strategy ranking across :class:`AggregateStats` bundles.
 
 Takes a ``{strategy_name → AggregateStats}`` mapping and produces a tidy
 ``pd.DataFrame`` sorted by a chosen primary metric, with deterministic
@@ -18,7 +19,9 @@ from src.analysis.metrics_aggregator import AggregateStats
 
 
 class RankingMetric(StrEnum):
-    """Primary axis to sort strategies by in :func:`rank_strategies`."""
+    """
+    Primary axis to sort strategies by in :func:`rank_strategies`.
+    """
 
     SHARPE = "sharpe"
     SORTINO = "sortino"
@@ -47,7 +50,8 @@ def rank_strategies(
     *,
     by: RankingMetric = RankingMetric.SHARPE,
 ) -> pd.DataFrame:
-    """Rank strategies by the chosen metric, break ties deterministically.
+    """
+    Rank strategies by the chosen metric, break ties deterministically.
 
     Sort order: primary metric descending → secondary metric descending →
     strategy name ascending (the final alphabetical step makes the ranking

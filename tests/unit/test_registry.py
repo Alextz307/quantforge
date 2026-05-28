@@ -1,4 +1,6 @@
-"""Tests for ComponentRegistry + package auto-discovery completeness."""
+"""
+Tests for ComponentRegistry + package auto-discovery completeness.
+"""
 
 from __future__ import annotations
 
@@ -45,7 +47,8 @@ class _WithText:
 
 
 class _StrictWithMode:
-    """Mirrors a leaf ctor that itself rejects non-Enum types — used to verify
+    """
+    Mirrors a leaf ctor that itself rejects non-Enum types — used to verify
     that bad-string values fall through to the ctor's own error path rather
     than being silently swallowed by the coercion helper.
     """
@@ -141,7 +144,8 @@ class TestComponentRegistry:
         assert len(registry) == 2
 
     def test_list_public_excludes_underscore_prefixed_test_stubs(self) -> None:
-        """``_``-prefix is the project-wide convention for "test-only / not
+        """
+        ``_``-prefix is the project-wide convention for "test-only / not
         user-visible". Production-facing introspection (webapp APIs, form
         dropdowns) must use ``list_public()`` so registered stubs from
         ``tests/_strategy_stubs.py`` never leak into the surface.
@@ -173,7 +177,8 @@ class TestComponentRegistry:
 
 
 class TestEnumCoercion:
-    """``create()`` coerces raw-string kwargs to Enum members when the ctor
+    """
+    ``create()`` coerces raw-string kwargs to Enum members when the ctor
     annotation is an Enum (or ``Enum | None`` / ``Union[Enum, ...]``).
 
     This is the boundary fix that lets dict-typed ``ComponentConfig.params``
@@ -220,7 +225,9 @@ class TestEnumCoercion:
 
 
 def _count_non_interface_modules(pkg: ModuleType) -> int:
-    """Non-private modules in ``pkg`` excluding ``interface``."""
+    """
+    Non-private modules in ``pkg`` excluding ``interface``.
+    """
 
     return sum(
         1
@@ -230,7 +237,8 @@ def _count_non_interface_modules(pkg: ModuleType) -> int:
 
 
 class TestPackageAutoDiscovery:
-    """Importing ``src.strategies`` / ``src.data`` / ``src.features`` populates
+    """
+    Importing ``src.strategies`` / ``src.data`` / ``src.features`` populates
     the matching registry. For ``src.strategies`` this is an exact-match check:
     every non-interface module IS a concrete strategy, so the count of modules
     must equal the registry size — a new strategy file without the

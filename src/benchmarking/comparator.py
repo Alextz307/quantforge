@@ -1,4 +1,5 @@
-"""Presentation glue over :mod:`src.benchmarking.analyzer`.
+"""
+Presentation glue over :mod:`src.benchmarking.analyzer`.
 
 Translates the raw ``RegressionReport`` list from the analyzer into a
 ``ComparisonReport`` carrying both run IDs and an easy-access
@@ -47,7 +48,9 @@ class BenchmarkComparator:
         z_threshold: float = DEFAULT_Z_THRESHOLD,
         pct_threshold: float = DEFAULT_PCT_THRESHOLD,
     ) -> dict[str, ComparisonReport]:
-        """Compare every run in ``runs`` against ``runs[reference_label]``."""
+        """
+        Compare every run in ``runs`` against ``runs[reference_label]``.
+        """
 
         if reference_label not in runs:
             raise KeyError(

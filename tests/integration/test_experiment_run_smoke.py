@@ -1,4 +1,5 @@
-"""End-to-end CLI smoke test for ``python -m scripts.experiment run``.
+"""
+End-to-end CLI smoke test for ``python -m scripts.experiment run``.
 
 Runs the full CLI stack against a tiny synthetic CSV fixture — exercises
 the same code path the user invokes at the shell, modulo ``sys.argv``
@@ -34,7 +35,9 @@ pytestmark = pytest.mark.skipif(
 
 @pytest.fixture
 def mini_experiment_fixture(tmp_path: Path) -> Path:
-    """Wrap the shared fixture factory at its baseline (15% holdout)."""
+    """
+    Wrap the shared fixture factory at its baseline (15% holdout).
+    """
 
     return make_mini_experiment_fixture(tmp_path)
 

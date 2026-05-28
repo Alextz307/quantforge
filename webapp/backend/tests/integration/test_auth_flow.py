@@ -1,4 +1,6 @@
-"""End-to-end login -> /me -> logout flow with cookie verification."""
+"""
+End-to-end login -> /me -> logout flow with cookie verification.
+"""
 
 from __future__ import annotations
 

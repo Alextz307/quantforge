@@ -1,4 +1,5 @@
-"""Best-effort ctor introspection for the hybrid configure form.
+"""
+Best-effort ctor introspection for the hybrid configure form.
 
 The frontend renders typed inputs for ``int|float|str|bool|enum`` params
 and falls back to a JSON editor for ``complex``: non-Optional union types
@@ -41,7 +42,8 @@ _HIDDEN_PARAMS: frozenset[str] = frozenset({"self", "interval"})
 
 
 def _peel_optional(annotation: object) -> tuple[object, bool]:
-    """Strip ``None`` from ``T | None`` / ``Optional[T]``; return ``(T, True)``.
+    """
+    Strip ``None`` from ``T | None`` / ``Optional[T]``; return ``(T, True)``.
 
     Multi-member unions (``int | str``) are not Optional and stay as-is.
     """
@@ -63,7 +65,8 @@ _STR_LIST_ORIGINS: tuple[object, ...] = (
 
 
 def _is_str_list_annotation(annotation: object) -> bool:
-    """Detect ``list[str]`` / ``tuple[str, ...]`` / ``Sequence[str]`` etc.
+    """
+    Detect ``list[str]`` / ``tuple[str, ...]`` / ``Sequence[str]`` etc.
 
     Used to render the comma/space-separated text input instead of forcing
     the user to hand-write a JSON list for ``feature_columns`` etc.
@@ -99,7 +102,9 @@ def _classify(annotation: object) -> tuple[ParamKind, list[str] | None, bool]:
 
 
 def _enum_choices(enum_cls: type[enum.Enum]) -> list[str]:
-    """Materialise an Enum's values as wire strings, host-aware for ``Device``."""
+    """
+    Materialise an Enum's values as wire strings, host-aware for ``Device``.
+    """
 
     if enum_cls is Device:
         usable = {d.value for d in available_devices()}
@@ -118,13 +123,16 @@ def _default_for_wire(value: object, kind: ParamKind) -> object | None:
 
 
 def _strategy_yaml_stem(name: str) -> str:
-    """``CrossAssetMomentum`` → ``cross_asset_momentum``."""
+    """
+    ``CrossAssetMomentum`` → ``cross_asset_momentum``.
+    """
 
     return re.sub(r"(?<!^)(?=[A-Z])", "_", name).lower()
 
 
 def get_canonical_strategy_params(config_root: Path, name: str) -> dict[str, object] | None:
-    """Best-effort load of ``<config_root>/strategies/<snake_case>.yaml`` →
+    """
+    Best-effort load of ``<config_root>/strategies/<snake_case>.yaml`` →
     ``strategy.params``. Returns ``None`` for missing/malformed YAML and
     strips ``_HIDDEN_PARAMS`` so the form never receives framework-managed
     keys it would have to filter again.
@@ -154,7 +162,8 @@ def get_canonical_strategy_params(config_root: Path, name: str) -> dict[str, obj
 
 
 def describe_strategy(name: str) -> StrategySchema:
-    """Return the form-backing schema for ``strategy_registry.get(name)``.
+    """
+    Return the form-backing schema for ``strategy_registry.get(name)``.
 
     Raises ``KeyError`` (with the registry's "available: [...]" hint) if
     ``name`` is not registered.

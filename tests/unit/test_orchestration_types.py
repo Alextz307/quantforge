@@ -1,4 +1,5 @@
-"""Round-trip tests for :class:`FoldRecord` and :class:`ExperimentResult`.
+"""
+Round-trip tests for :class:`FoldRecord` and :class:`ExperimentResult`.
 
 These records are the JSONL schema for ``fold_results.jsonl`` / experiment
 manifests; a broken ``from_dict`` surfaces only at report-reload time which
@@ -74,7 +75,9 @@ def _make_record(**overrides: Any) -> FoldRecord:
 
 
 class _StubBacktest:
-    """Attribute-only stub for ``BacktestResult`` (C++ binding not instantiable)."""
+    """
+    Attribute-only stub for ``BacktestResult`` (C++ binding not instantiable).
+    """
 
     def __init__(self) -> None:
         self.total_return = _TOTAL_RETURN
@@ -83,7 +86,9 @@ class _StubBacktest:
 
 
 class _StubMetrics:
-    """Attribute-only stub for ``PerformanceMetrics``."""
+    """
+    Attribute-only stub for ``PerformanceMetrics``.
+    """
 
     def __init__(self) -> None:
         self.annualized_return = _ANNUALIZED_RETURN
@@ -96,7 +101,8 @@ class _StubMetrics:
 
 
 class _StubFoldResult:
-    """Duck-typed stub matching the attribute surface ``FoldRecord.from_fold_result`` reads.
+    """
+    Duck-typed stub matching the attribute surface ``FoldRecord.from_fold_result`` reads.
 
     ``FoldResult`` is a frozen dataclass whose ``backtest`` / ``metrics``
     fields are C++-bound classes not instantiable from Python. Passing a
@@ -129,7 +135,8 @@ class TestFoldRecordFromFoldResult:
         assert rec.equity_curve == _EQUITY_CURVE
 
     def test_equity_curve_is_tuple_of_python_floats(self) -> None:
-        """``.tolist()`` must yield native Python floats, not numpy scalars —
+        """
+        ``.tolist()`` must yield native Python floats, not numpy scalars —
         otherwise JSON serialisation downstream produces numpy-specific
         literals that don't round-trip."""
 
@@ -168,7 +175,8 @@ class TestFoldRecordRoundTrip:
         assert dict(revived.strategy_diagnostics) == {"floor_bind_fraction": 0.123}
 
     def test_diagnostics_missing_in_dict_defaults_to_empty(self) -> None:
-        """Backwards-compat: existing JSONL files (no strategy_diagnostics
+        """
+        Backwards-compat: existing JSONL files (no strategy_diagnostics
         key) deserialize cleanly to an empty mapping."""
 
         d = _make_record().to_dict()
@@ -227,7 +235,8 @@ class TestExperimentResultRoundTrip:
         assert revived.manifest.slippage_scenario.value == "normal"
 
     def test_to_dict_folds_are_plain_dicts(self) -> None:
-        """JSON-compatibility sanity check: every fold in ``.to_dict()`` is
+        """
+        JSON-compatibility sanity check: every fold in ``.to_dict()`` is
         a JSON object (dict), not a dataclass instance."""
 
         result = ExperimentResult(

@@ -1,4 +1,6 @@
-"""Job-submission glue: persist row, write config YAML, spawn subprocess, enforce ownership."""
+"""
+Job-submission glue: persist row, write config YAML, spawn subprocess, enforce ownership.
+"""
 
 from __future__ import annotations
 
@@ -78,7 +80,8 @@ class JobNotRunningError(ValueError):
 
 
 class JobConfigInvalidError(ValueError):
-    """Raised when ``submit_job`` rejects a config_payload before persisting state.
+    """
+    Raised when ``submit_job`` rejects a config_payload before persisting state.
 
     Carries the structured Pydantic errors so the router can surface them
     inline on the form rather than failing the spawned subprocess.
@@ -116,7 +119,8 @@ _STANDARD_FEATURES_BLOCK: dict[str, object] = {
 
 
 def _maybe_inject_standard_features(payload: dict[str, object]) -> None:
-    """Auto-add a canonical ``features:`` block for strategies that need it.
+    """
+    Auto-add a canonical ``features:`` block for strategies that need it.
 
     VolatilityTargeting / ReturnForecast consume pre-engineered feature
     columns (signaled by a required ``feature_columns`` ctor param). The
@@ -148,7 +152,8 @@ def _maybe_inject_standard_features(payload: dict[str, object]) -> None:
 
 @dataclass(frozen=True)
 class _SpawnPlan:
-    """Everything ``_persist_and_spawn`` needs to spawn one job kind.
+    """
+    Everything ``_persist_and_spawn`` needs to spawn one job kind.
 
     ``configs_to_write`` is empty for kinds that reference existing
     on-disk artifacts (compare/holdout) instead of building fresh YAMLs.
@@ -166,7 +171,8 @@ class _SpawnPlan:
 
 @dataclass(frozen=True)
 class _HandlerCtx:
-    """Per-submission context threaded through validate() + plan().
+    """
+    Per-submission context threaded through validate() + plan().
 
     Bundles environment knobs that one or more kinds need but that vary
     per-request: ``user`` (for ownership-scoped resource lookups —
@@ -185,10 +191,13 @@ class _HandlerCtx:
 
 
 class _JobHandler(Protocol):
-    """Per-kind submit_job hook: validate pre-insert, then build a SpawnPlan."""
+    """
+    Per-kind submit_job hook: validate pre-insert, then build a SpawnPlan.
+    """
 
     def validate(self, submission: JobSubmission, ctx: _HandlerCtx) -> None:
-        """Raise :class:`JobConfigInvalidError` on any pre-insert failure.
+        """
+        Raise :class:`JobConfigInvalidError` on any pre-insert failure.
 
         Runs before the placeholder row is inserted so a rejected
         submission leaves no orphan state behind.
@@ -200,7 +209,8 @@ class _JobHandler(Protocol):
 
 
 def _extract_study_name(hpo_payload: dict[str, object]) -> str:
-    """Extract validated ``study_name`` from an HPO payload.
+    """
+    Extract validated ``study_name`` from an HPO payload.
 
     HPOConfig validation already ran (in the tune handler), so
     ``study_name`` is a non-empty path-safe string. Defensive re-check
@@ -224,7 +234,8 @@ def _extract_study_name(hpo_payload: dict[str, object]) -> str:
 def _resolve_compare_inputs(
     payload: ComparePayload, store_root: Path
 ) -> tuple[tuple[Path, ...], tuple[Path, ...]]:
-    """Resolve each ``run_ids[i]`` to ``(config.yaml, run_dir)`` in matching order.
+    """
+    Resolve each ``run_ids[i]`` to ``(config.yaml, run_dir)`` in matching order.
 
     The CLI pairs ``--config`` and ``--reuse-runs`` positionally, so the
     two returned tuples MUST share order with ``payload.run_ids``. Errors
@@ -262,7 +273,8 @@ def _resolve_compare_inputs(
 
 
 def _resolve_holdout_source(payload: HoldoutPayload, store_root: Path) -> tuple[Path, str]:
-    """Resolve the source dir and derive the artifact (out_name) name.
+    """
+    Resolve the source dir and derive the artifact (out_name) name.
 
     Returns ``(source_path, artifact_name)`` where ``artifact_name`` is
     ``payload.out_name`` if set, else the source basename (matches the
@@ -361,7 +373,8 @@ def _library_spec_path(spec_name: str, config_root: Path) -> Path:
 
 
 def _resolve_spec_path(payload: StudyPayload, ctx: _HandlerCtx) -> Path:
-    """Pick the on-disk spec file: user uploads first, library second.
+    """
+    Pick the on-disk spec file: user uploads first, library second.
 
     Uploads can never shadow library entries — the upload-save endpoint
     rejects slugs matching ``config/study/<slug>.yaml`` — so this two-step
@@ -378,7 +391,8 @@ def _resolve_spec_path(payload: StudyPayload, ctx: _HandlerCtx) -> Path:
 
 
 def _resolve_study_spec(payload: StudyPayload, ctx: _HandlerCtx) -> tuple[StudySpec, Path]:
-    """Load and schema-validate the spec referenced by ``payload.spec_name``.
+    """
+    Load and schema-validate the spec referenced by ``payload.spec_name``.
 
     Returns the parsed ``StudySpec`` together with the resolved on-disk
     path (the same path the CLI subprocess receives via ``--spec``).
@@ -440,7 +454,9 @@ def _resolve_study_spec(payload: StudyPayload, ctx: _HandlerCtx) -> tuple[StudyS
 
 
 def _validate_only_legs(only_legs: list[str], spec_legs: list[StudyLeg]) -> None:
-    """Each ``only_legs`` entry must match a leg id derived from the spec."""
+    """
+    Each ``only_legs`` entry must match a leg id derived from the spec.
+    """
 
     if not only_legs:
         return
@@ -647,7 +663,8 @@ async def submit_job(
     job_temp_dir: Path,
     study_spec_uploads_dir: Path,
 ) -> JobRow:
-    """Persist a queued row, write the config YAML(s), spawn the CLI, mark running.
+    """
+    Persist a queued row, write the config YAML(s), spawn the CLI, mark running.
 
     Per-kind logic lives in :data:`_HANDLERS`. Validation runs before the
     placeholder row is inserted so a rejected submission leaves no orphan
@@ -739,7 +756,8 @@ def list_jobs_for(
     store_root: Path,
     all_users: bool = False,
 ) -> list[JobRow]:
-    """Per-user view by default; admins may pass ``all_users=True``.
+    """
+    Per-user view by default; admins may pass ``all_users=True``.
 
     Terminal jobs whose ``experiment_id`` no longer resolves to an artifact
     on disk are filtered out so the UI doesn't show entries that would
@@ -805,7 +823,9 @@ async def cancel_job(
 
 
 def reconcile_orphans(conn: sqlite3.Connection) -> int:
-    """Mark RUNNING rows whose PID is no longer alive as FAILED; returns the count."""
+    """
+    Mark RUNNING rows whose PID is no longer alive as FAILED; returns the count.
+    """
 
     orphans = 0
     for job in list_running_jobs(conn):

@@ -1,4 +1,6 @@
-"""Static-file access under artifact subdirectories with traversal-safe path resolution."""
+"""
+Static-file access under artifact subdirectories with traversal-safe path resolution.
+"""
 
 from __future__ import annotations
 
@@ -23,11 +25,14 @@ def _is_retired(name: str) -> bool:
 
 
 class PlotNotFoundError(LookupError):
-    """Raised when a requested artifact file does not exist under its expected subdir."""
+    """
+    Raised when a requested artifact file does not exist under its expected subdir.
+    """
 
 
 def list_files_under(artifact_dir: Path, subdir: str) -> list[str]:
-    """Return the sorted filenames under ``<artifact_dir>/<subdir>/``.
+    """
+    Return the sorted filenames under ``<artifact_dir>/<subdir>/``.
 
     Filenames produced by removed features (regime analysis, fold-stability
     scatter) are filtered out so legacy run/study directories don't surface
@@ -41,7 +46,8 @@ def list_files_under(artifact_dir: Path, subdir: str) -> list[str]:
 
 
 def resolve_file_under(artifact_dir: Path, subdir: str, name: str) -> Path:
-    """Resolve ``name`` to an absolute path under ``<artifact_dir>/<subdir>/``.
+    """
+    Resolve ``name`` to an absolute path under ``<artifact_dir>/<subdir>/``.
 
     Blocks ``..`` traversal by requiring the resolved candidate to stay
     inside the resolved subdirectory. Raises :class:`PlotNotFoundError`
@@ -59,12 +65,16 @@ def resolve_file_under(artifact_dir: Path, subdir: str, name: str) -> Path:
 
 
 def list_plots(artifact_dir: Path) -> list[str]:
-    """Return the sorted filenames under ``<artifact_dir>/plots/``."""
+    """
+    Return the sorted filenames under ``<artifact_dir>/plots/``.
+    """
 
     return list_files_under(artifact_dir, PLOTS_DIRNAME)
 
 
 def resolve_plot_path(artifact_dir: Path, plot_name: str) -> Path:
-    """Resolve ``plot_name`` to an absolute path under ``<artifact_dir>/plots/``."""
+    """
+    Resolve ``plot_name`` to an absolute path under ``<artifact_dir>/plots/``.
+    """
 
     return resolve_file_under(artifact_dir, PLOTS_DIRNAME, plot_name)

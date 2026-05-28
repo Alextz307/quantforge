@@ -1,4 +1,5 @@
-"""Cross-trial AIC cache for the GARCH ``(p, q)`` grid search.
+"""
+Cross-trial AIC cache for the GARCH ``(p, q)`` grid search.
 
 Within an Optuna study, every HPO trial runs the same walk-forward fold
 loop. For each fold, ``GARCHPredictor.fit`` calls ``_grid_search`` over
@@ -49,7 +50,8 @@ if TYPE_CHECKING:
 
 @dataclass
 class GarchGridCache:
-    """In-memory ``(returns_hash, p, q) -> (aic, fitted_result)`` table.
+    """
+    In-memory ``(returns_hash, p, q) -> (aic, fitted_result)`` table.
 
     Mutable and not thread-safe — Optuna's ``n_jobs > 1`` mode runs
     trials in *threads* (not processes) sharing one Python interpreter,
@@ -66,7 +68,9 @@ class GarchGridCache:
 
     @staticmethod
     def hash_returns(scaled: np.ndarray[tuple[int], np.dtype[np.float64]]) -> bytes:
-        """SHA-256 of the scaled-returns bytes — stable across processes."""
+        """
+        SHA-256 of the scaled-returns bytes — stable across processes.
+        """
 
         return hashlib.sha256(scaled.tobytes()).digest()
 
@@ -77,7 +81,8 @@ class GarchGridCache:
         q_max: int,
         fit_fn: Callable[[int, int], ARCHModelResult | None],
     ) -> tuple[ARCHModelResult | None, int, int, float]:
-        """Resolve the best ``(p, q)`` within ``[1, p_max] x [1, q_max]``.
+        """
+        Resolve the best ``(p, q)`` within ``[1, p_max] x [1, q_max]``.
 
         For each cell, returns the cached fit if present; otherwise
         invokes ``fit_fn(p, q)`` and stores the result. ``fit_fn`` must
@@ -122,7 +127,8 @@ _CACHE_CTX: ContextVar[GarchGridCache | None] = ContextVar("_GARCH_CACHE_CTX", d
 
 @contextmanager
 def garch_cache_context(cache: GarchGridCache) -> Iterator[GarchGridCache]:
-    """Bind ``cache`` as the active cache for the enclosed block.
+    """
+    Bind ``cache`` as the active cache for the enclosed block.
 
     Restoration is unconditional (try/finally) so an exception raised
     inside the block doesn't leave a stale cache visible to subsequent
@@ -137,6 +143,8 @@ def garch_cache_context(cache: GarchGridCache) -> Iterator[GarchGridCache]:
 
 
 def active_cache() -> GarchGridCache | None:
-    """Return the cache bound by the innermost enclosing ``garch_cache_context``."""
+    """
+    Return the cache bound by the innermost enclosing ``garch_cache_context``.
+    """
 
     return _CACHE_CTX.get()

@@ -1,4 +1,6 @@
-"""Verify the liveness endpoint and OpenAPI schema surface."""
+"""
+Verify the liveness endpoint and OpenAPI schema surface.
+"""
 
 from __future__ import annotations
 

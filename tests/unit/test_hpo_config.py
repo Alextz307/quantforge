@@ -1,4 +1,5 @@
-"""Validation + YAML round-trip for :class:`HPOConfig`.
+"""
+Validation + YAML round-trip for :class:`HPOConfig`.
 
 Kept decoupled from :class:`ExperimentConfig`: the tuner takes both as
 separate positional args, so this test file doesn't reach into

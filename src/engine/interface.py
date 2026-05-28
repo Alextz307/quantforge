@@ -1,4 +1,5 @@
-"""Backtest engine abstract interface.
+"""
+Backtest engine abstract interface.
 
 Returns the raw C++ ``BacktestResult`` (``equity_curve`` +
 ``total_return`` + ``trade_count`` populated; statistical metric fields
@@ -23,7 +24,9 @@ from quant_engine import BacktestResult, SlippageConfig
 
 
 class IBacktestEngine(ABC):
-    """Backtest engine interface — implemented by ``CppBacktestEngine``."""
+    """
+    Backtest engine interface — implemented by ``CppBacktestEngine``.
+    """
 
     @abstractmethod
     def run(
@@ -32,7 +35,8 @@ class IBacktestEngine(ABC):
         signals: pd.Series,
         slippage: SlippageConfig,
     ) -> BacktestResult:
-        """Run a single-scenario backtest.
+        """
+        Run a single-scenario backtest.
 
         Args:
             bars: DataFrame with DatetimeIndex and columns
@@ -57,7 +61,8 @@ class IBacktestEngine(ABC):
         signals: pd.Series,
         scenarios: Sequence[SlippageConfig],
     ) -> list[BacktestResult]:
-        """Run the same bars + signals across multiple slippage scenarios.
+        """
+        Run the same bars + signals across multiple slippage scenarios.
 
         The bars vector is constructed once and reused across scenarios
         on the C++ side; this is the recommended API for slippage sweeps.
@@ -72,7 +77,8 @@ class IBacktestEngine(ABC):
         hedge_ratio: float,
         slippage: SlippageConfig,
     ) -> BacktestResult:
-        """Run a two-leg (pairs / cointegration) backtest.
+        """
+        Run a two-leg (pairs / cointegration) backtest.
 
         Args:
             bars_a: OHLCV DataFrame for leg A, DatetimeIndex aligned with

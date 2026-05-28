@@ -1,4 +1,6 @@
-"""Torch device selection: CUDA > MPS > CPU, with optional explicit override."""
+"""
+Torch device selection: CUDA > MPS > CPU, with optional explicit override.
+"""
 
 from __future__ import annotations
 
@@ -16,19 +18,25 @@ _XGBOOST_ALLOWED = (Device.AUTO.value, Device.CUDA.value, Device.CPU.value)
 
 
 def _cuda_available() -> bool:
-    """True iff torch was built with CUDA support AND a CUDA device is visible."""
+    """
+    True iff torch was built with CUDA support AND a CUDA device is visible.
+    """
 
     return torch.cuda.is_available()
 
 
 def _mps_available() -> bool:
-    """True iff torch was built with MPS support AND Apple Silicon hardware is present."""
+    """
+    True iff torch was built with MPS support AND Apple Silicon hardware is present.
+    """
 
     return hasattr(torch.backends, "mps") and torch.backends.mps.is_available()
 
 
 def _require_cuda() -> None:
-    """Raise ``RuntimeError`` if CUDA is unavailable — shared by both selectors."""
+    """
+    Raise ``RuntimeError`` if CUDA is unavailable — shared by both selectors.
+    """
 
     if not _cuda_available():
         raise RuntimeError(
@@ -40,7 +48,8 @@ def _require_cuda() -> None:
 
 @cache
 def available_devices() -> tuple[Device, ...]:
-    """Devices the host can actually drive (always includes ``AUTO`` and ``CPU``).
+    """
+    Devices the host can actually drive (always includes ``AUTO`` and ``CPU``).
 
     Host capabilities don't change at runtime, so the result is cached.
     Tests that monkeypatch ``_cuda_available`` / ``_mps_available`` must
@@ -56,7 +65,8 @@ def available_devices() -> tuple[Device, ...]:
 
 
 def select_device(preference: Device | None = None) -> torch.device:
-    """Return a ``torch.device`` following the CUDA > MPS > CPU priority order.
+    """
+    Return a ``torch.device`` following the CUDA > MPS > CPU priority order.
 
     Args:
         preference: ``None`` or ``Device.AUTO`` auto-picks the fastest available backend.
@@ -99,7 +109,8 @@ def select_device(preference: Device | None = None) -> torch.device:
 
 
 def select_xgboost_device(preference: Device | None = None) -> str:
-    """Return the XGBoost device string (``'cuda'`` or ``'cpu'``).
+    """
+    Return the XGBoost device string (``'cuda'`` or ``'cpu'``).
 
     XGBoost's CUDA support is NVIDIA-only — it has no Apple MPS backend — so
     MPS is intentionally omitted from the priority order and rejected with a

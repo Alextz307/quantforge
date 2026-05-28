@@ -1,4 +1,6 @@
-"""Verify session-cookie sign/verify, secret-key validation, and tamper detection."""
+"""
+Verify session-cookie sign/verify, secret-key validation, and tamper detection.
+"""
 
 from __future__ import annotations
 

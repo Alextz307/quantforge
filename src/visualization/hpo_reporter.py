@@ -1,4 +1,5 @@
-"""HPO study report generator.
+"""
+HPO study report generator.
 
 Consumes an :class:`optuna.Study` and writes thesis-ready artifacts
 under ``<study_dir>/plots/`` + ``<study_dir>/tables/``:
@@ -46,10 +47,14 @@ _MIN_TRIALS_FOR_IMPORTANCE = 2
 
 
 class HPOReporter:
-    """Generate the HPO-study report bundle."""
+    """
+    Generate the HPO-study report bundle.
+    """
 
     def generate_full_report(self, study: optuna.Study, out_dir: Path) -> Path:
-        """Write every artifact under ``out_dir/{plots,tables}/`` and return ``out_dir``."""
+        """
+        Write every artifact under ``out_dir/{plots,tables}/`` and return ``out_dir``.
+        """
 
         out_dir.mkdir(parents=True, exist_ok=True)
         plots_dir = out_dir / PLOTS_SUBDIR
@@ -147,7 +152,9 @@ class HPOReporter:
 
 
 def _format_params(params: dict[str, object]) -> str:
-    """Compact key=val,key=val rendering for a LaTeX table cell."""
+    """
+    Compact key=val,key=val rendering for a LaTeX table cell.
+    """
 
     parts = [f"{k}={v}" for k, v in sorted(params.items())]
     return ", ".join(parts)

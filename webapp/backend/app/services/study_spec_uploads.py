@@ -1,4 +1,5 @@
-"""User-authored study-spec uploads: validate, persist, soft-delete.
+"""
+User-authored study-spec uploads: validate, persist, soft-delete.
 
 The CRUD shape is owned by :class:`SpecUploadStore` in
 :mod:`spec_upload_store`; this module supplies the study-specific
@@ -30,7 +31,9 @@ from webapp.backend.app.services.spec_upload_store import (
 
 
 class StudySpecUploadNotFoundError(SpecUploadNotFoundError):
-    """Raised when a slug is not present (or is soft-deleted) for the caller."""
+    """
+    Raised when a slug is not present (or is soft-deleted) for the caller.
+    """
 
     kind_label = "study"
 
@@ -43,7 +46,8 @@ class StudySpecUploadInvalidError(SpecUploadInvalidError):
 def validate_study_spec_text(
     yaml_text: str, *, config_root: Path
 ) -> ValidateResponse:
-    """YAML parse + StudySpec pydantic validation + referenced-file existence.
+    """
+    YAML parse + StudySpec pydantic validation + referenced-file existence.
 
     Path-existence errors carry the path-shaped ``loc`` ``["legs", i,
     "<field>"]`` so the editor can mark the offending line. Empty /
@@ -64,7 +68,8 @@ def validate_study_spec_text(
 def _check_referenced_paths(
     spec: StudySpec, config_root: Path
 ) -> list[ValidationErrorItem]:
-    """For every leg, verify ``strategy_config``, ``hpo_config``, and each
+    """
+    For every leg, verify ``strategy_config``, ``hpo_config``, and each
     universe slug resolve to a file under ``config_root``.
 
     Universe slugs are stored as bare names; the canonical layout is

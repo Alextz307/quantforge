@@ -1,4 +1,6 @@
-"""Read-only services for the persisted comparisons tree."""
+"""
+Read-only services for the persisted comparisons tree.
+"""
 
 from __future__ import annotations
 
@@ -49,7 +51,9 @@ def list_comparisons(
     user: UserPublic,
     all_users: bool,
 ) -> list[ComparisonSummary]:
-    """List every comparison under ``root`` visible to ``user``, newest first."""
+    """
+    List every comparison under ``root`` visible to ``user``, newest first.
+    """
 
     summaries: list[ComparisonSummary] = []
     for cmp_dir in cached_artifact_dirs(root, "comparison", iter_comparison_dirs):
@@ -78,7 +82,8 @@ def get_comparison(
     conn: sqlite3.Connection,
     user: UserPublic,
 ) -> ComparisonDetail:
-    """Read the full detail payload for one comparison.
+    """
+    Read the full detail payload for one comparison.
 
     Raises :class:`ArtifactAccessDeniedError` when ``user`` is neither owner
     nor admin; the router maps that to 404 so the response doesn't disclose
@@ -123,7 +128,9 @@ def resolve_plot(
     conn: sqlite3.Connection,
     user: UserPublic,
 ) -> Path:
-    """Resolve a comparison plot filename to an absolute path, blocking traversal."""
+    """
+    Resolve a comparison plot filename to an absolute path, blocking traversal.
+    """
 
     check_artifact_access(conn, experiment_id=name, user=user)
     return resolve_plot_path(find_comparison_dir(root, name), plot_name)

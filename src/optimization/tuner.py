@@ -1,4 +1,5 @@
-"""Optuna-backed joint HPO driver over one :class:`ExperimentConfig`.
+"""
+Optuna-backed joint HPO driver over one :class:`ExperimentConfig`.
 
 Each trial materialises a fresh :class:`ExperimentConfig` by merging the
 sampler's draw into ``experiment_cfg.strategy.params``, runs a full
@@ -84,7 +85,8 @@ _TRIAL_NAME_SUFFIX = "_trial"
 
 @dataclass(frozen=True)
 class StrategyTuner:
-    """Drive one Optuna study against one :class:`ExperimentConfig`.
+    """
+    Drive one Optuna study against one :class:`ExperimentConfig`.
 
     Construction is deliberately minimal — the interesting work happens
     in :meth:`run`. Frozen because the tuner is pure configuration: once
@@ -105,13 +107,16 @@ class StrategyTuner:
 
     @cached_property
     def _study_logger(self) -> logging.LoggerAdapter:  # type: ignore[type-arg]
-        """Per-study context-bound logger; built once, reused across trials."""
+        """
+        Per-study context-bound logger; built once, reused across trials.
+        """
 
         return get_logger(__name__, study=self.hpo_cfg.study_name)
 
     @property
     def storage_url(self) -> str:
-        """SQLite URL Optuna stores the study under.
+        """
+        SQLite URL Optuna stores the study under.
 
         Absolute path so the URL is invariant to the working directory
         the tuner is invoked from — matters for resume from a different
@@ -121,7 +126,8 @@ class StrategyTuner:
         return storage_url_for(self.study_dir)
 
     def run(self, *, progress: bool = False) -> optuna.Study:
-        """Run the study end-to-end, returning the completed study.
+        """
+        Run the study end-to-end, returning the completed study.
 
         Creates ``study_dir`` if missing, persists configs on first run,
         builds sampler/pruner from the HPO config, and drives Optuna's
@@ -217,7 +223,8 @@ class StrategyTuner:
         return value
 
     def _persist_configs(self) -> None:
-        """Write frozen ``experiment_config.yaml`` + ``hpo_config.yaml`` once.
+        """
+        Write frozen ``experiment_config.yaml`` + ``hpo_config.yaml`` once.
 
         On resume the configs already exist; we verify the base
         experiment config hash matches the incoming one so a user who
@@ -255,7 +262,8 @@ class StrategyTuner:
 
 
 def storage_url_for(study_dir: Path) -> str:
-    """SQLite URL Optuna stores the study DB under ``study_dir``.
+    """
+    SQLite URL Optuna stores the study DB under ``study_dir``.
 
     Uses ``Path.as_posix()`` so the URL is well-formed on Windows too —
     SQLAlchemy expects forward slashes regardless of platform.
@@ -268,7 +276,8 @@ def storage_url_for(study_dir: Path) -> str:
 def _materialize_trial_config(
     base: ExperimentConfig, sampled: dict[str, object]
 ) -> ExperimentConfig:
-    """Merge sampled ctor kwargs into ``base.strategy.params`` and re-validate.
+    """
+    Merge sampled ctor kwargs into ``base.strategy.params`` and re-validate.
 
     Revalidation is required — registry lookups and strategy-name
     validation live on the ``ExperimentConfig`` validators and we want a
@@ -286,7 +295,9 @@ def _materialize_trial_config(
 
 
 def _config_content_hash(cfg: ExperimentConfig) -> str:
-    """Stable SHA over a model's JSON dump — content equality, not object identity."""
+    """
+    Stable SHA over a model's JSON dump — content equality, not object identity.
+    """
 
     payload = yaml.safe_dump(cfg.model_dump(mode="json"), sort_keys=True)
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()

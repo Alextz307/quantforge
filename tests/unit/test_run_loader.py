@@ -1,4 +1,5 @@
-"""Round-trip + error-shape tests for :mod:`src.orchestration.run_loader`.
+"""
+Round-trip + error-shape tests for :mod:`src.orchestration.run_loader`.
 
 Behavioural surface:
 * ``load_experiment_result`` reconstructs an :class:`ExperimentResult`
@@ -42,7 +43,9 @@ _SHARPE = 1.1
 
 
 def _write_stub_run_dir(run_dir: Path, name: str) -> None:
-    """Materialise a minimal but valid run dir using the stub helpers."""
+    """
+    Materialise a minimal but valid run dir using the stub helpers.
+    """
 
     run_dir.mkdir(parents=True)
     folds = tuple(
@@ -98,7 +101,9 @@ def test_missing_folds_raises(tmp_path: Path) -> None:
 
 
 def test_load_config_from_run(tmp_path: Path) -> None:
-    """Frozen ``config.yaml`` round-trips through the loader."""
+    """
+    Frozen ``config.yaml`` round-trips through the loader.
+    """
 
     from src.core.config import load_experiment_config
 

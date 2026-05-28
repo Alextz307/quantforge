@@ -1,4 +1,6 @@
-"""Read-only HTTP endpoints over persisted comparisons."""
+"""
+Read-only HTTP endpoints over persisted comparisons.
+"""
 
 from __future__ import annotations
 

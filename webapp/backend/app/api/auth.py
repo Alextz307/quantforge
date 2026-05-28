@@ -1,4 +1,6 @@
-"""Login / logout / me endpoints. Login is rate-limited per-IP via slowapi."""
+"""
+Login / logout / me endpoints. Login is rate-limited per-IP via slowapi.
+"""
 
 from __future__ import annotations
 

@@ -1,4 +1,6 @@
-"""Shared domain utilities for the quant trading framework."""
+"""
+Shared domain utilities for the quant trading framework.
+"""
 
 from __future__ import annotations
 
@@ -13,7 +15,8 @@ from src.core.types import Interval
 
 
 def compute_log_returns(close: pd.Series[float]) -> pd.Series[float]:
-    """Compute log returns from a close-price series.
+    """
+    Compute log returns from a close-price series.
 
     Equivalent to ``log(close[t] / close[t-1])``.  The first value is
     NaN (no prior close).  Callers should ``.dropna()`` when needed.
@@ -24,7 +27,9 @@ def compute_log_returns(close: pd.Series[float]) -> pd.Series[float]:
 
 
 def validate_open_unit_interval(value: float, name: str) -> None:
-    """Ensure ``value`` lies in the open interval ``(0, 1)``; raise ``ValueError`` otherwise."""
+    """
+    Ensure ``value`` lies in the open interval ``(0, 1)``; raise ``ValueError`` otherwise.
+    """
 
     if not (0.0 < value < 1.0):
         raise ValueError(
@@ -36,7 +41,8 @@ def validate_open_unit_interval(value: float, name: str) -> None:
 def annualized_garman_klass(
     bars: pd.DataFrame, *, window: int, interval: Interval
 ) -> pd.Series[float]:
-    """Annualized Garman-Klass realized volatility at the caller's interval.
+    """
+    Annualized Garman-Klass realized volatility at the caller's interval.
 
     The underlying C++ estimator annualizes assuming daily bars; we rescale
     so ``Interval.HOUR`` and friends land on the same annualized horizon as
@@ -59,7 +65,8 @@ def annualized_garman_klass(
 
 
 def next_bar_direction(close: pd.Series[float]) -> pd.Series[int]:
-    """Binary next-bar-up target (1 = up, 0 = down); final row excluded.
+    """
+    Binary next-bar-up target (1 = up, 0 = down); final row excluded.
 
     Shared between ``DirectionalClassifier`` training targets (standalone
     dispatcher and MomentumGatekeeperStrategy's in-strategy batch builder)
@@ -76,7 +83,8 @@ def align_features_for_directional_target(
     features: pd.DataFrame,
     close: pd.Series[float],
 ) -> tuple[pd.DataFrame, pd.Series[int]]:
-    """Align ``features`` to ``next_bar_direction(close)`` and drop NaN rows.
+    """
+    Align ``features`` to ``next_bar_direction(close)`` and drop NaN rows.
 
     Shared training-batch builder for directional-classifier strategies
     (``MomentumGatekeeperStrategy``, ``CrossAssetMomentumStrategy``). The

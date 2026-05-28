@@ -1,4 +1,5 @@
-"""Multi-strategy comparison orchestrator.
+"""
+Multi-strategy comparison orchestrator.
 
 Composes multiple :class:`ExperimentConfig` runs into a single
 :class:`StrategyComparisonReport`: ranked per-strategy stats, pairwise Sharpe
@@ -70,7 +71,9 @@ _DEFAULT_PAIRWISE_N_RESAMPLES = 5_000
 
 
 class SignificanceTest(StrEnum):
-    """Pairwise Sharpe-differential test selector for :func:`run_comparison`."""
+    """
+    Pairwise Sharpe-differential test selector for :func:`run_comparison`.
+    """
 
     BOOTSTRAP = "bootstrap"
     NONE = "none"
@@ -78,7 +81,8 @@ class SignificanceTest(StrEnum):
 
 @dataclass(frozen=True)
 class _ComparisonInputs:
-    """Internal bundle: configs + their resolved strategy names.
+    """
+    Internal bundle: configs + their resolved strategy names.
 
     Two strategies in one comparison with identical names would collide
     in ``per_strategy_stats`` — we surface that as a :class:`ValueError`
@@ -99,7 +103,8 @@ def run_comparison(
     n_resamples: int = _DEFAULT_PAIRWISE_N_RESAMPLES,
     reused_results: Sequence[ExperimentResult] | None = None,
 ) -> tuple[StrategyComparisonReport, dict[str, tuple[FoldRecord, ...]]]:
-    """Run every config, aggregate, rank, optionally pairwise-test.
+    """
+    Run every config, aggregate, rank, optionally pairwise-test.
 
     Returns ``(report, folds_by_strategy)`` — the in-memory
     :class:`StrategyComparisonReport` plus a per-strategy mapping of fold
@@ -186,7 +191,8 @@ def run_comparison(
 
 
 def _run_one_experiment(cfg: ExperimentConfig, cmp_dir: Path) -> ExperimentResult:
-    """Worker entry point — module-level so ProcessPoolExecutor can pickle it.
+    """
+    Worker entry point — module-level so ProcessPoolExecutor can pickle it.
 
     ``write_report=False``: per-strategy reporting is redundant with the
     cross-strategy StrategyComparisonReport and triples the wall clock on
@@ -222,7 +228,8 @@ def _validate_inputs(configs: Sequence[ExperimentConfig]) -> _ComparisonInputs:
 
 
 def _validate_reused_inputs(reused_results: Sequence[ExperimentResult]) -> _ComparisonInputs:
-    """Build :class:`_ComparisonInputs` directly from reused results.
+    """
+    Build :class:`_ComparisonInputs` directly from reused results.
 
     Used when ``run_comparison`` is called without ``configs`` — strategy
     names come from each result's ``manifest.name`` (which was set from
@@ -283,7 +290,8 @@ def _compute_pairwise_bootstrap(
     *,
     n_resamples: int,
 ) -> tuple[PairwiseSignificance, ...]:
-    """Compute the upper-triangular pairwise Sharpe-differential matrix.
+    """
+    Compute the upper-triangular pairwise Sharpe-differential matrix.
 
     Raises if fold counts or per-fold curve lengths differ between any
     two strategies — that's an alignment violation and pairing the
@@ -320,7 +328,8 @@ def _compute_pairwise_bootstrap(
 def _concatenated_log_returns(
     folds: tuple[FoldRecord, ...],
 ) -> npt.NDArray[np.float64]:
-    """Flatten per-fold equity curves into one bar-level log-return series.
+    """
+    Flatten per-fold equity curves into one bar-level log-return series.
 
     Folds whose equity curves have fewer than 2 points contribute zero
     returns (a single-bar fold can't define a return); they're skipped
@@ -351,7 +360,8 @@ def _validate_reused_results_alignment(
     inputs: _ComparisonInputs,
     reused_results: Sequence[ExperimentResult],
 ) -> None:
-    """Cross-check reused runs against the configs they're paired with.
+    """
+    Cross-check reused runs against the configs they're paired with.
 
     Three invariants:
     * Count matches: one reused result per config, no off-by-one.
@@ -392,7 +402,8 @@ def _validate_fold_alignment(
     strategy_names: tuple[str, ...],
     results: list[ExperimentResult],
 ) -> None:
-    """Every strategy must have the same fold count + same per-fold curve lengths.
+    """
+    Every strategy must have the same fold count + same per-fold curve lengths.
 
     Fold curve lengths are the per-bar granularity; aligning the bootstrap
     requires the underlying bar index to match 1-to-1 across strategies,

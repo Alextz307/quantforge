@@ -1,4 +1,5 @@
-"""Reporter for one-shot holdout-eval bundles.
+"""
+Reporter for one-shot holdout-eval bundles.
 
 Consumes a :class:`HoldoutEvalResult` and emits two artifacts under the
 holdout-eval out_dir:
@@ -43,7 +44,9 @@ HOLDOUT_EQUITY_FILENAME = "holdout_equity.png"
 
 
 class HoldoutEvalReporter:
-    """Generate the holdout-eval table + equity plot."""
+    """
+    Generate the holdout-eval table + equity plot.
+    """
 
     def generate_full_report(
         self,
@@ -52,7 +55,8 @@ class HoldoutEvalReporter:
         *,
         publish_label: str | None = None,
     ) -> Path:
-        """Write both artifacts under ``out_dir/{plots,tables}/``.
+        """
+        Write both artifacts under ``out_dir/{plots,tables}/``.
 
         ``out_dir`` is the same directory the orchestration module wrote
         ``holdout_eval.json`` into, so the caller passes the path
@@ -90,7 +94,8 @@ class HoldoutEvalReporter:
         return out_dir
 
     def _plot_equity_curve(self, result: HoldoutEvalResult, out_path: Path) -> Path:
-        """Plot the holdout equity curve normalised to 1.0 at holdout start.
+        """
+        Plot the holdout equity curve normalised to 1.0 at holdout start.
 
         Skips plotting (with a warning) if the equity series is empty or
         starts at a non-finite / non-positive value — same defence the
@@ -121,15 +126,26 @@ class HoldoutEvalReporter:
 
 
 def _build_metrics_df(result: HoldoutEvalResult) -> pd.DataFrame:
-    """Two-column "metric · value" frame.
+    """
+    Two-column "metric · value" frame.
 
     A horizontal one-row layout would crowd the LaTeX page (8 columns at
     .3f); the two-column form reads top-to-bottom and fits inside a
-    half-text-width float.
+    half-text-width float. The Sharpe CI and buy-and-hold reference are
+    appended after the strategy block so a reader can visually compare
+    the strategy's signal against the universe's long-only baseline.
     """
 
+    bah = result.buy_and_hold
+    excess_sharpe = result.sharpe_ratio - bah.sharpe_ratio
+    excess_total = result.total_return - bah.total_return
+    confidence_pct = int(round(result.sharpe_ci.confidence * 100))
     rows: list[tuple[str, str]] = [
         ("Sharpe", f"{result.sharpe_ratio:+.3f}"),
+        (
+            f"Sharpe {confidence_pct}\\% CI",
+            f"[{result.sharpe_ci.lower:+.3f}, {result.sharpe_ci.upper:+.3f}]",
+        ),
         ("Sortino", f"{result.sortino_ratio:+.3f}"),
         ("Calmar", f"{result.calmar_ratio:+.3f}"),
         ("Max drawdown", f"{result.max_drawdown:+.3f}"),
@@ -140,6 +156,11 @@ def _build_metrics_df(result: HoldoutEvalResult) -> pd.DataFrame:
         ("Trades", str(result.trade_count)),
         ("Holdout bars", str(result.n_holdout_bars)),
         ("Dev bars", str(result.n_dev_bars)),
+        ("Buy-and-hold Sharpe", f"{bah.sharpe_ratio:+.3f}"),
+        ("Buy-and-hold total return", f"{bah.total_return:+.3f}"),
+        ("Buy-and-hold max drawdown", f"{bah.max_drawdown:+.3f}"),
+        ("Excess Sharpe (vs BAH)", f"{excess_sharpe:+.3f}"),
+        ("Excess total return (vs BAH)", f"{excess_total:+.3f}"),
     ]
     return pd.DataFrame(rows, columns=["metric", "value"])
 

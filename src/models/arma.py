@@ -1,4 +1,6 @@
-"""ARMA return predictor using pmdarima for automatic order selection."""
+"""
+ARMA return predictor using pmdarima for automatic order selection.
+"""
 
 from __future__ import annotations
 
@@ -11,12 +13,14 @@ import pmdarima as pm
 from statsmodels.tsa.arima.model import ARIMA as SMARIMA
 
 from src.core import json_io
+from src.core.fs import atomic_write_path
 from src.core.logging import get_logger
 from src.core.persistence import (
     CONFIG_JSON,
     ENDOG_NPY,
     METADATA_JSON,
     WEIGHTS_JSON,
+    assert_save_complete,
     save_model_skeleton,
 )
 from src.core.registry import model_registry
@@ -33,7 +37,8 @@ logger = get_logger(__name__)
 
 
 class _StatsmodelsARMAAdapter:
-    """Pmdarima-ARIMA-compatible adapter backed by statsmodels.
+    """
+    Pmdarima-ARIMA-compatible adapter backed by statsmodels.
 
     Produced by every ``ARMAPredictor`` write path (``fit``, ``load``) so
     the rest of the predictor can treat ``self._model`` as a single surface.
@@ -74,7 +79,8 @@ class _StatsmodelsARMAAdapter:
 
 @model_registry.register("arma")
 class ARMAPredictor(IPredictor):
-    """ARMA predictor with automatic order selection via AIC.
+    """
+    ARMA predictor with automatic order selection via AIC.
 
     Uses pmdarima's auto_arima with d=0 (returns are stationary).
     One-step-ahead forecasting uses fixed parameters — no re-estimation.
@@ -97,7 +103,9 @@ class ARMAPredictor(IPredictor):
         self._model: _StatsmodelsARMAAdapter | None = None
 
     def _run_auto_arima(self, values: np.ndarray[tuple[int], np.dtype[np.float64]]) -> ARIMA:
-        """Run auto_arima with configured parameters."""
+        """
+        Run auto_arima with configured parameters.
+        """
 
         model: ARIMA = pm.auto_arima(
             values,
@@ -115,7 +123,8 @@ class ARMAPredictor(IPredictor):
         return model
 
     def tune(self, returns: pd.Series) -> tuple[int, int]:
-        """Find best (p, q) order via auto_arima.
+        """
+        Find best (p, q) order via auto_arima.
 
         Args:
             returns: Log returns series.
@@ -136,7 +145,8 @@ class ARMAPredictor(IPredictor):
         checkpoint_path: Path | None = None,  # noqa: ARG002
         **kwargs: object,
     ) -> None:
-        """Fit ARMA on training returns.
+        """
+        Fit ARMA on training returns.
 
         Args:
             train_data: DataFrame with DatetimeIndex (used for metadata).
@@ -169,7 +179,8 @@ class ARMAPredictor(IPredictor):
         *,
         returns: pd.Series | None = None,
     ) -> pd.Series:
-        """One-step-ahead forecasts using fixed ARMA parameters.
+        """
+        One-step-ahead forecasts using fixed ARMA parameters.
 
         Does NOT re-estimate parameters.
 
@@ -223,7 +234,9 @@ class ARMAPredictor(IPredictor):
         return forecast.reindex(data.index).ffill()
 
     def predict_single(self, recent_window: pd.DataFrame) -> float:
-        """Predict single one-step-ahead return forecast."""
+        """
+        Predict single one-step-ahead return forecast.
+        """
 
         self._assert_fitted_with_metadata()
         if self._model is None:
@@ -236,7 +249,8 @@ class ARMAPredictor(IPredictor):
         return float(forecast[0])
 
     def save(self, path: str | Path) -> None:
-        """Persist fitted ARMA params + training endog to ``path``.
+        """
+        Persist fitted ARMA params + training endog to ``path``.
 
         The training endog is persisted because statsmodels needs it to
         reconstruct the filter state on load — without it, ``predict_in_sample``
@@ -258,7 +272,8 @@ class ARMAPredictor(IPredictor):
                     "trend": adapter.trend,
                 },
             )
-            np.save(root / ENDOG_NPY, adapter.endog, allow_pickle=False)
+            with atomic_write_path(root / ENDOG_NPY) as tmp:
+                np.save(tmp, adapter.endog, allow_pickle=False)
 
         save_model_skeleton(
             path,
@@ -275,13 +290,14 @@ class ARMAPredictor(IPredictor):
 
     @classmethod
     def load(cls, path: str | Path) -> Self:
-        """Reconstruct a fitted ARMAPredictor from ``path``.
+        """
+        Reconstruct a fitted ARMAPredictor from ``path``.
 
         The loaded ``_model`` is a ``_StatsmodelsARMAAdapter`` — same shape
         as the post-fit path.
         """
 
-        root = Path(path)
+        root = assert_save_complete(path)
         config = json_io.read_dict(root / CONFIG_JSON)
         weights = json_io.read_dict(root / WEIGHTS_JSON)
         metadata = json_io.read_dict(root / METADATA_JSON)
@@ -313,7 +329,9 @@ class ARMAPredictor(IPredictor):
 
     @staticmethod
     def suggest_params(trial: optuna.Trial) -> dict[str, object]:
-        """Optuna search space for ARMA hyperparameters."""
+        """
+        Optuna search space for ARMA hyperparameters.
+        """
 
         return {
             "p_max": trial.suggest_int("arma_p_max", 1, 5),

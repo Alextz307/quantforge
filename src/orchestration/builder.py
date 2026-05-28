@@ -1,4 +1,5 @@
-"""Config → wired :class:`Experiment` factory.
+"""
+Config → wired :class:`Experiment` factory.
 
 Resolves every :class:`ComponentConfig` against its global registry and
 instantiates the concrete validator, engine, and slippage scenario. Kept
@@ -28,7 +29,8 @@ from src.strategies.interface import IStrategy
 def _make_feature_pipeline_factory(
     features_cfg: ComponentConfig,
 ) -> Callable[[], IFeaturePipeline]:
-    """Capture ``features_cfg`` in a closure so callers get a fresh instance per call.
+    """
+    Capture ``features_cfg`` in a closure so callers get a fresh instance per call.
 
     Split out so the closure binds ``features_cfg`` once, not a loop variable —
     avoids the late-binding trap if this ever ends up inside a loop.
@@ -38,7 +40,8 @@ def _make_feature_pipeline_factory(
 
 
 def _validate_strategy_data_shape(cfg: ExperimentConfig) -> None:
-    """Cross-check ticker count + shape flags against the strategy class.
+    """
+    Cross-check ticker count + shape flags against the strategy class.
 
     Three valid shapes, all mutually exclusive:
 
@@ -120,7 +123,9 @@ def _validate_strategy_data_shape(cfg: ExperimentConfig) -> None:
 
 
 def build_experiment(cfg: ExperimentConfig) -> Experiment:
-    """Instantiate every component referenced by ``cfg`` and bundle into an :class:`Experiment`."""
+    """
+    Instantiate every component referenced by ``cfg`` and bundle into an :class:`Experiment`.
+    """
 
     _validate_strategy_data_shape(cfg)
     data_source = data_source_registry.create_from_config(cfg.data.source)

@@ -1,4 +1,6 @@
-"""Tests for CrossAssetMomentumStrategy (multi-feature dispatch + XGBoost gate)."""
+"""
+Tests for CrossAssetMomentumStrategy (multi-feature dispatch + XGBoost gate).
+"""
 
 from __future__ import annotations
 
@@ -9,6 +11,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from src.core.persistence import SAVE_COMPLETE_MARKER
 from src.core.registry import strategy_registry
 from src.core.temporal import TrainingMetadata
 from src.core.types import Interval
@@ -40,7 +43,9 @@ _THRESHOLD_TOO_HIGH = 1.0
 def _wide_frame(
     tickers: Sequence[str], *, n_rows: int = _N_BARS, seed: int = GLOBAL_NUMPY_SEED
 ) -> pd.DataFrame:
-    """Build a wide ``<col>_<TICKER>`` frame with ``n_rows`` rows per ticker."""
+    """
+    Build a wide ``<col>_<TICKER>`` frame with ``n_rows`` rows per ticker.
+    """
 
     suffixed = [
         make_synthetic_ohlcv_df(n_rows=n_rows, seed=seed + offset).add_suffix(f"_{ticker}")
@@ -58,7 +63,9 @@ def wide_df() -> pd.DataFrame:
 
 
 def _make_strategy(**overrides: object) -> CrossAssetMomentumStrategy:
-    """Construct a strategy with compact XGBoost params and the test defaults."""
+    """
+    Construct a strategy with compact XGBoost params and the test defaults.
+    """
 
     kwargs: dict[str, object] = {
         "primary_ticker": _PRIMARY,
@@ -73,7 +80,9 @@ def _make_strategy(**overrides: object) -> CrossAssetMomentumStrategy:
 
 
 class _FakeClassifier:
-    """Duck-typed classifier returning a constant probability — bypasses XGBoost fit."""
+    """
+    Duck-typed classifier returning a constant probability — bypasses XGBoost fit.
+    """
 
     def __init__(self, proba: float) -> None:
         self._proba = proba
@@ -86,7 +95,8 @@ class _FakeClassifier:
 def _strategy_with_fake_classifier(
     proba: float, wide_df: pd.DataFrame
 ) -> CrossAssetMomentumStrategy:
-    """Build a fitted strategy whose classifier is a constant-proba fake.
+    """
+    Build a fitted strategy whose classifier is a constant-proba fake.
 
     Skips the real XGBoost fit by setting the classifier and fitted-state
     directly — the threshold tests only exercise ``generate_signals`` and
@@ -180,7 +190,9 @@ class TestTrainGenerate:
         assert (signals == -1.0).all()
 
     def test_mid_p_up_yields_flat(self, wide_df: pd.DataFrame) -> None:
-        """``1 - threshold < proba < threshold`` lands in the dead zone (signal=0)."""
+        """
+        ``1 - threshold < proba < threshold`` lands in the dead zone (signal=0).
+        """
 
         s = _strategy_with_fake_classifier(proba=0.5, wide_df=wide_df)
         signals = s.generate_signals(wide_df).dropna()
@@ -230,7 +242,9 @@ class TestSuggestParams:
         }
 
     def test_lags_and_feature_tickers_not_tuned(self) -> None:
-        """Lag schedule + ticker basket stay fixed at YAML level — see docstring."""
+        """
+        Lag schedule + ticker basket stay fixed at YAML level — see docstring.
+        """
 
         import optuna
 
@@ -269,3 +283,21 @@ class TestSaveLoad:
             loaded.generate_signals(wide_df).to_numpy(),
             original.generate_signals(wide_df).to_numpy(),
         )
+
+    def test_load_rejects_dir_with_missing_marker(
+        self, wide_df: pd.DataFrame, tmp_path: Path
+    ) -> None:
+        """
+        Save → delete the marker → load must refuse rather than return a
+        partial model. Simulates a save() that crashed before the final
+        marker write.
+        """
+
+        path = tmp_path / "cam"
+        s = _make_strategy()
+        s.train(wide_df)
+        s.save(path)
+
+        (path / SAVE_COMPLETE_MARKER).unlink()
+        with pytest.raises(FileNotFoundError, match=SAVE_COMPLETE_MARKER):
+            CrossAssetMomentumStrategy.load(path)

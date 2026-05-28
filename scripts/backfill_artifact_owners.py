@@ -1,4 +1,5 @@
-"""Attribute CLI-launched artifacts to an existing webapp user.
+"""
+Attribute CLI-launched artifacts to an existing webapp user.
 
 Walks ``store_root`` for every artifact kind that the read endpoints expose
 (runs, comparisons, holdout evaluations, studies, top-level HPO studies) and
@@ -43,7 +44,9 @@ Walker = Callable[[Path], Iterator[Path]]
 
 @dataclass(frozen=True)
 class _ArtifactKind:
-    """One backfill target: a directory walker + the JobKind to stamp on the row."""
+    """
+    One backfill target: a directory walker + the JobKind to stamp on the row.
+    """
 
     label: str
     job_kind: JobKind
@@ -51,7 +54,8 @@ class _ArtifactKind:
 
 
 def _hpo_top_level_dirs(root: Path) -> Iterator[Path]:
-    """Yield only the top-level HPO studies under ``<root>/hpo/<name>``.
+    """
+    Yield only the top-level HPO studies under ``<root>/hpo/<name>``.
 
     Nested HPO studies (under ``studies/<x>/hpo/<name>``) inherit ownership
     from the enclosing study's row, so the backfill leaves them alone.
@@ -75,7 +79,9 @@ _ARTIFACT_KINDS: tuple[_ArtifactKind, ...] = (
 
 
 def _require_user_id(conn: sqlite3.Connection, username: str) -> int:
-    """Return the active user_id for ``username`` or raise ``click.ClickException``."""
+    """
+    Return the active user_id for ``username`` or raise ``click.ClickException``.
+    """
 
     user_id = resolve_user_id(conn, username)
     if user_id is None:
@@ -87,7 +93,9 @@ def _require_user_id(conn: sqlite3.Connection, username: str) -> int:
 
 
 def _existing_experiment_ids(conn: sqlite3.Connection) -> set[str]:
-    """One pass over jobs.experiment_id to skip already-owned artifacts."""
+    """
+    One pass over jobs.experiment_id to skip already-owned artifacts.
+    """
 
     rows = conn.execute("SELECT experiment_id FROM jobs WHERE experiment_id IS NOT NULL").fetchall()
     return {str(r["experiment_id"]) for r in rows}
@@ -99,7 +107,9 @@ def _mtime_iso(path: Path) -> str:
 
 @dataclass(frozen=True)
 class BackfillPlan:
-    """Planned synthetic row — emitted in dry-run, written otherwise."""
+    """
+    Planned synthetic row — emitted in dry-run, written otherwise.
+    """
 
     kind_label: str
     job_kind: JobKind
@@ -148,7 +158,8 @@ def backfill(
     store_root: Path,
     dry_run: bool,
 ) -> list[BackfillPlan]:
-    """Public entrypoint — resolves the user, builds the plan, optionally commits.
+    """
+    Public entrypoint — resolves the user, builds the plan, optionally commits.
 
     Returns the plan regardless of ``dry_run`` so callers (and tests) can
     inspect what would change. A return list of length 0 means every

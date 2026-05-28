@@ -1,4 +1,6 @@
-"""Integration tests for /api/hpo (auth-gated)."""
+"""
+Integration tests for /api/hpo (auth-gated).
+"""
 
 from __future__ import annotations
 
@@ -76,7 +78,9 @@ def test_trials_404_for_unknown_name(authed_client: TestClient, webapp_store: Pa
 def test_param_importance_returns_200_with_message_when_db_missing(
     authed_client: TestClient, webapp_store: Path
 ) -> None:
-    """Synthetic fixture has no optuna_study.db — endpoint must NOT 500."""
+    """
+    Synthetic fixture has no optuna_study.db — endpoint must NOT 500.
+    """
 
     response = authed_client.get(f"{LIST_PATH}/{EXPECTED_WIRE_ID}/param-importance")
 

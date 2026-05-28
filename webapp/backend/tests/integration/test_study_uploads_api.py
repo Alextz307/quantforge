@@ -1,4 +1,6 @@
-"""Integration tests for /api/configs/study/uploads + study_spec/{schema,validate}."""
+"""
+Integration tests for /api/configs/study/uploads + study_spec/{schema,validate}.
+"""
 
 from __future__ import annotations
 
@@ -18,7 +20,9 @@ SCHEMA_PATH = "/api/configs/study_spec/schema"
 
 @pytest.fixture
 def study_config_root(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    """Plant the strategy/hpo/universe files an upload validates against."""
+    """
+    Plant the strategy/hpo/universe files an upload validates against.
+    """
 
     root = tmp_path / "config"
     (root / "strategies").mkdir(parents=True)
@@ -110,7 +114,9 @@ def test_validate_unknown_universe(
 def test_create_list_get_delete_roundtrip(
     authed_jobs_client: TestClient, study_config_root: Path
 ) -> None:
-    """authed_jobs_client provides the WEBAPP_STUDY_SPEC_UPLOADS_DIR env."""
+    """
+    authed_jobs_client provides the WEBAPP_STUDY_SPEC_UPLOADS_DIR env.
+    """
 
     yaml_text = _valid_yaml(study_config_root)
     create = authed_jobs_client.post(

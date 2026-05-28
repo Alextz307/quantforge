@@ -1,4 +1,6 @@
-"""Tests for :class:`StudySpec` and the committed ``main_study.yaml``."""
+"""
+Tests for :class:`StudySpec` and the committed ``main_study.yaml``.
+"""
 
 from __future__ import annotations
 

@@ -1,4 +1,5 @@
-"""Benchmarking orchestrator for the quant engine.
+"""
+Benchmarking orchestrator for the quant engine.
 
 See :mod:`src.benchmarking.runner` for the CLI entrypoint driver
 (:mod:`scripts.benchmark`). The package splits into several namespaces:

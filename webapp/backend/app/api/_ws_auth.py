@@ -1,4 +1,6 @@
-"""WebSocket-side cookie auth shared by job + HPO stream endpoints."""
+"""
+WebSocket-side cookie auth shared by job + HPO stream endpoints.
+"""
 
 from __future__ import annotations
 
@@ -18,7 +20,9 @@ WS_CLOSE_NOT_FOUND = 4404
 
 
 def resolve_ws_user(websocket: WebSocket) -> UserPublic | None:
-    """WebSocket equivalent of ``get_optional_user`` (no Response for cookie refresh)."""
+    """
+    WebSocket equivalent of ``get_optional_user`` (no Response for cookie refresh).
+    """
 
     sessions: SessionCookies = websocket.app.state.sessions
     token = websocket.cookies.get(SESSION_COOKIE_NAME)

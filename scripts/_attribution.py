@@ -1,4 +1,5 @@
-"""Helpers for the CLI ``--user`` flag: resolve / auto-create webapp users
+"""
+Helpers for the CLI ``--user`` flag: resolve / auto-create webapp users
 and stamp synthetic ``jobs`` rows so artifacts the user just launched show
 up under their name in the webapp.
 
@@ -41,7 +42,8 @@ from webapp.backend.app.services.user_service import create_user
 
 
 class UserNotFoundNonInteractiveError(click.ClickException):
-    """Raised when ``--user`` names a missing user and stdin can't prompt.
+    """
+    Raised when ``--user`` names a missing user and stdin can't prompt.
 
     The error message includes a pointer at ``scripts.create_user`` so the
     operator can pre-create the account out of band.
@@ -49,7 +51,9 @@ class UserNotFoundNonInteractiveError(click.ClickException):
 
 
 def resolve_user_id(conn: sqlite3.Connection, username: str) -> int | None:
-    """Return the active user_id for ``username``, or ``None`` if missing/deleted."""
+    """
+    Return the active user_id for ``username``, or ``None`` if missing/deleted.
+    """
 
     row = conn.execute(
         "SELECT id FROM users WHERE username = ? AND deleted_at IS NULL",
@@ -59,7 +63,9 @@ def resolve_user_id(conn: sqlite3.Connection, username: str) -> int | None:
 
 
 def stdin_is_tty(stream: TextIO | None = None) -> bool:
-    """``True`` iff ``stream`` (default ``sys.stdin``) is attached to a TTY."""
+    """
+    ``True`` iff ``stream`` (default ``sys.stdin``) is attached to a TTY.
+    """
 
     target = stream if stream is not None else sys.stdin
     return bool(getattr(target, "isatty", lambda: False)())
@@ -74,7 +80,9 @@ def insert_synthetic_job(
     command: str,
     timestamp_iso: str,
 ) -> None:
-    """Insert one synthetic ``jobs`` row. Caller is responsible for ``commit()``."""
+    """
+    Insert one synthetic ``jobs`` row. Caller is responsible for ``commit()``.
+    """
 
     conn.execute(
         "INSERT INTO jobs ("
@@ -97,7 +105,8 @@ def insert_synthetic_job(
 
 
 def _prompt_and_create(conn: sqlite3.Connection, username: str) -> int:
-    """Interactive auto-create: confirm + password prompt + insert.
+    """
+    Interactive auto-create: confirm + password prompt + insert.
 
     Raises ``click.ClickException`` on confirm decline, mismatched
     passwords, or too-short passwords.
@@ -124,7 +133,8 @@ def _prompt_and_create(conn: sqlite3.Connection, username: str) -> int:
 
 
 def resolve_or_create_attributing_user(conn: sqlite3.Connection, username: str) -> int:
-    """Look up the user id for ``username``; auto-create on TTY only.
+    """
+    Look up the user id for ``username``; auto-create on TTY only.
 
     Returns the user_id ready to be stamped onto a synthetic ``jobs`` row.
     Raises :class:`UserNotFoundNonInteractiveError` when the user is
@@ -152,7 +162,8 @@ def attribute_artifact(
     experiment_id: str,
     command: str = "cli",
 ) -> None:
-    """Insert a synthetic ``jobs`` row tying ``experiment_id`` to ``user_id``.
+    """
+    Insert a synthetic ``jobs`` row tying ``experiment_id`` to ``user_id``.
 
     Idempotent: a re-run that produces the same ``experiment_id`` (e.g.
     deterministic compare/holdout out_name) leaves the existing owner in
@@ -183,7 +194,8 @@ def attribute_via_username(
     experiment_id: str,
     command: str = "cli",
 ) -> None:
-    """Convenience wrapper: open the webapp DB, resolve the user, stamp the row.
+    """
+    Convenience wrapper: open the webapp DB, resolve the user, stamp the row.
 
     Subcommands call this once at the end of execution. Logs but does not
     re-raise on sqlite errors — attribution must never block the
@@ -212,6 +224,8 @@ def attribute_via_username(
 
 
 def default_username() -> str:
-    """The OS username — the default value for ``--user`` flags."""
+    """
+    The OS username — the default value for ``--user`` flags.
+    """
 
     return getpass.getuser()

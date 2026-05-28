@@ -1,4 +1,6 @@
-"""Registry introspection: list registered strategies + per-strategy schema."""
+"""
+Registry introspection: list registered strategies + per-strategy schema.
+"""
 
 from __future__ import annotations
 

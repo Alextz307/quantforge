@@ -1,4 +1,5 @@
-"""Unit tests for src/core/persistence.py helpers (model-persistence layout +
+"""
+Unit tests for src/core/persistence.py helpers (model-persistence layout +
 scaler round-trip). Pure JSON helpers live in ``src.core.json_io`` and are
 covered by ``tests/unit/test_json_io.py``.
 """
@@ -13,8 +14,11 @@ import pytest
 from sklearn.preprocessing import StandardScaler
 
 from src.core.persistence import (
+    SAVE_COMPLETE_MARKER,
+    assert_save_complete,
     ensure_model_dir,
     load_standard_scaler,
+    mark_save_complete,
     save_standard_scaler,
 )
 
@@ -50,6 +54,22 @@ class TestEnsureModelDir:
             ensure_model_dir(target)
 
 
+class TestSaveCompleteMarker:
+    def test_mark_then_assert_succeeds(self, tmp_path: Path) -> None:
+        mark_save_complete(tmp_path)
+        assert (tmp_path / SAVE_COMPLETE_MARKER).is_file()
+        assert assert_save_complete(tmp_path) == tmp_path
+
+    def test_assert_raises_when_marker_missing(self, tmp_path: Path) -> None:
+        (tmp_path / "config.json").write_text("{}")
+        with pytest.raises(FileNotFoundError, match=SAVE_COMPLETE_MARKER):
+            assert_save_complete(tmp_path)
+
+    def test_assert_raises_on_empty_dir(self, tmp_path: Path) -> None:
+        with pytest.raises(FileNotFoundError, match="incomplete"):
+            assert_save_complete(tmp_path)
+
+
 class TestStandardScalerRoundTrip:
     def test_fitted_scaler_round_trips(self, tmp_path: Path) -> None:
         rng = np.random.default_rng(SCALER_MEAN_SEED)
@@ -77,7 +97,8 @@ class TestStandardScalerRoundTrip:
             save_standard_scaler(StandardScaler(), tmp_path / "never.json")
 
     def test_feature_names_roundtrip_silences_transform_warning(self, tmp_path: Path) -> None:
-        """A scaler fit on a DataFrame carries ``feature_names_in_``; the
+        """
+        A scaler fit on a DataFrame carries ``feature_names_in_``; the
         save/load round-trip must preserve it so post-load ``.transform()``
         on a named DataFrame doesn't trip sklearn's "fit without feature
         names" warning.
@@ -104,7 +125,8 @@ class TestStandardScalerRoundTrip:
     def test_round_trip_with_nan_input_handles_per_feature_n_samples_seen(
         self, tmp_path: Path
     ) -> None:
-        """Sklearn's ``n_samples_seen_`` is a 1-D ndarray when the fit input
+        """
+        Sklearn's ``n_samples_seen_`` is a 1-D ndarray when the fit input
         contains NaN values (per-feature non-NaN counts), not a scalar int.
         The production feature pipeline produces leading warmup NaNs, so this
         is the live path — the round-trip must serialize the array shape.
@@ -134,7 +156,8 @@ class TestStandardScalerRoundTrip:
         )
 
     def test_fit_on_ndarray_does_not_persist_feature_names(self, tmp_path: Path) -> None:
-        """A scaler fit on a bare ndarray has no ``feature_names_in_``; the
+        """
+        A scaler fit on a bare ndarray has no ``feature_names_in_``; the
         persisted JSON must omit the key (not write a null) and the loaded
         scaler must likewise lack the attribute.
         """

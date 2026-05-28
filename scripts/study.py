@@ -1,4 +1,5 @@
-"""Click adapter for the empirical-study orchestrator.
+"""
+Click adapter for the empirical-study orchestrator.
 
 Two subcommands under the ``experiment study`` group:
 
@@ -36,7 +37,9 @@ DEFAULT_STORE_ROOT = Path("experiment_results")
 
 @click.group("study")
 def study() -> None:
-    """Empirical-study orchestrator (cross-strategy x cross-universe sweep)."""
+    """
+    Empirical-study orchestrator (cross-strategy x cross-universe sweep).
+    """
 
 
 @study.command("run")
@@ -95,7 +98,8 @@ def run_cmd(
     skip_holdout_eval: bool,
     username: str | None,
 ) -> None:
-    """Drive the empirical study end-to-end.
+    """
+    Drive the empirical study end-to-end.
 
     Per-leg failures are isolated (one bad leg does not abort the
     sweep); rerun the same command to retry only the failed legs.
@@ -164,7 +168,8 @@ def run_cmd(
     ),
 )
 def report_cmd(study_dir: Path, publish_label: str | None) -> None:
-    """Consolidate a completed study's per-leg artifacts into one tree.
+    """
+    Consolidate a completed study's per-leg artifacts into one tree.
 
     Reads ``runs/``, ``holdout_evals/``, and ``comparisons/`` under
     ``--study-dir``; writes ``<study-dir>/{manifest.json,tables/,plots/}``

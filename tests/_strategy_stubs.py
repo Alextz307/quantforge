@@ -1,4 +1,5 @@
-"""Test-only strategy stubs registered globally on ``strategy_registry``.
+"""
+Test-only strategy stubs registered globally on ``strategy_registry``.
 
 The multi-feature dispatch tests need a registered strategy to drive
 config-driven instantiation paths (validator, fetch_bars, walk_forward).
@@ -30,7 +31,8 @@ _DEFAULT_PRIMARY = "AAA"
 
 @strategy_registry.register("_MultiFeatureTestStub")
 class MultiFeatureTestStub(IStrategy):
-    """Minimal multi-feature strategy: emits flat-zero signals.
+    """
+    Minimal multi-feature strategy: emits flat-zero signals.
 
     The dispatch path is what's under test, not signal logic. Reading a
     feature-ticker column inside ``generate_signals`` proves the strategy
@@ -90,7 +92,9 @@ class MultiFeatureTestStub(IStrategy):
 
 @strategy_registry.register("_BothFlagsStub")
 class BothFlagsStub(IStrategy):
-    """Class-level config error: BOTH capability flags True simultaneously."""
+    """
+    Class-level config error: BOTH capability flags True simultaneously.
+    """
 
     is_pairs_strategy: ClassVar[bool] = True
     is_multi_feature_strategy: ClassVar[bool] = True

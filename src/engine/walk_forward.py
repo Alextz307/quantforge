@@ -1,4 +1,5 @@
-"""Walk-forward orchestrator: strategy → engine → metrics, per fold.
+"""
+Walk-forward orchestrator: strategy → engine → metrics, per fold.
 
 The runtime leakage tripwire lives here, not inside the engine. Each
 fold:
@@ -51,7 +52,9 @@ _EMPTY_DIAGNOSTICS: Mapping[str, float] = MappingProxyType({})
 
 @dataclass(frozen=True)
 class FoldResult:
-    """Per-fold orchestration output: metadata + raw + metrics."""
+    """
+    Per-fold orchestration output: metadata + raw + metrics.
+    """
 
     fold_index: int
     train_start: pd.Timestamp
@@ -68,7 +71,9 @@ _LEG_B_RENAME: dict[str, str] = {f"{c}{PAIRS_LEG_SUFFIXES[1]}": c for c in OHLCV
 
 
 def split_pairs_frame(bars: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """Split a wide-format pairs frame into two single-leg OHLCV frames."""
+    """
+    Split a wide-format pairs frame into two single-leg OHLCV frames.
+    """
 
     missing_a = [c for c in _LEG_A_RENAME if c not in bars.columns]
     missing_b = [c for c in _LEG_B_RENAME if c not in bars.columns]
@@ -86,7 +91,8 @@ def split_pairs_frame(bars: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
 
 
 def slice_primary_ohlcv(bars: pd.DataFrame, primary_ticker: str) -> pd.DataFrame:
-    """Slice the primary asset's OHLCV from a wide multi-feature frame.
+    """
+    Slice the primary asset's OHLCV from a wide multi-feature frame.
 
     Maps ``<ohlcv>_<primary_ticker>`` columns back to their canonical OHLCV
     names so the engine sees a regular single-asset frame. Companion-ticker
@@ -106,6 +112,26 @@ def slice_primary_ohlcv(bars: pd.DataFrame, primary_ticker: str) -> pd.DataFrame
     return bars[list(rename)].rename(columns=rename)
 
 
+def dispatch_primary_ohlcv(strategy: IStrategy, bars: pd.DataFrame) -> pd.DataFrame:
+    """
+    Return the canonical single-asset OHLCV slice for a strategy's universe.
+
+    Three-way capability dispatch — leg A for pairs, the primary-ticker
+    slice for multi-feature, the bars themselves for single-asset. Used by
+    code that needs to evaluate something universe-level rather than
+    strategy-level on a frame (most notably the buy-and-hold reference
+    baseline) and shared by :func:`dispatch_engine_run` for the
+    non-pairs path so the shape selection has a single source of truth.
+    """
+
+    if strategy.is_pairs_strategy:
+        bars_a, _bars_b = split_pairs_frame(bars)
+        return bars_a
+    if strategy.is_multi_feature_strategy:
+        return slice_primary_ohlcv(bars, strategy.primary_ticker)
+    return bars
+
+
 def dispatch_engine_run(
     engine: IBacktestEngine,
     strategy: IStrategy,
@@ -113,7 +139,8 @@ def dispatch_engine_run(
     signals: pd.Series,
     slippage: SlippageConfig,
 ) -> BacktestResult:
-    """Route ``engine.run`` / ``engine.run_pairs`` based on strategy shape.
+    """
+    Route ``engine.run`` / ``engine.run_pairs`` based on strategy shape.
 
     Single source of truth for the three-way capability-flag dispatch — the
     walk-forward loop and the holdout-eval one-shot share this so a future
@@ -123,9 +150,7 @@ def dispatch_engine_run(
     if strategy.is_pairs_strategy:
         bars_a, bars_b = split_pairs_frame(bars)
         return engine.run_pairs(bars_a, bars_b, signals, strategy.hedge_ratio, slippage)
-    if strategy.is_multi_feature_strategy:
-        return engine.run(slice_primary_ohlcv(bars, strategy.primary_ticker), signals, slippage)
-    return engine.run(bars, signals, slippage)
+    return engine.run(dispatch_primary_ohlcv(strategy, bars), signals, slippage)
 
 
 def validate_deep_metadata(
@@ -133,7 +158,8 @@ def validate_deep_metadata(
     *,
     test_data: pd.DataFrame,
 ) -> None:
-    """Run the leakage invariant across every tracked metadata exposed by
+    """
+    Run the leakage invariant across every tracked metadata exposed by
     the strategy (composite leaves included).
 
     Enforces ``train_end < test_data.index[0]`` on every entry — catches
@@ -192,7 +218,8 @@ def evaluate_walk_forward(
     progress: bool = False,
     checkpoint_root: Path | None = None,
 ) -> list[FoldResult]:
-    """Run train → leakage check → signals → engine → metrics, per fold.
+    """
+    Run train → leakage check → signals → engine → metrics, per fold.
 
     Args:
         strategy: A trained-from-scratch ``IStrategy`` instance. The

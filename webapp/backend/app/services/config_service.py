@@ -1,4 +1,6 @@
-"""Validate UI-submitted configs + list/read YAMLs under ``config_root``."""
+"""
+Validate UI-submitted configs + list/read YAMLs under ``config_root``.
+"""
 
 from __future__ import annotations
 
@@ -58,12 +60,15 @@ _KIND_TO_DIRNAME: dict[ConfigKind, str] = {
 
 
 class ConfigNotFoundError(FileNotFoundError):
-    """Raised when ``config_root/<kind>/<name>.yaml`` is missing."""
+    """
+    Raised when ``config_root/<kind>/<name>.yaml`` is missing.
+    """
 
 
 @lru_cache(maxsize=1)
 def get_study_spec_schema() -> dict[str, object]:
-    """Return the JSON Schema for :class:`StudySpec`.
+    """
+    Return the JSON Schema for :class:`StudySpec`.
 
     Surfaced via ``GET /api/configs/study_spec/schema`` and fed to
     ``monaco-yaml`` on the frontend so the editor gets autocomplete,
@@ -79,7 +84,8 @@ def get_study_spec_schema() -> dict[str, object]:
 
 @lru_cache(maxsize=1)
 def get_universe_spec_schema() -> dict[str, object]:
-    """Return the JSON Schema for :class:`UniverseProfile`.
+    """
+    Return the JSON Schema for :class:`UniverseProfile`.
 
     Counterpart to :func:`get_study_spec_schema` — drives the universe-
     upload editor's autocomplete + hover docs from the same Pydantic
@@ -94,13 +100,17 @@ def _kind_dir(config_root: Path, kind: ConfigKind) -> Path:
 
 
 def list_configs(config_root: Path, kind: ConfigKind) -> list[ConfigEntry]:
-    """List every ``*.yaml`` under ``config_root/<kind>/``, sorted by stem."""
+    """
+    List every ``*.yaml`` under ``config_root/<kind>/``, sorted by stem.
+    """
 
     return [ConfigEntry(name=p.stem) for p in sorted(_kind_dir(config_root, kind).glob("*.yaml"))]
 
 
 def read_config(config_root: Path, kind: ConfigKind, name: str) -> ConfigDetail:
-    """Return the raw YAML text + best-effort parse for ``<name>.yaml``."""
+    """
+    Return the raw YAML text + best-effort parse for ``<name>.yaml``.
+    """
 
     path = _kind_dir(config_root, kind) / f"{name}.yaml"
     try:
@@ -124,7 +134,8 @@ def read_config(config_root: Path, kind: ConfigKind, name: str) -> ConfigDetail:
 
 
 def validate(kind: ConfigKind, payload: dict[str, object]) -> ValidateResponse:
-    """Validate ``payload`` against the Pydantic model bound to ``kind``.
+    """
+    Validate ``payload`` against the Pydantic model bound to ``kind``.
 
     For loose-bodied kinds (strategy) the response is always
     ``valid=True`` — there is no Pydantic counterpart and the deeper
@@ -165,7 +176,8 @@ def validate(kind: ConfigKind, payload: dict[str, object]) -> ValidateResponse:
 def _strategy_param_completeness_errors(
     payload: dict[str, object],
 ) -> list[ValidationErrorItem]:
-    """Missing-required-param errors for the strategy referenced by ``payload``.
+    """
+    Missing-required-param errors for the strategy referenced by ``payload``.
 
     Returns ``[]`` for unknown strategy names (already caught by
     Pydantic) and for strategies whose ctor requires nothing the user

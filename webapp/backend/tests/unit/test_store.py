@@ -1,4 +1,6 @@
-"""Unit tests for the path-walking helpers under infrastructure/store.py."""
+"""
+Unit tests for the path-walking helpers under infrastructure/store.py.
+"""
 
 from __future__ import annotations
 

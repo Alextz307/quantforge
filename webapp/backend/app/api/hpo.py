@@ -1,4 +1,6 @@
-"""HTTP + WebSocket endpoints over persisted HPO studies."""
+"""
+HTTP + WebSocket endpoints over persisted HPO studies.
+"""
 
 from __future__ import annotations
 
@@ -107,7 +109,8 @@ async def stream_hpo(
     wire_id: str,
     after_trial: int | None = None,
 ) -> None:
-    """Push ``TrialFrame``s as new lines land in ``trials.jsonl``.
+    """
+    Push ``TrialFrame``s as new lines land in ``trials.jsonl``.
 
     Per-connection file tailer — works whether the producer is a webapp
     tune subprocess, the study orchestrator writing a nested HPO leg, or

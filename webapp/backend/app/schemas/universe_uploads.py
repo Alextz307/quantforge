@@ -1,4 +1,6 @@
-"""Wire DTOs for user-authored universe-spec uploads."""
+"""
+Wire DTOs for user-authored universe-spec uploads.
+"""
 
 from __future__ import annotations
 
@@ -13,14 +15,18 @@ _MAX_YAML_BYTES = 128 * 1024
 
 
 class UniverseSpecUploadCreate(BaseModel):
-    """POST /configs/universe/uploads body."""
+    """
+    POST /configs/universe/uploads body.
+    """
 
     slug: str = Field(min_length=1, max_length=64, pattern=_SLUG_PATTERN)
     yaml: str = Field(min_length=1, max_length=_MAX_YAML_BYTES)
 
 
 class UniverseSpecUploadSummary(BaseModel):
-    """Listing entry — no YAML body."""
+    """
+    Listing entry — no YAML body.
+    """
 
     slug: str
     created_at: datetime
@@ -30,7 +36,9 @@ class UniverseSpecUploadSummary(BaseModel):
 
 
 class UniverseSpecUploadDetail(BaseModel):
-    """Single-upload read shape with the full YAML body."""
+    """
+    Single-upload read shape with the full YAML body.
+    """
 
     slug: str
     yaml: str

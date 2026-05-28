@@ -1,4 +1,5 @@
-"""Cross-asset momentum strategy: XGBoost on lagged returns of feature tickers.
+"""
+Cross-asset momentum strategy: XGBoost on lagged returns of feature tickers.
 
 Methodology adapted from Rapach, Strauss, Tu, and Zhou (2019), "Industry return
 predictability: A machine learning approach", *Journal of Financial Economics*
@@ -26,6 +27,7 @@ from src.core.persistence import (
     CLASSIFIER_SUBDIR,
     CONFIG_JSON,
     METADATA_JSON,
+    assert_save_complete,
     frozen_params_to_json,
     save_model_skeleton,
 )
@@ -53,7 +55,8 @@ _LOG_RETURN_WARMUP = 1
 
 @dataclass(frozen=True)
 class _CrossAssetMomentumConfig:
-    """Frozen snapshot of every ``CrossAssetMomentumStrategy.__init__`` kwarg.
+    """
+    Frozen snapshot of every ``CrossAssetMomentumStrategy.__init__`` kwarg.
 
     ``feature_tickers`` and ``lags`` are tuples (not lists) so ``frozen=True``
     actually guarantees immutability. Field names MUST mirror the ctor param
@@ -76,7 +79,8 @@ class _CrossAssetMomentumConfig:
 
 
 def _derive_feature_columns(feature_tickers: Sequence[str], lags: Sequence[int]) -> list[str]:
-    """Compute the deterministic feature-column names for ``(tickers × lags)``.
+    """
+    Compute the deterministic feature-column names for ``(tickers × lags)``.
 
     Single source of truth so ctor validation and ``train`` feature-frame
     construction cannot drift. Order: outer loop over tickers (input
@@ -88,7 +92,8 @@ def _derive_feature_columns(feature_tickers: Sequence[str], lags: Sequence[int])
 
 @strategy_registry.register("CrossAssetMomentum")
 class CrossAssetMomentumStrategy(IStrategy):
-    """Single-asset traded, multi-asset feature directional momentum.
+    """
+    Single-asset traded, multi-asset feature directional momentum.
 
     Pipeline:
       1. For each ``(feature_ticker, lag)`` pair, compute
@@ -181,7 +186,8 @@ class CrossAssetMomentumStrategy(IStrategy):
         self._feature_columns = feature_columns
 
     def _build_feature_frame(self, data: pd.DataFrame) -> pd.DataFrame:
-        """Compute lagged log-return features for every (ticker, lag) pair.
+        """
+        Compute lagged log-return features for every (ticker, lag) pair.
 
         Resulting columns follow the deterministic order of
         :func:`_derive_feature_columns`. Leading rows are NaN (warmup) — the
@@ -202,7 +208,9 @@ class CrossAssetMomentumStrategy(IStrategy):
         checkpoint_path: Path | None = None,
         **kwargs: object,
     ) -> None:
-        """Fit the directional classifier on lagged cross-asset returns."""
+        """
+        Fit the directional classifier on lagged cross-asset returns.
+        """
 
         logger.info("%s train: %d bars", type(self).__name__, len(train_data))
         features = self._build_feature_frame(train_data)
@@ -231,7 +239,9 @@ class CrossAssetMomentumStrategy(IStrategy):
         )
 
     def generate_signals(self, data: pd.DataFrame) -> pd.Series:
-        """Produce {-1, 0, +1} signals; warmup bars (any lag still NaN) stay NaN."""
+        """
+        Produce {-1, 0, +1} signals; warmup bars (any lag still NaN) stay NaN.
+        """
 
         self._assert_fitted_with_metadata()
         if self._classifier is None:
@@ -252,7 +262,9 @@ class CrossAssetMomentumStrategy(IStrategy):
         return signal
 
     def save(self, path: str | Path) -> None:
-        """Persist strategy config + nested DirectionalClassifier under ``path``."""
+        """
+        Persist strategy config + nested DirectionalClassifier under ``path``.
+        """
 
         metadata = self._assert_fitted_with_metadata()
         assert self._classifier is not None
@@ -269,7 +281,8 @@ class CrossAssetMomentumStrategy(IStrategy):
         )
 
     def _ctor_kwargs_as_json(self) -> dict[str, object]:
-        """Snapshot of this strategy's constructor kwargs as JSON-ready values.
+        """
+        Snapshot of this strategy's constructor kwargs as JSON-ready values.
 
         Delegates tuple→list + Enum→value conversions to
         ``frozen_params_to_json``; ``device`` is dropped (re-resolved on load
@@ -280,9 +293,11 @@ class CrossAssetMomentumStrategy(IStrategy):
 
     @classmethod
     def load(cls, path: str | Path) -> Self:
-        """Reconstruct a trained CrossAssetMomentumStrategy from ``path``."""
+        """
+        Reconstruct a trained CrossAssetMomentumStrategy from ``path``.
+        """
 
-        root = Path(path)
+        root = assert_save_complete(path)
         config = json_io.read_dict(root / CONFIG_JSON)
         metadata = json_io.read_dict(root / METADATA_JSON)
 
@@ -316,7 +331,9 @@ class CrossAssetMomentumStrategy(IStrategy):
         return max(self._params.lags) + _LOG_RETURN_WARMUP
 
     def get_all_training_metadata(self) -> tuple[TrackedMetadata, ...]:
-        """Expose strategy + owned classifier metadata for the deep leakage check."""
+        """
+        Expose strategy + owned classifier metadata for the deep leakage check.
+        """
 
         classifier_meta = (
             self._classifier.training_metadata if self._classifier is not None else None
@@ -328,7 +345,8 @@ class CrossAssetMomentumStrategy(IStrategy):
 
     @staticmethod
     def suggest_params(trial: optuna.trial.BaseTrial) -> dict[str, object]:
-        """Optuna search space for CrossAssetMomentum hyperparameters.
+        """
+        Optuna search space for CrossAssetMomentum hyperparameters.
 
         ``feature_tickers`` and ``lags`` stay fixed at YAML level — tuning the
         lag schedule per trial would change the classifier's input dimension,

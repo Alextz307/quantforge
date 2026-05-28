@@ -1,4 +1,5 @@
-"""Parquet file data source implementation.
+"""
+Parquet file data source implementation.
 
 Mirrors :class:`src.data.csv_source.CSVSource`: a local-file source that
 reads OHLCV bars from ``{ticker}.parquet`` under a configurable directory.
@@ -19,7 +20,8 @@ from src.data.local_file_source import LocalFileSource
 
 @data_source_registry.register("parquet")
 class ParquetSource(LocalFileSource):
-    """Data source for local Parquet files.
+    """
+    Data source for local Parquet files.
 
     Parquet preserves dtypes on disk, so unlike :class:`CSVSource` there is
     no string-date parsing fallback or NaT post-check — the index either

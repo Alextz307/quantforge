@@ -1,4 +1,5 @@
-"""Orchestrator that drives Google Benchmark and Python hybrid benches.
+"""
+Orchestrator that drives Google Benchmark and Python hybrid benches.
 
 Google Benchmark is the source of truth for micro-bench timing; the C++
 path shells out to ``quant_bench --benchmark_format=json`` and parses the
@@ -125,7 +126,8 @@ class BenchmarkRunner:
 
 
 def parse_gbench_json(stdout: str) -> list[BenchmarkResult]:
-    """Parse Google Benchmark ``--benchmark_format=json`` output.
+    """
+    Parse Google Benchmark ``--benchmark_format=json`` output.
 
     The top-level object has a ``benchmarks`` array; each entry is one
     measurement. ``run_type == "aggregate"`` rows (min/max/mean when
@@ -231,7 +233,9 @@ def _to_ns(value: float, unit: str) -> float:
 
 
 def collect_hardware_info(repo_root: Path) -> HardwareInfo:
-    """Collect CPU brand, RAM, OS, Python version, and git state."""
+    """
+    Collect CPU brand, RAM, OS, Python version, and git state.
+    """
 
     vm = psutil.virtual_memory()
     sha, dirty = _git_state(repo_root)

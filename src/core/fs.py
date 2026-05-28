@@ -1,4 +1,5 @@
-"""Generic filesystem helpers.
+"""
+Generic filesystem helpers.
 
 Intentionally free of domain imports (no pandas, numpy, sklearn, torch,
 TrainingMetadata, etc.) so this module is reusable anywhere a file I/O
@@ -17,7 +18,8 @@ from pathlib import Path
 
 
 def ensure_parent_dir(path: str | Path) -> Path:
-    """Create ``path``'s parent directory tree if missing and return ``Path(path)``.
+    """
+    Create ``path``'s parent directory tree if missing and return ``Path(path)``.
 
     Idempotent (no-op when the parent already exists). Used by every file-
     writer that can't assume the target's parent was pre-created — benchmark
@@ -36,7 +38,8 @@ def ensure_parent_dir(path: str | Path) -> Path:
 
 @contextmanager
 def atomic_write_path(target: str | Path) -> Iterator[Path]:
-    """Yield a tmp ``Path`` to write to; ``os.replace`` it onto ``target`` on clean exit.
+    """
+    Yield a tmp ``Path`` to write to; ``os.replace`` it onto ``target`` on clean exit.
 
     Stages writes to ``<stem>.tmp.<pid>.<tid><suffix>`` next to ``target``
     so concurrent writers from the same process tree don't collide on the
@@ -68,3 +71,16 @@ def atomic_write_path(target: str | Path) -> Iterator[Path]:
     except BaseException:
         tmp.unlink(missing_ok=True)
         raise
+
+
+def atomic_write_text(path: str | Path, text: str) -> Path:
+    """
+    Atomically write ``text`` as UTF-8 to ``path``.
+
+    Convenience wrapper around :func:`atomic_write_path` for the common
+    plain-text-payload case (LaTeX tables, README fragments).
+    """
+
+    with atomic_write_path(path) as tmp:
+        tmp.write_text(text, encoding="utf-8")
+    return Path(path)

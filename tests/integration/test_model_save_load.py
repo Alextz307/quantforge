@@ -1,4 +1,5 @@
-"""Round-trip save/load tests for every leaf predictor and classifier.
+"""
+Round-trip save/load tests for every leaf predictor and classifier.
 
 Each test fits a model, writes it to a fresh ``tmp_path``, reloads, and asserts
 ``predict()`` output is bit-identical. ``training_metadata`` is also compared
@@ -60,7 +61,9 @@ def log_return_target(close_df: pd.DataFrame) -> pd.Series:
 
 @pytest.fixture
 def lstm_df() -> pd.DataFrame:
-    """DataFrame with multiple feature columns suitable for LSTMPredictor."""
+    """
+    DataFrame with multiple feature columns suitable for LSTMPredictor.
+    """
 
     rng = np.random.default_rng(SYNTH_SEED)
     idx = pd.bdate_range(start="2020-01-02", periods=100, freq="B")
@@ -210,7 +213,8 @@ class TestLSTMSaveLoad:
         lstm_features: list[str],
         tmp_path: Path,
     ) -> None:
-        """Every persisted tensor must sit on CPU so a CUDA/MPS-trained model
+        """
+        Every persisted tensor must sit on CPU so a CUDA/MPS-trained model
         loads on a CPU-only machine without a ``map_location`` dance.
 
         We can't spin up a second device in CI, so instead we inspect the
@@ -278,7 +282,8 @@ class TestDirectionalClassifierSaveLoad:
 
 
 class TestCorruptPayloadLoad:
-    """Loading a model from a corrupted or truncated save directory must raise
+    """
+    Loading a model from a corrupted or truncated save directory must raise
     with a message naming the specific field or file that's wrong — silent
     partial loads could pass ``_fitted=True`` without valid internal state and
     break late inside ``predict()`` with a much more opaque error.
@@ -340,7 +345,8 @@ class TestCorruptPayloadLoad:
 
 
 class TestHybridVolatilitySaveLoad:
-    """Composite round-trip exercises every subdir: ``garch/`` + ``lstm/`` +
+    """
+    Composite round-trip exercises every subdir: ``garch/`` + ``lstm/`` +
     ``scaler.json``. Bit-identical predict() is the decisive check —
     divergence anywhere would indicate a leaf or scaler state drift.
     """
@@ -410,7 +416,8 @@ class TestHybridVolatilitySaveLoad:
 
 
 class TestHybridReturnSaveLoad:
-    """Composite round-trip exercises every subdir: ``arma/`` + ``lstm/`` +
+    """
+    Composite round-trip exercises every subdir: ``arma/`` + ``lstm/`` +
     ``scaler.json``. The ARMA subdir also round-trips the persisted ``endog.npy``.
     """
 
@@ -477,7 +484,8 @@ class TestHybridReturnSaveLoad:
 
 
 class TestHybridVolatilityCorruptConfig:
-    """Composite save() writes 3 config.json files (one per level:
+    """
+    Composite save() writes 3 config.json files (one per level:
     composite + garch + lstm). A corruption in the composite's own
     config.json must surface with a named-field error, not a late crash
     inside a sub-model's load.
@@ -524,7 +532,8 @@ class TestHybridVolatilityCorruptConfig:
 
 
 class TestARMACorruptOrder:
-    """ARMA has a unique fixed-length list field (``order``) that goes through
+    """
+    ARMA has a unique fixed-length list field (``order``) that goes through
     ``json_io.get_int_list`` + a post-check on length. Covers the branch that the
     GARCH corrupt-payload suite doesn't touch.
     """

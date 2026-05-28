@@ -1,4 +1,6 @@
-"""Runner JSON-parsing tests — exercise the gbench output shape via a fixture."""
+"""
+Runner JSON-parsing tests — exercise the gbench output shape via a fixture.
+"""
 
 from __future__ import annotations
 

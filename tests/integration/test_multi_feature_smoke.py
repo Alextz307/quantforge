@@ -1,4 +1,5 @@
-"""End-to-end smoke for the multi-feature single-asset dispatch path.
+"""
+End-to-end smoke for the multi-feature single-asset dispatch path.
 
 Runs in-process via ``Experiment.run()`` rather than the CLI subprocess
 used by the pairs / single-asset smokes — there is no production
@@ -43,7 +44,9 @@ pytestmark = pytest.mark.skipif(
 
 
 def test_multi_feature_run_produces_full_artifact_tree(tmp_path: Path) -> None:
-    """Happy path: multi-feature run → wide-format hash + sliced engine PnL on disk."""
+    """
+    Happy path: multi-feature run → wide-format hash + sliced engine PnL on disk.
+    """
 
     config_path = make_multi_feature_mini_experiment_fixture(
         tmp_path,
@@ -80,7 +83,8 @@ def test_multi_feature_run_produces_full_artifact_tree(tmp_path: Path) -> None:
 
 
 def test_multi_feature_validator_rejects_primary_outside_tickers(tmp_path: Path) -> None:
-    """A config with primary_ticker not in data.tickers must fail at
+    """
+    A config with primary_ticker not in data.tickers must fail at
     build_experiment time, before any fetch."""
 
     config_path = make_multi_feature_mini_experiment_fixture(

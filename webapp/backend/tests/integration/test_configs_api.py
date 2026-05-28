@@ -1,4 +1,6 @@
-"""Integration tests for /api/configs/* and /api/strategies/{name}/schema."""
+"""
+Integration tests for /api/configs/* and /api/strategies/{name}/schema.
+"""
 
 from __future__ import annotations
 

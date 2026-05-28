@@ -1,4 +1,5 @@
-"""Validation decorators for anti-leakage contracts.
+"""
+Validation decorators for anti-leakage contracts.
 
 These decorators enforce temporal integrity on functions that
 process time-series data, preventing lookahead bias.
@@ -17,7 +18,9 @@ from src.core.exceptions import LeakageError
 def _find_max_timestamp_in_args(
     args: tuple[object, ...], kwargs: dict[str, object]
 ) -> pd.Timestamp | None:
-    """Extract the maximum timestamp from any DataFrame arguments."""
+    """
+    Extract the maximum timestamp from any DataFrame arguments.
+    """
 
     max_ts: pd.Timestamp | None = None
     for arg in (*args, *kwargs.values()):
@@ -31,7 +34,8 @@ def _find_max_timestamp_in_args(
 def no_future_data[**P, R](
     func: Callable[P, R],
 ) -> Callable[P, R]:
-    """Validate that output timestamps do not exceed input max timestamp.
+    """
+    Validate that output timestamps do not exceed input max timestamp.
 
     Raises LeakageError if the output DataFrame/Series references
     timestamps beyond the input's maximum.
@@ -74,7 +78,8 @@ def no_future_data[**P, R](
 def temporally_sorted[**P, R](
     func: Callable[P, R],
 ) -> Callable[P, R]:
-    """Ensure input DataFrame has a monotonically increasing DatetimeIndex.
+    """
+    Ensure input DataFrame has a monotonically increasing DatetimeIndex.
 
     Raises LeakageError if the input is not temporally sorted.
     """
@@ -97,7 +102,8 @@ def temporally_sorted[**P, R](
 def no_nan_in_output[**P, R](
     func: Callable[P, R],
 ) -> Callable[P, R]:
-    """Assert that the returned DataFrame/Series has no NaN values.
+    """
+    Assert that the returned DataFrame/Series has no NaN values.
 
     Raises ValueError if the output contains any NaN values.
     """

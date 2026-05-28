@@ -1,4 +1,5 @@
-"""Contextual logger wrapper — prefixes every message with caller-bound context.
+"""
+Contextual logger wrapper — prefixes every message with caller-bound context.
 
 Pure stdlib, no structlog / loguru. ``get_logger(name, **context)`` returns a
 :class:`logging.LoggerAdapter` whose ``process()`` prepends the bound key/value
@@ -32,7 +33,8 @@ CLI_LOG_FORMAT = "%(asctime)s %(levelname)s %(name)s: %(message)s"
 
 
 class _ContextAdapter(logging.LoggerAdapter):  # type: ignore[type-arg]
-    """LoggerAdapter that formats bound context as ``[k1=v1 k2=v2] <msg>``.
+    """
+    LoggerAdapter that formats bound context as ``[k1=v1 k2=v2] <msg>``.
 
     ``self.extra`` is the context dict passed to :func:`get_logger`.
     ``process()`` runs on every log call — we keep it allocation-light by
@@ -53,7 +55,8 @@ class _ContextAdapter(logging.LoggerAdapter):  # type: ignore[type-arg]
 
 
 def get_logger(name: str, **context: object) -> logging.LoggerAdapter:  # type: ignore[type-arg]
-    """Return a context-bound logger.
+    """
+    Return a context-bound logger.
 
     ``name`` is the standard ``logging.getLogger(name)`` handle; ``context``
     becomes a persistent prefix on every message. Empty context is legal —
@@ -71,7 +74,8 @@ def get_logger(name: str, **context: object) -> logging.LoggerAdapter:  # type: 
 
 @contextmanager
 def attach_cli_log_file(root_dir: Path, command_name: str) -> Iterator[Path]:
-    """Tee root-logger output to a timestamped file under ``root_dir/cli_logs/``.
+    """
+    Tee root-logger output to a timestamped file under ``root_dir/cli_logs/``.
 
     Used by every persistent CLI subcommand so a dropped terminal, a
     detached ``nohup`` shell, or an after-the-fact "what actually
@@ -117,7 +121,8 @@ def log_stage(
     label: str,
     **fields: object,
 ) -> Iterator[None]:
-    """Bracket a unit of work with start/done INFO logs and a perf timer.
+    """
+    Bracket a unit of work with start/done INFO logs and a perf timer.
 
     Emits ``"<label> starting (k1=v1 k2=v2)"`` on enter (or just
     ``"<label> starting"`` when no fields are bound) and ``"<label>

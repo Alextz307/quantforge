@@ -1,4 +1,5 @@
-"""Walk-forward orchestrator: fold count, ordering, and determinism.
+"""
+Walk-forward orchestrator: fold count, ordering, and determinism.
 
 Uses a deterministic ``_FlatLongStrategy`` (no internal randomness) so
 the only stochastic input is the synthetic OHLCV; two runs over the
@@ -36,7 +37,8 @@ DAILY_RISK_FREE_RATE = 0.001
 
 
 class _FlatLongStrategy(IStrategy):
-    """Always-long strategy: signal = 1.0 every bar after warmup.
+    """
+    Always-long strategy: signal = 1.0 every bar after warmup.
 
     Trivial enough to be fully deterministic and to make hand-checking
     trivial. ``train()`` only records ``training_metadata`` so the
@@ -94,7 +96,9 @@ def test_fold_indices_are_sequential(orchestrator_results: list[FoldResult]) -> 
 
 
 def test_folds_are_temporally_ordered(orchestrator_results: list[FoldResult]) -> None:
-    """Each fold's test window starts strictly after the previous one's."""
+    """
+    Each fold's test window starts strictly after the previous one's.
+    """
 
     for prev, curr in zip(
         orchestrator_results[:-1],
@@ -105,7 +109,9 @@ def test_folds_are_temporally_ordered(orchestrator_results: list[FoldResult]) ->
 
 
 def test_train_strictly_precedes_test(orchestrator_results: list[FoldResult]) -> None:
-    """The orchestrator's tripwire would fire otherwise — sanity check."""
+    """
+    The orchestrator's tripwire would fire otherwise — sanity check.
+    """
 
     for r in orchestrator_results:
         assert r.train_end < r.test_start
@@ -118,7 +124,8 @@ def test_fold_result_carries_metrics(orchestrator_results: list[FoldResult]) -> 
 
 
 def test_two_runs_are_bit_identical(wf_bars: pd.DataFrame) -> None:
-    """Determinism: same panel + same strategy → identical metrics.
+    """
+    Determinism: same panel + same strategy → identical metrics.
 
     Intentionally NOT using ``orchestrator_results`` — needs two
     independent runs to verify reproducibility.
@@ -138,14 +145,18 @@ def test_orchestrator_runs_for_every_scenario(
     wf_bars: pd.DataFrame,
     scenario: SlippageScenario,
 ) -> None:
-    """Each predefined scenario can drive a full walk-forward without errors."""
+    """
+    Each predefined scenario can drive a full walk-forward without errors.
+    """
 
     results = _run_orchestrator(wf_bars, scenario)
     assert len(results) == WF_N_SPLITS
 
 
 def test_risk_free_rate_lowers_sharpe(wf_bars: pd.DataFrame) -> None:
-    """Non-zero rfr threads through MetricsCalculator and dampens Sharpe per fold."""
+    """
+    Non-zero rfr threads through MetricsCalculator and dampens Sharpe per fold.
+    """
 
     baseline = evaluate_walk_forward(
         _FlatLongStrategy(),

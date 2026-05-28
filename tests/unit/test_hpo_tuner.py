@@ -1,4 +1,5 @@
-"""StrategyTuner integration tests.
+"""
+StrategyTuner integration tests.
 
 Mocks ``build_experiment`` + ``aggregate_folds`` so the tuner's own
 logic (config materialisation, SQLite study creation, trial-to-objective
@@ -44,7 +45,9 @@ _SHARPE_PENALTY_PER_UNIT = 0.05
 
 
 class _FakeExperiment:
-    """Stand-in for a wired ``Experiment`` — ``run()`` returns a fake result."""
+    """
+    Stand-in for a wired ``Experiment`` — ``run()`` returns a fake result.
+    """
 
     def __init__(self, experiment_id: str) -> None:
         self._experiment_id = experiment_id
@@ -88,7 +91,8 @@ def _hpo_cfg(study_name: str, n_trials: int) -> HPOConfig:
 def mocked_tuner_env(
     monkeypatch: pytest.MonkeyPatch,
 ) -> Callable[[], None]:
-    """Monkeypatch ``build_experiment`` + ``aggregate_folds``.
+    """
+    Monkeypatch ``build_experiment`` + ``aggregate_folds``.
 
     Returns a callable that resets the per-test trial counter so each
     test starts from the same deterministic state.
@@ -115,7 +119,8 @@ def mocked_tuner_env(
 
 
 def _window_for_trial(n: int) -> int:
-    """Deterministic rotation across the AdaptiveBollinger window search space
+    """
+    Deterministic rotation across the AdaptiveBollinger window search space
     [10, 50] giving monotone coverage around the peak."""
 
     return 10 + (n * 5) % 41
@@ -227,7 +232,8 @@ class TestStrategyTunerResume:
 
 
 class TestStrategyTunerPruning:
-    """``optuna.TrialPruned`` raised from the objective (as LSTM/XGBoost
+    """
+    ``optuna.TrialPruned`` raised from the objective (as LSTM/XGBoost
     leaves do under a live pruner) must be caught by Optuna — marking the
     trial PRUNED instead of FAILED — and must not short-circuit the rest
     of the study.

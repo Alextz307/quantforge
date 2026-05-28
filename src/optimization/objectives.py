@@ -1,4 +1,5 @@
-"""Objective adapters that map aggregate metrics to a scalar.
+"""
+Objective adapters that map aggregate metrics to a scalar.
 
 The tuner hands each trial's aggregate-metrics dict to the selected
 objective and returns the scalar to Optuna. Keeping the adapter boundary
@@ -26,13 +27,16 @@ _DEFAULT_DRAWDOWN_PENALTY = 2.0
 
 @runtime_checkable
 class IObjective(Protocol):
-    """Callable that collapses aggregate metrics to a single maximization target."""
+    """
+    Callable that collapses aggregate metrics to a single maximization target.
+    """
 
     def __call__(self, aggregate_metrics: Mapping[str, object]) -> float: ...
 
 
 def _read_float_metric(aggregate_metrics: Mapping[str, object], key: str) -> float:
-    """Pull a numeric entry out of ``aggregate_metrics`` with clear errors.
+    """
+    Pull a numeric entry out of ``aggregate_metrics`` with clear errors.
 
     The tuner surfaces these errors to Optuna as failed trials; a missing
     key usually means the experiment ran on zero folds (empty dev slice)
@@ -58,14 +62,18 @@ def _read_float_metric(aggregate_metrics: Mapping[str, object], key: str) -> flo
 
 
 class SharpeObjective:
-    """Mean Sharpe across folds — the thesis-default single-objective."""
+    """
+    Mean Sharpe across folds — the thesis-default single-objective.
+    """
 
     def __call__(self, aggregate_metrics: Mapping[str, object]) -> float:
         return _read_float_metric(aggregate_metrics, "sharpe_mean")
 
 
 class CalmarObjective:
-    """Mean Calmar across folds — rewards return-per-unit-drawdown."""
+    """
+    Mean Calmar across folds — rewards return-per-unit-drawdown.
+    """
 
     def __call__(self, aggregate_metrics: Mapping[str, object]) -> float:
         return _read_float_metric(aggregate_metrics, "calmar_mean")
@@ -73,7 +81,8 @@ class CalmarObjective:
 
 @dataclass(frozen=True)
 class SortinoMinusDrawdownPenaltyObjective:
-    """Sortino mean minus a penalty on the worst observed drawdown.
+    """
+    Sortino mean minus a penalty on the worst observed drawdown.
 
     ``max_drawdown_worst`` is reported as a negative number (the min
     across folds). We apply ``abs()`` before the penalty so the
@@ -94,7 +103,9 @@ class SortinoMinusDrawdownPenaltyObjective:
 
 
 def build_objective(kind: ObjectiveKind) -> IObjective:
-    """Dispatch :class:`ObjectiveKind` to a concrete objective instance."""
+    """
+    Dispatch :class:`ObjectiveKind` to a concrete objective instance.
+    """
 
     match kind:
         case ObjectiveKind.SHARPE:

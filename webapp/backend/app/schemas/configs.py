@@ -1,4 +1,6 @@
-"""Wire DTOs for the configs validation + browsing endpoints."""
+"""
+Wire DTOs for the configs validation + browsing endpoints.
+"""
 
 from __future__ import annotations
 

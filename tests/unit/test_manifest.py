@@ -1,4 +1,5 @@
-"""Tests for :class:`Manifest` round-trip and :func:`write_experiment_manifest`.
+"""
+Tests for :class:`Manifest` round-trip and :func:`write_experiment_manifest`.
 
 Catches the two classes of failure a typed manifest prevents:
 

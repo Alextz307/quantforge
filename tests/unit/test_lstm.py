@@ -1,4 +1,6 @@
-"""Tests for MarketLSTM and LSTMPredictor."""
+"""
+Tests for MarketLSTM and LSTMPredictor.
+"""
 
 from __future__ import annotations
 
@@ -46,7 +48,9 @@ NUMPY_SEED = 42
 
 @pytest.fixture
 def lstm_df() -> pd.DataFrame:
-    """DataFrame with multiple feature columns for LSTM testing."""
+    """
+    DataFrame with multiple feature columns for LSTM testing.
+    """
 
     np.random.seed(SYNTH_FIXTURE_SEED)
     idx = pd.bdate_range(start=SYNTH_START_DATE, periods=SYNTH_ROW_COUNT, freq="B")
@@ -67,7 +71,9 @@ def lstm_df() -> pd.DataFrame:
 
 @pytest.fixture
 def lstm_target(lstm_df: pd.DataFrame) -> pd.Series:
-    """Target series for LSTM: next-day return."""
+    """
+    Target series for LSTM: next-day return.
+    """
 
     returns = lstm_df["close"].pct_change().shift(-1)
     return returns.iloc[:-1]
@@ -75,7 +81,9 @@ def lstm_target(lstm_df: pd.DataFrame) -> pd.Series:
 
 @pytest.fixture
 def lstm_features() -> list[str]:
-    """Feature column list matching lstm_df."""
+    """
+    Feature column list matching lstm_df.
+    """
 
     return ["close", "volume", "return_1d"]
 
@@ -261,7 +269,9 @@ class TestLSTMPredictor:
         lstm_target: pd.Series,
         lstm_features: list[str],
     ) -> None:
-        """End-to-end fit → predict on an explicitly-pinned CPU device (portable on CI)."""
+        """
+        End-to-end fit → predict on an explicitly-pinned CPU device (portable on CI).
+        """
 
         torch.manual_seed(TORCH_SEED)
         train = lstm_df.iloc[:-1]
@@ -280,7 +290,9 @@ class TestLSTMPredictor:
         assert isinstance(signal, pd.Series)
 
     def test_feature_columns_honored(self, lstm_df: pd.DataFrame, lstm_target: pd.Series) -> None:
-        """Explicit feature_columns restricts which columns LSTM trains on."""
+        """
+        Explicit feature_columns restricts which columns LSTM trains on.
+        """
 
         torch.manual_seed(TORCH_SEED)
         train = lstm_df.iloc[:-1]

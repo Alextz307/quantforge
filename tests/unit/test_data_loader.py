@@ -1,4 +1,6 @@
-"""Tests for data layer: normalizer, cache, CSV source, and registry integration."""
+"""
+Tests for data layer: normalizer, cache, CSV source, and registry integration.
+"""
 
 from __future__ import annotations
 
@@ -206,7 +208,8 @@ class TestDataCache:
         assert not cache.has("key2")
 
     def test_concurrent_save_no_partial_read(self, tmp_path: Path) -> None:
-        """Parallel HPO trials race on the same cache key; a reader between
+        """
+        Parallel HPO trials race on the same cache key; a reader between
         truncate and close used to observe a half-written parquet whose
         ``df[col]`` returns a DataFrame instead of a Series. Atomic
         tmp-file + ``os.replace`` keeps the reader's view all-or-nothing.

@@ -1,4 +1,5 @@
-"""Owner-resolution + access-check helpers for artifact-read endpoints.
+"""
+Owner-resolution + access-check helpers for artifact-read endpoints.
 
 Artifacts (studies, runs, hpo studies, holdout-evals, comparisons) live on
 disk under ``store_root``. The ``jobs`` table is the authoritative link:
@@ -55,7 +56,8 @@ def _chunks(seq: list[str], size: int) -> Iterator[list[str]]:
 
 
 class ArtifactAccessDeniedError(LookupError):
-    """Raised when a caller asks for an artifact owned by someone else.
+    """
+    Raised when a caller asks for an artifact owned by someone else.
 
     Routers translate this to ``HTTPException(status_code=404)`` rather than
     403 so the response doesn't disclose that the artifact exists.
@@ -65,7 +67,8 @@ class ArtifactAccessDeniedError(LookupError):
 def resolve_artifact_owner(
     conn: sqlite3.Connection, *, experiment_id: str
 ) -> int | None:
-    """Return the user_id that launched ``experiment_id``, or ``None`` if unknown.
+    """
+    Return the user_id that launched ``experiment_id``, or ``None`` if unknown.
 
     ``None`` covers two real cases: CLI-launched artifacts (no webapp job
     row) and artifacts that predate ownership tracking. Either way the
@@ -82,7 +85,8 @@ def resolve_artifact_owner(
 def check_artifact_access(
     conn: sqlite3.Connection, *, experiment_id: str, user: UserPublic
 ) -> None:
-    """Raise ``ArtifactAccessDeniedError`` if ``user`` cannot read this artifact.
+    """
+    Raise ``ArtifactAccessDeniedError`` if ``user`` cannot read this artifact.
 
     Returns ``None`` on success. Admins always pass. Owners pass for
     artifacts they launched. Everyone passes on ownerless artifacts.
@@ -109,7 +113,8 @@ def filter_visible_experiment_ids(
     user: UserPublic,
     all_users: bool,
 ) -> set[str]:
-    """Return the subset of ``experiment_ids`` ``user`` may see.
+    """
+    Return the subset of ``experiment_ids`` ``user`` may see.
 
     Drives list endpoints: scope to owned + ownerless by default; admins
     with ``all_users=True`` see everything.
@@ -140,7 +145,8 @@ def filter_visible_experiment_ids(
 def resolve_owner_usernames(
     conn: sqlite3.Connection, *, experiment_ids: list[str]
 ) -> dict[str, str]:
-    """Look up ``launched_by_username`` for each experiment id with a webapp job.
+    """
+    Look up ``launched_by_username`` for each experiment id with a webapp job.
 
     Returns ``{experiment_id: username}`` — keys are present only for
     artifacts with a matching jobs row. Caller treats missing keys as
@@ -175,7 +181,8 @@ def scope_and_stamp_summaries(
     user: UserPublic,
     all_users: bool,
 ) -> list[SummaryT]:
-    """Filter a summary list to ``user``-visible artifacts and stamp ``launched_by_username``.
+    """
+    Filter a summary list to ``user``-visible artifacts and stamp ``launched_by_username``.
 
     Standard epilogue for every list endpoint: take the unsorted full
     summary list, drop the entries the caller may not see, attach the

@@ -1,4 +1,5 @@
-"""Domain value types for the quant trading framework.
+"""
+Domain value types for the quant trading framework.
 
 All models use Pydantic v2 with frozen=True for immutability.
 """
@@ -23,7 +24,9 @@ from src.core.constants import (
 
 
 class Interval(StrEnum):
-    """Bar timeframe — used for annualization factor computation."""
+    """
+    Bar timeframe — used for annualization factor computation.
+    """
 
     SECOND = "second"
     MINUTE = "minute"
@@ -34,13 +37,17 @@ class Interval(StrEnum):
     WEEKLY = "weekly"
 
     def annualization_factor(self) -> int:
-        """Return the number of bars per year for this interval."""
+        """
+        Return the number of bars per year for this interval.
+        """
 
         return _ANNUALIZATION_FACTORS[self]
 
 
 class LossFunction(StrEnum):
-    """Loss functions for neural network training."""
+    """
+    Loss functions for neural network training.
+    """
 
     MSE = "mse"
     MAE = "mae"
@@ -48,14 +55,18 @@ class LossFunction(StrEnum):
 
 
 class InformationCriterion(StrEnum):
-    """Model selection criteria for statistical models."""
+    """
+    Model selection criteria for statistical models.
+    """
 
     AIC = "aic"
     BIC = "bic"
 
 
 class Device(StrEnum):
-    """Compute backends for ML model training."""
+    """
+    Compute backends for ML model training.
+    """
 
     AUTO = "auto"
     CUDA = "cuda"
@@ -75,7 +86,9 @@ _ANNUALIZATION_FACTORS: dict[Interval, int] = {
 
 
 class BarData(BaseModel):
-    """Immutable OHLCV bar with validation."""
+    """
+    Immutable OHLCV bar with validation.
+    """
 
     model_config = ConfigDict(frozen=True)
 
@@ -89,7 +102,9 @@ class BarData(BaseModel):
 
     @model_validator(mode="after")
     def validate_hloc_ordering(self) -> Self:
-        """Ensure high >= low and high/low bound open/close."""
+        """
+        Ensure high >= low and high/low bound open/close.
+        """
 
         if self.high < self.low:
             raise ValueError(
@@ -112,7 +127,9 @@ class BarData(BaseModel):
 
 
 class Signal(BaseModel):
-    """Strategy output for a single bar."""
+    """
+    Strategy output for a single bar.
+    """
 
     model_config = ConfigDict(frozen=True)
 
@@ -121,7 +138,9 @@ class Signal(BaseModel):
 
 
 class PairSignal(BaseModel):
-    """Pairs trading signal for two legs."""
+    """
+    Pairs trading signal for two legs.
+    """
 
     model_config = ConfigDict(frozen=True)
 
@@ -132,7 +151,9 @@ class PairSignal(BaseModel):
 
     @model_validator(mode="after")
     def validate_total_leverage(self) -> Self:
-        """Ensure combined absolute leverage does not exceed maximum."""
+        """
+        Ensure combined absolute leverage does not exceed maximum.
+        """
 
         total_abs = abs(self.leg_a_position) + abs(self.leg_b_position)
         if total_abs > MAX_LEVERAGE:

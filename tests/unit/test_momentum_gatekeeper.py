@@ -1,4 +1,6 @@
-"""Tests for MomentumGatekeeperStrategy (FeaturePipeline + XGBoost + trend gate)."""
+"""
+Tests for MomentumGatekeeperStrategy (FeaturePipeline + XGBoost + trend gate).
+"""
 
 from __future__ import annotations
 
@@ -139,7 +141,9 @@ class TestMomentumGatekeeperStrategy:
     def test_trend_gate_zeroes_bearish_regime(
         self, fitted_strategy: MomentumGatekeeperStrategy
     ) -> None:
-        """In a monotone decline, the trend gate must suppress all long signals."""
+        """
+        In a monotone decline, the trend gate must suppress all long signals.
+        """
 
         df = make_declining_close_df()
         signals = fitted_strategy.generate_signals(df)
@@ -147,7 +151,9 @@ class TestMomentumGatekeeperStrategy:
         assert (non_nan == 0.0).all()
 
     def test_explicit_feature_subset_honored(self, train_df: pd.DataFrame) -> None:
-        """Configured feature_columns subset is passed to DirectionalClassifier."""
+        """
+        Configured feature_columns subset is passed to DirectionalClassifier.
+        """
 
         subset = ["return_1d", "vol_20", "rsi_14"]
         s = MomentumGatekeeperStrategy(

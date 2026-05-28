@@ -1,4 +1,6 @@
-"""Cointegration testing for pairs trading."""
+"""
+Cointegration testing for pairs trading.
+"""
 
 from __future__ import annotations
 
@@ -17,7 +19,9 @@ logger = get_logger(__name__)
 
 @dataclass(frozen=True)
 class CointegrationResult:
-    """Result of an Engle-Granger cointegration test."""
+    """
+    Result of an Engle-Granger cointegration test.
+    """
 
     hedge_ratio: float
     p_value: float
@@ -27,7 +31,8 @@ class CointegrationResult:
 
 
 class CointegrationTester:
-    """Cointegration testing for pairs trading.
+    """
+    Cointegration testing for pairs trading.
 
     Uses the Engle-Granger two-step method:
     1. OLS regression to find hedge ratio
@@ -40,7 +45,8 @@ class CointegrationTester:
         series_b: pd.Series[float],
         p_value_threshold: float = 0.05,
     ) -> CointegrationResult:
-        """Run Engle-Granger cointegration test on two price series.
+        """
+        Run Engle-Granger cointegration test on two price series.
 
         Args:
             series_a: First price series.
@@ -73,7 +79,8 @@ class CointegrationTester:
         price_matrix: pd.DataFrame,
         p_value_threshold: float = 0.05,
     ) -> list[tuple[str, str, CointegrationResult]]:
-        """Screen all column pairs for cointegration.
+        """
+        Screen all column pairs for cointegration.
 
         Args:
             price_matrix: DataFrame where each column is a price series.

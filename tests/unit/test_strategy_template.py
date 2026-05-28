@@ -1,4 +1,5 @@
-"""Drift guards for ``src/strategies/_template.py``.
+"""
+Drift guards for ``src/strategies/_template.py``.
 
 The template is an underscored module on purpose — ``autoload_package``
 must skip it so it never registers itself, and its abstract-method stubs
@@ -19,13 +20,16 @@ from tests.conftest import make_synthetic_close_df
 
 @pytest.fixture
 def unfitted_template() -> tuple[_TemplateStrategy, pd.DataFrame]:
-    """Unfitted template + a tiny synthetic close frame, shared by the stub-and-guard tests."""
+    """
+    Unfitted template + a tiny synthetic close frame, shared by the stub-and-guard tests.
+    """
 
     return _TemplateStrategy(), make_synthetic_close_df()
 
 
 def test_template_module_does_not_register() -> None:
-    """``_template.py`` must NOT appear under any plausible name in the registry.
+    """
+    ``_template.py`` must NOT appear under any plausible name in the registry.
 
     The leading-underscore skip in ``autoload_package`` is the mechanism that
     keeps this honest; this test asserts the resulting state. If a future
@@ -51,7 +55,9 @@ def test_template_module_does_not_register() -> None:
 def test_template_train_raises_not_implemented(
     unfitted_template: tuple[_TemplateStrategy, pd.DataFrame],
 ) -> None:
-    """``train()`` is stubbed; calling it must surface a clear remediation message."""
+    """
+    ``train()`` is stubbed; calling it must surface a clear remediation message.
+    """
 
     s, df = unfitted_template
     with pytest.raises(NotImplementedError, match="train"):
@@ -61,7 +67,8 @@ def test_template_train_raises_not_implemented(
 def test_template_generate_signals_before_train_raises_runtime_error(
     unfitted_template: tuple[_TemplateStrategy, pd.DataFrame],
 ) -> None:
-    """Calling ``generate_signals`` before ``train`` must raise ``RuntimeError``.
+    """
+    Calling ``generate_signals`` before ``train`` must raise ``RuntimeError``.
 
     Exercises the read-side fitted-state guard. Triggering the post-guard
     ``NotImplementedError`` would require a working ``train()`` call, which
@@ -74,21 +81,26 @@ def test_template_generate_signals_before_train_raises_runtime_error(
 
 
 def test_template_invalid_window_raises() -> None:
-    """Ctor validation fires — readers see the same error shape as real strategies."""
+    """
+    Ctor validation fires — readers see the same error shape as real strategies.
+    """
 
     with pytest.raises(ValueError, match="window"):
         _TemplateStrategy(window=1)
 
 
 def test_template_invalid_threshold_raises() -> None:
-    """Ctor validation fires — readers see the same error shape as real strategies."""
+    """
+    Ctor validation fires — readers see the same error shape as real strategies.
+    """
 
     with pytest.raises(ValueError, match="threshold"):
         _TemplateStrategy(threshold=0.0)
 
 
 def test_template_suggest_params_keys_match_ctor() -> None:
-    """``suggest_params`` keys must be a subset of ctor kwarg names.
+    """
+    ``suggest_params`` keys must be a subset of ctor kwarg names.
 
     If a future edit renames a ctor kwarg without updating ``suggest_params``,
     StrategyTuner would raise ``TypeError`` at trial-build time — this test

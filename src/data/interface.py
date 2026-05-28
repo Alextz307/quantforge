@@ -1,4 +1,6 @@
-"""Data source abstract interface with built-in caching and normalization."""
+"""
+Data source abstract interface with built-in caching and normalization.
+"""
 
 from __future__ import annotations
 
@@ -14,7 +16,8 @@ from src.data.validator import validate_bars
 
 
 class IDataSource(ABC):
-    """Pluggable data source — swap yfinance for any provider.
+    """
+    Pluggable data source — swap yfinance for any provider.
 
     Concrete implementations only need to implement fetch_raw().
     The base class handles caching, column normalization, and ingestion-time
@@ -40,7 +43,9 @@ class IDataSource(ABC):
         end: datetime,
         interval: Interval = Interval.DAILY,
     ) -> pd.DataFrame:
-        """Fetch raw OHLCV data from the source."""
+        """
+        Fetch raw OHLCV data from the source.
+        """
 
     def fetch(
         self,
@@ -49,7 +54,8 @@ class IDataSource(ABC):
         end: datetime,
         interval: Interval = Interval.DAILY,
     ) -> pd.DataFrame:
-        """Fetch data with caching + normalization.
+        """
+        Fetch data with caching + normalization.
 
         Args:
             ticker: Stock ticker symbol.
@@ -83,12 +89,16 @@ class IDataSource(ABC):
 
     @abstractmethod
     def available_tickers(self) -> list[str]:
-        """List available ticker symbols for this source."""
+        """
+        List available ticker symbols for this source.
+        """
 
     @property
     @abstractmethod
     def name(self) -> str:
-        """Data source identifier."""
+        """
+        Data source identifier.
+        """
 
     def _cache_key(
         self,
@@ -97,6 +107,8 @@ class IDataSource(ABC):
         end: datetime,
         interval: Interval,
     ) -> str:
-        """Generate a deterministic cache key."""
+        """
+        Generate a deterministic cache key.
+        """
 
         return f"{self.name}_{ticker}_{start.isoformat()}_{end.isoformat()}_{interval.value}"

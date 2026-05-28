@@ -1,4 +1,6 @@
-"""Spawn + supervise CLI subprocesses; fan-out log + status frames to WS clients."""
+"""
+Spawn + supervise CLI subprocesses; fan-out log + status frames to WS clients.
+"""
 
 from __future__ import annotations
 
@@ -99,7 +101,8 @@ def build_compare_command(
     publish_label: str | None,
     store_root: Path,
 ) -> tuple[str, ...]:
-    """``experiment compare`` invocation in ``--reuse-runs`` mode.
+    """
+    ``experiment compare`` invocation in ``--reuse-runs`` mode.
 
     ``config_paths`` and ``reuse_run_dirs`` must be the same length and in
     matching order — the CLI pairs them positionally.
@@ -138,7 +141,9 @@ def build_holdout_command(
     publish_label: str | None,
     store_root: Path,
 ) -> tuple[str, ...]:
-    """``experiment holdout-eval`` invocation; source picks ``--run-dir`` vs ``--hpo-best``."""
+    """
+    ``experiment holdout-eval`` invocation; source picks ``--run-dir`` vs ``--hpo-best``.
+    """
 
     cmd: list[str] = [
         sys.executable,
@@ -169,8 +174,9 @@ def build_study_command(
     skip_holdout_eval: bool,
     store_root: Path,
 ) -> tuple[str, ...]:
-    """``experiment study run`` invocation; drives the cross-strategy × cross-universe sweep."""
-
+    """
+    ``experiment study run`` invocation; drives the cross-strategy × cross-universe sweep.
+    """
     cmd: list[str] = [
         sys.executable,
         "-m",
@@ -194,7 +200,9 @@ def build_study_command(
 
 
 def _resolve_run_experiment_id(store_root: Path, job_id: str) -> str | None:
-    """Scan run manifests for ``manifest.name == job_id``."""
+    """
+    Scan run manifests for ``manifest.name == job_id``.
+    """
 
     for run_dir in iter_run_dirs(store_root):
         try:
@@ -229,7 +237,8 @@ def _resolve_experiment_id(
     job_id: str,
     artifact_name: str | None,
 ) -> str | None:
-    """Single dispatch for "which artifact directory belongs to this finished job?".
+    """
+    Single dispatch for "which artifact directory belongs to this finished job?".
 
     RUN jobs need a manifest walk because the run dir's basename is the
     auto-generated experiment_id, not the job_id. TUNE/COMPARE/HOLDOUT
@@ -299,7 +308,9 @@ class ProcessManager:
         return proc is not None and proc.process.poll() is None
 
     async def cancel(self, job_id: str) -> bool:
-        """Send SIGTERM, escalate to SIGKILL after the grace period."""
+        """
+        Send SIGTERM, escalate to SIGKILL after the grace period.
+        """
 
         proc = self._running.get(job_id)
         if proc is None or proc.process.poll() is not None:

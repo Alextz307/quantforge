@@ -1,4 +1,6 @@
-"""WebSocket streaming behaviour for /api/hpo/{wire_id}/stream."""
+"""
+WebSocket streaming behaviour for /api/hpo/{wire_id}/stream.
+"""
 
 from __future__ import annotations
 
@@ -54,7 +56,9 @@ def test_stream_unknown_study_closes(authed_client: TestClient, webapp_store: Pa
 
 
 def test_stream_forwards_appended_trial(authed_client: TestClient, webapp_store: Path) -> None:
-    """A trial appended to ``trials.jsonl`` mid-WS must arrive after the replay phase."""
+    """
+    A trial appended to ``trials.jsonl`` mid-WS must arrive after the replay phase.
+    """
 
     trials_path = _trials_jsonl_path(webapp_store)
     live_record = {

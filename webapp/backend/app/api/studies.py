@@ -1,4 +1,6 @@
-"""Read-only HTTP endpoints + live WebSocket stream over persisted studies."""
+"""
+Read-only HTTP endpoints + live WebSocket stream over persisted studies.
+"""
 
 from __future__ import annotations
 
@@ -82,7 +84,8 @@ async def post_study_consolidated(
     user: UserPublic = Depends(get_current_user),
     conn: sqlite3.Connection = Depends(get_db),
 ) -> StudyConsolidatedDTO:
-    """Build (or rebuild) the consolidated report for a study and return it.
+    """
+    Build (or rebuild) the consolidated report for a study and return it.
 
     Runs the matplotlib + table-writing work in the threadpool so the event
     loop stays responsive while the (few-seconds) job completes. A study
@@ -135,7 +138,8 @@ def get_study_consolidated_table(
 
 @router.websocket("/{name}/stream")
 async def stream_study(websocket: WebSocket, name: str) -> None:
-    """Push ``StudyDetail`` frames on every ``study_state.json`` mtime bump.
+    """
+    Push ``StudyDetail`` frames on every ``study_state.json`` mtime bump.
 
     Per-connection mtime polling (1.0s tick) — no shared broker. Both
     webapp-launched and CLI-launched studies surface; the watcher cares

@@ -1,4 +1,5 @@
-"""Factory mapping :class:`PrunerKind` to Optuna ``BasePruner`` instances.
+"""
+Factory mapping :class:`PrunerKind` to Optuna ``BasePruner`` instances.
 
 Pruners need intermediate values reported via ``trial.report(value, step)``
 to actually prune anything. The LSTM and XGBoost leaves re-raise
@@ -28,7 +29,9 @@ _DEFAULT_PERCENTILE_PRUNER_VALUE = 25.0
 
 
 def build_pruner(kind: PrunerKind) -> BasePruner:
-    """Instantiate the requested Optuna pruner."""
+    """
+    Instantiate the requested Optuna pruner.
+    """
 
     match kind:
         case PrunerKind.MEDIAN:

@@ -1,4 +1,6 @@
-"""FastAPI application factory for the webapp backend."""
+"""
+FastAPI application factory for the webapp backend.
+"""
 
 from __future__ import annotations
 

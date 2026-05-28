@@ -1,4 +1,6 @@
-"""Lifespan-startup orphan reconciliation when a stale RUNNING row exists."""
+"""
+Lifespan-startup orphan reconciliation when a stale RUNNING row exists.
+"""
 
 from __future__ import annotations
 
@@ -27,7 +29,9 @@ DEAD_PID = 99_999_999
 
 @pytest.fixture
 def staged_orphan(_isolated_job_paths: None, db_conn: sqlite3.Connection) -> Iterator[str]:
-    """Pre-populate the DB with a RUNNING job whose PID is dead."""
+    """
+    Pre-populate the DB with a RUNNING job whose PID is dead.
+    """
 
     user = create_user(db_conn, username="alex", password="password123", role=Role.USER)
     job = insert_job(

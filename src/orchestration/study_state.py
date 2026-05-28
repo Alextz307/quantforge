@@ -1,4 +1,5 @@
-"""State dataclasses for the empirical-study orchestrator.
+"""
+State dataclasses for the empirical-study orchestrator.
 
 The study runs a long sequence of (strategy x universe) legs and must
 survive process death + resume cleanly across days of compute. This
@@ -34,11 +35,12 @@ from pathlib import Path
 from typing import Self
 
 from src.core import json_io
-from src.core.fs import atomic_write_path
 
 
 class LegStep(StrEnum):
-    """The three sub-steps of a study leg, in canonical execution order."""
+    """
+    The three sub-steps of a study leg, in canonical execution order.
+    """
 
     TUNE = "tune"
     RUN = "run"
@@ -58,7 +60,8 @@ LEG_STEPS_ORDER: tuple[LegStep, ...] = (
 
 @dataclass(frozen=True)
 class LegState:
-    """Per-leg progress record.
+    """
+    Per-leg progress record.
 
     ``is_complete`` is stored explicitly (not derived from
     ``steps_completed``) because the expected step set varies per leg —
@@ -83,7 +86,9 @@ class LegState:
 
     @classmethod
     def initial(cls, leg_id: str, strategy: str, universe: str) -> Self:
-        """Construct a fresh, never-started leg state."""
+        """
+        Construct a fresh, never-started leg state.
+        """
 
         return cls(
             leg_id=leg_id,
@@ -98,7 +103,9 @@ class LegState:
         )
 
     def with_step_completed(self, step: LegStep) -> Self:
-        """Return a copy with ``step`` appended (idempotent on re-add)."""
+        """
+        Return a copy with ``step`` appended (idempotent on re-add).
+        """
 
         if step in self.steps_completed:
             return self
@@ -140,7 +147,9 @@ class LegState:
 
 @dataclass(frozen=True)
 class StudyState:
-    """Top-level study progress: leg roster + cross-strategy compare status."""
+    """
+    Top-level study progress: leg roster + cross-strategy compare status.
+    """
 
     spec_name: str
     spec_hash: str
@@ -149,7 +158,9 @@ class StudyState:
     cross_strategy_compares_done: tuple[str, ...]
 
     def with_leg(self, updated: LegState) -> Self:
-        """Return a copy with ``updated`` replacing the leg of the same ``leg_id``."""
+        """
+        Return a copy with ``updated`` replacing the leg of the same ``leg_id``.
+        """
 
         new_legs = tuple(updated if leg.leg_id == updated.leg_id else leg for leg in self.legs)
         if not any(leg.leg_id == updated.leg_id for leg in self.legs):
@@ -193,24 +204,27 @@ class StudyState:
 
 
 def compute_spec_hash(spec_path: Path) -> str:
-    """SHA-256 of the spec YAML bytes — pins which spec the state belongs to."""
+    """
+    SHA-256 of the spec YAML bytes — pins which spec the state belongs to.
+    """
 
     return hashlib.sha256(spec_path.read_bytes()).hexdigest()
 
 
 def write_study_state(path: Path, state: StudyState) -> None:
-    """Atomically persist ``state`` at ``path``.
+    """
+    Atomically persist ``state`` at ``path``.
 
-    A crash mid-write leaves the prior valid file intact (no half-written
-    JSON) — the orchestrator may take days to complete and routinely
-    survives Ctrl+C between legs.
+    A crash mid-write leaves the prior valid file intact — the orchestrator
+    may take days to complete and routinely survives Ctrl+C between legs.
     """
 
-    with atomic_write_path(path) as tmp:
-        json_io.write(tmp, state.to_dict())
+    json_io.write(path, state.to_dict())
 
 
 def read_study_state(path: Path) -> StudyState:
-    """Load and validate a previously-written :class:`StudyState`."""
+    """
+    Load and validate a previously-written :class:`StudyState`.
+    """
 
     return StudyState.from_dict(json_io.read_dict(path))

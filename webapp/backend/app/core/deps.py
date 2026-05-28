@@ -1,4 +1,6 @@
-"""FastAPI dependency providers for DB connections, sessions, and auth gates."""
+"""
+FastAPI dependency providers for DB connections, sessions, and auth gates.
+"""
 
 from __future__ import annotations
 

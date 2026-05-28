@@ -1,4 +1,6 @@
-"""Wire DTOs for the runs read API."""
+"""
+Wire DTOs for the runs read API.
+"""
 
 from __future__ import annotations
 
@@ -22,7 +24,8 @@ class SortOrder(StrEnum):
 
 
 class RunSummary(BaseModel):
-    """List-view row for `/api/runs`.
+    """
+    List-view row for `/api/runs`.
 
     Strategy/tickers/interval are sourced from the run's frozen
     `config.yaml` so any future strategy works without changing this code.
@@ -48,7 +51,9 @@ class RunSummary(BaseModel):
 
 
 class RunDetail(BaseModel):
-    """Detail-view payload for `/api/runs/{experiment_id}`."""
+    """
+    Detail-view payload for `/api/runs/{experiment_id}`.
+    """
 
     experiment_id: str
     name: str
@@ -86,7 +91,9 @@ class FoldRow(BaseModel):
 
 
 class RunsPage(BaseModel):
-    """Paginated envelope for `/api/runs`."""
+    """
+    Paginated envelope for `/api/runs`.
+    """
 
     items: list[RunSummary]
     total: int

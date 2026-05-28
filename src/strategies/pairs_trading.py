@@ -1,4 +1,6 @@
-"""Pairs trading strategy using Engle-Granger cointegration and z-score mean reversion."""
+"""
+Pairs trading strategy using Engle-Granger cointegration and z-score mean reversion.
+"""
 
 from __future__ import annotations
 
@@ -15,6 +17,7 @@ from src.core.persistence import (
     CONFIG_JSON,
     METADATA_JSON,
     WEIGHTS_JSON,
+    assert_save_complete,
     save_model_skeleton,
 )
 from src.core.registry import strategy_registry
@@ -33,7 +36,8 @@ _STRATEGY_NAME = "PairsTrading"
 
 @strategy_registry.register(_STRATEGY_NAME)
 class PairsTradingStrategy(IStrategy):
-    """Pairs trading on a cointegrated spread via rolling z-score.
+    """
+    Pairs trading on a cointegrated spread via rolling z-score.
 
     Expects ``train_data`` / ``data`` with ``close_a`` and ``close_b`` columns.
     ``generate_signals()`` returns leg_a position in ``{-1, 0, +1}``; the
@@ -113,7 +117,9 @@ class PairsTradingStrategy(IStrategy):
         checkpoint_path: Path | None = None,  # noqa: ARG002
         **kwargs: object,
     ) -> None:
-        """Run Engle-Granger cointegration and cache hedge ratio / spread stats."""
+        """
+        Run Engle-Granger cointegration and cache hedge ratio / spread stats.
+        """
 
         if "close_a" not in train_data.columns or "close_b" not in train_data.columns:
             raise ValueError(
@@ -153,7 +159,9 @@ class PairsTradingStrategy(IStrategy):
         )
 
     def generate_signals(self, data: pd.DataFrame) -> pd.Series:
-        """Produce {-1, 0, +1} leg_a position. Leading lookback bars are NaN."""
+        """
+        Produce {-1, 0, +1} leg_a position. Leading lookback bars are NaN.
+        """
 
         self._assert_fitted_with_metadata()
         if self._cpp_coint is None:
@@ -196,7 +204,9 @@ class PairsTradingStrategy(IStrategy):
         )
 
     def save(self, path: str | Path) -> None:
-        """Persist PairsTrading config + cointegration stats to ``path``."""
+        """
+        Persist PairsTrading config + cointegration stats to ``path``.
+        """
 
         metadata = self._assert_fitted_with_metadata()
 
@@ -219,7 +229,8 @@ class PairsTradingStrategy(IStrategy):
         )
 
     def _ctor_kwargs_as_json(self) -> dict[str, object]:
-        """Snapshot of this strategy's constructor kwargs as JSON-ready values.
+        """
+        Snapshot of this strategy's constructor kwargs as JSON-ready values.
 
         Single source of truth for the save-time config — the load path reads
         the same keys back. Exercised by a parametrized drift test that
@@ -237,9 +248,11 @@ class PairsTradingStrategy(IStrategy):
 
     @classmethod
     def load(cls, path: str | Path) -> Self:
-        """Reconstruct a trained PairsTradingStrategy from ``path``."""
+        """
+        Reconstruct a trained PairsTradingStrategy from ``path``.
+        """
 
-        root = Path(path)
+        root = assert_save_complete(path)
         config = json_io.read_dict(root / CONFIG_JSON)
         weights = json_io.read_dict(root / WEIGHTS_JSON)
         metadata = json_io.read_dict(root / METADATA_JSON)
@@ -262,7 +275,9 @@ class PairsTradingStrategy(IStrategy):
 
     @property
     def hedge_ratio(self) -> float:
-        """Cointegration hedge ratio (slope of OLS regression of a on b)."""
+        """
+        Cointegration hedge ratio (slope of OLS regression of a on b).
+        """
 
         self._assert_fitted_with_metadata()
         return self._hedge_ratio
@@ -277,7 +292,9 @@ class PairsTradingStrategy(IStrategy):
 
     @staticmethod
     def suggest_params(trial: optuna.trial.BaseTrial) -> dict[str, object]:
-        """Optuna search space for PairsTrading hyperparameters."""
+        """
+        Optuna search space for PairsTrading hyperparameters.
+        """
 
         return {
             "entry_zscore": trial.suggest_float("pairs_entry_z", 1.5, 3.0),

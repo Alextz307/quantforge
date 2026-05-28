@@ -1,4 +1,6 @@
-"""Unit tests for services/hpo_service.py."""
+"""
+Unit tests for services/hpo_service.py.
+"""
 
 from __future__ import annotations
 
@@ -243,7 +245,9 @@ def test_get_param_importance_returns_message_when_db_missing(
 def test_get_param_importance_with_real_optuna_study(
     tmp_path: Path, db_conn: sqlite3.Connection
 ) -> None:
-    """Seeds a real Optuna SQLite with multiple completed trials."""
+    """
+    Seeds a real Optuna SQLite with multiple completed trials.
+    """
 
     import optuna
     from optuna.distributions import FloatDistribution, IntDistribution

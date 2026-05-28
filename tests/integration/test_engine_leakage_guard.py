@@ -1,4 +1,5 @@
-"""Anti-leakage tripwire: ``evaluate_walk_forward`` raises ``LeakageError``
+"""
+Anti-leakage tripwire: ``evaluate_walk_forward`` raises ``LeakageError``
 when a strategy reports ``training_metadata`` that overlaps the test fold.
 
 Defense-in-depth: ``WalkForwardValidator`` already yields non-overlapping
@@ -33,7 +34,8 @@ NORMAL_SCENARIO = SLIPPAGE_SCENARIOS[SlippageScenario.NORMAL]
 
 
 class _LyingStrategy(IStrategy):
-    """Reports a ``TrainingMetadata`` covering the full panel, not just
+    """
+    Reports a ``TrainingMetadata`` covering the full panel, not just
     ``fold.train`` — simulates a buggy strategy that touched out-of-fold
     data during ``train()``.
     """
@@ -61,7 +63,9 @@ class _LyingStrategy(IStrategy):
 
 
 class _ForgetfulStrategy(IStrategy):
-    """``train()`` runs but never populates ``_training_metadata``."""
+    """
+    ``train()`` runs but never populates ``_training_metadata``.
+    """
 
     def train(self, train_data: pd.DataFrame, **kwargs: object) -> None:
         pass
@@ -99,7 +103,8 @@ def test_orchestrator_raises_on_overlapping_training_metadata() -> None:
 
 
 def test_orchestrator_raises_when_training_metadata_missing() -> None:
-    """Contract enforcement: train() must populate training_metadata.
+    """
+    Contract enforcement: train() must populate training_metadata.
 
     The deep metadata check surfaces this as "no populated metadata" — a
     component that never completed fit() produces a ``None`` entry in the

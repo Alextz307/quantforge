@@ -1,4 +1,5 @@
-"""Integration tests for the pybind11 bindings of BacktestEngine + MetricsCalculator.
+"""
+Integration tests for the pybind11 bindings of BacktestEngine + MetricsCalculator.
 
 The underlying C++ logic is exhaustively tested in
 ``cpp/tests/test_backtest_engine.cpp`` and ``cpp/tests/test_metrics.cpp``.
@@ -109,7 +110,9 @@ class TestSlippageConfig:
 
 class TestBacktestEngineRun:
     def test_flat_signal_no_trades(self) -> None:
-        """All-NaN signals → no fill ever → equity stays at initial_capital."""
+        """
+        All-NaN signals → no fill ever → equity stays at initial_capital.
+        """
 
         ts, o, h, lo, c, v = _flat_bars(N_BARS_LONG)
         sig = np.full(N_BARS_LONG, np.nan, dtype=np.float64)
@@ -130,7 +133,9 @@ class TestBacktestEngineRun:
         assert np.all(result.equity_curve == INITIAL_CAPITAL)
 
     def test_equity_curve_is_numpy_float64(self) -> None:
-        """equity_curve marshals back as a float64 1-D numpy array."""
+        """
+        equity_curve marshals back as a float64 1-D numpy array.
+        """
 
         ts, o, h, lo, c, v = _flat_bars(N_BARS_SHORT)
         sig = np.full(N_BARS_SHORT, np.nan, dtype=np.float64)
@@ -150,7 +155,9 @@ class TestBacktestEngineRun:
         assert result.equity_curve.ndim == 1
 
     def test_hand_calculated_single_trade(self) -> None:
-        """Zero-slip one-way trade on flat prices → equity = initial * (1 - fee)."""
+        """
+        Zero-slip one-way trade on flat prices → equity = initial * (1 - fee).
+        """
 
         ts, o, h, lo, c, v = _flat_bars(N_BARS_MIN)
         sig = np.array([1.0, 1.0], dtype=np.float64)
@@ -177,7 +184,9 @@ class TestBacktestEngineRun:
         assert math.isclose(result.total_return, SINGLE_TRADE_EXPECTED_RETURN, abs_tol=ABS_TOL)
 
     def test_accepts_float32_arrays_via_forcecast(self) -> None:
-        """`c_style | forcecast` on the binding coerces f32 inputs to f64."""
+        """
+        `c_style | forcecast` on the binding coerces f32 inputs to f64.
+        """
 
         n = N_BARS_SHORT
         ts = np.arange(n, dtype=np.int64)
@@ -233,7 +242,9 @@ class TestBacktestEngineRun:
             )
 
     def test_allow_short_false_clips_negative_signals(self) -> None:
-        """allow_short=False clips -1 to 0 (no trade); allow_short=True opens a short."""
+        """
+        allow_short=False clips -1 to 0 (no trade); allow_short=True opens a short.
+        """
 
         ts, o, h, lo, c, v = _flat_bars(N_BARS_MIN)
         short_sig = np.array([-1.0, -1.0], dtype=np.float64)
@@ -274,7 +285,9 @@ class TestBacktestEngineRun:
         assert short_ok.trade_count == 1
 
     def test_volume_scaled_slippage_propagates(self) -> None:
-        """VolumeScaled with impact > 0 produces strictly worse fills than plain Fixed."""
+        """
+        VolumeScaled with impact > 0 produces strictly worse fills than plain Fixed.
+        """
 
         rng = np.random.default_rng(GLOBAL_NUMPY_SEED)
         n = N_BARS_LONG
@@ -320,7 +333,9 @@ class TestRunScenarios:
         return ts, close, close, close, close, vol, sig
 
     def test_order_preserved_and_matches_individual_runs(self) -> None:
-        """bulk[i] must equal a standalone run(..., slippage=scenarios[i])."""
+        """
+        bulk[i] must equal a standalone run(..., slippage=scenarios[i]).
+        """
 
         ts, o, h, lo, c, v, sig = self._alternating_sample()
         scenarios = [
@@ -356,7 +371,9 @@ class TestRunScenarios:
             assert bulk[i].trade_count == single.trade_count
 
     def test_higher_slippage_monotonically_lowers_return(self) -> None:
-        """Heavier slippage on an actively-trading strategy can only hurt PnL."""
+        """
+        Heavier slippage on an actively-trading strategy can only hurt PnL.
+        """
 
         ts, o, h, lo, c, v, sig = self._alternating_sample()
         eng = qe.BacktestEngine()
@@ -394,7 +411,8 @@ class TestRunScenarios:
 
 
 class TestRunPairsBindings:
-    """Binding-layer coverage for the two-leg pairs path.
+    """
+    Binding-layer coverage for the two-leg pairs path.
 
     The two-leg PnL math itself is covered by gtest in
     ``cpp/tests/test_backtest_engine.cpp``; these tests verify only the
@@ -567,7 +585,9 @@ class TestMetricsCalculatorBindings:
 
 class TestEngineMetricsHandoff:
     def test_compute_accepts_engine_equity_curve(self) -> None:
-        """engine.run().equity_curve feeds directly into MetricsCalculator.compute."""
+        """
+        engine.run().equity_curve feeds directly into MetricsCalculator.compute.
+        """
 
         rng = np.random.default_rng(GLOBAL_NUMPY_SEED)
         n = N_BARS_LONG

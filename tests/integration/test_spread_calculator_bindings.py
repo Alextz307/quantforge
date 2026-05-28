@@ -1,4 +1,5 @@
-"""Parity tests for the ``SpreadCalculator`` C++ binding.
+"""
+Parity tests for the ``SpreadCalculator`` C++ binding.
 
 gtest exhaustively covers the numeric engine (see
 ``cpp/tests/test_spread.cpp``). These tests lock in the **binding layer**:
@@ -28,7 +29,9 @@ RSTD_PARITY_RTOL = 1e-10
 
 
 def _pandas_zscore_reference(spread: F64Array, window: int) -> F64Array:
-    """pandas ``rolling(window).mean/std`` → z-score; zero-std bars → NaN."""
+    """
+    pandas ``rolling(window).mean/std`` → z-score; zero-std bars → NaN.
+    """
 
     s = pd.Series(spread)
     mean = s.rolling(window).mean()
@@ -95,7 +98,9 @@ class TestPairsTradingStrategyBinding:
         assert cfg.zscore_lookback == 60
 
     def test_cpp_name_matches_python_wrapper(self) -> None:
-        """Drift guard: C++ ``name()`` must equal the Python wrapper's name."""
+        """
+        Drift guard: C++ ``name()`` must equal the Python wrapper's name.
+        """
 
         from src.strategies.pairs_trading import PairsTradingStrategy
 
@@ -136,7 +141,9 @@ class TestAdaptiveBollingerStrategyBinding:
         assert cfg.trend_window == 100
 
     def test_cpp_name_matches_python_wrapper(self) -> None:
-        """Drift guard: C++ ``name()`` must equal the Python wrapper's name."""
+        """
+        Drift guard: C++ ``name()`` must equal the Python wrapper's name.
+        """
 
         from src.strategies.adaptive_bollinger import AdaptiveBollingerStrategy
 

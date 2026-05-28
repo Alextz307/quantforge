@@ -1,4 +1,6 @@
-"""Verify CORS middleware is gated on WEBAPP_ENV=development."""
+"""
+Verify CORS middleware is gated on WEBAPP_ENV=development.
+"""
 
 from __future__ import annotations
 

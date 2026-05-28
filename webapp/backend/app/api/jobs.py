@@ -1,4 +1,6 @@
-"""HTTP + WebSocket endpoints for the jobs subsystem."""
+"""
+HTTP + WebSocket endpoints for the jobs subsystem.
+"""
 
 from __future__ import annotations
 

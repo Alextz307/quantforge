@@ -1,4 +1,6 @@
-"""Integration tests for /api/strategies and /api/models (auth-gated)."""
+"""
+Integration tests for /api/strategies and /api/models (auth-gated).
+"""
 
 from __future__ import annotations
 

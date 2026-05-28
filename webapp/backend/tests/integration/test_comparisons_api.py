@@ -1,4 +1,6 @@
-"""Integration tests for /api/comparisons (auth-gated)."""
+"""
+Integration tests for /api/comparisons (auth-gated).
+"""
 
 from __future__ import annotations
 

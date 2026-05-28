@@ -1,4 +1,6 @@
-"""Tests for TemporalDataset."""
+"""
+Tests for TemporalDataset.
+"""
 
 from __future__ import annotations
 
@@ -22,7 +24,9 @@ TOO_SMALL_ROW_COUNT = 5
 
 
 def _make_df(n: int = DF_DEFAULT_ROW_COUNT) -> pd.DataFrame:
-    """Create a simple DataFrame for dataset testing."""
+    """
+    Create a simple DataFrame for dataset testing.
+    """
 
     idx = pd.bdate_range(DF_START_DATE, periods=n, freq="B")
     return pd.DataFrame(
@@ -59,7 +63,9 @@ class TestTemporalDataset:
         assert target.shape == torch.Size([])
 
     def test_getitem_values(self) -> None:
-        """Verify features are from [idx, idx+lookback) and target is at idx+lookback."""
+        """
+        Verify features are from [idx, idx+lookback) and target is at idx+lookback.
+        """
 
         df = _make_df(DF_DEFAULT_ROW_COUNT)
         ds = TemporalDataset(
@@ -73,7 +79,9 @@ class TestTemporalDataset:
         assert target.item() == SMALL_LOOKBACK * TARGET_SCALE
 
     def test_last_valid_index(self) -> None:
-        """Verify the last sample doesn't go out of bounds."""
+        """
+        Verify the last sample doesn't go out of bounds.
+        """
 
         df = _make_df(SMALL_ROW_COUNT)
         ds = TemporalDataset(
@@ -88,7 +96,9 @@ class TestTemporalDataset:
         assert target.item() == (SMALL_ROW_COUNT - 1) * TARGET_SCALE
 
     def test_no_future_leakage(self) -> None:
-        """Each sample's features must precede its target temporally."""
+        """
+        Each sample's features must precede its target temporally.
+        """
 
         df = _make_df(DF_DEFAULT_ROW_COUNT)
         ds = TemporalDataset(

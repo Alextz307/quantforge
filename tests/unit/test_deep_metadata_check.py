@@ -1,4 +1,5 @@
-"""Tests for ``IStrategy.get_all_training_metadata()`` + walk-forward deep check.
+"""
+Tests for ``IStrategy.get_all_training_metadata()`` + walk-forward deep check.
 
 Covers the key invariants of the deep leakage tripwire:
 
@@ -51,7 +52,9 @@ def eval_df() -> pd.DataFrame:
 
 
 class TestDefaultOverrideForSimpleStrategies:
-    """PairsTradingStrategy inherits the default — metadata tuple length 1."""
+    """
+    PairsTradingStrategy inherits the default — metadata tuple length 1.
+    """
 
     def test_pairs_trading_uses_default(self) -> None:
         s = PairsTradingStrategy()
@@ -79,7 +82,9 @@ class TestAdaptiveBollingerOverride:
 
 
 class TestWalkForwardDeepCheck:
-    """validate_deep_metadata is the shared codepath invoked inside the fold loop."""
+    """
+    validate_deep_metadata is the shared codepath invoked inside the fold loop.
+    """
 
     def test_passes_when_eval_is_after_training(
         self,
@@ -100,7 +105,8 @@ class TestWalkForwardDeepCheck:
         train_df: pd.DataFrame,
         eval_df: pd.DataFrame,
     ) -> None:
-        """Simulate GARCH metadata drift: leaf's train_end lies AFTER eval.start.
+        """
+        Simulate GARCH metadata drift: leaf's train_end lies AFTER eval.start.
 
         This models the failure mode the deep check exists to catch —
         ``strategy.training_metadata`` looks fine, but a wrapped model's
@@ -134,7 +140,8 @@ class TestWalkForwardDeepCheck:
         eval_df: pd.DataFrame,
         caplog: pytest.LogCaptureFixture,
     ) -> None:
-        """If one tracked component has None metadata but another has valid
+        """
+        If one tracked component has None metadata but another has valid
         metadata, the check logs a warning for the None and validates the
         rest instead of collapsing the whole call.
         """
@@ -165,7 +172,8 @@ class TestWalkForwardDeepCheck:
         self,
         eval_df: pd.DataFrame,
     ) -> None:
-        """Every tracked component being None is a contract violation —
+        """
+        Every tracked component being None is a contract violation —
         no part of the strategy has completed fit()."""
 
         class _StubStrategy:

@@ -1,4 +1,5 @@
-"""Round-trip save/load tests for every strategy.
+"""
+Round-trip save/load tests for every strategy.
 
 Each test trains a strategy, writes it to a fresh ``tmp_path``, reloads, and
 asserts ``generate_signals()`` output is bit-identical (or within a tight
@@ -317,7 +318,8 @@ def test_save_config_keys_match_ctor_signature(
     factory: Callable[[], object],
     excluded: set[str],
 ) -> None:
-    """Fails loudly when a new ctor kwarg lands without a corresponding
+    """
+    Fails loudly when a new ctor kwarg lands without a corresponding
     persisted-config key (or vice versa). Device preferences are the only
     intentional exclusion — they're re-resolved on load, not persisted."""
 

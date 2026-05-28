@@ -1,4 +1,6 @@
-"""Shared pytest fixtures for the quant trading framework."""
+"""
+Shared pytest fixtures for the quant trading framework.
+"""
 
 from __future__ import annotations
 
@@ -28,7 +30,8 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 
 @pytest.fixture(autouse=True, scope="session")
 def _isolate_webapp_db(tmp_path_factory: pytest.TempPathFactory) -> Path:
-    """Point ``WEBAPP_DB_PATH`` at a session-local tmp file.
+    """
+    Point ``WEBAPP_DB_PATH`` at a session-local tmp file.
 
     The CLI subcommands (``experiment run/tune/compare/holdout-eval``,
     ``study run``) attribute their artifacts via ``attribute_via_username``,
@@ -44,7 +47,9 @@ def _isolate_webapp_db(tmp_path_factory: pytest.TempPathFactory) -> Path:
 
 
 def load_script_module(path: Path, name: str) -> ModuleType:
-    """Import a top-level script (``scripts/foo.py``) by path for testing."""
+    """
+    Import a top-level script (``scripts/foo.py``) by path for testing.
+    """
 
     spec = importlib.util.spec_from_file_location(name, path)
     assert spec is not None and spec.loader is not None
@@ -100,7 +105,8 @@ FEATURE_NOISE_SEED = 11
 
 
 def seed_globally() -> None:
-    """Plain callable wrapper around the deterministic seeding logic.
+    """
+    Plain callable wrapper around the deterministic seeding logic.
 
     Use this inside tests that need to re-seed multiple times per test
     body (e.g., to compare two runs with identical starting state). A
@@ -118,21 +124,26 @@ def seed_globally() -> None:
 
 @pytest.fixture
 def deterministic_seed() -> None:
-    """Set deterministic random seeds for reproducibility."""
+    """
+    Set deterministic random seeds for reproducibility.
+    """
 
     seed_globally()
 
 
 @pytest.fixture
 def synthetic_feature_columns() -> list[str]:
-    """Two synthetic feature column names used by composite-model tests."""
+    """
+    Two synthetic feature column names used by composite-model tests.
+    """
 
     return ["feat_a", "feat_b"]
 
 
 @pytest.fixture
 def sample_spy_df() -> pd.DataFrame:
-    """Small realistic SPY OHLCV DataFrame for unit testing.
+    """
+    Small realistic SPY OHLCV DataFrame for unit testing.
 
     Returns ``SPY_ROW_COUNT`` business days of synthetic OHLCV starting
     from ``SPY_START_DATE``, with ``SPY_BASE_PRICE`` and ``SPY_RETURN_STD``
@@ -172,7 +183,9 @@ def sample_spy_df() -> pd.DataFrame:
 
 @pytest.fixture
 def sample_bar_data() -> list[BarData]:
-    """List of BarData instances for testing."""
+    """
+    List of BarData instances for testing.
+    """
 
     return [
         BarData(
@@ -194,7 +207,8 @@ def make_synthetic_close_df(
     seed: int = SYNTH_DEFAULT_SEED,
     base_price: float = SYNTH_DEFAULT_BASE_PRICE,
 ) -> pd.DataFrame:
-    """Create a DataFrame with realistic close prices and volume.
+    """
+    Create a DataFrame with realistic close prices and volume.
 
     Not a fixture — call directly with parameters. Uses random-walk
     returns with ``SYNTH_RETURN_MEAN`` mean and ``SYNTH_RETURN_STD``
@@ -214,7 +228,8 @@ def make_synthetic_ohlcv_df(
     seed: int = SYNTH_DEFAULT_SEED,
     base_price: float = SYNTH_DEFAULT_BASE_PRICE,
 ) -> pd.DataFrame:
-    """Random-walk synthetic OHLCV with valid HLOC ordering.
+    """
+    Random-walk synthetic OHLCV with valid HLOC ordering.
 
     Used by engine integration tests that need a full bar shape (the C++
     backtest engine requires open/high/low/close/volume). Open is the
@@ -262,7 +277,8 @@ def make_mini_experiment_fixture(
     test_size: int = _MINI_SMOKE_DEFAULT_TEST_SIZE,
     gap: int = _MINI_SMOKE_DEFAULT_GAP,
 ) -> Path:
-    """Write the canonical synthetic OHLCV CSV + AdaptiveBollinger YAML for CLI smoke tests.
+    """
+    Write the canonical synthetic OHLCV CSV + AdaptiveBollinger YAML for CLI smoke tests.
 
     Returns the YAML path. The CSV lives at ``<tmp_path>/csv_data/MINI.csv``
     and is regenerated per call (no caching — pytest's ``tmp_path`` is
@@ -338,7 +354,8 @@ def make_pair_mini_experiment_fixture(
     test_size: int = _PAIR_MINI_DEFAULT_TEST_SIZE,
     gap: int = _PAIR_MINI_DEFAULT_GAP,
 ) -> Path:
-    """Write two cointegrated synthetic OHLCV CSVs + a PairsTrading YAML.
+    """
+    Write two cointegrated synthetic OHLCV CSVs + a PairsTrading YAML.
 
     Sibling to :func:`make_mini_experiment_fixture` for the pairs CLI smoke.
     Construction:
@@ -441,7 +458,8 @@ def make_multi_feature_mini_experiment_fixture(
     gap: int = _MULTI_FEATURE_MINI_DEFAULT_GAP,
     extra_strategy_params: dict[str, object] | None = None,
 ) -> Path:
-    """Drop one synthetic OHLCV CSV per ticker + a multi-feature YAML.
+    """
+    Drop one synthetic OHLCV CSV per ticker + a multi-feature YAML.
 
     Sibling to :func:`make_pair_mini_experiment_fixture` for multi-feature
     smoke tests. Each ticker gets its own deterministic random walk (different
@@ -495,7 +513,8 @@ def make_multi_feature_mini_experiment_fixture(
 
 
 def make_walk_forward_validator(n_splits: int, test_size: int) -> WalkForwardValidator:
-    """Pass-through factory shared across engine integration tests.
+    """
+    Pass-through factory shared across engine integration tests.
 
     Forwards only the two parameters the tests actually vary; ``gap`` and
     ``expanding`` flow through from ``WalkForwardValidator``'s own
@@ -511,7 +530,8 @@ def assert_params_match_constructor(
     *,
     ignore: Iterable[str] = (),
 ) -> None:
-    """Assert a dataclass mirrors a class's constructor kwargs.
+    """
+    Assert a dataclass mirrors a class's constructor kwargs.
 
     Used to detect drift between an internal params dataclass and the
     constructor it shadows — mypy can't enforce this when the dataclass
@@ -535,7 +555,8 @@ def make_declining_close_df(
     start_price: float = 200.0,
     end_price: float = 100.0,
 ) -> pd.DataFrame:
-    """Monotone-declining close series for bearish-regime tests.
+    """
+    Monotone-declining close series for bearish-regime tests.
 
     Every bar sits below its own SMA(50) / SMA(100), guaranteeing
     ``close > trend_ma`` is False throughout — useful for asserting
@@ -554,7 +575,8 @@ def make_declining_ohlcv_df(
     end_price: float = 100.0,
     band: float = DECLINING_OHLCV_BAND,
 ) -> pd.DataFrame:
-    """Monotone-declining OHLCV series for bearish-regime tests.
+    """
+    Monotone-declining OHLCV series for bearish-regime tests.
 
     Open = prior close (first bar's open = ``start_price``); high/low bracket
     the OC range by a small symmetric ``band`` so HLOC ordering holds and the
@@ -579,7 +601,8 @@ def attach_synthetic_features(
     features: list[str],
     seed: int = FEATURE_NOISE_SEED,
 ) -> pd.DataFrame:
-    """Return a copy of ``base`` with each ``features`` column filled with
+    """
+    Return a copy of ``base`` with each ``features`` column filled with
     seeded ``N(0, 1)`` noise. Used by composite + strategy tests that need a
     close (or OHLCV) frame plus a deterministic feature matrix.
     """
@@ -599,7 +622,8 @@ def make_pair_close_df(
     scale: float = 1.2,
     noise_std: float = 0.5,
 ) -> pd.DataFrame:
-    """Create a DataFrame with two cointegrated close-price series (close_a, close_b).
+    """
+    Create a DataFrame with two cointegrated close-price series (close_a, close_b).
 
     ``close_b`` is constructed as ``close_a * scale + stationary_noise``. The
     resulting spread ``close_a - (1/scale) * close_b`` is stationary — a
@@ -616,7 +640,8 @@ def make_pair_close_df(
 
 
 def make_daily_df(n_rows: int, start: str = DAILY_DEFAULT_START_DATE) -> pd.DataFrame:
-    """Create a simple DataFrame with DatetimeIndex for testing.
+    """
+    Create a simple DataFrame with DatetimeIndex for testing.
 
     Not a fixture — call directly with parameters. For minimal test DataFrames
     that only need 'close' and 'volume' columns.
@@ -631,7 +656,8 @@ def make_daily_df(n_rows: int, start: str = DAILY_DEFAULT_START_DATE) -> pd.Data
 
 @pytest.fixture
 def large_daily_df() -> pd.DataFrame:
-    """Large DataFrame (~``LARGE_ROW_COUNT`` rows) for walk-forward validation testing.
+    """
+    Large DataFrame (~``LARGE_ROW_COUNT`` rows) for walk-forward validation testing.
 
     Returns synthetic OHLCV starting from ``LARGE_START_DATE``, with
     ``LARGE_BASE_PRICE`` and ``SYNTH_RETURN_STD`` daily volatility.
@@ -752,7 +778,8 @@ def make_stub_fold_record(
     test_start: pd.Timestamp | None = None,
     test_end: pd.Timestamp | None = None,
 ) -> FoldRecord:
-    """Build a :class:`FoldRecord` with the minimal fields every caller cares about.
+    """
+    Build a :class:`FoldRecord` with the minimal fields every caller cares about.
 
     The ``*_start`` / ``*_end`` kwargs default to a fixed 2020 calendar window
     so callers that only care about metric aggregation can stay terse;
@@ -785,7 +812,8 @@ def make_stub_experiment_result(
     seed: int = GLOBAL_NUMPY_SEED,
     data_hash: str = _STUB_DATA_HASH,
 ) -> ExperimentResult:
-    """Build an :class:`ExperimentResult` with a minimal valid Manifest.
+    """
+    Build an :class:`ExperimentResult` with a minimal valid Manifest.
 
     Callers control folds fully; the manifest is plausible scaffolding
     (synthetic data hash, 'unknown' git sha). Used by cross-strategy
@@ -815,7 +843,8 @@ def make_log_return_equity_curve(
     seed: int,
     sigma: float = 0.01,
 ) -> tuple[float, ...]:
-    """Equity curve whose per-bar log-returns have approximately the target Sharpe.
+    """
+    Equity curve whose per-bar log-returns have approximately the target Sharpe.
 
     Used by cross-strategy comparison tests: each fold needs a stable,
     seed-deterministic curve whose downstream Sharpe is recognisable to
@@ -829,7 +858,8 @@ def make_log_return_equity_curve(
 
 
 def comparison_curve_seed(name: str, fold_index: int) -> int:
-    """Stable, process-independent seed for a (strategy, fold) pair.
+    """
+    Stable, process-independent seed for a (strategy, fold) pair.
 
     Avoids ``hash((name, i))`` whose value is randomised per Python process
     when ``PYTHONHASHSEED`` is not pinned — that randomness would let two
@@ -851,7 +881,8 @@ def make_stub_aggregate_stats(
     max_drawdown_worst: float = -0.1,
     total_return_mean: float = 0.05,
 ) -> AggregateStats:
-    """Build a stub :class:`AggregateStats` from a scalar Sharpe.
+    """
+    Build a stub :class:`AggregateStats` from a scalar Sharpe.
 
     Used by tuner / CLI tests that monkeypatch ``aggregate_folds`` and only
     care about the objective-driving sharpe/sortino/calmar fields — every

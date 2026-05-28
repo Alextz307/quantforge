@@ -1,4 +1,5 @@
-"""Unit tests for the study-report consolidator.
+"""
+Unit tests for the study-report consolidator.
 
 Exercises :func:`consolidate_study` against a synthetic ``<study_dir>/``
 tree built on ``tmp_path``. The tree mirrors the orchestrator's output
@@ -34,6 +35,7 @@ from src.engine.scenarios import SlippageScenario
 from src.orchestration.manifest import Manifest
 from src.orchestration.study_report import (
     HoldoutSnapshot,
+    aggregate_floor_bind_across_folds,
     consolidate_study,
 )
 from src.orchestration.study_state import (
@@ -42,6 +44,7 @@ from src.orchestration.study_state import (
     write_study_state,
 )
 from src.orchestration.types import FoldRecord, PairwiseSignificance
+from src.strategies.volatility_targeting import FLOOR_BIND_DIAGNOSTIC_KEY
 from src.visualization.plots import MANIFEST_FILENAME
 from tests.conftest import (
     make_log_return_equity_curve,
@@ -62,7 +65,8 @@ def _write_fake_run(
     name: str,
     sharpes: tuple[float, ...],
 ) -> None:
-    """Materialise a minimal valid ``runs/<id>/`` dir.
+    """
+    Materialise a minimal valid ``runs/<id>/`` dir.
 
     Writes ``manifest.json`` and ``fold_results.jsonl`` so
     :func:`load_experiment_result` can reconstruct an
@@ -97,7 +101,9 @@ def _write_fake_run(
 def _write_fake_holdout(
     holdout_dir: Path, *, leg_id: str, sharpe: float, dev_bars: int = 1000, holdout_bars: int = 250
 ) -> None:
-    """Match ``HoldoutEvalResult.to_dict()`` schema for the consolidator's needs."""
+    """
+    Match ``HoldoutEvalResult.to_dict()`` schema for the consolidator's needs.
+    """
 
     out_dir = holdout_dir / leg_id
     out_dir.mkdir(parents=True)
@@ -124,8 +130,28 @@ def _write_fake_holdout(
             "max_drawdown": -0.08,
             "win_rate": 0.55,
             "trade_count": 30,
+            "sharpe_ci": {
+                "point_estimate": sharpe,
+                "lower": sharpe - 0.2,
+                "upper": sharpe + 0.2,
+                "confidence": 0.95,
+                "n_resamples": 1000,
+                "block_size": 5,
+            },
         },
         "equity_curve": [1.0, 1.01, 1.02],
+        "buy_and_hold": {
+            "sharpe_ratio": 0.5,
+            "sortino_ratio": 0.55,
+            "calmar_ratio": 0.45,
+            "max_drawdown": -0.10,
+            "annualized_return": 0.07,
+            "annualized_volatility": 0.14,
+            "total_return": 0.04,
+            "win_rate": 0.50,
+            "trade_count": 1,
+            "equity_curve": [1.0, 1.005, 1.01],
+        },
     }
     json_io.write(out_dir / HOLDOUT_EVAL_JSON, payload)
 
@@ -136,7 +162,9 @@ def _write_fake_comparison(
     universe: str,
     pairwise: tuple[PairwiseSignificance, ...],
 ) -> None:
-    """Write the comparison manifest with the pairwise list the consolidator reads."""
+    """
+    Write the comparison manifest with the pairwise list the consolidator reads.
+    """
 
     out_dir = comparisons_dir / universe
     out_dir.mkdir(parents=True)
@@ -159,7 +187,8 @@ def _build_study_dir(
     holdout_data: dict[str, float] | None = None,
     comparison_data: dict[str, tuple[PairwiseSignificance, ...]] | None = None,
 ) -> Path:
-    """Assemble a full fake study tree on ``tmp_path``.
+    """
+    Assemble a full fake study tree on ``tmp_path``.
 
     ``legs`` is ``(leg_id, strategy, universe, sharpes)`` tuples — sharpes
     drives the synthesised fold records (one per element). ``incomplete_leg_ids``
@@ -213,7 +242,9 @@ def _build_study_dir(
 
 
 def test_consolidate_study_full_tree(tmp_path: Path) -> None:
-    """All artifact kinds present → all maps populated."""
+    """
+    All artifact kinds present → all maps populated.
+    """
 
     legs = [
         ("StratA__uni1", "StratA", "uni1", (1.2, 1.3, 1.1)),
@@ -258,7 +289,9 @@ def test_consolidate_study_full_tree(tmp_path: Path) -> None:
 
 
 def test_consolidate_study_skips_incomplete_legs(tmp_path: Path) -> None:
-    """Incomplete legs surface in ``incomplete_leg_ids`` and don't pollute aggregates."""
+    """
+    Incomplete legs surface in ``incomplete_leg_ids`` and don't pollute aggregates.
+    """
 
     legs = [
         ("StratA__uni1", "StratA", "uni1", (1.0, 1.1)),
@@ -272,7 +305,9 @@ def test_consolidate_study_skips_incomplete_legs(tmp_path: Path) -> None:
 
 
 def test_consolidate_study_no_holdout_no_compare(tmp_path: Path) -> None:
-    """Sparse tree: only runs/, no auxiliary artifacts."""
+    """
+    Sparse tree: only runs/, no auxiliary artifacts.
+    """
 
     legs = [("StratA__uni1", "StratA", "uni1", (1.0, 1.1, 1.2))]
     study_dir = _build_study_dir(tmp_path, legs=legs)
@@ -290,7 +325,9 @@ def test_consolidate_study_missing_state_raises(tmp_path: Path) -> None:
 
 
 def test_holdout_snapshot_round_trip(tmp_path: Path) -> None:
-    """Round-trip a real ``HoldoutEvalResult.to_dict()`` payload."""
+    """
+    Round-trip a real ``HoldoutEvalResult.to_dict()`` payload.
+    """
 
     leg_dir = tmp_path / "holdout"
     _write_fake_holdout(leg_dir, leg_id="x", sharpe=0.42)
@@ -300,8 +337,41 @@ def test_holdout_snapshot_round_trip(tmp_path: Path) -> None:
     assert snapshot.n_holdout_bars == 250
 
 
+class TestAggregateFloorBindAcrossFolds:
+    def test_returns_none_when_no_fold_carries_diagnostic(self) -> None:
+        result = aggregate_floor_bind_across_folds([{}, {"other_key": 0.5}])
+        assert result is None
+
+    def test_aggregates_mean_max_min_across_folds(self) -> None:
+        diagnostics = [
+            {FLOOR_BIND_DIAGNOSTIC_KEY: 0.10},
+            {FLOOR_BIND_DIAGNOSTIC_KEY: 0.30},
+            {FLOOR_BIND_DIAGNOSTIC_KEY: 0.50},
+        ]
+        result = aggregate_floor_bind_across_folds(diagnostics)
+        assert result is not None
+        assert result.mean == pytest.approx(0.30)
+        assert result.max == pytest.approx(0.50)
+        assert result.min == pytest.approx(0.10)
+        assert result.n_folds == 3
+
+    def test_skips_non_finite_values(self) -> None:
+        diagnostics = [
+            {FLOOR_BIND_DIAGNOSTIC_KEY: 0.20},
+            {FLOOR_BIND_DIAGNOSTIC_KEY: float("nan")},
+            {FLOOR_BIND_DIAGNOSTIC_KEY: float("inf")},
+            {FLOOR_BIND_DIAGNOSTIC_KEY: 0.40},
+        ]
+        result = aggregate_floor_bind_across_folds(diagnostics)
+        assert result is not None
+        assert result.n_folds == 2
+        assert result.mean == pytest.approx(0.30)
+
+
 def test_holdout_snapshot_rejects_non_holdout_payload(tmp_path: Path) -> None:
-    """A regular run manifest must NOT be parsed as a holdout snapshot."""
+    """
+    A regular run manifest must NOT be parsed as a holdout snapshot.
+    """
 
     bad = tmp_path / "bad.json"
     json_io.write(bad, {"is_holdout_eval": False, "metrics": {}})
@@ -310,7 +380,9 @@ def test_holdout_snapshot_rejects_non_holdout_payload(tmp_path: Path) -> None:
 
 
 def _load_folds(study_dir: Path, run_id: str) -> tuple[FoldRecord, ...]:
-    """Re-read fold records from a fake run dir for direct AggregateStats comparison."""
+    """
+    Re-read fold records from a fake run dir for direct AggregateStats comparison.
+    """
 
     from src.orchestration.run_loader import load_experiment_result
 

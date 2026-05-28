@@ -1,4 +1,5 @@
-"""Smoke tests for LSTM ``torch.compile`` + opt-in AMP integration.
+"""
+Smoke tests for LSTM ``torch.compile`` + opt-in AMP integration.
 
 The existing ``test_lstm.py`` suite covers full fit/predict semantics; it
 runs against the *compiled* model on every CUDA fit (compile is gated
@@ -65,7 +66,9 @@ def _build(amp: bool = False) -> LSTMPredictor:
 
 
 def test_amp_default_is_false() -> None:
-    """No-arg ctor → ``amp`` is False; thesis runs land on FP32 by default."""
+    """
+    No-arg ctor → ``amp`` is False; thesis runs land on FP32 by default.
+    """
 
     p = LSTMPredictor(feature_columns=["close"])
     assert p._amp is False
@@ -74,7 +77,8 @@ def test_amp_default_is_false() -> None:
 def test_amp_kwarg_round_trips_via_save_load(
     tmp_path: Path, lstm_df: pd.DataFrame, lstm_target: pd.Series
 ) -> None:
-    """A predictor saved with ``amp=True`` reloads with the same flag set,
+    """
+    A predictor saved with ``amp=True`` reloads with the same flag set,
     so a downstream ``update()`` or fresh fit honours the persisted choice
     rather than silently dropping back to FP32.
     """
@@ -99,7 +103,8 @@ def test_amp_kwarg_round_trips_via_save_load(
 def test_compile_path_produces_finite_predictions(
     lstm_df: pd.DataFrame, lstm_target: pd.Series
 ) -> None:
-    """Fit (which exercises ``torch.compile`` on the training module under
+    """
+    Fit (which exercises ``torch.compile`` on the training module under
     CUDA, or the un-wrapped path otherwise) + predict must yield finite
     values for every non-warmup row. A future torch upgrade where compile
     fails on this model shape would surface as NaNs / inf here, not as

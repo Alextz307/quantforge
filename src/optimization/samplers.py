@@ -1,4 +1,5 @@
-"""Factory mapping :class:`SamplerKind` to Optuna ``BaseSampler`` instances.
+"""
+Factory mapping :class:`SamplerKind` to Optuna ``BaseSampler`` instances.
 
 Every sampler is instantiated with an explicit seed so reruns with the
 same ``HPOConfig.seed`` reproduce bit-for-bit — required for thesis
@@ -27,7 +28,9 @@ from src.core.hpo_config import SamplerKind
 
 
 def build_sampler(kind: SamplerKind, seed: int) -> BaseSampler:
-    """Instantiate the requested Optuna sampler with a deterministic seed."""
+    """
+    Instantiate the requested Optuna sampler with a deterministic seed.
+    """
 
     match kind:
         case SamplerKind.TPE:

@@ -1,4 +1,5 @@
-"""Command-line driver for the experiment runner.
+"""
+Command-line driver for the experiment runner.
 
 Subcommands:
 
@@ -29,6 +30,7 @@ import click
 from pydantic import ValidationError
 
 from scripts._attribution import attribute_via_username, default_username
+from scripts.study import study
 from src.core.config import (
     ExperimentConfig,
     load_experiment_config,
@@ -68,7 +70,9 @@ logger = get_logger(__name__)
     help="Python logging level for the runner.",
 )
 def cli(log_level: str) -> None:
-    """Quant-engine experiment orchestrator."""
+    """
+    Quant-engine experiment orchestrator.
+    """
 
     logging.basicConfig(level=log_level.upper(), format=CLI_LOG_FORMAT)
 
@@ -164,7 +168,9 @@ def run_cmd(
     publish_label: str | None,
     username: str | None,
 ) -> None:
-    """Execute a single walk-forward experiment end-to-end."""
+    """
+    Execute a single walk-forward experiment end-to-end.
+    """
 
     with attach_cli_log_file(store_root, "experiment_run") as log_path:
         try:
@@ -288,7 +294,8 @@ def tune_cmd(
     overrides: tuple[str, ...],
     username: str | None,
 ) -> None:
-    """Run an Optuna study over an ExperimentConfig's hyperparameter space.
+    """
+    Run an Optuna study over an ExperimentConfig's hyperparameter space.
 
     The study is persisted to a SQLite file under
     ``<store_root>/hpo/<study_name>/optuna_study.db`` — re-running with
@@ -444,7 +451,8 @@ def compare_cmd(
     publish_label: str | None,
     username: str | None,
 ) -> None:
-    """Run N configs, rank, optionally test pairwise significance.
+    """
+    Run N configs, rank, optionally test pairwise significance.
 
     The comparison directory is ``<store_root>/comparisons/<out_name>/``.
     Each strategy's walk-forward results land under ``runs/`` inside
@@ -584,7 +592,8 @@ def holdout_eval_cmd(
     publish_label: str | None,
     username: str | None,
 ) -> None:
-    """Refit on full dev, evaluate once on the reserved holdout — honest OOS.
+    """
+    Refit on full dev, evaluate once on the reserved holdout — honest OOS.
 
     The source's manifest.json is the source of truth for the dev/holdout
     boundary timestamp and the data fingerprint; the command refuses on
@@ -651,7 +660,9 @@ def holdout_eval_cmd(
 
 
 def _apply_hpo_overrides(cfg: HPOConfig, *, n_trials: int | None, n_jobs: int | None) -> HPOConfig:
-    """Rebuild the HPO config with CLI overrides, re-running validators."""
+    """
+    Rebuild the HPO config with CLI overrides, re-running validators.
+    """
 
     if n_trials is None and n_jobs is None:
         return cfg
@@ -674,7 +685,8 @@ def _apply_hpo_overrides(cfg: HPOConfig, *, n_trials: int | None, n_jobs: int | 
 def _override_experiment(
     cfg: ExperimentConfig, *, name: str | None, seed: int | None
 ) -> ExperimentConfig:
-    """Rebuild ``cfg`` with CLI ``--name`` / ``--seed`` overrides applied.
+    """
+    Rebuild ``cfg`` with CLI ``--name`` / ``--seed`` overrides applied.
 
     Re-runs the pydantic validator so an override never leaves the config
     in a half-validated state (e.g. an empty-string ``name`` from the CLI
@@ -690,7 +702,8 @@ def _override_experiment(
 
 
 def _load_reused_runs(raw: str | None, *, n_configs: int) -> list[ExperimentResult] | None:
-    """Resolve ``--reuse-runs <a,b,c>`` into the list ``run_comparison`` needs.
+    """
+    Resolve ``--reuse-runs <a,b,c>`` into the list ``run_comparison`` needs.
 
     Returns ``None`` when the flag is absent. Raises
     :class:`click.ClickException` on count mismatch or unreadable run
@@ -718,7 +731,8 @@ def _load_reused_runs(raw: str | None, *, n_configs: int) -> list[ExperimentResu
 
 
 def _apply_dotted_overrides(cfg: ExperimentConfig, overrides: tuple[str, ...]) -> ExperimentConfig:
-    """Apply repeatable ``--override key.path=value`` flags via dict round-trip.
+    """
+    Apply repeatable ``--override key.path=value`` flags via dict round-trip.
 
     Empty ``overrides`` is a no-op; otherwise we ``model_dump`` to JSON-safe
     primitives, mutate the dict via :func:`apply_overrides`, then ``model_validate``
@@ -737,8 +751,6 @@ def _apply_dotted_overrides(cfg: ExperimentConfig, overrides: tuple[str, ...]) -
     except ValidationError as e:
         raise click.ClickException(f"--override re-validation failed: {e}") from e
 
-
-from scripts.study import study  # noqa: E402  — circular-free: study imports orchestrators only
 
 cli.add_command(study)
 
@@ -767,7 +779,8 @@ cli.add_command(study)
     ),
 )
 def clean_cmd(store_root: Path, apply: bool, keep: tuple[str, ...]) -> None:
-    """Wipe the contents of ephemeral subdirs under ``--store-root`` (default: experiment_results/).
+    """
+    Wipe the contents of ephemeral subdirs under ``--store-root`` (default: experiment_results/).
 
     Each candidate directory survives as an empty placeholder so the
     canonical store layout (``runs/``, ``hpo/``, ``studies/``, ...) is

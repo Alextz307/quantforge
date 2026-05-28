@@ -1,4 +1,6 @@
-"""Unit tests for services/holdout_service.py."""
+"""
+Unit tests for services/holdout_service.py.
+"""
 
 from __future__ import annotations
 

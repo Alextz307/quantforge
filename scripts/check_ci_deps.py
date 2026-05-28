@@ -1,4 +1,5 @@
-"""Guard against CI/pyproject dependency drift.
+"""
+Guard against CI/pyproject dependency drift.
 
 Two checks:
 
@@ -48,7 +49,8 @@ _LINT_INSTALL_RE = re.compile(
 
 
 def _extract_name(spec: str) -> str:
-    """Canonicalize a PEP 508 / pip-CLI package spec to its bare name.
+    """
+    Canonicalize a PEP 508 / pip-CLI package spec to its bare name.
 
     Strips surrounding single/double quotes (CI YAML wraps extras like
     ``'uvicorn[standard]'`` so the shell doesn't glob them).
@@ -62,20 +64,26 @@ def _extract_name(spec: str) -> str:
 
 
 def _is_type_stub(name: str) -> bool:
-    """Heuristic for PEP 561 stub packages: ``types-*`` or ``*-stubs``."""
+    """
+    Heuristic for PEP 561 stub packages: ``types-*`` or ``*-stubs``.
+    """
 
     return name.startswith("types-") or name.endswith("-stubs")
 
 
 def _runtime_dep_names(pyproject_text: str) -> list[str]:
-    """Canonicalized runtime dep names from a ``pyproject.toml`` text."""
+    """
+    Canonicalized runtime dep names from a ``pyproject.toml`` text.
+    """
 
     deps = tomllib.loads(pyproject_text)["project"]["dependencies"]
     return [_extract_name(d) for d in deps]
 
 
 def _dev_type_stub_names(pyproject_text: str) -> list[str]:
-    """Canonicalized type-stub names from the ``dev`` optional-deps group."""
+    """
+    Canonicalized type-stub names from the ``dev`` optional-deps group.
+    """
 
     parsed = tomllib.loads(pyproject_text)
     dev_deps = parsed.get("project", {}).get("optional-dependencies", {}).get("dev", [])
@@ -90,7 +98,8 @@ def _ci_install_packages(ci_yaml_text: str, regex: re.Pattern[str], job_label: s
 
 
 def find_missing_deps(pyproject_text: str, ci_yaml_text: str) -> list[str]:
-    """Return sorted list of pyproject runtime deps absent from the CI pip install line.
+    """
+    Return sorted list of pyproject runtime deps absent from the CI pip install line.
 
     Raises:
         ValueError: if the ``python-test`` pip install line cannot be located.
@@ -102,7 +111,8 @@ def find_missing_deps(pyproject_text: str, ci_yaml_text: str) -> list[str]:
 
 
 def find_missing_type_stubs(pyproject_text: str, ci_yaml_text: str) -> list[str]:
-    """Return sorted list of dev type-stub deps absent from the lint pip install line.
+    """
+    Return sorted list of dev type-stub deps absent from the lint pip install line.
 
     Raises:
         ValueError: if the ``lint-and-typecheck`` pip install line cannot be located.

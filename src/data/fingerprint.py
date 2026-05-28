@@ -1,4 +1,5 @@
-"""Deterministic content hash for OHLCV DataFrames.
+"""
+Deterministic content hash for OHLCV DataFrames.
 
 ``fingerprint_bars(df)`` returns a version-stable SHA-256 digest covering the
 exact bytes that affect downstream strategy state: the ordered list of
@@ -53,7 +54,8 @@ def _fingerprint(df: pd.DataFrame, value_columns: Sequence[str], func_name: str)
 
 
 def fingerprint_bars(df: pd.DataFrame) -> str:
-    """SHA-256 content hash over ``df``'s column names, timestamps, and OHLCV bytes.
+    """
+    SHA-256 content hash over ``df``'s column names, timestamps, and OHLCV bytes.
 
     ``df`` MUST have a ``DatetimeIndex`` and contain every column in
     :data:`OHLCV_COLUMNS`. Column ORDER in the input is IGNORED: values
@@ -66,7 +68,8 @@ def fingerprint_bars(df: pd.DataFrame) -> str:
 
 
 def fingerprint_pair_bars(df: pd.DataFrame) -> str:
-    """Wide-format pairs analogue of :func:`fingerprint_bars`.
+    """
+    Wide-format pairs analogue of :func:`fingerprint_bars`.
 
     Expects ``open_a / high_a / ... / volume_b`` columns produced by the
     multi-ticker fetch path.
@@ -78,7 +81,8 @@ def fingerprint_pair_bars(df: pd.DataFrame) -> str:
 
 
 def fingerprint_multi_bars(df: pd.DataFrame, tickers: Sequence[str]) -> str:
-    """Wide-format multi-feature analogue of :func:`fingerprint_bars`.
+    """
+    Wide-format multi-feature analogue of :func:`fingerprint_bars`.
 
     Expects ``<ohlcv>_<TICKER>`` columns produced by the multi-feature
     fetch path (e.g. ``close_SPY``, ``open_QQQ``). Tickers are sorted
@@ -99,7 +103,8 @@ def assert_data_hash_matches(
     context: str,
     fix_hint: str | None = None,
 ) -> None:
-    """Refuse on ``data_hash`` drift between a refetch and the manifest.
+    """
+    Refuse on ``data_hash`` drift between a refetch and the manifest.
 
     Drifted bars silently slide every temporal boundary downstream
     (dev/holdout, walk-forward fold edges). That's an anti-leakage

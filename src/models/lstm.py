@@ -1,4 +1,6 @@
-"""LSTM predictor for time-series forecasting."""
+"""
+LSTM predictor for time-series forecasting.
+"""
 
 from __future__ import annotations
 
@@ -15,12 +17,14 @@ from torch.utils.data import DataLoader
 
 from src.core import json_io
 from src.core.device import select_device
+from src.core.fs import atomic_write_path
 from src.core.logging import get_logger
 from src.core.persistence import (
     BEST_STATE_PT,
     CONFIG_JSON,
     METADATA_JSON,
     WEIGHTS_PT,
+    assert_save_complete,
     save_model_skeleton,
 )
 from src.core.registry import model_registry
@@ -43,7 +47,9 @@ _LOSS_FUNCTIONS: dict[LossFunction, type[nn.Module]] = {
 
 
 class MarketLSTM(nn.Module):
-    """LSTM network for financial time-series prediction."""
+    """
+    LSTM network for financial time-series prediction.
+    """
 
     def __init__(
         self,
@@ -63,7 +69,9 @@ class MarketLSTM(nn.Module):
         self.fc = nn.Linear(hidden_dim, 1)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """Forward pass: (batch, lookback, features) -> (batch, 1)."""
+        """
+        Forward pass: (batch, lookback, features) -> (batch, 1).
+        """
 
         lstm_out, _ = self.lstm(x)
         last_hidden = lstm_out[:, -1, :]
@@ -73,7 +81,8 @@ class MarketLSTM(nn.Module):
 
 @model_registry.register("lstm")
 class LSTMPredictor(IPredictor):
-    """LSTM-based predictor with early stopping and configurable loss.
+    """
+    LSTM-based predictor with early stopping and configurable loss.
 
     Splits training data temporally for validation-based early stopping;
     the split fraction is controlled by ``val_split_ratio`` (default 20%).
@@ -133,7 +142,8 @@ class LSTMPredictor(IPredictor):
         checkpoint_path: Path | None = None,
         **kwargs: object,
     ) -> None:
-        """Train LSTM with early stopping on temporal validation split.
+        """
+        Train LSTM with early stopping on temporal validation split.
 
         Args:
             train_data: DataFrame with features and DatetimeIndex.
@@ -282,7 +292,8 @@ class LSTMPredictor(IPredictor):
                 best_state = {k: v.detach().cpu() for k, v in self._model.state_dict().items()}
                 patience_counter = 0
                 if checkpoint_path is not None:
-                    torch.save(best_state, checkpoint_path / BEST_STATE_PT)
+                    with atomic_write_path(checkpoint_path / BEST_STATE_PT) as tmp:
+                        torch.save(best_state, tmp)
             else:
                 patience_counter += 1
                 if patience_counter >= self._patience:
@@ -297,7 +308,8 @@ class LSTMPredictor(IPredictor):
         )
 
     def predict(self, data: pd.DataFrame) -> pd.Series:
-        """Batch inference on data.
+        """
+        Batch inference on data.
 
         First `lookback` rows return NaN (insufficient history).
 
@@ -336,7 +348,9 @@ class LSTMPredictor(IPredictor):
         return pd.Series(predictions, index=data.index, name="lstm_pred")
 
     def predict_single(self, recent_window: pd.DataFrame) -> float:
-        """Predict single value from a recent data window."""
+        """
+        Predict single value from a recent data window.
+        """
 
         self._assert_fitted_with_metadata()
         if self._model is None:
@@ -366,7 +380,8 @@ class LSTMPredictor(IPredictor):
         return float(pred)
 
     def save(self, path: str | Path) -> None:
-        """Persist LSTM config + torch state_dict to ``path``.
+        """
+        Persist LSTM config + torch state_dict to ``path``.
 
         Device is NOT persisted — it is re-resolved against the current runtime
         via ``select_device()`` on load. ``torch.save`` writes CPU tensors to
@@ -379,7 +394,8 @@ class LSTMPredictor(IPredictor):
 
         def write_weights(root: Path) -> None:
             cpu_state = {k: v.detach().cpu() for k, v in model.state_dict().items()}
-            torch.save(cpu_state, root / WEIGHTS_PT)
+            with atomic_write_path(root / WEIGHTS_PT) as tmp:
+                torch.save(cpu_state, tmp)
 
         save_model_skeleton(
             path,
@@ -404,13 +420,14 @@ class LSTMPredictor(IPredictor):
 
     @classmethod
     def load(cls, path: str | Path) -> Self:
-        """Reconstruct a fitted LSTMPredictor from ``path``.
+        """
+        Reconstruct a fitted LSTMPredictor from ``path``.
 
         Device is re-resolved at load time (``Device.AUTO`` preference) so a
         model trained on CUDA loads cleanly on a CPU-only machine.
         """
 
-        root = Path(path)
+        root = assert_save_complete(path)
         config = json_io.read_dict(root / CONFIG_JSON)
         metadata = json_io.read_dict(root / METADATA_JSON)
 
@@ -443,7 +460,9 @@ class LSTMPredictor(IPredictor):
 
     @staticmethod
     def suggest_params(trial: optuna.Trial) -> dict[str, object]:
-        """Optuna search space for LSTM hyperparameters."""
+        """
+        Optuna search space for LSTM hyperparameters.
+        """
 
         return {
             "hidden_dim": trial.suggest_int("lstm_hidden_dim", 32, 128),

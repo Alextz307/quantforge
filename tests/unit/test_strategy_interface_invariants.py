@@ -1,4 +1,5 @@
-"""Invariants for :class:`IStrategy`'s atomic fitted-with-metadata pair.
+"""
+Invariants for :class:`IStrategy`'s atomic fitted-with-metadata pair.
 
 The pair (:meth:`_set_fitted_with_metadata` / :meth:`_assert_fitted_with_metadata`)
 is the only legal commit/observe path for the ``_fitted`` + ``_training_metadata``
@@ -22,7 +23,9 @@ _FIT_START_DATE = "2024-01-02"
 
 
 class _BareStrategy(IStrategy):
-    """Minimal concrete subclass so we can instantiate the abstract base."""
+    """
+    Minimal concrete subclass so we can instantiate the abstract base.
+    """
 
     def train(self, train_data, *, checkpoint_path=None, **kwargs):  # type: ignore[no-untyped-def]
         raise NotImplementedError

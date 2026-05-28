@@ -1,4 +1,5 @@
-"""Tests for the CI/pyproject dependency drift guard.
+"""
+Tests for the CI/pyproject dependency drift guard.
 
 Long YAML/TOML fixture lines mirror real CI shapes verbatim — wrapping them
 breaks the regex anchoring the guard relies on.
@@ -111,7 +112,9 @@ class TestFindMissingTypeStubs:
 
 
 class TestRepoStateIsClean:
-    """End-to-end: the real repo's pyproject/ci.yml must pass the guard."""
+    """
+    End-to-end: the real repo's pyproject/ci.yml must pass the guard.
+    """
 
     def test_real_repo_runtime_deps_clean(self) -> None:
         missing = guard.find_missing_deps(PYPROJECT.read_text(), CI_YAML.read_text())

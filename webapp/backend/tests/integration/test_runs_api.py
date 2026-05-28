@@ -1,4 +1,6 @@
-"""Integration tests for /api/runs endpoints (auth-gated)."""
+"""
+Integration tests for /api/runs endpoints (auth-gated).
+"""
 
 from __future__ import annotations
 

@@ -1,4 +1,6 @@
-"""XGBoost directional classifier for predicting price direction."""
+"""
+XGBoost directional classifier for predicting price direction.
+"""
 
 from __future__ import annotations
 
@@ -10,12 +12,14 @@ import xgboost as xgb
 
 from src.core import json_io
 from src.core.device import select_xgboost_device
+from src.core.fs import atomic_write_path
 from src.core.logging import get_logger
 from src.core.persistence import (
     BEST_ITERATION_UBJ,
     CONFIG_JSON,
     METADATA_JSON,
     MODEL_UBJ,
+    assert_save_complete,
     save_model_skeleton,
 )
 from src.core.registry import classifier_registry
@@ -34,7 +38,8 @@ _VALIDATION_EVAL_NAME = "validation_0"
 
 
 class _ProgressAndCheckpointCallback(xgb.callback.TrainingCallback):
-    """Log eval metrics every N rounds and dump the booster on val improvement.
+    """
+    Log eval metrics every N rounds and dump the booster on val improvement.
 
     Encapsulates two responsibilities so we add one callback to the booster
     rather than two: every ``log_interval`` boosting rounds an INFO line lands
@@ -85,14 +90,16 @@ class _ProgressAndCheckpointCallback(xgb.callback.TrainingCallback):
             logger.info("round %d %s", epoch + 1, " ".join(latest))
 
         if val_improved and self._checkpoint_path is not None:
-            model.save_model(str(self._checkpoint_path / BEST_ITERATION_UBJ))
+            with atomic_write_path(self._checkpoint_path / BEST_ITERATION_UBJ) as tmp:
+                model.save_model(str(tmp))
 
         return False
 
 
 @classifier_registry.register("xgboost_directional")
 class DirectionalClassifier(IClassifier):
-    """XGBoost classifier for predicting next-bar price direction.
+    """
+    XGBoost classifier for predicting next-bar price direction.
 
     Uses early stopping on a temporal validation split (trailing
     ``val_split_ratio`` fraction of training data, default 20%).
@@ -144,7 +151,8 @@ class DirectionalClassifier(IClassifier):
         checkpoint_path: Path | None = None,
         **kwargs: object,
     ) -> None:
-        """Fit XGBoost with early stopping on temporal validation split.
+        """
+        Fit XGBoost with early stopping on temporal validation split.
 
         Args:
             train_data: Feature DataFrame with DatetimeIndex.
@@ -213,7 +221,8 @@ class DirectionalClassifier(IClassifier):
         )
 
     def predict_proba(self, data: pd.DataFrame) -> pd.Series:
-        """Predict probability of upward move.
+        """
+        Predict probability of upward move.
 
         Args:
             data: Feature DataFrame with same columns as training data.
@@ -233,7 +242,8 @@ class DirectionalClassifier(IClassifier):
         return pd.Series(proba[:, 1], index=data.index, name="up_prob")
 
     def predict(self, data: pd.DataFrame) -> pd.Series:
-        """Predict binary class labels (0 = down, 1 = up).
+        """
+        Predict binary class labels (0 = down, 1 = up).
 
         Args:
             data: Feature DataFrame with same columns as training data.
@@ -253,7 +263,8 @@ class DirectionalClassifier(IClassifier):
         return pd.Series(preds, index=data.index, name="direction")
 
     def save(self, path: str | Path) -> None:
-        """Persist classifier config + booster to ``path``.
+        """
+        Persist classifier config + booster to ``path``.
 
         Uses XGBoost's native UBJSON format (``model.ubj``) for the booster —
         the most version-stable option available. Device is NOT persisted; it
@@ -265,7 +276,8 @@ class DirectionalClassifier(IClassifier):
         model = self._model
 
         def write_weights(root: Path) -> None:
-            model.get_booster().save_model(str(root / MODEL_UBJ))
+            with atomic_write_path(root / MODEL_UBJ) as tmp:
+                model.get_booster().save_model(str(tmp))
 
         save_model_skeleton(
             path,
@@ -287,14 +299,15 @@ class DirectionalClassifier(IClassifier):
 
     @classmethod
     def load(cls, path: str | Path) -> Self:
-        """Reconstruct a fitted DirectionalClassifier from ``path``.
+        """
+        Reconstruct a fitted DirectionalClassifier from ``path``.
 
         Only ``device`` is threaded through to the fresh XGBClassifier — every
         other hyperparameter is baked into the booster UBJ and re-setting them
         on the wrapper would just be discarded the moment ``load_model`` runs.
         """
 
-        root = Path(path)
+        root = assert_save_complete(path)
         config = json_io.read_dict(root / CONFIG_JSON)
         metadata = json_io.read_dict(root / METADATA_JSON)
 
@@ -325,7 +338,9 @@ class DirectionalClassifier(IClassifier):
 
     @staticmethod
     def suggest_params(trial: optuna.Trial) -> dict[str, object]:
-        """Optuna search space for XGBoost hyperparameters."""
+        """
+        Optuna search space for XGBoost hyperparameters.
+        """
 
         return {
             "n_estimators": trial.suggest_int("xgb_n_estimators", 50, 500),

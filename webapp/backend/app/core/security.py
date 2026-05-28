@@ -1,4 +1,6 @@
-"""Session-cookie signing primitives backed by itsdangerous."""
+"""
+Session-cookie signing primitives backed by itsdangerous.
+"""
 
 from __future__ import annotations
 

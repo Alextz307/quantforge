@@ -1,4 +1,5 @@
-"""Anti-leakage temporal boundaries and walk-forward validation.
+"""
+Anti-leakage temporal boundaries and walk-forward validation.
 
 Provides TemporalSplit (frozen dataclass with overlap validation),
 TemporalTripleSplit (train/validation/holdout with embargo gaps),
@@ -26,7 +27,8 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True)
 class TemporalSplit:
-    """A single train/test split with temporal integrity validation.
+    """
+    A single train/test split with temporal integrity validation.
 
     The frozen dataclass prevents rebinding of train/test DataFrames
     after creation. The __post_init__ validates that train data
@@ -67,7 +69,8 @@ class TemporalSplit:
 
 @dataclass(frozen=True)
 class TemporalTripleSplit:
-    """Three-way temporal split: train -> validation -> holdout.
+    """
+    Three-way temporal split: train -> validation -> holdout.
 
     Provides anti-leakage guarantees across three temporal regions:
     - train: Model fitting and walk-forward development
@@ -121,7 +124,8 @@ class TemporalTripleSplit:
         holdout_pct: float = 0.15,
         gap: int = 5,
     ) -> TemporalTripleSplit:
-        """Split a DataFrame into train/validation/holdout with embargo gaps.
+        """
+        Split a DataFrame into train/validation/holdout with embargo gaps.
 
         Args:
             df: Full dataset with DatetimeIndex, sorted chronologically.
@@ -176,7 +180,8 @@ class TemporalTripleSplit:
 
 @dataclass(frozen=True)
 class TrackedMetadata:
-    """A single ``TrainingMetadata`` tagged with the component that produced it.
+    """
+    A single ``TrainingMetadata`` tagged with the component that produced it.
 
     Composite strategies own wrapped models (GARCH, LSTM, XGBoost, ARMA) — each
     has its own ``_training_metadata``. When a fold's leakage tripwire fires,
@@ -194,7 +199,8 @@ class TrackedMetadata:
 def collect_metadata(
     *pairs: tuple[str, TrainingMetadata | None],
 ) -> tuple[TrackedMetadata, ...]:
-    """Bundle ``(origin, metadata)`` pairs into a ``tuple[TrackedMetadata, ...]``.
+    """
+    Bundle ``(origin, metadata)`` pairs into a ``tuple[TrackedMetadata, ...]``.
 
     Shared helper so every composite override reads as a flat list of
     ``("<origin>", self._<leaf>.training_metadata)`` pairs rather than a
@@ -207,7 +213,8 @@ def collect_metadata(
 
 @dataclass(frozen=True)
 class TrainingMetadata:
-    """Immutable record of what a model saw during training.
+    """
+    Immutable record of what a model saw during training.
 
     Stored by every model/strategy after fit()/train(). Used at evaluation
     time to verify eval data doesn't overlap with the training period.
@@ -222,7 +229,8 @@ class TrainingMetadata:
     feature_columns: tuple[str, ...]
 
     def validate_no_overlap(self, eval_data: pd.DataFrame) -> None:
-        """Raise LeakageError if eval data overlaps training period.
+        """
+        Raise LeakageError if eval data overlaps training period.
 
         Assumes eval_data has a chronologically sorted DatetimeIndex
         (enforced throughout the framework).
@@ -243,7 +251,9 @@ class TrainingMetadata:
             )
 
     def to_dict(self) -> dict[str, object]:
-        """Serialize to JSON-friendly dict. Timestamps become ISO strings."""
+        """
+        Serialize to JSON-friendly dict. Timestamps become ISO strings.
+        """
 
         return {
             "train_start": self.train_start.isoformat(),
@@ -260,7 +270,9 @@ class TrainingMetadata:
         interval: Interval,
         feature_columns: tuple[str, ...],
     ) -> TrainingMetadata:
-        """Create metadata from a completed fit() call."""
+        """
+        Create metadata from a completed fit() call.
+        """
 
         return TrainingMetadata(
             train_start=pd.Timestamp(train_data.index[0]),
@@ -273,7 +285,9 @@ class TrainingMetadata:
 
     @staticmethod
     def from_dict(d: dict[str, object]) -> TrainingMetadata:
-        """Deserialize from dict. Used when loading a saved model."""
+        """
+        Deserialize from dict. Used when loading a saved model.
+        """
 
         from src.core import json_io
         from src.core.types import Interval
@@ -289,7 +303,8 @@ class TrainingMetadata:
 
 
 def _snap_train_end_backward(dates: pd.DatetimeIndex, train_end: int) -> int:
-    """Snap ``train_end`` backward so ``iloc[:train_end]`` ends at a day close.
+    """
+    Snap ``train_end`` backward so ``iloc[:train_end]`` ends at a day close.
 
     ``train_end`` is exclusive. On return, bar ``train_end - 1`` is the last
     bar of its calendar date and bar ``train_end`` (if present) is the first
@@ -307,7 +322,8 @@ def _snap_train_end_backward(dates: pd.DatetimeIndex, train_end: int) -> int:
 
 
 def _first_bar_after_gap_days(dates: pd.DatetimeIndex, train_end: int, gap_days: int) -> int:
-    """First bar strictly ``gap_days`` trading days past the last training date.
+    """
+    First bar strictly ``gap_days`` trading days past the last training date.
 
     ``gap_days=0`` returns the first bar of the next distinct date;
     ``gap_days=k`` skips ``k`` distinct dates of embargo. Trading days are the
@@ -329,7 +345,8 @@ def _first_bar_after_gap_days(dates: pd.DatetimeIndex, train_end: int, gap_days:
 
 
 class WalkForwardValidator:
-    """Expanding-window walk-forward validation splitter.
+    """
+    Expanding-window walk-forward validation splitter.
 
     Generates temporal train/test splits where:
     - Training window expands (or slides) forward through time
@@ -365,7 +382,8 @@ class WalkForwardValidator:
         self.snap_to_day = snap_to_day
 
     def split(self, df: pd.DataFrame) -> Iterator[TemporalSplit]:
-        """Generate expanding-window temporal splits.
+        """
+        Generate expanding-window temporal splits.
 
         The splits are computed from the end of the data backward:
         - The last `test_size` bars form the last test set
@@ -454,7 +472,8 @@ class WalkForwardValidator:
 
 
 class PurgedGroupTimeSeriesSplit:
-    """Purged cross-validation with embargo periods.
+    """
+    Purged cross-validation with embargo periods.
 
     Removes a fraction of training data at the boundary to prevent
     information leakage from overlapping rolling features.
@@ -481,12 +500,15 @@ class PurgedGroupTimeSeriesSplit:
 
     @property
     def n_folds(self) -> int:
-        """Number of folds yielded by split() (always n_groups - 1)."""
+        """
+        Number of folds yielded by split() (always n_groups - 1).
+        """
 
         return self.n_groups - 1
 
     def split(self, df: pd.DataFrame) -> Iterator[TemporalSplit]:
-        """Generate purged time-series splits with embargo.
+        """
+        Generate purged time-series splits with embargo.
 
         Each fold:
         1. Split data into ``n_groups`` groups chronologically
@@ -545,7 +567,8 @@ def resolve_holdout_boundary(
     holdout_pct: float = 0.0,
     holdout_start: pd.Timestamp | None = None,
 ) -> pd.Timestamp | None:
-    """Resolve the absolute timestamp at which the holdout region begins.
+    """
+    Resolve the absolute timestamp at which the holdout region begins.
 
     The holdout contract is described at length on
     :class:`src.core.config.ValidationConfig`; in short, it carves the END of

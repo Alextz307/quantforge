@@ -1,4 +1,5 @@
-"""End-to-end smoke for CrossAssetMomentumStrategy via the multi-feature path.
+"""
+End-to-end smoke for CrossAssetMomentumStrategy via the multi-feature path.
 
 Runs in-process via ``Experiment.run()`` (mirrors
 ``test_multi_feature_smoke.py``'s pattern) — the strategy is the first
@@ -54,7 +55,9 @@ pytestmark = pytest.mark.skipif(
 
 
 def test_cross_asset_momentum_run_produces_full_artifact_tree(tmp_path: Path) -> None:
-    """Happy path: production multi-feature run → wide-format hash + classifier on disk."""
+    """
+    Happy path: production multi-feature run → wide-format hash + classifier on disk.
+    """
 
     config_path = make_multi_feature_mini_experiment_fixture(
         tmp_path,

@@ -1,4 +1,6 @@
-"""Reporter tests: plots, LaTeX tables, and the full-report bundle."""
+"""
+Reporter tests: plots, LaTeX tables, and the full-report bundle.
+"""
 
 from __future__ import annotations
 

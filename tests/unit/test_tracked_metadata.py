@@ -1,4 +1,5 @@
-"""Tests for :class:`TrackedMetadata` and :func:`collect_metadata`.
+"""
+Tests for :class:`TrackedMetadata` and :func:`collect_metadata`.
 
 These two primitives power the deep leakage check wired into
 ``evaluate_walk_forward``. They are tiny, but the ``None``-passthrough

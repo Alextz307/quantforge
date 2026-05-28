@@ -1,4 +1,6 @@
-"""Tests for the SQLite infrastructure helpers, especially identifier guards."""
+"""
+Tests for the SQLite infrastructure helpers, especially identifier guards.
+"""
 
 from __future__ import annotations
 
@@ -13,7 +15,8 @@ from webapp.backend.app.infrastructure.db import (
 
 
 class TestEnsureColumnIdentifierGuard:
-    """``_ensure_column`` must refuse anything that doesn't look like a SQLite
+    """
+    ``_ensure_column`` must refuse anything that doesn't look like a SQLite
     identifier in the ``table`` / ``column`` positions, and anything that
     doesn't look like a bounded type clause in the ``definition`` position.
 

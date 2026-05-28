@@ -1,4 +1,5 @@
-"""Tests for DirectionalClassifier best-iteration checkpointing.
+"""
+Tests for DirectionalClassifier best-iteration checkpointing.
 
 Two invariants:
 
@@ -32,7 +33,8 @@ VOL_WINDOW = 20
 
 @pytest.fixture
 def xgb_data() -> tuple[pd.DataFrame, pd.Series]:
-    """Features + binary direction target with weak but nonzero signal.
+    """
+    Features + binary direction target with weak but nonzero signal.
 
     Pure-noise features collapse the val-improvement count to ~1 (only
     round 0 beats the ``None`` baseline), which would make the
@@ -105,7 +107,8 @@ def test_checkpoint_survives_mid_fit_interrupt(
     xgb_data: tuple[pd.DataFrame, pd.Series],
     xgb_features: list[str],
 ) -> None:
-    """Force the second improvement-save to raise.
+    """
+    Force the second improvement-save to raise.
 
     The first save lands on disk; the second raises ``KeyboardInterrupt``
     from inside the XGBoost training callback, simulating a Ctrl+C between

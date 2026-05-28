@@ -1,4 +1,6 @@
-"""Integration tests for /api/holdout-evals (auth-gated)."""
+"""
+Integration tests for /api/holdout-evals (auth-gated).
+"""
 
 from __future__ import annotations
 

@@ -1,4 +1,6 @@
-"""Verify password hashing + authenticate behaviour against the users table."""
+"""
+Verify password hashing + authenticate behaviour against the users table.
+"""
 
 from __future__ import annotations
 

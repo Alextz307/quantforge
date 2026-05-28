@@ -1,4 +1,6 @@
-"""Analyzer tests: summary stats, regression z-gate, and scaling classification."""
+"""
+Analyzer tests: summary stats, regression z-gate, and scaling classification.
+"""
 
 from __future__ import annotations
 

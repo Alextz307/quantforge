@@ -1,4 +1,5 @@
-"""Column normalization across different data sources.
+"""
+Column normalization across different data sources.
 
 Different providers use different column naming conventions.
 This normalizes everything to: timestamp (index), open, high, low, close, volume.
@@ -12,7 +13,9 @@ from src.core.constants import OHLCV_COLUMNS
 
 
 class DataNormalizer:
-    """Normalizes DataFrame columns from various data sources."""
+    """
+    Normalizes DataFrame columns from various data sources.
+    """
 
     KNOWN_MAPPINGS: dict[str, dict[str, str]] = {
         "yfinance": {
@@ -38,7 +41,8 @@ class DataNormalizer:
         self._mapping = self.KNOWN_MAPPINGS.get(source_name, {})
 
     def normalize(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Normalize column names and ensure DatetimeIndex.
+        """
+        Normalize column names and ensure DatetimeIndex.
 
         Args:
             df: Raw DataFrame from the data source.

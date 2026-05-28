@@ -1,4 +1,5 @@
-"""Tests for :mod:`src.visualization.latex` — booktabs table builder.
+"""
+Tests for :mod:`src.visualization.latex` — booktabs table builder.
 
 Verifies structural LaTeX properties, not source-text patterns (per the
 testing-philosophy rule). A regression here would silently corrupt every
@@ -25,7 +26,8 @@ def _sample_df() -> pd.DataFrame:
 
 class TestBuildBooktabsTable:
     def test_output_is_brace_balanced(self) -> None:
-        """Malformed LaTeX tables break thesis compilation with cryptic errors;
+        """
+        Malformed LaTeX tables break thesis compilation with cryptic errors;
         the brace count is the cheapest structural invariant."""
 
         out = build_booktabs_table(_sample_df(), caption="x", label="tab:x")
@@ -37,7 +39,8 @@ class TestBuildBooktabsTable:
         assert "tab:mine" in out
 
     def test_contains_booktabs_rules(self) -> None:
-        """Styled via ``to_latex(..., escape=False)`` which emits toprule /
+        """
+        Styled via ``to_latex(..., escape=False)`` which emits toprule /
         midrule / bottomrule under the hood — sanity check the styling
         actually kicked in."""
 

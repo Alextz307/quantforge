@@ -1,4 +1,5 @@
-"""End-to-end roundtrip: AdaptiveBollinger train → signals → C++ engine → metrics.
+"""
+End-to-end roundtrip: AdaptiveBollinger train → signals → C++ engine → metrics.
 
 Verifies the CppBacktestEngine adapter plays nicely with an existing strategy.
 Strategy correctness is owned by ``tests/integration/test_adaptive_bollinger.py``;
@@ -36,7 +37,9 @@ EQUITY_TIE_TOL = 1e-9
 
 @pytest.fixture(scope="module")
 def roundtrip_inputs() -> tuple[pd.DataFrame, pd.Series]:
-    """One-shot bars + signals (GARCH fit happens here, once per module)."""
+    """
+    One-shot bars + signals (GARCH fit happens here, once per module).
+    """
 
     bars = make_synthetic_ohlcv_df(n_rows=ROUNDTRIP_N_ROWS)
     strategy = AdaptiveBollingerStrategy(

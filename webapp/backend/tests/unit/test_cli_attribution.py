@@ -1,4 +1,5 @@
-"""Unit tests for ``scripts._attribution``.
+"""
+Unit tests for ``scripts._attribution``.
 
 Covers user resolution (hit, miss-with-TTY, miss-without-TTY),
 auto-create with the password prompt, idempotent attribution, and the
@@ -40,7 +41,9 @@ def test_resolve_returns_existing_user(db_conn: sqlite3.Connection) -> None:
 def test_resolve_errors_on_non_tty_for_missing_user(
     db_conn: sqlite3.Connection,
 ) -> None:
-    """Without a TTY we must NOT prompt — raise pointing at scripts/create_user."""
+    """
+    Without a TTY we must NOT prompt — raise pointing at scripts/create_user.
+    """
 
     with patch("scripts._attribution.stdin_is_tty", return_value=False):
         with pytest.raises(UserNotFoundNonInteractiveError, match="not a TTY"):
@@ -50,7 +53,9 @@ def test_resolve_errors_on_non_tty_for_missing_user(
 def test_resolve_auto_creates_user_when_tty(
     db_conn: sqlite3.Connection,
 ) -> None:
-    """TTY path: confirm + 2-pass password + create with role=USER."""
+    """
+    TTY path: confirm + 2-pass password + create with role=USER.
+    """
 
     fresh_password = "newpass!secret"
     with (
@@ -119,7 +124,9 @@ def test_attribute_artifact_inserts_jobs_row(db_conn: sqlite3.Connection) -> Non
 
 
 def test_attribute_artifact_is_idempotent(db_conn: sqlite3.Connection) -> None:
-    """A second call with the same experiment_id does not overwrite or duplicate."""
+    """
+    A second call with the same experiment_id does not overwrite or duplicate.
+    """
 
     alex_id = _seed(db_conn, "alex")
     bob_id = _seed(db_conn, "bob")

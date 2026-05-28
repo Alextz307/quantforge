@@ -1,4 +1,5 @@
-"""Direct tests for :class:`TrialCallback`.
+"""
+Direct tests for :class:`TrialCallback`.
 
 The tuner's own smoke test exercises the callback indirectly; here we
 construct a callback in isolation and invoke it against controlled
@@ -46,7 +47,8 @@ def _make_callback(tmp_path: Path) -> TrialCallback:
 
 
 def _run_study_with_callback(tmp_path: Path, values: list[float]) -> optuna.Study:
-    """Drive a study that asks AdaptiveBollinger's search space and
+    """
+    Drive a study that asks AdaptiveBollinger's search space and
     returns caller-specified values per trial.
 
     Realistic enough that ``sample_trial_params`` — which the best-config
@@ -114,7 +116,8 @@ class TestBestConfigRefresh:
 
 class TestNonCompleteStatesSkipBestRefresh:
     def test_failed_trial_does_not_write_best_config(self, tmp_path: Path) -> None:
-        """A trial that raises is logged in jsonl but not promoted to best.
+        """
+        A trial that raises is logged in jsonl but not promoted to best.
 
         Uses ``catch=(RuntimeError,)`` so Optuna marks the trial FAILED
         (vs. re-raising out of optimize entirely) and the callback fires.
@@ -144,7 +147,9 @@ class TestNonCompleteStatesSkipBestRefresh:
 
 
 class TestCallbackDirectInvocation:
-    """Tests the callback surface without going through study.optimize."""
+    """
+    Tests the callback surface without going through study.optimize.
+    """
 
     def test_pruned_trial_skips_best_config_but_logs_jsonl(self, tmp_path: Path) -> None:
         cb = _make_callback(tmp_path)
@@ -171,7 +176,8 @@ class TestCallbackDirectInvocation:
 
 
 class TestEndToEndPruning:
-    """Integration-lite: study.optimize with an objective that raises
+    """
+    Integration-lite: study.optimize with an objective that raises
     ``TrialPruned`` mid-flight mirrors how the real LSTM/XGBoost leaves
     abort trials under a live pruner. The callback must log the PRUNED
     record without promoting it to best.
@@ -202,7 +208,8 @@ class TestEndToEndPruning:
 
 
 class TestBestValueCache:
-    """Incremental best tracking avoids scanning ``study.best_trial`` on
+    """
+    Incremental best tracking avoids scanning ``study.best_trial`` on
     every non-improving COMPLETE trial (would otherwise be O(n²) for a
     study whose best improves often).
     """
@@ -218,7 +225,8 @@ class TestBestValueCache:
         assert callback._last_best_value == 0.5
 
     def test_non_improving_trial_skips_study_best_trial_scan(self, tmp_path: Path) -> None:
-        """After a best is seen, a worse COMPLETE trial must short-circuit
+        """
+        After a best is seen, a worse COMPLETE trial must short-circuit
         without touching ``study.best_trial`` — we detect this by patching
         the study with a ``best_trial`` that raises if accessed.
         """
@@ -247,7 +255,8 @@ class TestBestValueCache:
 def _run_study_with_callback_from(
     tmp_path: Path, values: list[float], *, callback: TrialCallback
 ) -> optuna.Study:
-    """Variant of ``_run_study_with_callback`` that takes a pre-built
+    """
+    Variant of ``_run_study_with_callback`` that takes a pre-built
     callback — needed by tracker tests that read callback state after.
     """
 

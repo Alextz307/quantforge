@@ -1,4 +1,5 @@
-"""Unit tests for the empirical-study orchestrator.
+"""
+Unit tests for the empirical-study orchestrator.
 
 Covers leg expansion, universe-profile composition, HPO study_name
 override, study-state round-trip + atomic write, and resume logic
@@ -49,7 +50,9 @@ def main_spec() -> StudySpec:
 
 
 def _write_minimal_spec(tmp_path: Path, output_dir: str = "studies/test") -> Path:
-    """Produce a tiny 2-strategy x 2-universe StudySpec on disk."""
+    """
+    Produce a tiny 2-strategy x 2-universe StudySpec on disk.
+    """
 
     payload: dict[str, Any] = {
         "name": "test_study",
@@ -171,7 +174,8 @@ class TestLegStateRoundTrip:
         assert s.with_step_completed(LEG_STEP_TUNE).steps_completed == s.steps_completed
 
     def test_unknown_step_in_persisted_json_is_dropped(self) -> None:
-        """Legacy state files may carry discontinued sub-step names; they must
+        """
+        Legacy state files may carry discontinued sub-step names; they must
         be silently dropped so the studies listing stays loadable."""
 
         d = LegState.initial("X__y", "X", "y").to_dict()
@@ -268,7 +272,9 @@ class TestWriteReadStudyState:
 
 
 class TestRunStudySpecHashGuard:
-    """The orchestrator must refuse to resume against a mutated spec."""
+    """
+    The orchestrator must refuse to resume against a mutated spec.
+    """
 
     def test_mutated_spec_rejected(self, tmp_path: Path) -> None:
         from src.orchestration.study import run_study
@@ -300,7 +306,9 @@ class TestRunStudySpecHashGuard:
 
 
 class TestRunStudySpecSnapshot:
-    """First-run side-effect: the orchestrator copies the spec for provenance."""
+    """
+    First-run side-effect: the orchestrator copies the spec for provenance.
+    """
 
     def test_spec_snapshot_written(self, tmp_path: Path) -> None:
         # only_legs filter that matches no leg short-circuits compute; the

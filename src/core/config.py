@@ -1,4 +1,5 @@
-"""Pydantic v2 config schema for end-to-end experiments.
+"""
+Pydantic v2 config schema for end-to-end experiments.
 
 ``ExperimentConfig`` is the frozen, validated root object produced from a
 YAML file via :func:`load_experiment_config`. ``build_experiment`` consumes
@@ -22,6 +23,7 @@ from typing import Self
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from src.core.fs import atomic_write_path
 from src.core.registry import (
     data_source_registry,
     feature_registry,
@@ -32,7 +34,8 @@ from src.engine.scenarios import SlippageScenario
 
 
 def _ensure_registries_populated() -> None:
-    """Import the component packages so their registry decorators run.
+    """
+    Import the component packages so their registry decorators run.
 
     Each package's ``__init__.py`` walks its own directory and imports every
     non-private, non-``interface`` module — so a new strategy / data source /
@@ -53,7 +56,8 @@ def _ensure_registries_populated() -> None:
 
 
 class ComponentConfig(BaseModel):
-    """Generic pluggable-component spec: a registry name plus its kwargs.
+    """
+    Generic pluggable-component spec: a registry name plus its kwargs.
 
     ``params`` values are typed as ``object`` because YAML values arrive
     untyped (str / int / float / bool / list / dict) and their concrete
@@ -74,7 +78,8 @@ class ComponentConfig(BaseModel):
 
 
 class DataConfig(BaseModel):
-    """Data-fetch spec: which source, tickers, date range, and bar interval.
+    """
+    Data-fetch spec: which source, tickers, date range, and bar interval.
 
     ``source`` is a :class:`ComponentConfig` so per-source kwargs (e.g.
     ``data_dir`` for the CSV source) flow through cleanly. A bare string in
@@ -134,7 +139,8 @@ class DataConfig(BaseModel):
 
 
 class ValidationConfig(BaseModel):
-    """Walk-forward validator knobs + holdout reservation contract.
+    """
+    Walk-forward validator knobs + holdout reservation contract.
 
     Fields ``n_splits`` / ``test_size`` / ``gap`` / ``expanding`` /
     ``snap_to_day`` map one-to-one to :class:`WalkForwardValidator.__init__`.
@@ -235,7 +241,9 @@ class ValidationConfig(BaseModel):
 
 
 class SlippageConfigSpec(BaseModel):
-    """Slippage scenario selector — indexes into ``SLIPPAGE_SCENARIOS``."""
+    """
+    Slippage scenario selector — indexes into ``SLIPPAGE_SCENARIOS``.
+    """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
@@ -246,7 +254,8 @@ class SlippageConfigSpec(BaseModel):
 
 
 class ExperimentConfig(BaseModel):
-    """Root experiment config. Loaded from YAML, consumed by ``build_experiment``.
+    """
+    Root experiment config. Loaded from YAML, consumed by ``build_experiment``.
 
     ``features`` is optional: strategies that own their own feature engineering
     don't need a separate pipeline.
@@ -304,13 +313,17 @@ class ExperimentConfig(BaseModel):
 
 
 def _find_duplicates[T](items: list[T]) -> list[T]:
-    """Return items that occur more than once, in first-occurrence order."""
+    """
+    Return items that occur more than once, in first-occurrence order.
+    """
 
     return [item for item, count in Counter(items).items() if count > 1]
 
 
 class UniverseProfile(BaseModel):
-    """Reusable ``data:`` + ``validation:`` block deep-merged onto a strategy YAML."""
+    """
+    Reusable ``data:`` + ``validation:`` block deep-merged onto a strategy YAML.
+    """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
@@ -322,7 +335,9 @@ class UniverseProfile(BaseModel):
 
 
 class StudyLeg(BaseModel):
-    """One (strategy × set-of-universes) leg of an empirical study."""
+    """
+    One (strategy × set-of-universes) leg of an empirical study.
+    """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
@@ -363,7 +378,8 @@ class StudyLeg(BaseModel):
 
 
 class StudySpec(BaseModel):
-    """Declarative enumeration of every (strategy × universe) leg of a study.
+    """
+    Declarative enumeration of every (strategy × universe) leg of a study.
 
     Path fields are typed ``Path`` but not checked for existence at schema
     validation time so the schema stays pure. The orchestrator and the
@@ -410,20 +426,25 @@ class StudySpec(BaseModel):
 
 
 def write_frozen_yaml(path: str | Path, cfg: BaseModel, *, sort_keys: bool = True) -> None:
-    """Dump a validated pydantic config to YAML at ``path``.
+    """
+    Dump a validated pydantic config to YAML at ``path``.
 
     ``mode="json"`` coerces ``datetime`` / ``Path`` / enum values to
     JSON-safe primitives ``yaml.safe_dump`` accepts. Used by the experiment
-    runner to write the frozen ``config.yaml`` alongside ``manifest.json``.
+    runner to write the frozen ``config.yaml`` alongside ``manifest.json``,
+    and by the tuner to write ``best_config.yaml`` — the tune→run handoff,
+    which must not be left half-written on a crash mid-sweep.
     """
 
     payload = cfg.model_dump(mode="json")
-    with Path(path).open("w", encoding="utf-8") as f:
-        yaml.safe_dump(payload, f, sort_keys=sort_keys)
+    with atomic_write_path(path) as tmp:
+        with tmp.open("w", encoding="utf-8") as f:
+            yaml.safe_dump(payload, f, sort_keys=sort_keys)
 
 
 def load_yaml_config[T: BaseModel](path: str | Path, cls: type[T], kind: str) -> T:
-    """Shared YAML-load pipeline for :class:`ExperimentConfig` and siblings.
+    """
+    Shared YAML-load pipeline for :class:`ExperimentConfig` and siblings.
 
     ``experiment run`` / ``experiment tune`` want identical error framing
     for missing / empty / invalid config files — extracting the common
@@ -450,7 +471,8 @@ def load_yaml_config[T: BaseModel](path: str | Path, cls: type[T], kind: str) ->
 
 
 def load_experiment_config(path: str | Path) -> ExperimentConfig:
-    """Load and validate an :class:`ExperimentConfig` from YAML.
+    """
+    Load and validate an :class:`ExperimentConfig` from YAML.
 
     Raises:
         FileNotFoundError: If ``path`` does not exist.
@@ -461,7 +483,8 @@ def load_experiment_config(path: str | Path) -> ExperimentConfig:
 
 
 def load_universe_profile(path: str | Path) -> UniverseProfile:
-    """Load and validate a :class:`UniverseProfile` from YAML.
+    """
+    Load and validate a :class:`UniverseProfile` from YAML.
 
     Raises:
         FileNotFoundError: If ``path`` does not exist.
@@ -472,7 +495,8 @@ def load_universe_profile(path: str | Path) -> UniverseProfile:
 
 
 def load_study_spec(path: str | Path) -> StudySpec:
-    """Load and validate a :class:`StudySpec` from YAML.
+    """
+    Load and validate a :class:`StudySpec` from YAML.
 
     Raises:
         FileNotFoundError: If ``path`` does not exist.

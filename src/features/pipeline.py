@@ -1,4 +1,6 @@
-"""Feature engineering pipeline with anti-leakage scaling."""
+"""
+Feature engineering pipeline with anti-leakage scaling.
+"""
 
 from __future__ import annotations
 
@@ -17,7 +19,9 @@ logger = get_logger(__name__)
 
 
 def _compute_rsi(close: pd.Series[float], period: int = 14) -> pd.Series[float]:
-    """Compute RSI via the C++ binding (Wilder's smoothing)."""
+    """
+    Compute RSI via the C++ binding (Wilder's smoothing).
+    """
 
     values = quant_engine.RSI(period).compute(np.asarray(close, dtype=np.float64))
     return pd.Series(values, index=close.index)
@@ -29,7 +33,9 @@ def _compute_macd(
     slow: int = 26,
     signal: int = 9,
 ) -> tuple[pd.Series[float], pd.Series[float], pd.Series[float]]:
-    """Compute MACD line, signal line, and histogram via the C++ binding."""
+    """
+    Compute MACD line, signal line, and histogram via the C++ binding.
+    """
 
     result = quant_engine.MACD(fast, slow, signal).compute_all(np.asarray(close, dtype=np.float64))
     macd_line = pd.Series(result.macd_line, index=close.index)
@@ -40,7 +46,8 @@ def _compute_macd(
 
 @feature_registry.register("standard")
 class FeatureEngineeringPipeline(IFeaturePipeline):
-    """Standard feature pipeline with anti-leakage scaling.
+    """
+    Standard feature pipeline with anti-leakage scaling.
 
     Computes return-based, volatility, and technical features from
     OHLCV data.  StandardScaler is fit ONCE on training data — a
@@ -86,7 +93,8 @@ class FeatureEngineeringPipeline(IFeaturePipeline):
 
     @property
     def scaler(self) -> StandardScaler | None:
-        """The fitted ``StandardScaler``, or ``None`` before ``fit()``.
+        """
+        The fitted ``StandardScaler``, or ``None`` before ``fit()``.
 
         Exposed so callers that persist the pipeline's state (e.g.
         ``MomentumGatekeeperStrategy.save``) can round-trip the scaler
@@ -97,7 +105,8 @@ class FeatureEngineeringPipeline(IFeaturePipeline):
 
     @scaler.setter
     def scaler(self, value: StandardScaler) -> None:
-        """Replace the fitted scaler with a loaded one.
+        """
+        Replace the fitted scaler with a loaded one.
 
         Used by ``load()`` paths that reconstruct the pipeline from a
         persisted scaler rather than re-fitting. The loaded scaler is
@@ -109,7 +118,8 @@ class FeatureEngineeringPipeline(IFeaturePipeline):
 
     @property
     def hard_nan_warmup_bars(self) -> int:
-        """Count of leading NaN bars across all features.
+        """
+        Count of leading NaN bars across all features.
 
         C++ MACD signal line emits NaN for the first ``slow + signal - 2`` bars.
         """
@@ -124,7 +134,9 @@ class FeatureEngineeringPipeline(IFeaturePipeline):
         )
 
     def _compute_raw_features(self, data: pd.DataFrame) -> pd.DataFrame:
-        """Compute all raw features before scaling."""
+        """
+        Compute all raw features before scaling.
+        """
 
         close: pd.Series[float] = data["close"]
 
@@ -152,7 +164,8 @@ class FeatureEngineeringPipeline(IFeaturePipeline):
         return features
 
     def fit(self, train_data: pd.DataFrame) -> None:
-        """Fit scaler on training features.
+        """
+        Fit scaler on training features.
 
         Raises:
             LeakageError: If called more than once.
@@ -164,7 +177,8 @@ class FeatureEngineeringPipeline(IFeaturePipeline):
         self._fit_scaler(features)
 
     def _fit_scaler(self, features: pd.DataFrame) -> None:
-        """Fit StandardScaler on non-NaN rows of pre-computed features.
+        """
+        Fit StandardScaler on non-NaN rows of pre-computed features.
 
         Precondition: callers must invoke ``guard_scaler_fit_once`` first.
         """
@@ -177,7 +191,9 @@ class FeatureEngineeringPipeline(IFeaturePipeline):
         logger.info("Feature pipeline fitted on %d valid rows", int(valid_mask.sum()))
 
     def fit_transform(self, train_data: pd.DataFrame) -> pd.DataFrame:
-        """Fit scaler and transform in one pass (avoids double feature computation)."""
+        """
+        Fit scaler and transform in one pass (avoids double feature computation).
+        """
 
         guard_scaler_fit_once(self._scaler, "FeatureEngineeringPipeline")
 
@@ -189,7 +205,8 @@ class FeatureEngineeringPipeline(IFeaturePipeline):
         return self._maybe_attach_ohlc(features, train_data)
 
     def transform(self, data: pd.DataFrame) -> pd.DataFrame:
-        """Transform data using fitted scaler.
+        """
+        Transform data using fitted scaler.
 
         Leading NaN from warmup periods is preserved.
 
@@ -208,7 +225,9 @@ class FeatureEngineeringPipeline(IFeaturePipeline):
         return self._maybe_attach_ohlc(features, data)
 
     def _maybe_attach_ohlc(self, features: pd.DataFrame, source: pd.DataFrame) -> pd.DataFrame:
-        """Concatenate raw OHLCV onto ``features`` when ``keep_ohlc=True``."""
+        """
+        Concatenate raw OHLCV onto ``features`` when ``keep_ohlc=True``.
+        """
 
         if not self._keep_ohlc:
             return features
@@ -218,7 +237,9 @@ class FeatureEngineeringPipeline(IFeaturePipeline):
         return pd.concat([source[present], features], axis=1)
 
     def _apply_scaler_in_place(self, features: pd.DataFrame) -> None:
-        """Scale non-NaN rows in place. Leading warmup NaNs are preserved."""
+        """
+        Scale non-NaN rows in place. Leading warmup NaNs are preserved.
+        """
 
         assert self._scaler is not None
         valid_mask = features.notna().all(axis=1)

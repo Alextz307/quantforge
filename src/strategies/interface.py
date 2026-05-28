@@ -1,4 +1,6 @@
-"""Strategy abstract interface with temporal contract."""
+"""
+Strategy abstract interface with temporal contract.
+"""
 
 from __future__ import annotations
 
@@ -18,7 +20,8 @@ if TYPE_CHECKING:
 
 
 class IStrategy(ABC):
-    """Every strategy MUST implement this interface.
+    """
+    Every strategy MUST implement this interface.
 
     The train/generate split enforces that signal generation
     never accesses data that wasn't available at signal time.
@@ -34,7 +37,8 @@ class IStrategy(ABC):
         checkpoint_path: Path | None = None,
         **kwargs: object,
     ) -> None:
-        """Learn parameters from historical data. Called once before backtesting.
+        """
+        Learn parameters from historical data. Called once before backtesting.
 
         ``checkpoint_path`` is forwarded to NN-style leaves for best-state
         checkpointing during ``fit()``; strategies without such leaves
@@ -43,7 +47,8 @@ class IStrategy(ABC):
 
     @abstractmethod
     def generate_signals(self, data: pd.DataFrame) -> pd.Series:
-        """Generate position signals for the given data.
+        """
+        Generate position signals for the given data.
 
         Returns a Series of position values. The engine shifts these
         by 1 bar automatically — do NOT shift inside strategy logic.
@@ -52,12 +57,16 @@ class IStrategy(ABC):
     @property
     @abstractmethod
     def name(self) -> str:
-        """Strategy identifier."""
+        """
+        Strategy identifier.
+        """
 
     @property
     @abstractmethod
     def required_warmup_bars(self) -> int:
-        """Number of initial bars needed before signals are valid."""
+        """
+        Number of initial bars needed before signals are valid.
+        """
 
     uses_xgboost: ClassVar[bool] = False
     """True for strategies whose ML leaf is XGBoost-backed (no MPS GPU path)."""
@@ -88,7 +97,8 @@ class IStrategy(ABC):
 
     @property
     def hedge_ratio(self) -> float:
-        """Cointegration hedge ratio for two-leg backtests.
+        """
+        Cointegration hedge ratio for two-leg backtests.
 
         Only pairs strategies need to override; the default raises so a
         misconfigured single-leg strategy doesn't silently report a 0.0
@@ -103,7 +113,8 @@ class IStrategy(ABC):
 
     @property
     def primary_ticker(self) -> str:
-        """The single asset a multi-feature strategy trades and reports PnL against.
+        """
+        The single asset a multi-feature strategy trades and reports PnL against.
 
         Only multi-feature strategies need to override; the default raises so
         a misconfigured single-asset / pairs strategy doesn't silently route
@@ -123,7 +134,8 @@ class IStrategy(ABC):
     @staticmethod
     @abstractmethod
     def suggest_params(trial: optuna.trial.BaseTrial) -> dict[str, object]:
-        """Optuna search space for this strategy's ctor kwargs.
+        """
+        Optuna search space for this strategy's ctor kwargs.
 
         Every strategy declares the joint feature / model / strategy
         hyperparameters it wants tuned — leaf knobs that pass through to
@@ -135,12 +147,15 @@ class IStrategy(ABC):
 
     @property
     def training_metadata(self) -> TrainingMetadata | None:
-        """Training period metadata, populated after train()."""
+        """
+        Training period metadata, populated after train().
+        """
 
         return getattr(self, "_training_metadata", None)
 
     def _assert_fitted_with_metadata(self, *, caller: str | None = None) -> TrainingMetadata:
-        """Return ``self.training_metadata`` narrowed to non-None, raising otherwise.
+        """
+        Return ``self.training_metadata`` narrowed to non-None, raising otherwise.
 
         Canonical read-side guard for fitted state — every method that
         requires a completed ``train()`` (``generate_signals``, ``save``,
@@ -163,7 +178,8 @@ class IStrategy(ABC):
         return meta
 
     def _set_fitted_with_metadata(self, metadata: TrainingMetadata) -> None:
-        """Atomic write-side counterpart to :meth:`_assert_fitted_with_metadata`.
+        """
+        Atomic write-side counterpart to :meth:`_assert_fitted_with_metadata`.
 
         ``train()`` and ``load()`` overrides call this as the very last step.
         Refusing ``None`` keeps walk-forward's deep leakage check honest:
@@ -185,7 +201,8 @@ class IStrategy(ABC):
         self._training_metadata = metadata
 
     def get_all_training_metadata(self) -> tuple[TrackedMetadata, ...]:
-        """Every metadata object a fold's leakage check must validate.
+        """
+        Every metadata object a fold's leakage check must validate.
 
         Default: just the strategy's own metadata. Composite strategies
         override to include each wrapped model's metadata tagged with an
@@ -196,7 +213,8 @@ class IStrategy(ABC):
         return collect_metadata(("strategy", self.training_metadata))
 
     def get_fold_diagnostics(self) -> Mapping[str, float]:
-        """Per-fold diagnostic scalars surfaced from the most recent predict.
+        """
+        Per-fold diagnostic scalars surfaced from the most recent predict.
 
         Default: empty mapping. Walk-forward calls this once per fold
         AFTER ``generate_signals()`` and bundles the result into
@@ -209,7 +227,8 @@ class IStrategy(ABC):
         return MappingProxyType({})
 
     def save(self, path: str | Path) -> None:
-        """Persist the trained strategy to a directory at ``path``.
+        """
+        Persist the trained strategy to a directory at ``path``.
 
         Subclasses write ``metadata.json`` + ``config.json`` + any owned
         model subdirectories (e.g. ``<path>/garch/``). Must raise if called
@@ -228,7 +247,8 @@ class IStrategy(ABC):
 
     @classmethod
     def load(cls, path: str | Path) -> Self:
-        """Reconstruct a trained strategy from a directory at ``path``.
+        """
+        Reconstruct a trained strategy from a directory at ``path``.
 
         Must return a fully-trained instance: ``generate_signals()`` works
         immediately, ``training_metadata`` is populated from the saved

@@ -1,4 +1,6 @@
-"""Replay + tail behaviour of the async log generator."""
+"""
+Replay + tail behaviour of the async log generator.
+"""
 
 from __future__ import annotations
 

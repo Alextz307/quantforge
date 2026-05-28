@@ -1,4 +1,6 @@
-"""Unit tests for services/run_service.py."""
+"""
+Unit tests for services/run_service.py.
+"""
 
 from __future__ import annotations
 
@@ -109,7 +111,9 @@ def test_get_run_returns_full_detail(
 def test_get_run_does_not_render_plots_on_mount(
     tmp_path: Path, db_conn: sqlite3.Connection
 ) -> None:
-    """Detail-page mount returns immediately; plot rendering is deferred to resolve_plot."""
+    """
+    Detail-page mount returns immediately; plot rendering is deferred to resolve_plot.
+    """
 
     root = tmp_path / "experiment_results"
     nested_runs_dir = (
@@ -126,7 +130,9 @@ def test_get_run_does_not_render_plots_on_mount(
 def test_resolve_plot_lazy_renders_when_missing(
     tmp_path: Path, db_conn: sqlite3.Connection
 ) -> None:
-    """Direct plot fetch triggers lazy rendering once."""
+    """
+    Direct plot fetch triggers lazy rendering once.
+    """
 
     root = tmp_path / "experiment_results"
     nested_runs_dir = (

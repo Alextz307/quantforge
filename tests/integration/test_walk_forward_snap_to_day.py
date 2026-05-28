@@ -1,4 +1,5 @@
-"""Day-boundary walk-forward tests (`snap_to_day=True`).
+"""
+Day-boundary walk-forward tests (`snap_to_day=True`).
 
 Honours the framework's intraday day-boundary rule: training cutoff must
 land on a day close, even when the underlying bars are intraday. The gap
@@ -92,7 +93,8 @@ class TestSnapToDayIntraday:
 
 
 class TestSnapHelpers:
-    """Direct tests for the snap helpers — isolates day-based arithmetic
+    """
+    Direct tests for the snap helpers — isolates day-based arithmetic
     from the full WalkForwardValidator.split() geometric budget."""
 
     def test_gap_counts_distinct_dates_not_bars(self, helper_dates: pd.DatetimeIndex) -> None:
@@ -142,7 +144,8 @@ class TestSnapToDaySlidingWindow:
 
 class TestSnapToDayDaily:
     def test_noop_on_daily_data(self) -> None:
-        """Every daily bar is already at a day close; snap must produce the
+        """
+        Every daily bar is already at a day close; snap must produce the
         same splits as the default path."""
 
         df = make_daily_df(DAILY_ROWS, start=DAILY_START)
@@ -181,7 +184,8 @@ class TestSnapToDayErrors:
             list(wf.split(df))
 
     def test_last_fold_test_window_overrun_raises(self) -> None:
-        """Snap pushes the last fold's test window past end-of-frame — must
+        """
+        Snap pushes the last fold's test window past end-of-frame — must
         raise rather than silently truncate."""
 
         df = _make_hourly_close_df(n_rows=4 * HOURLY_BARS_PER_DAY)

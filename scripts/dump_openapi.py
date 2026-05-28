@@ -1,4 +1,5 @@
-"""Dump the FastAPI OpenAPI spec to a JSON snapshot for frontend type generation.
+"""
+Dump the FastAPI OpenAPI spec to a JSON snapshot for frontend type generation.
 
 Usage::
 
@@ -19,14 +20,14 @@ from typing import Any, cast
 import click
 
 from src.core import json_io
-from src.core.fs import ensure_parent_dir
 
 DEFAULT_SNAPSHOT_PATH = Path("webapp/frontend/openapi.snapshot.json")
 DUMMY_SECRET = "x" * 64
 
 
 def build_openapi_spec() -> dict[str, Any]:
-    """Return the FastAPI OpenAPI dict — single source for dump + drift check.
+    """
+    Return the FastAPI OpenAPI dict — single source for dump + drift check.
 
     Webapp imports are lazy so importers that only need ``DEFAULT_SNAPSHOT_PATH``
     (e.g. the drift-guard unit test) don't pay for fastapi at import time.
@@ -49,7 +50,7 @@ def build_openapi_spec() -> dict[str, Any]:
     default=DEFAULT_SNAPSHOT_PATH,
 )
 def main(out: Path) -> None:
-    json_io.write(ensure_parent_dir(out), build_openapi_spec())
+    json_io.write(out, build_openapi_spec())
     click.echo(f"Wrote {out}")
 
 

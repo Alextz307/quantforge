@@ -1,4 +1,5 @@
-"""Smoke tests for the ``scripts/experiment.py`` click CLI.
+"""
+Smoke tests for the ``scripts/experiment.py`` click CLI.
 
 These exercise the subcommand glue (config-override, error wrapping,
 tune-study artifact layout) that otherwise lacks coverage. The ``run``
@@ -41,7 +42,8 @@ _TUNE_STUDY_NAME = "cli_tune_smoke"
 
 
 def _write_experiment_config(tmp_path: Path, *, name: str = "cli_tune") -> Path:
-    """Write a minimal :class:`ExperimentConfig` YAML that the tuner
+    """
+    Write a minimal :class:`ExperimentConfig` YAML that the tuner
     accepts. Data source / walk-forward knobs are never actually touched —
     the tune test monkeypatches ``build_experiment`` + ``aggregate_folds``.
     """
@@ -86,7 +88,8 @@ def _write_hpo_config(tmp_path: Path, *, study_name: str = _TUNE_STUDY_NAME) -> 
 
 
 class _StubExperimentResult:
-    """Shape-minimal stand-in for ``ExperimentResult`` — matches the two
+    """
+    Shape-minimal stand-in for ``ExperimentResult`` — matches the two
     attributes the tuner reads (``experiment_id`` + ``folds``).
     """
 
@@ -105,7 +108,8 @@ class _StubExperiment:
 
 
 class TestTuneSubcommand:
-    """End-to-end CLI smoke for ``experiment tune``.
+    """
+    End-to-end CLI smoke for ``experiment tune``.
 
     Monkeypatches the per-trial ML work (``build_experiment`` +
     ``aggregate_folds``) so the test stays in CLI-glue territory:
@@ -216,12 +220,14 @@ class TestTuneSubcommand:
 
 
 class TestOverrideHelpers:
-    """Direct-unit test for the override helper that powers ``--name`` /
+    """
+    Direct-unit test for the override helper that powers ``--name`` /
     ``--seed`` on the run + tune subcommands.
     """
 
     def test_override_experiment_preserves_unset_fields(self) -> None:
-        """Only the requested fields change; unspecified overrides are
+        """
+        Only the requested fields change; unspecified overrides are
         no-op. Uses a minimal config that doesn't hit a registry to
         avoid conftest-level fixture needs.
         """
@@ -255,7 +261,9 @@ class TestOverrideHelpers:
 
 
 class TestDottedOverride:
-    """``--override key.path=value`` flow: helper round-trip + CLI integration."""
+    """
+    ``--override key.path=value`` flow: helper round-trip + CLI integration.
+    """
 
     @staticmethod
     def _minimal_cfg() -> ExperimentConfig:
@@ -298,7 +306,8 @@ class TestDottedOverride:
             _apply_dotted_overrides(cfg, ("dat.tickers=[QQQ]",))
 
     def test_helper_pydantic_violation_surfaces_clickexception(self) -> None:
-        """A type-incompatible override (e.g. seed expects int, gets list)
+        """
+        A type-incompatible override (e.g. seed expects int, gets list)
         re-raises through pydantic and gets wrapped as a ClickException
         with a re-validation prefix.
         """

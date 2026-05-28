@@ -1,4 +1,5 @@
-"""Shared warmup-row drop for hybrid models.
+"""
+Shared warmup-row drop for hybrid models.
 
 The standard feature pipeline emits engineered columns (RSI, MACD, etc.)
 with multi-bar warmup; the hybrid leaf's residual target may have a much

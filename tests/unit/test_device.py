@@ -1,4 +1,6 @@
-"""Tests for torch device selection helper."""
+"""
+Tests for torch device selection helper.
+"""
 
 from __future__ import annotations
 
@@ -63,7 +65,9 @@ class TestSelectXGBoostDevice:
             assert select_xgboost_device() == "cpu"
 
     def test_auto_never_picks_mps(self) -> None:
-        """Even on Apple Silicon with MPS available, XGBoost must fall back to CPU."""
+        """
+        Even on Apple Silicon with MPS available, XGBoost must fall back to CPU.
+        """
 
         with (
             patch("torch.cuda.is_available", return_value=False),
@@ -85,7 +89,8 @@ class TestSelectXGBoostDevice:
 
 
 class TestAvailableDevices:
-    """``available_devices`` is the predicate the webapp uses to prune the
+    """
+    ``available_devices`` is the predicate the webapp uses to prune the
     device dropdown. AUTO + CPU are always present; CUDA/MPS gated by host."""
 
     @pytest.fixture(autouse=True)

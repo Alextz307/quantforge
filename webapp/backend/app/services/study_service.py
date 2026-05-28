@@ -1,4 +1,6 @@
-"""Read-only services for the persisted studies tree."""
+"""
+Read-only services for the persisted studies tree.
+"""
 
 from __future__ import annotations
 
@@ -60,11 +62,15 @@ __all__ = [
 
 
 class ConsolidatedReportNotFoundError(LookupError):
-    """Raised when a study has no consolidated report (``manifest.json`` absent)."""
+    """
+    Raised when a study has no consolidated report (``manifest.json`` absent).
+    """
 
 
 class StudyConsolidationError(ValueError):
-    """Raised when consolidation cannot complete (e.g. missing per-leg artifacts)."""
+    """
+    Raised when consolidation cannot complete (e.g. missing per-leg artifacts).
+    """
 
 
 def list_studies(
@@ -74,7 +80,9 @@ def list_studies(
     user: UserPublic,
     all_users: bool,
 ) -> list[StudySummary]:
-    """List every study under ``root`` visible to ``user``, newest first."""
+    """
+    List every study under ``root`` visible to ``user``, newest first.
+    """
 
     summaries: list[StudySummary] = []
     for study_dir in cached_artifact_dirs(root, "study", iter_study_dirs):
@@ -98,7 +106,8 @@ def get_study(
     conn: sqlite3.Connection,
     user: UserPublic,
 ) -> StudyDetail:
-    """Read the full detail payload for one study.
+    """
+    Read the full detail payload for one study.
 
     Raises :class:`ArtifactAccessDeniedError` when ``user`` is neither owner
     nor admin; the router maps that to 404.
@@ -111,7 +120,8 @@ def get_study(
 
 
 def build_study_detail(study_dir: Path) -> StudyDetail:
-    """Read the full detail payload from an already-resolved study directory.
+    """
+    Read the full detail payload from an already-resolved study directory.
 
     Skips the recursive glob inside :func:`find_study_dir` — callers that
     already hold the resolved path (e.g. the WS streamer) reuse it across
@@ -154,7 +164,9 @@ def get_consolidated(
     conn: sqlite3.Connection,
     user: UserPublic,
 ) -> StudyConsolidatedDTO:
-    """Read the consolidated-report manifest + tables/plots index for one study."""
+    """
+    Read the consolidated-report manifest + tables/plots index for one study.
+    """
 
     check_artifact_access(conn, experiment_id=name, user=user)
     study_dir = find_study_dir(root, name)
@@ -187,7 +199,8 @@ def generate_consolidated(
     conn: sqlite3.Connection,
     user: UserPublic,
 ) -> StudyConsolidatedDTO:
-    """Build (or rebuild) the consolidated report for a study and return its DTO.
+    """
+    Build (or rebuild) the consolidated report for a study and return its DTO.
 
     Idempotent: safe to call against a study that already has a consolidated
     report — old tables/plots are overwritten. Raises :class:`StudyNotFoundError`
@@ -214,7 +227,9 @@ def resolve_consolidated_plot(
     conn: sqlite3.Connection,
     user: UserPublic,
 ) -> Path:
-    """Resolve a consolidated plot filename to an absolute path, blocking traversal."""
+    """
+    Resolve a consolidated plot filename to an absolute path, blocking traversal.
+    """
 
     check_artifact_access(conn, experiment_id=name, user=user)
     return resolve_file_under(find_study_dir(root, name), PLOTS_DIRNAME, plot_name)
@@ -228,7 +243,9 @@ def resolve_consolidated_table(
     conn: sqlite3.Connection,
     user: UserPublic,
 ) -> Path:
-    """Resolve a consolidated table filename to an absolute path, blocking traversal."""
+    """
+    Resolve a consolidated table filename to an absolute path, blocking traversal.
+    """
 
     check_artifact_access(conn, experiment_id=name, user=user)
     return resolve_file_under(find_study_dir(root, name), TABLES_DIRNAME, table_name)
@@ -256,7 +273,8 @@ def _pct(completed: int, total: int) -> float:
 
 
 def find_live_study_job_for(conn: sqlite3.Connection, output_dir_name: str) -> str | None:
-    """Return the id of a non-terminal STUDY job populating ``studies/<name>``.
+    """
+    Return the id of a non-terminal STUDY job populating ``studies/<name>``.
 
     Study jobs persist ``experiment_id = spec.output_dir.name`` at
     submission time. At most one non-terminal STUDY job per output dir

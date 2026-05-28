@@ -1,4 +1,5 @@
-"""Tests for :func:`src.orchestration.comparison.run_comparison`.
+"""
+Tests for :func:`src.orchestration.comparison.run_comparison`.
 
 Monkeypatches ``build_experiment`` so each fake experiment yields
 deterministic equity curves (no real walk-forward). Only ``n_jobs=1``
@@ -63,7 +64,9 @@ def _stub_result(name: str, sharpe: float) -> ExperimentResult:
 
 
 class _StubExperiment:
-    """Mimics the shape Experiment's ``run`` exposes to run_comparison."""
+    """
+    Mimics the shape Experiment's ``run`` exposes to run_comparison.
+    """
 
     def __init__(self, name: str, sharpe: float) -> None:
         self._name = name
@@ -77,7 +80,8 @@ class _StubExperiment:
 
 @pytest.fixture
 def patched_build(monkeypatch: pytest.MonkeyPatch) -> dict[str, float]:
-    """Route ``build_experiment(cfg)`` to a stub whose sharpe is taken from
+    """
+    Route ``build_experiment(cfg)`` to a stub whose sharpe is taken from
     a name→sharpe dict the test fills. The fixture returns the dict so
     tests can populate it before invoking ``run_comparison``.
     """
@@ -191,7 +195,8 @@ class TestRunComparisonAlignment:
     def test_fold_count_mismatch_rejected(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """Strategies with different fold counts cannot be paired-bootstrapped
+        """
+        Strategies with different fold counts cannot be paired-bootstrapped
         — the orchestrator must refuse rather than silently align on the shorter.
         """
 

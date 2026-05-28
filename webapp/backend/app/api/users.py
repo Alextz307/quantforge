@@ -1,4 +1,6 @@
-"""Admin-only user CRUD endpoints."""
+"""
+Admin-only user CRUD endpoints.
+"""
 
 from __future__ import annotations
 
