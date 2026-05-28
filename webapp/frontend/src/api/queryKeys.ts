@@ -14,8 +14,7 @@ export const queryKeys = {
   me: ["auth", "me"] as const,
   users: ["users"] as const,
   runs: ["runs"] as const,
-  runsPage: (params: RunsPageParams & { allUsers: boolean }) =>
-    ["runs", "page", params] as const,
+  runsPage: (params: RunsPageParams & { allUsers: boolean }) => ["runs", "page", params] as const,
   run: (id: string) => ["runs", id] as const,
   runFolds: (id: string) => ["runs", id, "folds"] as const,
   comparisons: ["comparisons"] as const,
@@ -46,4 +45,8 @@ export const queryKeys = {
   universeUpload: (slug: string) => ["configs", "universeUploads", slug] as const,
   strategies: ["strategies"] as const,
   strategySchema: (name: string) => ["strategies", name, "schema"] as const,
+  deployments: ["deployments"] as const,
+  deploymentsList: (allUsers: boolean) => ["deployments", { allUsers }] as const,
+  deployment: (id: string) => ["deployments", id] as const,
+  deploymentSignals: (id: string) => ["deployments", id, "signals"] as const,
 } as const;

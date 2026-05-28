@@ -14,7 +14,9 @@ Readers anchored on the canonical persistence layout
   :class:`IStrategy` instance by resolving its registered class via
   ``strategy_registry`` and dispatching to ``cls.load(strategy_state/)``.
   Used by the deployment layer to predict from a previously trained run.
-* :func:`resolve_run_dir` — path helper that joins ``<store_root>/runs/<id>``.
+* :func:`resolve_run_dir` — resolve a run dir by id, matching both the
+  flat ``<store_root>/runs/<id>`` and study-nested
+  ``<store_root>/studies/<x>/runs/<id>`` layouts.
 """
 
 from __future__ import annotations
@@ -96,10 +98,24 @@ def load_experiment_config_from_run(run_dir: Path) -> ExperimentConfig:
 
 def resolve_run_dir(store_root: Path, experiment_id: str) -> Path:
     """
-    Resolve ``store_root / runs / <experiment_id>``.
+    Resolve a run's directory under ``store_root`` by experiment id.
+
+    Returns the flat ``store_root / runs / <experiment_id>`` when it exists.
+    Runs produced inside a study live at
+    ``store_root / studies / <study> / runs / <experiment_id>``; when the flat
+    path is absent, fall back to a recursive search so a study-internal run
+    still resolves from the top-level store root (the layout a deployment
+    points at). The flat path is returned unchanged when nothing matches, so
+    callers raise their own pointed error against a concrete path.
     """
 
-    return store_root / RUNS_SUBDIR / experiment_id
+    flat = store_root / RUNS_SUBDIR / experiment_id
+    if flat.is_dir():
+        return flat
+    for candidate in store_root.glob(f"**/{RUNS_SUBDIR}/{experiment_id}"):
+        if candidate.is_dir():
+            return candidate
+    return flat
 
 
 def load_strategy_from_run_dir(run_dir: Path) -> IStrategy:

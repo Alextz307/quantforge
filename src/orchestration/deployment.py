@@ -41,6 +41,7 @@ from typing import cast
 import pandas as pd
 
 from src.core import json_io
+from src.core.config import ComponentConfig
 from src.core.exceptions import LeakageError, WarmupInsufficientError
 from src.core.logging import get_logger
 from src.core.persistence import (
@@ -51,9 +52,11 @@ from src.core.persistence import (
     HPO_SUBDIR,
     HPO_TRIALS_RUNS_SUBDIR,
 )
+from src.core.registry import feature_registry
+from src.core.temporal import TrainingMetadata
 from src.core.types import Interval
 from src.data.fingerprint import fingerprint_bars
-from src.data.live_fetcher import resolve_fetcher
+from src.data.live_fetcher import LiveBarFetcher, resolve_fetcher
 from src.optimization.checkpointing import TRIAL_ARTIFACTS_SUBDIR
 from src.optimization.tuner import STUDY_DB_FILENAME, USER_ATTR_EXPERIMENT_ID, storage_url_for
 from src.orchestration.holdout_eval import SourceKind
@@ -182,9 +185,7 @@ def resolve_deployment_dir(store_root: Path, deployment_id: str) -> Path:
     return store_root / DEPLOYMENTS_SUBDIR / deployment_id
 
 
-def resolve_strategy_state_path(
-    source_kind: SourceKind, source_id: str, store_root: Path
-) -> Path:
+def resolve_strategy_state_path(source_kind: SourceKind, source_id: str, store_root: Path) -> Path:
     """
     Return the on-disk ``strategy_state/`` directory for a source.
 
@@ -211,9 +212,29 @@ def resolve_strategy_state_path(
     if source_kind == "hpo":
         return _resolve_hpo_strategy_state_path(source_id, store_root)
 
-    raise ValueError(
-        f"unknown source_kind={source_kind!r}; expected 'run' or 'hpo'."
-    )
+    raise ValueError(f"unknown source_kind={source_kind!r}; expected 'run' or 'hpo'.")
+
+
+def _resolve_hpo_study_dir(store_root: Path, study_name: str) -> Path:
+    """
+    Locate an HPO study's directory by name under ``store_root``.
+
+    Returns the flat ``store_root / hpo / <study_name>`` when its Optuna DB
+    lives there. Studies produced inside a multi-leg study live at
+    ``store_root / studies / <study> / hpo / <study_name>``; when the flat
+    path has no DB, fall back to a recursive search so a study-nested HPO
+    study resolves from the top-level store root. The flat path is returned
+    unchanged when nothing matches, so the caller raises a pointed error
+    against a concrete path.
+    """
+
+    flat = store_root / HPO_SUBDIR / study_name
+    if (flat / STUDY_DB_FILENAME).is_file():
+        return flat
+    for candidate in store_root.glob(f"**/{HPO_SUBDIR}/{study_name}"):
+        if (candidate / STUDY_DB_FILENAME).is_file():
+            return candidate
+    return flat
 
 
 def _resolve_hpo_strategy_state_path(study_name: str, store_root: Path) -> Path:
@@ -229,13 +250,13 @@ def _resolve_hpo_strategy_state_path(study_name: str, store_root: Path) -> Path:
 
     import optuna
 
-    study_dir = store_root / HPO_SUBDIR / study_name
+    study_dir = _resolve_hpo_study_dir(store_root, study_name)
     db_path = study_dir / STUDY_DB_FILENAME
     if not db_path.is_file():
         raise FileNotFoundError(
-            f"HPO study {study_name!r} has no Optuna DB at {db_path}; the study "
-            f"may not exist or may not have started. Fix by pointing at a "
-            f"finished study under {store_root / HPO_SUBDIR}."
+            f"HPO study {study_name!r} has no Optuna DB under {store_root}; the "
+            f"study may not exist or may not have started. Fix by pointing at a "
+            f"finished study (searched <store>/hpo/ and studies/<x>/hpo/)."
         )
     study = optuna.load_study(study_name=study_name, storage=storage_url_for(study_dir))
     try:
@@ -252,9 +273,7 @@ def _resolve_hpo_strategy_state_path(study_name: str, store_root: Path) -> Path:
             f"{USER_ATTR_EXPERIMENT_ID!r} user-attr; the trial may have been "
             f"recorded by an older tuner version. Re-run the study."
         )
-    trial_run_dir = (
-        study_dir / TRIAL_ARTIFACTS_SUBDIR / HPO_TRIALS_RUNS_SUBDIR / experiment_id
-    )
+    trial_run_dir = study_dir / TRIAL_ARTIFACTS_SUBDIR / HPO_TRIALS_RUNS_SUBDIR / experiment_id
     state_dir = trial_run_dir / EXPERIMENT_STRATEGY_SUBDIR
     if not state_dir.is_dir():
         raise FileNotFoundError(
@@ -333,8 +352,10 @@ def create_deployment(
     source_run_dir = resolve_strategy_state_path(source_kind, source_id, store_root).parent
     strategy = load_strategy_from_run_dir(source_run_dir)
 
-    final_name = name if name is not None else _auto_generate_name(
-        source_kind, source_id, source_run_dir, strategy
+    final_name = (
+        name
+        if name is not None
+        else _auto_generate_name(source_kind, source_id, source_run_dir, strategy)
     )
     final_id = deployment_id if deployment_id is not None else uuid.uuid4().hex
     if warmup_bars is None:
@@ -365,7 +386,10 @@ def create_deployment(
 
     _logger.info(
         "deployment %s created: source=%s:%s warmup=%d",
-        final_id, source_kind, source_id, resolved_warmup,
+        final_id,
+        source_kind,
+        source_id,
+        resolved_warmup,
     )
     return deployment
 
@@ -489,7 +513,14 @@ def predict(
             f"completed session or train a fresher model."
         )
 
-    signals = strategy.generate_signals(bars)
+    featured = _featurize_for_signals(
+        bars,
+        features_cfg=cfg.features,
+        fetcher=fetcher,
+        ticker=ticker,
+        metadata=metadata,
+    )
+    signals = strategy.generate_signals(featured)
     last_signal = signals.iloc[-1]
     if pd.isna(last_signal):
         vendor_first_bar = pd.Timestamp(bars.index[0])
@@ -511,6 +542,51 @@ def predict(
         source_run_id=deployment.source_id,
         warmup_bars_used=deployment.warmup_bars,
     )
+
+
+def _featurize_for_signals(
+    bars: pd.DataFrame,
+    *,
+    features_cfg: ComponentConfig | None,
+    fetcher: LiveBarFetcher,
+    ticker: str,
+    metadata: TrainingMetadata,
+) -> pd.DataFrame:
+    """
+    Add the engineered feature columns the strategy was trained on.
+
+    A strategy configured with an external feature pipeline (``features:`` in
+    the experiment config) is handed *scaled* feature columns at train time.
+    That pipeline's scaler is fit on the model's training window and is not
+    persisted in the run's ``strategy_state``, so reproduce it
+    deterministically: re-fetch the same training window, fit the pipeline on
+    it exactly as the experiment did, then transform the live bars.
+
+    Anti-leakage: the scaler is fit only on training-window bars (a window the
+    frozen model already saw); the live bars are transformed, never fitted, so
+    no post-train data informs the scaling. Strategies with no external
+    pipeline (``features_cfg is None``) self-compute from OHLCV and pass through
+    unchanged.
+    """
+
+    if features_cfg is None:
+        return bars
+    train_bars = fetcher.fetch(
+        ticker,
+        metadata.train_start.to_pydatetime(),
+        metadata.train_end.to_pydatetime(),
+        metadata.interval,
+    )
+    if train_bars.empty:
+        raise WarmupInsufficientError(
+            f"could not rebuild the feature pipeline: re-fetching the training "
+            f"window [{metadata.train_start.date()}, {metadata.train_end.date()}] "
+            f"for {ticker} returned no bars. The vendor may no longer serve that "
+            f"range."
+        )
+    pipeline = feature_registry.create_from_config(features_cfg)
+    pipeline.fit(train_bars)
+    return pipeline.transform(bars)
 
 
 def _to_naive(ts: pd.Timestamp) -> pd.Timestamp:
@@ -553,7 +629,9 @@ def _append_or_recall_signal(
     json_io.append_jsonl(path, new_row.to_dict())
     _logger.info(
         "deployment %s: signal=%.4f at bar_ts=%s",
-        deployment_id, signal_value, last_bar_ts,
+        deployment_id,
+        signal_value,
+        last_bar_ts,
     )
     return new_row
 

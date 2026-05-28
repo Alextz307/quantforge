@@ -1,4 +1,5 @@
 import { screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 import { describe, expect, it } from "vitest";
 import { Route, Routes } from "react-router-dom";
@@ -14,6 +15,7 @@ function Tree() {
     <Routes>
       <Route path={ROUTES.runs} element={<div>runs list</div>} />
       <Route path={ROUTES.runDetail} element={<RunDetailPage />} />
+      <Route path={ROUTES.deploymentDetail} element={<div>deployment detail</div>} />
     </Routes>
   );
 }
@@ -55,5 +57,26 @@ describe("RunDetailPage", () => {
     renderWithProviders(<Tree />, { initialEntries: [runDetailPath(RUN_SPY.experiment_id)] });
     await screen.findByText(RUN_SPY_DETAIL.name);
     expect(screen.queryByTestId("run-detail-holdout-cta")).not.toBeInTheDocument();
+  });
+
+  it("warns when deploying a run that has no holdout evaluation", async () => {
+    server.use(
+      http.get(toMswPath(API_PATHS.run), ({ params }) =>
+        HttpResponse.json({
+          ...RUN_SPY_DETAIL,
+          experiment_id: String(params.experiment_id),
+          holdout_start: null,
+        }),
+      ),
+    );
+    renderWithProviders(<Tree />, { initialEntries: [runDetailPath(RUN_SPY.experiment_id)] });
+    expect(await screen.findByText("No holdout evaluation")).toBeInTheDocument();
+  });
+
+  it("deploys the run and navigates to the new deployment", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<Tree />, { initialEntries: [runDetailPath(RUN_SPY.experiment_id)] });
+    await user.click(await screen.findByTestId("run-detail-deploy-cta"));
+    expect(await screen.findByText("deployment detail")).toBeInTheDocument();
   });
 });

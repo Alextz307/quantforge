@@ -27,10 +27,7 @@ export interface RunsListOptions {
   allUsers?: boolean;
 }
 
-function runsPageConfig(
-  params: RunsPageParams,
-  opts: RunsListOptions,
-): ApiQueryOptions<RunsPage> {
+function runsPageConfig(params: RunsPageParams, opts: RunsListOptions): ApiQueryOptions<RunsPage> {
   const allUsers = opts.allUsers ?? false;
   return {
     queryKey: queryKeys.runsPage({ ...params, allUsers }),

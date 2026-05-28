@@ -3,8 +3,7 @@ Parquet file data source implementation.
 
 Mirrors :class:`src.data.csv_source.CSVSource`: a local-file source that
 reads OHLCV bars from ``{ticker}.parquet`` under a configurable directory.
-Used by the thesis-demo target so ``make thesis-demo`` runs offline against
-a committed fixture instead of hitting Yahoo.
+Lets offline tests run against a committed fixture instead of hitting Yahoo.
 """
 
 from __future__ import annotations

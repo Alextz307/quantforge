@@ -6,6 +6,7 @@ import { RequireAdmin } from "@/components/auth/RequireAdmin";
 import { RequireAuth } from "@/components/auth/RequireAuth";
 import { AdminPage } from "@/pages/AdminPage";
 import { ComparisonsPage } from "@/pages/ComparisonsPage";
+import { DeploymentsPage } from "@/pages/DeploymentsPage";
 import { HoldoutPage } from "@/pages/HoldoutPage";
 import { HomePage } from "@/pages/HomePage";
 import { HpoPage } from "@/pages/HpoPage";
@@ -54,6 +55,9 @@ const ConfigureUniversePage = lazy(() =>
 );
 const JobDetailPage = lazy(() =>
   import("@/pages/JobDetailPage").then((m) => ({ default: m.JobDetailPage })),
+);
+const DeploymentDetailPage = lazy(() =>
+  import("@/pages/DeploymentDetailPage").then((m) => ({ default: m.DeploymentDetailPage })),
 );
 
 function ChartFallback() {
@@ -185,6 +189,15 @@ export function App() {
           element={
             <Suspense fallback={<ChartFallback />}>
               <HpoDetailPage />
+            </Suspense>
+          }
+        />
+        <Route path={ROUTES.deployments} element={<DeploymentsPage />} />
+        <Route
+          path={ROUTES.deploymentDetail}
+          element={
+            <Suspense fallback={<ChartFallback />}>
+              <DeploymentDetailPage />
             </Suspense>
           }
         />

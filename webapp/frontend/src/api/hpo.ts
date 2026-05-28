@@ -72,9 +72,7 @@ function hpoParamImportanceConfig(
   };
 }
 
-export function useHpoStudies(
-  opts: HpoStudiesListOptions = {},
-): UseQueryResult<HpoSummary[]> {
+export function useHpoStudies(opts: HpoStudiesListOptions = {}): UseQueryResult<HpoSummary[]> {
   return useApiQuery(hpoStudiesConfig(opts));
 }
 

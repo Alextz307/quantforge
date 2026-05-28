@@ -4,7 +4,7 @@ Path-walking helpers over the experiment_results/ artifact tree.
 The store layout under :data:`WebappSettings.store_root` is uniform: every
 persisted artifact lives at some ``<root>/<arbitrary>/<subdir>/<artifact_name>/``,
 regardless of whether the parent context is a single-store directory
-(``thesis_demo/<subdir>/<name>``) or a study (``studies/main/<subdir>/<name>``).
+(``flat_store/<subdir>/<name>``) or a study (``studies/main/<subdir>/<name>``).
 The walker globs ``**/<subdir>/*/<manifest_filename>`` so both shapes surface
 uniformly across runs, comparisons, and holdout evaluations.
 """
@@ -109,7 +109,7 @@ def store_label(artifact_dir: Path, root: Path) -> str:
     Human-readable provenance label for an artifact (path of its parent dir relative to root).
 
     For ``<root>/hpo/<name>`` returns ``"hpo"``;
-    for ``<root>/thesis_demo/runs/<name>`` returns ``"thesis_demo/runs"``;
+    for ``<root>/flat_store/runs/<name>`` returns ``"flat_store/runs"``;
     for ``<root>/studies/main/hpo/<name>`` returns ``"studies/main/hpo"``.
 
     Includes the kind subdir so flat-rooted artefacts (default-store tunes

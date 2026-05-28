@@ -1,10 +1,9 @@
 """
 Unit tests for :mod:`src.orchestration.clean`.
 
-Validates the dry-run/apply split, the ``thesis_demo`` preservation,
-the ``--keep`` extension, and the git-tracked-file refusal. Each test
-synthesises a fake ``store_root`` on ``tmp_path`` so we never touch the
-real ``experiment_results/`` tree.
+Validates the dry-run/apply split, the ``--keep`` preserve set, and the
+git-tracked-file refusal. Each test synthesises a fake ``store_root`` on
+``tmp_path`` so we never touch the real ``experiment_results/`` tree.
 
 The git-tracked-file case is exercised via a fresh ``git init`` repo on
 ``tmp_path`` rather than the parent repo's git state, so the test stays
@@ -38,29 +37,29 @@ def _populate_store(store_root: Path, dirs: tuple[str, ...]) -> None:
         (store_root / name / "stale.txt").write_text("stale", encoding="utf-8")
 
 
-def test_plan_clean_lists_every_subdir_except_thesis_demo(tmp_path: Path) -> None:
+def test_plan_clean_lists_every_subdir_by_default(tmp_path: Path) -> None:
     """
-    ``thesis_demo`` is hard-preserved; everything else is a candidate.
+    With no ``--keep``, every immediate-child directory is a candidate.
     """
 
     store = tmp_path / "experiment_results"
-    _populate_store(store, ("thesis_demo", "_profile_a", "_profile_b", _KEEP_OVERRIDE_NAME))
+    _populate_store(store, ("_profile_a", "_profile_b", _KEEP_OVERRIDE_NAME))
     plan = plan_clean(store)
     candidate_names = {c.path.name for c in plan.candidates}
     assert candidate_names == {"_profile_a", "_profile_b", _KEEP_OVERRIDE_NAME}
-    assert "thesis_demo" in plan.preserved
+    assert plan.preserved == ()
 
 
-def test_plan_clean_extends_preserve_set_with_keep(tmp_path: Path) -> None:
+def test_plan_clean_preserves_keep_set(tmp_path: Path) -> None:
     """
-    ``--keep`` adds to the preserve set; the matching dir drops out of candidates.
+    ``--keep`` names are preserved; the matching dir drops out of candidates.
     """
 
     store = tmp_path / "experiment_results"
-    _populate_store(store, ("thesis_demo", "_profile_a", _KEEP_OVERRIDE_NAME))
+    _populate_store(store, ("_profile_a", "_profile_b", _KEEP_OVERRIDE_NAME))
     plan = plan_clean(store, keep=(_KEEP_OVERRIDE_NAME,))
     candidate_names = {c.path.name for c in plan.candidates}
-    assert candidate_names == {"_profile_a"}
+    assert candidate_names == {"_profile_a", "_profile_b"}
     assert _KEEP_OVERRIDE_NAME in plan.preserved
 
 
@@ -70,7 +69,7 @@ def test_apply_clean_wipes_safe_candidates_keeping_empty_dirs(tmp_path: Path) ->
     """
 
     store = tmp_path / "experiment_results"
-    _populate_store(store, ("thesis_demo", "_profile_a", "_profile_b"))
+    _populate_store(store, ("_profile_a", "_profile_b"))
     plan = plan_clean(store)
     wiped = apply_clean(plan)
     assert sorted(p.name for p in wiped) == ["_profile_a", "_profile_b"]
@@ -78,7 +77,6 @@ def test_apply_clean_wipes_safe_candidates_keeping_empty_dirs(tmp_path: Path) ->
     assert (store / "_profile_b").is_dir()
     assert list((store / "_profile_a").iterdir()) == []
     assert list((store / "_profile_b").iterdir()) == []
-    assert (store / "thesis_demo").is_dir()
 
 
 def test_apply_clean_refuses_when_tracked_files_present(tmp_path: Path) -> None:
@@ -133,7 +131,7 @@ def test_format_plan_lists_size_and_action(tmp_path: Path) -> None:
     """
 
     store = tmp_path / "experiment_results"
-    _populate_store(store, ("thesis_demo", "_profile_a"))
+    _populate_store(store, ("_profile_a", "_profile_b"))
     plan = plan_clean(store)
     output = format_plan(plan)
     assert "WIPE" in output

@@ -53,7 +53,7 @@ def test_list_holdout_evals_surfaces_source_and_store(
 ) -> None:
     root = tmp_path / "experiment_results"
     make_synthetic_holdout_eval(
-        root / "thesis_demo" / HOLDOUT_EVALS_SUBDIR,
+        root / "flat_store" / HOLDOUT_EVALS_SUBDIR,
         name=NEWER_NAME,
         source_kind="hpo",
         source_id="some_hpo_study",
@@ -67,7 +67,7 @@ def test_list_holdout_evals_surfaces_source_and_store(
     assert summary.source_kind == "hpo"
     assert summary.source_id == "some_hpo_study"
     assert summary.holdout_start == HOLDOUT_BOUNDARY
-    assert summary.store == "thesis_demo/holdout_evals"
+    assert summary.store == "flat_store/holdout_evals"
 
 
 def test_get_holdout_eval_returns_full_detail(

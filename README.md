@@ -4,7 +4,7 @@
 
 A thesis-grade, bifurcated C++/Python quantitative trading framework with strict anti-leakage guarantees, temporal contracts, and a clean separation between computation (C++) and orchestration (Python). Built around walk-forward validation, typed interfaces, and end-to-end hyperparameter tuning.
 
-**Current state:** a Python orchestration layer built on top of a C++ core. Implemented and under test: the typed temporal contracts, data layer, ML leaf models (GARCH, ARMA, LSTM, XGBoost), hybrid residual models, five trading strategies, the feature pipeline, a C++ indicator suite (RSI, MACD, Bollinger, Garman-Klass, Parkinson), a GARCH inference filter, two strategy state machines and two full `IStrategy` C++ classes (pairs trading + adaptive bollinger) with a shared `SpreadCalculator` primitive, and the C++ backtest engine + performance metrics — all bridged through a `pybind11` module (`quant_engine`) with the GIL released on every compute call. Every model and strategy round-trips through directory-based `save()` / `load()` (JSON configs + metadata + native binary weights, zero pickle). `WalkForwardValidator` supports an optional `snap_to_day` mode that keeps every train/test boundary on a daily close, honouring the intraday day-boundary rule. An offline `make thesis-demo` target runs the full data → walk-forward → metrics → reporters → cross-strategy comparison flow on a committed SPY parquet so a fresh checkout can verify the pipeline end-to-end without network access. CI is green on Linux and macOS with `mypy --strict` clean on the full Python tree, and `ruff` clean across the whole repo.
+**Current state:** a Python orchestration layer built on top of a C++ core. Implemented and under test: the typed temporal contracts, data layer, ML leaf models (GARCH, ARMA, LSTM, XGBoost), hybrid residual models, five trading strategies, the feature pipeline, a C++ indicator suite (RSI, MACD, Bollinger, Garman-Klass, Parkinson), a GARCH inference filter, two strategy state machines and two full `IStrategy` C++ classes (pairs trading + adaptive bollinger) with a shared `SpreadCalculator` primitive, and the C++ backtest engine + performance metrics — all bridged through a `pybind11` module (`quant_engine`) with the GIL released on every compute call. Every model and strategy round-trips through directory-based `save()` / `load()` (JSON configs + metadata + native binary weights, zero pickle). `WalkForwardValidator` supports an optional `snap_to_day` mode that keeps every train/test boundary on a daily close, honouring the intraday day-boundary rule. CI is green on Linux and macOS with `mypy --strict` clean on the full Python tree, and `ruff` clean across the whole repo.
 
 ## Architecture
 
@@ -330,7 +330,6 @@ make test-cpp       # GoogleTest suite
 make test-python    # pytest suite
 make typecheck      # mypy --strict src/ tests/ scripts/
 make lint           # ruff check + ruff format --check
-make thesis-demo    # End-to-end pipeline smoke on cached SPY (offline, ~20s)
 ```
 
 ### Minimal example — fit a strategy and generate signals
@@ -352,37 +351,6 @@ reloaded = AdaptiveBollingerStrategy.load("/tmp/ab_model")
 ```
 
 Every strategy exposes the same four-verb API — `train(data)`, `generate_signals(data)`, `save(path)`, `load(path)` — plus a static `suggest_params(trial)` so Optuna can tune the entire stack (feature periods, model hyperparameters, and strategy thresholds) end to end.
-
-### End-to-end demo
-
-The `make thesis-demo` target runs the full Python orchestration stack
-on a committed SPY parquet fixture (`tests/fixtures/SPY.parquet`) so a
-fresh checkout can verify every wire connects without network access.
-Two CLI invocations land back-to-back: `experiment run` (single
-walk-forward) and `experiment compare` (cross-strategy ranking). Total
-wall time on a 2024 laptop is well under a minute.
-
-```bash
-make thesis-demo
-```
-
-> ⚠️ **The demo's output is illustrative, not an empirical claim.**
-> Strategies are not tuned and the walk-forward window is short
-> (~7 years of daily SPY across 4 expanding folds).
-> The comprehensive empirical study will land separately under
-> `experiment_results/studies/`.
-
-A curated subset of one demo run is committed under
-[`experiment_results/thesis_demo/sample/`](experiment_results/thesis_demo/README.md)
-so a casual reader sees the shape of the output without needing to run
-anything. The walk-forward equity curves give the quickest read on what
-the pipeline actually produces:
-
-![Per-fold equity curves](experiment_results/thesis_demo/sample/plots/run_equity_curves.png)
-
-The full `sample/` index (every committed plot + LaTeX table + the
-aggregated metrics JSON) lives in
-[`experiment_results/thesis_demo/README.md`](experiment_results/thesis_demo/README.md).
 
 ## Project Structure
 
@@ -417,15 +385,13 @@ src/
 tests/
   unit/                  One unit-test file per component
   integration/           pybind11 module load + engine/indicator/filter/state-machine binding parity + walk-forward orchestrator
-  fixtures/              Committed offline fixtures (e.g. SPY.parquet for `make thesis-demo`)
+  fixtures/              Committed offline fixtures (e.g. SPY.parquet)
   conftest.py            Shared fixtures (synthetic data, global seeds)
 
 scripts/                 experiment CLI + stdlib-only drift guards
-config/                  Strategy / HPO / universe YAMLs + thesis-demo entry config
+config/                  Strategy / HPO / universe YAMLs
 experiment_results/
-  thesis_demo/           Tracked: README + curated `sample/` from one demo run
-  thesis_demo/runs/      Fresh per-`make thesis-demo` outputs (gitignored)
-  runs/, comparisons/, hpo/, models/  Ephemeral per-developer artefacts (gitignored)
+  runs/, comparisons/, hpo/, studies/, models/  Ephemeral per-developer artefacts (gitignored)
 .github/workflows/ci.yml Lint, typecheck, C++ matrix, Python matrix
 Makefile                 Canonical build/test entry points
 pyproject.toml           Python deps + scikit-build-core config

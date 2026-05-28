@@ -37,6 +37,10 @@ export const API_PATHS = {
   universeSpecValidate: "/api/configs/universe_spec/validate",
   strategies: "/api/strategies",
   strategySchema: "/api/strategies/{name}/schema",
+  deployments: "/api/deployments",
+  deployment: "/api/deployments/{deployment_id}",
+  deploymentSignals: "/api/deployments/{deployment_id}/signals",
+  deploymentPredict: "/api/deployments/{deployment_id}/predict-if-stale",
 } as const;
 
 // MSW v2 expects `:name` path params; openapi-fetch (matching FastAPI's path

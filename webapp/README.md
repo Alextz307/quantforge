@@ -120,6 +120,17 @@ experiments from scratch, while Compare / Holdout reuse completed
 artifacts (the run/HPO detail pages also surface contextual "Run holdout
 eval" CTAs when the source carries the required artifact).
 
+`/deployments` lists saved deployments and hosts an inline picker that shows
+**only** models with a holdout evaluation (run- or HPO-sourced, one row per
+source), ranked by out-of-sample Sharpe, for one-click deploy. A run that has
+no holdout never appears in the picker — deploy it instead from its own detail
+page (reachable via the `Runs` page), which warns that you are deploying
+without out-of-sample validation. `Deploy` actions also live on each
+holdout-eval row. `/deployments/:deploymentId`
+computes today's signal on mount via `predict-if-stale`, shows the
+append-only signal history, and offers inline rename. The shared
+`SignalBadge` renders the LONG / SHORT / FLAT / computing states.
+
 ## Cross-links
 
 - Top-level [`README.md`](../README.md) — research framework overview.

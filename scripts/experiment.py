@@ -769,10 +769,7 @@ cli.add_command(study)
     "--keep",
     "keep",
     multiple=True,
-    help=(
-        "Additional directory name to preserve under <store-root>. Repeatable. "
-        "thesis_demo is always preserved."
-    ),
+    help="Directory name to preserve under <store-root>. Repeatable.",
 )
 def clean_cmd(store_root: Path, apply: bool, keep: tuple[str, ...]) -> None:
     """
@@ -780,8 +777,7 @@ def clean_cmd(store_root: Path, apply: bool, keep: tuple[str, ...]) -> None:
 
     Each candidate directory survives as an empty placeholder so the
     canonical store layout (``runs/``, ``hpo/``, ``studies/``, ...) is
-    intact after a wipe. Always preserves ``thesis_demo/`` (the only
-    committed artifact bundle). Refuses to wipe any directory containing
+    intact after a wipe. Refuses to wipe any directory containing
     git-tracked files; pass ``--keep <name>`` for each to exclude them
     and rerun.
     """

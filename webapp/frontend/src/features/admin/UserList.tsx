@@ -72,11 +72,7 @@ export function UserList() {
             <div className="grid grid-cols-3 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="new-username">Username</Label>
-                <Input
-                  id="new-username"
-                  maxLength={USER_USERNAME_MAX}
-                  {...register("username")}
-                />
+                <Input id="new-username" maxLength={USER_USERNAME_MAX} {...register("username")} />
                 {errors.username && (
                   <p className="text-sm text-destructive">{errors.username.message}</p>
                 )}

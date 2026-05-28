@@ -44,22 +44,9 @@ htmlcov/
 *.gcda
 *.gcno
 
-# ── Experiment results (tracked selectively) ──
-# All per-run outputs are ephemeral. The curated thesis-demo sample
-# (committed under experiment_results/thesis_demo/sample/) is the only
-# tracked artefact bundle; the runtime subdirs inside thesis_demo/ are
-# wiped on every `make thesis-demo` invocation. Note: the top-level
-# pattern uses ``experiment_results/*`` (children) rather than
-# ``experiment_results/`` (the directory itself) so the negation below
-# can re-include thesis_demo/ — git refuses to recurse into a fully
-# excluded directory to evaluate later negations.
-experiment_results/*
-!experiment_results/thesis_demo/
-experiment_results/thesis_demo/runs/
-experiment_results/thesis_demo/comparisons/
-experiment_results/thesis_demo/hpo/
-experiment_results/thesis_demo/models/
-experiment_results/thesis_demo/holdout_evals/
+# ── Experiment results (ephemeral) ──
+# All experiment-results outputs are ephemeral and untracked.
+experiment_results/
 
 # ── Secrets / local config ──
 .env
@@ -75,7 +62,7 @@ _skbuild/
 # ── Data cache ──
 *.parquet
 data_cache/
-# Committed offline fixtures (used by `make thesis-demo` and offline tests).
+# Committed offline fixtures (used by offline tests).
 !tests/fixtures/*.parquet
 
 # ── Webapp ──

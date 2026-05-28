@@ -119,7 +119,9 @@ def test_create_writes_artifacts(tmp_path: Path) -> None:
     assert (dep_dir / DEPLOYMENT_MANIFEST_JSON).is_file()
     assert (dep_dir / DEPLOYMENT_SIGNALS_JSONL).is_file()
     assert (dep_dir / DEPLOYMENT_SIGNALS_JSONL).read_text(encoding="utf-8") == ""
-    assert deployment.warmup_bars == _BOLLINGER_TREND_WINDOW + RECURSIVE_LEAF_CONVERGENCE_MARGIN_BARS
+    assert (
+        deployment.warmup_bars == _BOLLINGER_TREND_WINDOW + RECURSIVE_LEAF_CONVERGENCE_MARGIN_BARS
+    )
     assert deployment.source_kind == "run"
     assert deployment.source_id == "run_abc"
 
@@ -249,6 +251,37 @@ def test_resolve_strategy_state_path_rejects_unknown_kind(tmp_path: Path) -> Non
         resolve_strategy_state_path(cast(SourceKind, "comparison"), "x", tmp_path)
 
 
+def test_resolve_hpo_study_dir_flat(tmp_path: Path) -> None:
+    from src.core.persistence import HPO_SUBDIR
+    from src.optimization.tuner import STUDY_DB_FILENAME
+    from src.orchestration.deployment import _resolve_hpo_study_dir
+
+    study_dir = tmp_path / HPO_SUBDIR / "study_x"
+    study_dir.mkdir(parents=True)
+    (study_dir / STUDY_DB_FILENAME).write_text("", encoding="utf-8")
+    assert _resolve_hpo_study_dir(tmp_path, "study_x") == study_dir
+
+
+def test_resolve_hpo_study_dir_study_nested(tmp_path: Path) -> None:
+    from src.core.persistence import HPO_SUBDIR
+    from src.optimization.tuner import STUDY_DB_FILENAME
+    from src.orchestration.deployment import _resolve_hpo_study_dir
+
+    study_dir = tmp_path / "studies" / "main" / HPO_SUBDIR / "study_x"
+    study_dir.mkdir(parents=True)
+    (study_dir / STUDY_DB_FILENAME).write_text("", encoding="utf-8")
+    assert _resolve_hpo_study_dir(tmp_path, "study_x") == study_dir
+
+
+def test_resolve_hpo_study_dir_absent_returns_flat(tmp_path: Path) -> None:
+    from src.core.persistence import HPO_SUBDIR
+    from src.orchestration.deployment import _resolve_hpo_study_dir
+
+    resolved = _resolve_hpo_study_dir(tmp_path, "study_x")
+    assert resolved == tmp_path / HPO_SUBDIR / "study_x"
+    assert not resolved.exists()
+
+
 def test_recommend_warmup_bars_includes_convergence_margin() -> None:
     """
     AdaptiveBollinger (GARCH leaf) → required + 100 margin.
@@ -275,8 +308,9 @@ def test_recommend_warmup_bars_respects_absolute_floor() -> None:
         required_warmup_bars: int = 5
         convergence_margin_bars: int = 0
 
-    from src.strategies.interface import IStrategy
     from typing import cast
+
+    from src.strategies.interface import IStrategy
 
     derived = recommend_warmup_bars(cast(IStrategy, _TinyStubStrategy()))
     assert derived >= _ABSOLUTE_WARMUP_FLOOR

@@ -11,7 +11,7 @@ multiple runs into cross-strategy comparison reports.
 | `build_experiment(cfg)` | `ExperimentConfig` → wired `Experiment` (resolves data source, strategy, validator, engine, slippage, optional feature-pipeline factory). |
 | `Experiment.run(options)` | Execute walk-forward; write `config.yaml`, `manifest.json`, `fold_results.jsonl`, `metrics.json`, `strategy_state/`, `run.log` (root-logger tee for the duration of the run), optional report. |
 | `run_comparison(configs, ..., reused_results=...)` | Run N strategies on aligned data, rank them, pairwise-bootstrap Sharpe differentials. With `reused_results=` set, the per-strategy walk-forward step is skipped and prior fold artifacts feed the rest of the pipeline; `configs=` may be omitted on the reuse path and strategy names are read from each result's `manifest.name`. |
-| `load_experiment_result(run_dir)` / `load_experiment_config_from_run(run_dir)` / `resolve_run_dir(store, id)` | Reconstruct an `ExperimentResult` (or its frozen `ExperimentConfig`) from a persisted run directory; powers `compare --reuse-runs`. |
+| `load_experiment_result(run_dir)` / `load_experiment_config_from_run(run_dir)` / `resolve_run_dir(store, id)` | Reconstruct an `ExperimentResult` (or its frozen `ExperimentConfig`) from a persisted run directory; powers `compare --reuse-runs`. `resolve_run_dir` resolves a run by id under both the flat `runs/<id>` and study-nested `studies/<x>/runs/<id>` layouts (flat-first, recursive fallback), so a deployment can point at a study-internal run. |
 | `load_strategy_from_run_dir(run_dir)` | Registry-driven loader: returns a fully-trained `IStrategy` instance whose `generate_signals` works immediately. Used by the deployment layer. |
 | `create_deployment(...)` / `load_deployment(store, id)` / `predict(deployment_id, store_root, as_of=None)` / `read_signals(...)` | Live-deployment primitives: pin a trained run, generate today's signal, accumulate a signed log. Predict-only, no refit clock. |
 | `resolve_strategy_state_path(source_kind, source_id, store_root)` | Single source of truth for "where does this source's `strategy_state/` live" — handles both `run` and `hpo` (Optuna best-trial lookup). |
@@ -36,7 +36,7 @@ multiple runs into cross-strategy comparison reports.
 | `study.py` | Empirical-study orchestrator: leg expansion, universe-profile composition, per-universe cross-strategy compare. |
 | `study_state.py` | `LegState` + `StudyState` resume dataclasses; atomic write via `os.replace`; spec-hash guard refuses to resume against a mutated spec. |
 | `study_report.py` | `consolidate_study(study_dir)` walker + `ConsolidatedStudyReport` / `HoldoutSnapshot` value types — collapses per-leg artifacts into a cross-leg view consumed by `StudyReportReporter`. |
-| `clean.py` | `plan_clean` / `apply_clean` / `format_plan` — tidy ephemeral `experiment_results/` subdirs with a hard preserve on `thesis_demo/` and a `git ls-files` refusal on tracked content. |
+| `clean.py` | `plan_clean` / `apply_clean` / `format_plan` — tidy ephemeral `experiment_results/` subdirs with a `--keep` preserve set and a `git ls-files` refusal on tracked content. |
 | `git_info.py` | `read_git_sha()` — best-effort short SHA, `"unknown"` outside git. |
 | `types.py` | `ExperimentResult`, `FoldRecord`, `StrategyComparisonReport`, `PairwiseSignificance` (round-trips via `to_dict` / `from_dict`). |
 

@@ -12,6 +12,7 @@ function Tree() {
     <Routes>
       <Route path={ROUTES.holdout} element={<HoldoutPage />} />
       <Route path={ROUTES.holdoutDetail} element={<div>holdout detail</div>} />
+      <Route path={ROUTES.deploymentDetail} element={<div>deployment detail</div>} />
     </Routes>
   );
 }
@@ -31,5 +32,13 @@ describe("HoldoutPage", () => {
     const link = await screen.findByRole("link", { name: HOLDOUT_DEMO_SUMMARY.name });
     await user.click(link);
     expect(await screen.findByText("holdout detail")).toBeInTheDocument();
+  });
+
+  it("deploys a holdout source and navigates to the new deployment", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<Tree />, { initialEntries: [ROUTES.holdout] });
+
+    await user.click(await screen.findByTestId(`deploy-holdout-${HOLDOUT_DEMO_SUMMARY.name}`));
+    expect(await screen.findByText("deployment detail")).toBeInTheDocument();
   });
 });

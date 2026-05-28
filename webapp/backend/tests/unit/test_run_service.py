@@ -36,7 +36,7 @@ def test_list_runs_sorts_newest_first(
     tmp_path: Path, db_conn: sqlite3.Connection
 ) -> None:
     root = tmp_path / "experiment_results"
-    runs = root / "thesis_demo" / "runs"
+    runs = root / "flat_store" / "runs"
     make_synthetic_run(runs, experiment_id=OLDER_ID, created_at=OLDER_TS)
     make_synthetic_run(runs, experiment_id=NEWER_ID, created_at=NEWER_TS)
 
@@ -67,8 +67,8 @@ def test_list_runs_skips_runs_missing_config(
     tmp_path: Path, db_conn: sqlite3.Connection
 ) -> None:
     root = tmp_path / "experiment_results"
-    make_synthetic_run(root / "thesis_demo" / "runs", experiment_id=NEWER_ID)
-    make_synthetic_run(root / "thesis_demo" / "runs", experiment_id=OLDER_ID, write_config=False)
+    make_synthetic_run(root / "flat_store" / "runs", experiment_id=NEWER_ID)
+    make_synthetic_run(root / "flat_store" / "runs", experiment_id=OLDER_ID, write_config=False)
 
     summaries = list_runs(root, conn=db_conn, user=make_viewer_user(db_conn), all_users=False)
 
@@ -79,7 +79,7 @@ def test_list_runs_tolerates_missing_metrics(
     tmp_path: Path, db_conn: sqlite3.Connection
 ) -> None:
     root = tmp_path / "experiment_results"
-    make_synthetic_run(root / "thesis_demo" / "runs", experiment_id=NEWER_ID, write_metrics=False)
+    make_synthetic_run(root / "flat_store" / "runs", experiment_id=NEWER_ID, write_metrics=False)
 
     summary = list_runs(root, conn=db_conn, user=make_viewer_user(db_conn), all_users=False)[0]
 
@@ -92,7 +92,7 @@ def test_get_run_returns_full_detail(
 ) -> None:
     root = tmp_path / "experiment_results"
     make_synthetic_run(
-        root / "thesis_demo" / "runs",
+        root / "flat_store" / "runs",
         experiment_id=NEWER_ID,
         strategy="AdaptiveBollinger",
         tickers=["SPY"],
@@ -155,7 +155,7 @@ def test_get_run_raises_for_unknown_id(
     tmp_path: Path, db_conn: sqlite3.Connection
 ) -> None:
     root = tmp_path / "experiment_results"
-    make_synthetic_run(root / "thesis_demo" / "runs", experiment_id=NEWER_ID)
+    make_synthetic_run(root / "flat_store" / "runs", experiment_id=NEWER_ID)
 
     with pytest.raises(RunNotFoundError):
         get_run(root, "missing_id", conn=db_conn, user=make_viewer_user(db_conn))
@@ -166,7 +166,7 @@ def test_get_folds_returns_one_row_per_fold(
 ) -> None:
     root = tmp_path / "experiment_results"
     make_synthetic_run(
-        root / "thesis_demo" / "runs", experiment_id=NEWER_ID, n_folds=EXPECTED_FOLD_COUNT
+        root / "flat_store" / "runs", experiment_id=NEWER_ID, n_folds=EXPECTED_FOLD_COUNT
     )
 
     folds = get_folds(root, NEWER_ID, conn=db_conn, user=make_viewer_user(db_conn))
@@ -180,7 +180,7 @@ def test_resolve_plot_returns_path_for_existing_file(
     tmp_path: Path, db_conn: sqlite3.Connection
 ) -> None:
     root = tmp_path / "experiment_results"
-    make_synthetic_run(root / "thesis_demo" / "runs", experiment_id=NEWER_ID)
+    make_synthetic_run(root / "flat_store" / "runs", experiment_id=NEWER_ID)
 
     path = resolve_plot(
         root, NEWER_ID, PLOT_FILENAME, conn=db_conn, user=make_viewer_user(db_conn)
@@ -194,7 +194,7 @@ def test_resolve_plot_rejects_traversal(
     tmp_path: Path, db_conn: sqlite3.Connection
 ) -> None:
     root = tmp_path / "experiment_results"
-    make_synthetic_run(root / "thesis_demo" / "runs", experiment_id=NEWER_ID)
+    make_synthetic_run(root / "flat_store" / "runs", experiment_id=NEWER_ID)
 
     with pytest.raises(PlotNotFoundError):
         resolve_plot(
@@ -210,7 +210,7 @@ def test_resolve_plot_raises_for_missing_file(
     tmp_path: Path, db_conn: sqlite3.Connection
 ) -> None:
     root = tmp_path / "experiment_results"
-    make_synthetic_run(root / "thesis_demo" / "runs", experiment_id=NEWER_ID)
+    make_synthetic_run(root / "flat_store" / "runs", experiment_id=NEWER_ID)
 
     with pytest.raises(PlotNotFoundError):
         resolve_plot(

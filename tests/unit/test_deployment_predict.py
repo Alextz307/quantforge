@@ -321,6 +321,66 @@ def test_predict_appends_one_row_per_unique_bar(
     assert len(rows) == 2
 
 
+def test_featurize_rebuilds_external_pipeline_columns(bars: pd.DataFrame) -> None:
+    """
+    A strategy with an external feature pipeline gets its feature columns
+    rebuilt — fit on the model's training window, applied to the live bars —
+    before ``generate_signals`` sees them.
+    """
+
+    from src.core.config import ComponentConfig
+    from src.core.temporal import TrainingMetadata
+    from src.orchestration.deployment import _featurize_for_signals
+
+    train_slice = bars.iloc[:_TRAIN_END_INDEX]
+    live_slice = bars.iloc[_TRAIN_END_INDEX - 100 :]
+
+    class _TrainWindowFetcher:
+        def fetch(
+            self, ticker: str, start: datetime, end: datetime, interval: Interval
+        ) -> pd.DataFrame:
+            del ticker, start, end, interval
+            return train_slice
+
+    metadata = TrainingMetadata.from_fit(
+        train_slice, Interval.DAILY, ("return_1d", "vol_20", "rsi_14", "macd")
+    )
+    out = _featurize_for_signals(
+        live_slice,
+        features_cfg=ComponentConfig(name="standard", params={"keep_ohlc": True}),
+        fetcher=_TrainWindowFetcher(),
+        ticker=_TICKER,
+        metadata=metadata,
+    )
+
+    assert "return_1d" in out.columns
+    assert "macd" in out.columns
+    assert "close" in out.columns  # keep_ohlc preserved
+    assert len(out.columns) > len(live_slice.columns)
+    assert len(out) == len(live_slice)
+
+
+def test_featurize_passthrough_when_no_pipeline(bars: pd.DataFrame) -> None:
+    """
+    Strategies that self-compute from OHLCV (``features_cfg is None``) are
+    handed the raw bars unchanged — no spurious training-window fetch.
+    """
+
+    from src.core.temporal import TrainingMetadata
+    from src.orchestration.deployment import _featurize_for_signals
+
+    metadata = TrainingMetadata.from_fit(bars.iloc[:_TRAIN_END_INDEX], Interval.DAILY, ())
+    out = _featurize_for_signals(
+        bars,
+        features_cfg=None,
+        fetcher=_StubFetcher(bars, _TRAIN_END_INDEX),
+        ticker=_TICKER,
+        metadata=metadata,
+    )
+
+    assert out is bars
+
+
 def test_predict_empty_fetch_raises(
     trained_run: Path, bars: pd.DataFrame, monkeypatch: pytest.MonkeyPatch
 ) -> None:

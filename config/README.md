@@ -107,10 +107,10 @@ accepts repeated `--override key.path=value` flags. The
 value is parsed with `yaml.safe_load` so the surface matches the YAML
 files (e.g. `[QQQ]` → list, `false` → bool, `2024-01-01` → date).
 Intermediate keys must already exist in the loaded YAML — typos like
-`--override dat.tickers=[QQQ]` raise instead of silently no-op'ing. The
-`make thesis-demo` target uses this mechanism to compose the offline
-parquet data block from the canonical `config/strategies/*.yaml` files
-without keeping demo-specific duplicates.
+`--override dat.tickers=[QQQ]` raise instead of silently no-op'ing. This
+mechanism lets a caller compose an offline parquet data block from the
+canonical `config/strategies/*.yaml` files without keeping
+source-specific duplicates.
 
 ## Cross-links
 

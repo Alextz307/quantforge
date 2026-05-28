@@ -20,6 +20,8 @@ export const ROUTES = {
   studyDetail: "/studies/:name",
   hpo: "/hpo",
   hpoDetail: "/hpo/:wireId",
+  deployments: "/deployments",
+  deploymentDetail: "/deployments/:deploymentId",
   admin: "/admin",
 } as const;
 
@@ -45,6 +47,10 @@ export function hpoDetailPath(wireId: string): string {
 
 export function jobDetailPath(jobId: string): string {
   return `/jobs/${encodeURIComponent(jobId)}`;
+}
+
+export function deploymentDetailPath(deploymentId: string): string {
+  return `/deployments/${encodeURIComponent(deploymentId)}`;
 }
 
 export const FROM_QUERY_PARAM = "from";

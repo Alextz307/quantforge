@@ -19,9 +19,7 @@ export interface HoldoutEvalsListOptions {
   allUsers?: boolean;
 }
 
-function holdoutEvalsConfig(
-  opts: HoldoutEvalsListOptions,
-): ApiQueryOptions<HoldoutEvalSummary[]> {
+function holdoutEvalsConfig(opts: HoldoutEvalsListOptions): ApiQueryOptions<HoldoutEvalSummary[]> {
   const allUsers = opts.allUsers ?? false;
   return {
     queryKey: queryKeys.holdoutEvalsList(allUsers),

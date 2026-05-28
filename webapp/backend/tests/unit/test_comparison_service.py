@@ -37,7 +37,7 @@ def test_list_comparisons_sorts_newest_first(
     tmp_path: Path, db_conn: sqlite3.Connection
 ) -> None:
     root = tmp_path / "experiment_results"
-    parent = root / "thesis_demo" / COMPARISONS_SUBDIR
+    parent = root / "flat_store" / COMPARISONS_SUBDIR
     make_synthetic_comparison(parent, name=OLDER_NAME, created_at=OLDER_TS)
     make_synthetic_comparison(parent, name=NEWER_NAME, created_at=NEWER_TS)
 
@@ -70,7 +70,7 @@ def test_get_comparison_returns_full_detail(
 ) -> None:
     root = tmp_path / "experiment_results"
     make_synthetic_comparison(
-        root / "thesis_demo" / COMPARISONS_SUBDIR,
+        root / "flat_store" / COMPARISONS_SUBDIR,
         name=NEWER_NAME,
         strategies={"A": "id_a"},
     )
@@ -91,7 +91,7 @@ def test_get_comparison_raises_for_unknown_name(
     tmp_path: Path, db_conn: sqlite3.Connection
 ) -> None:
     root = tmp_path / "experiment_results"
-    make_synthetic_comparison(root / "thesis_demo" / COMPARISONS_SUBDIR, name=NEWER_NAME)
+    make_synthetic_comparison(root / "flat_store" / COMPARISONS_SUBDIR, name=NEWER_NAME)
 
     with pytest.raises(ComparisonNotFoundError):
         get_comparison(root, "missing_compare", conn=db_conn, user=make_viewer_user(db_conn))
@@ -101,7 +101,7 @@ def test_resolve_plot_returns_path_for_existing_file(
     tmp_path: Path, db_conn: sqlite3.Connection
 ) -> None:
     root = tmp_path / "experiment_results"
-    make_synthetic_comparison(root / "thesis_demo" / COMPARISONS_SUBDIR, name=NEWER_NAME)
+    make_synthetic_comparison(root / "flat_store" / COMPARISONS_SUBDIR, name=NEWER_NAME)
 
     path = resolve_plot(
         root, NEWER_NAME, PLOT_FILENAME, conn=db_conn, user=make_viewer_user(db_conn)
@@ -115,7 +115,7 @@ def test_resolve_plot_rejects_traversal(
     tmp_path: Path, db_conn: sqlite3.Connection
 ) -> None:
     root = tmp_path / "experiment_results"
-    make_synthetic_comparison(root / "thesis_demo" / COMPARISONS_SUBDIR, name=NEWER_NAME)
+    make_synthetic_comparison(root / "flat_store" / COMPARISONS_SUBDIR, name=NEWER_NAME)
 
     with pytest.raises(PlotNotFoundError):
         resolve_plot(

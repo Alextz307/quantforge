@@ -656,7 +656,7 @@ def webapp_store(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     """
 
     root = tmp_path / "experiment_results"
-    flat_runs = root / "thesis_demo" / "runs"
+    flat_runs = root / "flat_store" / "runs"
     study_runs = root / "studies" / "main" / "runs"
     make_synthetic_run(
         flat_runs,
@@ -672,7 +672,7 @@ def webapp_store(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
         created_at=datetime(2026, 2, 1, 9, 0, 0, tzinfo=UTC),
     )
     make_synthetic_comparison(
-        root / "thesis_demo" / COMPARISONS_SUBDIR,
+        root / "flat_store" / COMPARISONS_SUBDIR,
         name="flat_compare",
         strategies={
             "AdaptiveBollinger": "20260101_120000_AdaptiveBollinger_abc1234_deadbeef",

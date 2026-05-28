@@ -8,12 +8,10 @@ the same logic is exercised in tests without going through click.
 What gets wiped:
 
 * The *contents* of every immediate child *directory* under
-  ``<store_root>/`` that is NOT in the always-preserved set
-  (``thesis_demo`` — the only committed artifact bundle in this repo)
-  and NOT explicitly listed in ``--keep``. The directory itself is
-  left in place (empty) so consumers that assume the canonical store
-  layout exists (``<root>/hpo/``, ``<root>/runs/``, ...) keep finding
-  it after a wipe.
+  ``<store_root>/`` that is NOT explicitly listed in ``--keep``. The
+  directory itself is left in place (empty) so consumers that assume
+  the canonical store layout exists (``<root>/hpo/``, ``<root>/runs/``,
+  ...) keep finding it after a wipe.
 * Any directory containing a git-tracked file is refused with a clear
   error pointing the user at ``git rm`` or ``--keep``. The check goes
   through ``git ls-files`` so .gitignored ephemera can be removed
@@ -24,8 +22,7 @@ What is NOT touched:
 
 * Files at the top level of ``<store_root>/`` (e.g., a stray README).
   Only directory contents are candidates.
-* The ``thesis_demo/`` tree (preserved unconditionally — its
-  ``sample/`` subdir is the one tracked artifact bundle in this repo).
+* Directories whose names are listed in ``--keep``.
 * Anything outside ``<store_root>/``: parent path traversal is
   defensively blocked.
 """
@@ -41,10 +38,6 @@ from pathlib import Path
 from src.core.logging import get_logger
 
 _logger = get_logger(__name__)
-
-# The one tracked artifact bundle in this repo. Removing it would lose the
-# committed thesis_demo/sample/ payload, so we preserve unconditionally.
-_ALWAYS_PRESERVE: frozenset[str] = frozenset({"thesis_demo"})
 
 
 @dataclass(frozen=True)
@@ -92,7 +85,7 @@ def plan_clean(
     """
     Walk ``store_root`` and classify every immediate-child directory.
 
-    ``keep`` is appended to the unconditional preserve set. ``repo_root``
+    ``keep`` is the set of child-directory names to preserve. ``repo_root``
     is the directory used as the cwd for ``git ls-files``; defaults to
     ``store_root``'s parent (so a typical ``experiment_results/`` under
     a repo root works without an explicit override).
@@ -102,10 +95,10 @@ def plan_clean(
         return CleanPlan(
             store_root=store_root,
             candidates=(),
-            preserved=tuple(sorted(_ALWAYS_PRESERVE | set(keep))),
+            preserved=tuple(sorted(set(keep))),
         )
 
-    preserved = _ALWAYS_PRESERVE | set(keep)
+    preserved = set(keep)
     git_root = repo_root if repo_root is not None else store_root.parent
     tracked_by_child = _git_tracked_by_child(store_root, git_root=git_root)
 

@@ -27,11 +27,15 @@ from src.data.live_fetcher import resolve_fetcher
 from src.orchestration.deployment import (
     SignalRow,
     _to_naive,
-    create_deployment as framework_create_deployment,
-    predict as framework_predict,
     read_signals,
     resolve_deployment_dir,
     resolve_strategy_state_path,
+)
+from src.orchestration.deployment import (
+    create_deployment as framework_create_deployment,
+)
+from src.orchestration.deployment import (
+    predict as framework_predict,
 )
 from src.orchestration.holdout_eval import SourceKind
 from src.orchestration.run_loader import (
@@ -122,6 +126,23 @@ def _load_strategy_cached(run_dir: Path) -> IStrategy:
 def _clear_strategy_cache() -> None:
     with _strategy_cache_lock:
         _strategy_cache.clear()
+
+
+# Serializes predict-if-stale per deployment. Two concurrent requests (a
+# double-fired mount effect, a double-click, two tabs) would otherwise both
+# miss the cache and append a duplicate row for the same bar; the second
+# caller blocks here, then re-reads the freshly written signal and recalls it.
+_predict_locks: dict[str, threading.Lock] = {}
+_predict_locks_guard = threading.Lock()
+
+
+def _predict_lock(deployment_id: str) -> threading.Lock:
+    with _predict_locks_guard:
+        lock = _predict_locks.get(deployment_id)
+        if lock is None:
+            lock = threading.Lock()
+            _predict_locks[deployment_id] = lock
+        return lock
 
 
 _BAR_TS_CACHE_TTL_SECONDS = 300.0
@@ -364,10 +385,7 @@ def list_deployments(
             "ORDER BY d.created_at DESC",
             (user.id,),
         ).fetchall()
-    return [
-        _row_to_summary(row, row["owner_username"] or _OWNERLESS_USERNAME)
-        for row in rows
-    ]
+    return [_row_to_summary(row, row["owner_username"] or _OWNERLESS_USERNAME) for row in rows]
 
 
 def get_deployment(
@@ -409,13 +427,9 @@ def rename_deployment(
     if row is None:
         raise DeploymentNotFoundError(deployment_id)
     _enforce_access(row, user)
-    conn.execute(
-        "UPDATE deployments SET name = ? WHERE id = ?", (new_name, deployment_id)
-    )
+    conn.execute("UPDATE deployments SET name = ? WHERE id = ?", (new_name, deployment_id))
     conn.commit()
-    return get_deployment(
-        conn, store_root=store_root, user=user, deployment_id=deployment_id
-    )
+    return get_deployment(conn, store_root=store_root, user=user, deployment_id=deployment_id)
 
 
 def delete_deployment(
@@ -472,22 +486,25 @@ def predict_if_stale(
 
     ticker = row["ticker"]
     interval = Interval(row["interval"])
-    latest_available = _to_naive(_latest_available_bar_ts_cached(ticker, interval))
 
-    cached = _last_signal(store_root, deployment_id)
-    if cached is not None and _to_naive(cached.bar_ts) >= latest_available:
-        return PredictIfStaleResponse(stale=False, signal=_signal_to_out(cached))
+    with _predict_lock(deployment_id):
+        latest_available = _to_naive(_latest_available_bar_ts_cached(ticker, interval))
+        cached = _last_signal(store_root, deployment_id)
+        if cached is not None and _to_naive(cached.bar_ts) >= latest_available:
+            return PredictIfStaleResponse(stale=False, signal=_signal_to_out(cached))
 
-    new_signal = framework_predict(
-        deployment_id=deployment_id,
-        store_root=store_root,
-        as_of=None,
-        strategy_loader=_load_strategy_cached,
-    )
-    is_stale = cached is None or _to_naive(cached.bar_ts) != _to_naive(new_signal.bar_ts)
-    return PredictIfStaleResponse(stale=is_stale, signal=_signal_to_out(new_signal))
+        new_signal = framework_predict(
+            deployment_id=deployment_id,
+            store_root=store_root,
+            as_of=None,
+            strategy_loader=_load_strategy_cached,
+        )
+        is_stale = cached is None or _to_naive(cached.bar_ts) != _to_naive(new_signal.bar_ts)
+        return PredictIfStaleResponse(stale=is_stale, signal=_signal_to_out(new_signal))
 
 
 def _clear_caches_for_tests() -> None:
     _clear_strategy_cache()
     _clear_bar_ts_cache()
+    with _predict_locks_guard:
+        _predict_locks.clear()

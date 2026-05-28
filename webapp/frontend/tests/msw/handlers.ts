@@ -1,6 +1,13 @@
 import { http, HttpResponse } from "msw";
 import type { ComparisonDetail, ComparisonSummary } from "@/api/comparisons";
 import type { ConfigDetail, ConfigEntry, ValidateRequest, ValidateResponse } from "@/api/configs";
+import type {
+  DeploymentCreate,
+  DeploymentDetail,
+  DeploymentSummary,
+  PredictIfStaleResponse,
+  SignalRowOut,
+} from "@/api/deployments";
 import type { HoldoutEvalDetail, HoldoutEvalSummary } from "@/api/holdout";
 import type { HpoDetail, HpoSummary, ParamImportanceResponse, TrialRow } from "@/api/hpo";
 import type { JobRow, JobSubmission } from "@/api/jobs";
@@ -21,7 +28,7 @@ export const RUN_SPY: RunSummary = {
   strategy: "AdaptiveBollinger",
   tickers: ["SPY"],
   interval: "DAY",
-  store: "thesis_demo/runs",
+  store: "flat_store/runs",
   created_at: "2026-04-01T12:00:00Z",
   sharpe_mean: 1.234,
   calmar_mean: 0.456,
@@ -35,7 +42,7 @@ export const RUN_IVV_VOO: RunSummary = {
   strategy: "PairsTrading",
   tickers: ["IVV", "VOO"],
   interval: "DAY",
-  store: "thesis_demo/runs",
+  store: "flat_store/runs",
   created_at: "2026-04-15T12:00:00Z",
   sharpe_mean: 2.0,
   calmar_mean: 1.1,
@@ -121,7 +128,7 @@ export const RUN_PAIRS_FOLDS: FoldRow[] = [
 
 export const COMPARISON_DEMO_SUMMARY: ComparisonSummary = {
   name: "demo_comparison_2026Q1",
-  store: "thesis_demo/comparisons",
+  store: "flat_store/comparisons",
   created_at: "2026-04-20T12:00:00Z",
   strategies: [RUN_SPY.strategy, RUN_IVV_VOO.strategy],
 };
@@ -186,7 +193,7 @@ export const SEED_COMPARISONS: ComparisonSummary[] = [COMPARISON_DEMO_SUMMARY];
 
 export const HOLDOUT_DEMO_SUMMARY: HoldoutEvalSummary = {
   name: "demo_holdout_spy",
-  store: "thesis_demo/holdout_evals",
+  store: "flat_store/holdout_evals",
   created_at: "2026-04-25T12:00:00Z",
   source_kind: "run",
   source_id: RUN_SPY.experiment_id,
@@ -456,6 +463,52 @@ export const JOB_FAILED: JobRow = {
 
 export const SEED_JOBS: JobRow[] = [JOB_RUNNING, JOB_COMPLETED, JOB_FAILED];
 
+export const DEPLOY_SIGNAL_LATEST: SignalRowOut = {
+  submitted_at: "2026-05-28T16:30:00Z",
+  bar_ts: "2026-05-28T00:00:00Z",
+  signal: 1.0,
+  warmup_fingerprint: "sha256:deadbeef",
+  source_run_id: RUN_SPY.experiment_id,
+  warmup_bars_used: 252,
+};
+
+export const DEPLOY_SIGNAL_HISTORY: SignalRowOut[] = [
+  {
+    ...DEPLOY_SIGNAL_LATEST,
+    bar_ts: "2026-05-27T00:00:00Z",
+    submitted_at: "2026-05-27T16:31:00Z",
+    signal: 0.0,
+  },
+  DEPLOY_SIGNAL_LATEST,
+];
+
+export const DEPLOY_SPY: DeploymentSummary = {
+  id: "dep_spy",
+  name: "SPY-AdaptiveBollinger-2026-01-15",
+  source_kind: "run",
+  source_id: RUN_SPY.experiment_id,
+  ticker: "SPY",
+  strategy_name: "AdaptiveBollinger",
+  interval: "daily",
+  train_end: "2026-01-15T00:00:00Z",
+  warmup_bars: 252,
+  created_at: "2026-05-20T12:00:00Z",
+  owner_username: ADMIN_USER.username,
+};
+
+export const DEPLOY_SPY_DETAIL: DeploymentDetail = {
+  ...DEPLOY_SPY,
+  latest_signal: DEPLOY_SIGNAL_LATEST,
+};
+
+export const DEPLOY_NEW_ID = "dep_new";
+
+export const SEED_DEPLOYMENTS: DeploymentSummary[] = [DEPLOY_SPY];
+
+function isKnownDeployment(id: unknown): boolean {
+  return id === DEPLOY_SPY.id || id === DEPLOY_NEW_ID;
+}
+
 export const handlers = [
   http.get("/api/auth/me", () => HttpResponse.json(ADMIN_USER)),
   http.post("/api/auth/login", () => HttpResponse.json(ADMIN_USER)),
@@ -583,5 +636,43 @@ export const handlers = [
     const job = SEED_JOBS.find((j) => j.id === params.job_id);
     if (!job) return new HttpResponse(null, { status: 404 });
     return HttpResponse.json({ ...job, status: "cancelled" } satisfies JobRow);
+  }),
+  http.get(API_PATHS.deployments, () => HttpResponse.json(SEED_DEPLOYMENTS)),
+  http.post(API_PATHS.deployments, async ({ request }) => {
+    const body = (await request.json()) as DeploymentCreate;
+    const created: DeploymentDetail = {
+      ...DEPLOY_SPY_DETAIL,
+      id: DEPLOY_NEW_ID,
+      name: body.name ?? "new-deployment",
+      source_kind: body.source_kind,
+      source_id: body.source_id,
+    };
+    return HttpResponse.json(created, { status: 201 });
+  }),
+  http.get(toMswPath(API_PATHS.deployment), ({ params }) => {
+    if (params.deployment_id === DEPLOY_NEW_ID)
+      return HttpResponse.json({ ...DEPLOY_SPY_DETAIL, id: DEPLOY_NEW_ID });
+    if (params.deployment_id === DEPLOY_SPY.id) return HttpResponse.json(DEPLOY_SPY_DETAIL);
+    return new HttpResponse(null, { status: 404 });
+  }),
+  http.patch(toMswPath(API_PATHS.deployment), async ({ params, request }) => {
+    if (!isKnownDeployment(params.deployment_id)) return new HttpResponse(null, { status: 404 });
+    const body = (await request.json()) as { name: string };
+    return HttpResponse.json({ ...DEPLOY_SPY_DETAIL, name: body.name });
+  }),
+  http.delete(toMswPath(API_PATHS.deployment), ({ params }) => {
+    if (!isKnownDeployment(params.deployment_id)) return new HttpResponse(null, { status: 404 });
+    return new HttpResponse(null, { status: 204 });
+  }),
+  http.get(toMswPath(API_PATHS.deploymentSignals), ({ params }) => {
+    if (!isKnownDeployment(params.deployment_id)) return new HttpResponse(null, { status: 404 });
+    return HttpResponse.json(DEPLOY_SIGNAL_HISTORY);
+  }),
+  http.post(toMswPath(API_PATHS.deploymentPredict), ({ params }) => {
+    if (!isKnownDeployment(params.deployment_id)) return new HttpResponse(null, { status: 404 });
+    return HttpResponse.json({
+      stale: false,
+      signal: DEPLOY_SIGNAL_LATEST,
+    } satisfies PredictIfStaleResponse);
   }),
 ];

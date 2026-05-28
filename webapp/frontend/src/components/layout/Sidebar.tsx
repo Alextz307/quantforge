@@ -5,6 +5,7 @@ import {
   LayoutDashboard,
   ListChecks,
   PlayCircle,
+  Radio,
   Shield,
   Target,
   Workflow,
@@ -32,6 +33,7 @@ const NAV_ITEMS: NavItem[] = [
   { to: ROUTES.holdout, label: "Holdout", icon: Target },
   { to: ROUTES.studies, label: "Studies", icon: ListChecks },
   { to: ROUTES.hpo, label: "HPO", icon: Beaker },
+  { to: ROUTES.deployments, label: "Deployments", icon: Radio },
   { to: ROUTES.admin, label: "Admin", icon: Shield, adminOnly: true },
 ];
 

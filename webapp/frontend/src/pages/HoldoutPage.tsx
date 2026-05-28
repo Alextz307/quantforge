@@ -1,8 +1,10 @@
 import { useCallback, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useMe } from "@/api/auth";
+import { useCreateDeployment } from "@/api/deployments";
 import { useHoldoutEvals, usePrefetchHoldoutEval, type HoldoutEvalSummary } from "@/api/holdout";
 import { AllUsersToggle } from "@/components/AllUsersToggle";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FilterDate } from "@/components/FilterDate";
@@ -16,7 +18,7 @@ import { LaunchedByCell } from "@/components/LaunchedByCell";
 import { QueryRenderer } from "@/components/QueryRenderer";
 import { ALL_OPTION, uniqSorted } from "@/lib/filters";
 import { formatDateTime, formatMetric } from "@/lib/format";
-import { holdoutDetailPath, ROUTES } from "@/lib/routes";
+import { deploymentDetailPath, holdoutDetailPath, ROUTES } from "@/lib/routes";
 import { SOURCE_KINDS, sourceKindLabel, type SourceKind } from "@/lib/sourceKind";
 
 type SourceKindFilter = SourceKind | typeof ALL_OPTION;
@@ -146,69 +148,106 @@ function HoldoutBody({
   const filters = useMemo<HoldoutFilters>(() => ({ sourceKind, since }), [sourceKind, since]);
   const sorted = useMemo(() => sortRows(rows, sortState), [rows, sortState]);
   const prefetchHoldoutEval = usePrefetchHoldoutEval();
+  const create = useCreateDeployment();
+  const navigate = useNavigate();
+
+  function deploy(source: HoldoutEvalSummary) {
+    create.mutate(
+      { source_kind: source.source_kind, source_id: source.source_id },
+      {
+        onSuccess: (d) => {
+          navigate(deploymentDetailPath(d.id));
+        },
+      },
+    );
+  }
 
   return (
-    <FilterableTablePage<HoldoutEvalSummary, HoldoutFilters, HoldoutSortKey>
-      rows={sorted}
-      filters={filters}
-      applyFilters={applyFilters}
-      filterControls={
-        <>
-          <FilterSelect
-            id="filter-source-kind"
-            label="Source kind"
-            value={sourceKind}
-            onChange={(next) => {
-              if (isSourceKindFilter(next)) onSourceKind(next);
-            }}
-            allLabel="All source kinds"
-            options={sourceKindOptions}
-            optionLabel={(v) => sourceKindLabel(v as SourceKind)}
-          />
-          <FilterDate id="filter-since" label="Since" value={since} onChange={onSince} />
-        </>
-      }
-      rowKey={(r) => r.name}
-      rowName={(r) => r.name}
-      rowHref={(r) => holdoutDetailPath(r.name)}
-      rowOnHover={(r) => {
-        prefetchHoldoutEval(r.name);
-      }}
-      tableTestId="holdout-table"
-      emptyMessage="No holdout evaluations match the current filters."
-      sortState={sortState}
-      onSortToggle={onSortToggle}
-      columns={[
-        { header: "Store", cellClassName: "font-mono", render: (r) => r.store },
-        {
-          header: "Source",
-          cellClassName: "font-mono text-xs",
-          render: (r) => `${sourceKindLabel(r.source_kind)} · ${r.source_id}`,
-        },
-        {
-          header: "Sharpe",
-          align: "right",
-          cellClassName: "font-mono",
-          render: (r) => formatMetric(r.sharpe_ratio),
-          sortKey: "sharpe_ratio",
-        },
-        {
-          header: "Holdout start",
-          cellClassName: "font-mono text-xs",
-          render: (r) => formatDateTime(r.holdout_start),
-          sortKey: "holdout_start",
-        },
-        {
-          header: "Created",
-          cellClassName: "font-mono text-xs",
-          render: (r) => formatDateTime(r.created_at),
-          sortKey: "created_at",
-        },
-        {
-          header: "Launched by",
-          render: (r) => <LaunchedByCell username={r.launched_by_username} />,
-        },
-      ]}
-    />
+    <div className="flex flex-col gap-4">
+      {create.isError && (
+        <Alert variant="destructive">
+          <AlertDescription>{create.error.message}</AlertDescription>
+        </Alert>
+      )}
+      <FilterableTablePage<HoldoutEvalSummary, HoldoutFilters, HoldoutSortKey>
+        rows={sorted}
+        filters={filters}
+        applyFilters={applyFilters}
+        filterControls={
+          <>
+            <FilterSelect
+              id="filter-source-kind"
+              label="Source kind"
+              value={sourceKind}
+              onChange={(next) => {
+                if (isSourceKindFilter(next)) onSourceKind(next);
+              }}
+              allLabel="All source kinds"
+              options={sourceKindOptions}
+              optionLabel={(v) => sourceKindLabel(v as SourceKind)}
+            />
+            <FilterDate id="filter-since" label="Since" value={since} onChange={onSince} />
+          </>
+        }
+        rowKey={(r) => r.name}
+        rowName={(r) => r.name}
+        rowHref={(r) => holdoutDetailPath(r.name)}
+        rowOnHover={(r) => {
+          prefetchHoldoutEval(r.name);
+        }}
+        tableTestId="holdout-table"
+        emptyMessage="No holdout evaluations match the current filters."
+        sortState={sortState}
+        onSortToggle={onSortToggle}
+        columns={[
+          { header: "Store", cellClassName: "font-mono", render: (r) => r.store },
+          {
+            header: "Source",
+            cellClassName: "font-mono text-xs",
+            render: (r) => `${sourceKindLabel(r.source_kind)} · ${r.source_id}`,
+          },
+          {
+            header: "Sharpe",
+            align: "right",
+            cellClassName: "font-mono",
+            render: (r) => formatMetric(r.sharpe_ratio),
+            sortKey: "sharpe_ratio",
+          },
+          {
+            header: "Holdout start",
+            cellClassName: "font-mono text-xs",
+            render: (r) => formatDateTime(r.holdout_start),
+            sortKey: "holdout_start",
+          },
+          {
+            header: "Created",
+            cellClassName: "font-mono text-xs",
+            render: (r) => formatDateTime(r.created_at),
+            sortKey: "created_at",
+          },
+          {
+            header: "Launched by",
+            render: (r) => <LaunchedByCell username={r.launched_by_username} />,
+          },
+          {
+            header: "",
+            align: "right",
+            render: (r) => (
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={create.isPending}
+                onClick={() => {
+                  deploy(r);
+                }}
+                data-testid={`deploy-holdout-${r.name}`}
+              >
+                Deploy
+              </Button>
+            ),
+          },
+        ]}
+      />
+    </div>
   );
 }

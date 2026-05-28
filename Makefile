@@ -1,4 +1,4 @@
-.PHONY: install test test-cpp test-python lint typecheck experiment thesis-demo stubs clean webapp webapp-dev webapp-test webapp-typecheck webapp-lint webapp-frontend-install webapp-frontend-dev webapp-frontend-build webapp-frontend-test webapp-frontend-typecheck webapp-frontend-lint webapp-openapi-snapshot webapp-check-openapi-snapshot webapp-check-schema-mirror
+.PHONY: install test test-cpp test-python lint typecheck experiment stubs clean webapp webapp-dev webapp-test webapp-typecheck webapp-lint webapp-frontend-install webapp-frontend-dev webapp-frontend-build webapp-frontend-test webapp-frontend-typecheck webapp-frontend-lint webapp-openapi-snapshot webapp-check-openapi-snapshot webapp-check-schema-mirror
 
 install:
 	pip install -e ".[dev]"
@@ -27,42 +27,6 @@ tune:
 	@test -n "$(HPO)" || { echo "usage: make tune CONFIG=<cfg.yaml> HPO=<hpo.yaml> [TRIALS=n] [NJOBS=n]"; exit 1; }
 	python -m scripts.experiment tune --config $(CONFIG) --hpo-config $(HPO) \
 		$(if $(TRIALS),--trials $(TRIALS)) $(if $(NJOBS),--n-jobs $(NJOBS))
-
-THESIS_DEMO_DIR := experiment_results/thesis_demo
-
-# Compose the demo's offline data block from the canonical strategy YAMLs
-# via --override so we don't keep parquet-pointing duplicates in
-# config/. The strategy YAMLs default to yfinance + SPY + the same date
-# window, so only the data.source needs swapping.
-THESIS_DEMO_DATA_OVERRIDES := \
-	--override 'data.source.name=parquet' \
-	--override 'data.source.params.data_dir=tests/fixtures'
-
-thesis-demo:
-	@echo "──────────────────────────────────────────────────────────────"
-	@echo "  thesis-demo: end-to-end pipeline smoke on cached SPY"
-	@echo "  Output is illustrative — NOT empirical results. The"
-	@echo "  comprehensive empirical study will land under"
-	@echo "  experiment_results/studies/ separately."
-	@echo "──────────────────────────────────────────────────────────────"
-	@rm -rf $(THESIS_DEMO_DIR)/runs \
-	        $(THESIS_DEMO_DIR)/comparisons
-	python -m scripts.experiment run \
-		--config config/strategies/adaptive_bollinger.yaml \
-		--store-root $(THESIS_DEMO_DIR) \
-		$(THESIS_DEMO_DATA_OVERRIDES)
-	python -m scripts.experiment compare \
-		--config config/strategies/adaptive_bollinger.yaml \
-		--config config/strategies/momentum_gatekeeper.yaml \
-		--out-name pipeline_compare \
-		--store-root $(THESIS_DEMO_DIR) \
-		$(THESIS_DEMO_DATA_OVERRIDES)
-	@echo "──────────────────────────────────────────────────────────────"
-	@echo "  thesis-demo finished. Fresh artifacts under:"
-	@echo "    $(THESIS_DEMO_DIR)/runs/<exp_id>/"
-	@echo "    $(THESIS_DEMO_DIR)/comparisons/pipeline_compare/"
-	@echo "  Committed sample lives at $(THESIS_DEMO_DIR)/sample/."
-	@echo "──────────────────────────────────────────────────────────────"
 
 stubs:
 	python scripts/regen_stubs.py

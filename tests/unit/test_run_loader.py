@@ -31,11 +31,13 @@ from src.core.persistence import (
     EXPERIMENT_MANIFEST_JSON,
     EXPERIMENT_STRATEGY_SUBDIR,
     FOLD_RESULTS_JSONL,
+    RUNS_SUBDIR,
 )
 from src.orchestration.run_loader import (
     load_experiment_config_from_run,
     load_experiment_result,
     load_strategy_from_run_dir,
+    resolve_run_dir,
 )
 from src.strategies.adaptive_bollinger import AdaptiveBollingerStrategy
 from tests.conftest import (
@@ -197,5 +199,27 @@ def test_load_strategy_missing_state_dir_raises(tmp_path: Path) -> None:
     run_dir.mkdir()
     with pytest.raises(FileNotFoundError, match="strategy state directory not found"):
         load_strategy_from_run_dir(run_dir)
+
+
+_RUN_ID = "20260522_143448_AdaptiveBollinger_f8bee0a_b102397e"
+_STUDY_NAME = "main"
+
+
+def test_resolve_run_dir_flat(tmp_path: Path) -> None:
+    run_dir = tmp_path / RUNS_SUBDIR / _RUN_ID
+    run_dir.mkdir(parents=True)
+    assert resolve_run_dir(tmp_path, _RUN_ID) == run_dir
+
+
+def test_resolve_run_dir_study_nested(tmp_path: Path) -> None:
+    run_dir = tmp_path / "studies" / _STUDY_NAME / RUNS_SUBDIR / _RUN_ID
+    run_dir.mkdir(parents=True)
+    assert resolve_run_dir(tmp_path, _RUN_ID) == run_dir
+
+
+def test_resolve_run_dir_absent_returns_flat_path(tmp_path: Path) -> None:
+    resolved = resolve_run_dir(tmp_path, _RUN_ID)
+    assert resolved == tmp_path / RUNS_SUBDIR / _RUN_ID
+    assert not resolved.exists()
 
 

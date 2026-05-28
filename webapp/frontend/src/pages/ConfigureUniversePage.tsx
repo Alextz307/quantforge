@@ -151,8 +151,7 @@ export function ConfigureUniversePage() {
     setUploadSlug("");
   };
 
-  const saveDisabled =
-    saveUpload.isPending || (mode === "new" && validationErrors.length > 0);
+  const saveDisabled = saveUpload.isPending || (mode === "new" && validationErrors.length > 0);
 
   return (
     <Card className="max-w-6xl">
@@ -160,8 +159,8 @@ export function ConfigureUniversePage() {
         <CardTitle>Configure universe</CardTitle>
         <CardDescription>
           Manage reusable universe specs. A universe pins{" "}
-          <code className="font-mono">data.source × tickers × interval × date window</code> so
-          study legs can reference it by slug.
+          <code className="font-mono">data.source × tickers × interval × date window</code> so study
+          legs can reference it by slug.
         </CardDescription>
       </CardHeader>
       <CardContent>

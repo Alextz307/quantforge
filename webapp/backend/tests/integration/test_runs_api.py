@@ -74,7 +74,7 @@ def test_get_run_detail_returns_manifest_and_metrics(
     assert payload["experiment_id"] == FLAT_ID
     assert payload["strategy"] == "AdaptiveBollinger"
     assert payload["tickers"] == ["SPY"]
-    assert payload["store"] == "thesis_demo/runs"
+    assert payload["store"] == "flat_store/runs"
     assert "sharpe_mean" in payload["metrics"]
     assert PLOT_FILENAME in payload["plots"]
 

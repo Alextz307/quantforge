@@ -53,9 +53,7 @@ export function useUniverseUploads(): UseQueryResult<UniverseSpecUploadSummary[]
   return useApiQuery(uploadsConfig());
 }
 
-export function useUniverseUpload(
-  slug: string | null,
-): UseQueryResult<UniverseSpecUploadDetail> {
+export function useUniverseUpload(slug: string | null): UseQueryResult<UniverseSpecUploadDetail> {
   const config = uploadDetailConfig(slug ?? "");
   return useApiQuery({ ...config, enabled: slug !== null });
 }

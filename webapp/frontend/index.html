@@ -13,8 +13,10 @@
       (function () {
         try {
           var stored = window.localStorage.getItem("quantforge:theme");
-          var prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
-          var resolved = stored === "dark" || stored === "light" ? stored : prefersDark ? "dark" : "light";
+          var prefersDark =
+            window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+          var resolved =
+            stored === "dark" || stored === "light" ? stored : prefersDark ? "dark" : "light";
           if (resolved === "dark") document.documentElement.classList.add("dark");
         } catch (e) {
           // localStorage / matchMedia unavailable

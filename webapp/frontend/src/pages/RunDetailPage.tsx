@@ -1,7 +1,9 @@
 import { useMemo } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import { useCreateDeployment } from "@/api/deployments";
 import { plotDownloadUrl, useRun, useRunFolds, type FoldRow } from "@/api/runs";
 import { BackLink } from "@/components/BackLink";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EquityChart, type EquityTrace } from "@/components/charts/EquityChart";
@@ -10,7 +12,7 @@ import { ManifestPanel } from "@/components/runs/ManifestPanel";
 import { PlotIndex } from "@/components/PlotIndex";
 import { QueryRenderer } from "@/components/QueryRenderer";
 import { formatMetric } from "@/lib/format";
-import { ROUTES } from "@/lib/routes";
+import { deploymentDetailPath, ROUTES } from "@/lib/routes";
 import { SOURCE_KIND_RUN } from "@/lib/sourceKind";
 
 function MetricsGrid({ metrics }: { metrics: Record<string, number> }) {
@@ -41,6 +43,19 @@ export function RunDetailPage() {
   const { experimentId = "" } = useParams<{ experimentId: string }>();
   const runQuery = useRun(experimentId);
   const foldsQuery = useRunFolds(experimentId);
+  const create = useCreateDeployment();
+  const navigate = useNavigate();
+
+  function deploy() {
+    create.mutate(
+      { source_kind: SOURCE_KIND_RUN, source_id: experimentId },
+      {
+        onSuccess: (d) => {
+          navigate(deploymentDetailPath(d.id));
+        },
+      },
+    );
+  }
 
   return (
     <QueryRenderer query={runQuery} errorTitle="Failed to load run" loadingMessage="Loading run…">
@@ -48,17 +63,41 @@ export function RunDetailPage() {
         <div className="flex flex-col gap-4">
           <div className="flex items-center justify-between">
             <BackLink to={ROUTES.runs}>All runs</BackLink>
-            {run.holdout_start !== null && (
-              <Button asChild variant="outline" size="sm">
-                <Link
-                  to={`${ROUTES.configureHoldout}?source_kind=${SOURCE_KIND_RUN}&source_id=${encodeURIComponent(run.experiment_id)}`}
-                  data-testid="run-detail-holdout-cta"
-                >
-                  Run holdout eval
-                </Link>
+            <div className="flex items-center gap-2">
+              {run.holdout_start !== null && (
+                <Button asChild variant="outline" size="sm">
+                  <Link
+                    to={`${ROUTES.configureHoldout}?source_kind=${SOURCE_KIND_RUN}&source_id=${encodeURIComponent(run.experiment_id)}`}
+                    data-testid="run-detail-holdout-cta"
+                  >
+                    Run holdout eval
+                  </Link>
+                </Button>
+              )}
+              <Button
+                size="sm"
+                disabled={create.isPending}
+                onClick={deploy}
+                data-testid="run-detail-deploy-cta"
+              >
+                Deploy
               </Button>
-            )}
+            </div>
           </div>
+          {create.isError && (
+            <Alert variant="destructive">
+              <AlertDescription>{create.error.message}</AlertDescription>
+            </Alert>
+          )}
+          {run.holdout_start === null && (
+            <Alert>
+              <AlertTitle>No holdout evaluation</AlertTitle>
+              <AlertDescription>
+                This run has no holdout evaluation; deploying without out-of-sample validation is
+                possible but not recommended.
+              </AlertDescription>
+            </Alert>
+          )}
           <ManifestPanel run={run} />
 
           <Card>

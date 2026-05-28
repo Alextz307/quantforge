@@ -239,7 +239,9 @@ function JsonInput({ id, value, onChange, placeholder, disabled }: JsonInputProp
           }
         }}
       />
-      {parseError && <p className="text-xs text-amber-600 dark:text-amber-400">JSON: {parseError}</p>}
+      {parseError && (
+        <p className="text-xs text-amber-600 dark:text-amber-400">JSON: {parseError}</p>
+      )}
     </div>
   );
 }

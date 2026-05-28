@@ -540,7 +540,9 @@ function ValidationStatus({ pending, errors }: ValidationStatusProps) {
     return <p className="text-xs text-muted-foreground">Validating…</p>;
   }
   if (errors.length === 0) {
-    return <p className="text-xs text-emerald-700 dark:text-emerald-400">✓ No validation errors.</p>;
+    return (
+      <p className="text-xs text-emerald-700 dark:text-emerald-400">✓ No validation errors.</p>
+    );
   }
   return (
     <details className="text-xs">

@@ -20,9 +20,7 @@ export interface ComparisonsListOptions {
   allUsers?: boolean;
 }
 
-function comparisonsConfig(
-  opts: ComparisonsListOptions,
-): ApiQueryOptions<ComparisonSummary[]> {
+function comparisonsConfig(opts: ComparisonsListOptions): ApiQueryOptions<ComparisonSummary[]> {
   const allUsers = opts.allUsers ?? false;
   return {
     queryKey: queryKeys.comparisonsList(allUsers),
