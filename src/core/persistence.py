@@ -65,6 +65,7 @@ EXPERIMENT_CONFIG_YAML = "config.yaml"
 EXPERIMENT_METRICS_JSON = "metrics.json"
 EXPERIMENT_STRATEGY_SUBDIR = "strategy_state"
 EXPERIMENT_CHECKPOINTS_SUBDIR = "checkpoints"
+EXPERIMENT_RUN_LOG = "run.log"
 FOLD_DIR_PREFIX = "fold_"
 
 RUNS_SUBDIR = "runs"

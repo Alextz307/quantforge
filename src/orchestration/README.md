@@ -9,7 +9,7 @@ multiple runs into cross-strategy comparison reports.
 | Entry point | Role |
 | --- | --- |
 | `build_experiment(cfg)` | `ExperimentConfig` → wired `Experiment` (resolves data source, strategy, validator, engine, slippage, optional feature-pipeline factory). |
-| `Experiment.run(options)` | Execute walk-forward; write `config.yaml`, `manifest.json`, `fold_results.jsonl`, `metrics.json`, `strategy_state/`, optional report. |
+| `Experiment.run(options)` | Execute walk-forward; write `config.yaml`, `manifest.json`, `fold_results.jsonl`, `metrics.json`, `strategy_state/`, `run.log` (root-logger tee for the duration of the run), optional report. |
 | `run_comparison(configs, ..., reused_results=...)` | Run N strategies on aligned data, rank them, pairwise-bootstrap Sharpe differentials. With `reused_results=` set, the per-strategy walk-forward step is skipped and prior fold artifacts feed the rest of the pipeline; `configs=` may be omitted on the reuse path and strategy names are read from each result's `manifest.name`. |
 | `load_experiment_result(run_dir)` / `load_experiment_config_from_run(run_dir)` / `resolve_run_dir(store, id)` | Reconstruct an `ExperimentResult` (or its frozen `ExperimentConfig`) from a persisted run directory; powers `compare --reuse-runs`. |
 | `run_holdout_eval(source, out_name, store_root)` | Refit a fresh strategy on the full dev region, evaluate once on the reserved holdout. Cross-checks `data_hash` + `holdout_start` against the source manifest before fitting. |

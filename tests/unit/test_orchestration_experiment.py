@@ -26,6 +26,7 @@ from src.core.persistence import (
     EXPERIMENT_CONFIG_YAML,
     EXPERIMENT_MANIFEST_JSON,
     EXPERIMENT_METRICS_JSON,
+    EXPERIMENT_RUN_LOG,
     EXPERIMENT_STRATEGY_SUBDIR,
     FOLD_RESULTS_JSONL,
 )
@@ -133,6 +134,7 @@ class TestExperimentRun:
         assert (run_dir / FOLD_RESULTS_JSONL).is_file()
         assert (run_dir / EXPERIMENT_METRICS_JSON).is_file()
         assert (run_dir / EXPERIMENT_STRATEGY_SUBDIR).is_dir()
+        assert (run_dir / EXPERIMENT_RUN_LOG).is_file()
         assert (run_dir / "plots" / "equity_curves.png").is_file()
         assert (run_dir / "tables" / "metrics_summary.tex").is_file()
 

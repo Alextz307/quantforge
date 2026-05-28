@@ -27,7 +27,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from src.core.persistence import CLI_LOGS_SUBDIR
+from src.core.persistence import CLI_LOGS_SUBDIR, EXPERIMENT_RUN_LOG
 
 CLI_LOG_FORMAT = "%(asctime)s %(levelname)s %(name)s: %(message)s"
 
@@ -73,6 +73,30 @@ def get_logger(name: str, **context: object) -> logging.LoggerAdapter:  # type: 
 
 
 @contextmanager
+def _tee_root_to_file(log_path: Path) -> Iterator[Path]:
+    """
+    Attach a :class:`logging.FileHandler` at ``log_path`` to the root logger
+    for the duration of the context, then remove and close it.
+
+    Shared body of :func:`attach_cli_log_file` and
+    :func:`attach_run_log_file`. Single source of truth for the handler
+    mode (``"a"``), encoding (``utf-8``), and formatter
+    (:data:`CLI_LOG_FORMAT`) — divergence between the two public
+    helpers is a drift bug.
+    """
+
+    handler = logging.FileHandler(log_path, mode="a", encoding="utf-8")
+    handler.setFormatter(logging.Formatter(CLI_LOG_FORMAT))
+    root = logging.getLogger()
+    root.addHandler(handler)
+    try:
+        yield log_path
+    finally:
+        root.removeHandler(handler)
+        handler.close()
+
+
+@contextmanager
 def attach_cli_log_file(root_dir: Path, command_name: str) -> Iterator[Path]:
     """
     Tee root-logger output to a timestamped file under ``root_dir/cli_logs/``.
@@ -104,15 +128,38 @@ def attach_cli_log_file(root_dir: Path, command_name: str) -> Iterator[Path]:
     log_dir.mkdir(parents=True, exist_ok=True)
     timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
     log_path = log_dir / f"{command_name}_{timestamp}_{os.getpid()}.log"
-    handler = logging.FileHandler(log_path, mode="a", encoding="utf-8")
-    handler.setFormatter(logging.Formatter(CLI_LOG_FORMAT))
-    root = logging.getLogger()
-    root.addHandler(handler)
-    try:
-        yield log_path
-    finally:
-        root.removeHandler(handler)
-        handler.close()
+    with _tee_root_to_file(log_path) as p:
+        yield p
+
+
+@contextmanager
+def attach_run_log_file(run_dir: Path) -> Iterator[Path]:
+    """
+    Tee root-logger output to ``run_dir/run.log`` for one experiment run.
+
+    Companion to :func:`attach_cli_log_file`: that helper captures the
+    parent CLI's orchestration stream; this one isolates a single
+    ``Experiment.run()`` so each strategy×universe leg has its own
+    end-to-end log next to its ``config.yaml`` / ``manifest.json`` /
+    ``metrics.json``. Under ``ProcessPoolExecutor`` fan-out (comparison /
+    study) every worker process has an independent root logger, so the
+    per-leg files never interleave.
+
+    The handler is removed unconditionally on exit; safe to call inside
+    pytest captures and from sequential in-process callers, where the
+    same record will also reach the parent CLI log (that duplication is
+    deliberate — the CLI log stays the master record).
+
+    Not re-entrant: a nested ``Experiment.run()`` call in the same
+    process would tee both legs' output to each other's ``run.log``.
+    Today's callers (`_run_sequential`, `_run_parallel` workers, study
+    legs) only enter this context once per process at a time.
+    """
+
+    run_dir.mkdir(parents=True, exist_ok=True)
+    log_path = run_dir / EXPERIMENT_RUN_LOG
+    with _tee_root_to_file(log_path) as p:
+        yield p
 
 
 @contextmanager

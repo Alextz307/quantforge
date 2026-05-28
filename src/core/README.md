@@ -39,7 +39,7 @@ device selection, and small JSON / FS helpers.
 | `config.py` | `ExperimentConfig` + Pydantic validators. |
 | `config_overrides.py` | `apply_overrides(payload, overrides)` — dotted-path mutation of a config dict before pydantic re-validation, used by every CLI's `--override` flag. |
 | `hpo_config.py` | Pydantic config for the `experiment tune` CLI. |
-| `logging.py` | `_ContextAdapter` + `get_logger`. |
+| `logging.py` | `_ContextAdapter` + `get_logger` + `attach_cli_log_file` (CLI-scoped) + `attach_run_log_file` (per-experiment) + `log_stage`. |
 | `device.py` | torch / xgboost device selection helpers. |
 | `seeding.py` | `seed_all` (lazy torch import). |
 | `json_io.py` | Typed JSON read / write helpers (no pickle). |

@@ -37,7 +37,7 @@ from src.analysis.metrics_aggregator import aggregate_folds
 from src.core import json_io
 from src.core.config import ExperimentConfig, write_frozen_yaml
 from src.core.constants import PAIRS_LEG_SUFFIXES
-from src.core.logging import get_logger
+from src.core.logging import attach_run_log_file, get_logger
 from src.core.persistence import (
     EXPERIMENT_CHECKPOINTS_SUBDIR,
     EXPERIMENT_CONFIG_YAML,
@@ -338,58 +338,61 @@ class Experiment:
         )
 
         ensure_model_dir(run_dir)
-        write_frozen_yaml(run_dir / EXPERIMENT_CONFIG_YAML, self.config)
-        write_experiment_manifest(run_dir, manifest)
-        logger = get_logger(__name__, experiment_id=experiment_id, strategy=self.strategy.name)
-        logger.info(
-            "fetched %d bars, dev=%d, holdout_start=%s",
-            len(bars_full),
-            len(dev),
-            boundary.isoformat() if boundary is not None else None,
-        )
-
-        checkpoint_root = run_dir / EXPERIMENT_CHECKPOINTS_SUBDIR if opts.checkpoint else None
-        fold_results: list[FoldResult] = evaluate_walk_forward(
-            strategy=self.strategy,
-            bars=dev,
-            validator=self.validator,
-            engine=self.engine,
-            slippage=self.slippage,
-            interval=self.config.data.interval,
-            risk_free_rate=self.config.risk_free_rate,
-            feature_pipeline_factory=self.feature_pipeline_factory,
-            progress=opts.progress,
-            checkpoint_root=checkpoint_root,
-        )
-        folds = tuple(FoldRecord.from_fold_result(fr) for fr in fold_results)
-
-        json_io.write_jsonl(run_dir / FOLD_RESULTS_JSONL, (f.to_dict() for f in folds))
-        json_io.write(run_dir / EXPERIMENT_METRICS_JSON, aggregate_folds(folds).to_dict())
-        _maybe_save_strategy(self.strategy, run_dir / EXPERIMENT_STRATEGY_SUBDIR)
-
-        result = ExperimentResult(
-            experiment_id=experiment_id,
-            folds=folds,
-            manifest=manifest,
-        )
-
-        if opts.write_report:
-            from src.visualization.strategy_reporter import StrategyReporter
-
-            StrategyReporter().generate_full_report(
-                result, run_dir, publish_label=opts.publish_label
+        with attach_run_log_file(run_dir):
+            write_frozen_yaml(run_dir / EXPERIMENT_CONFIG_YAML, self.config)
+            write_experiment_manifest(run_dir, manifest)
+            logger = get_logger(
+                __name__, experiment_id=experiment_id, strategy=self.strategy.name
             )
-            logger.info("report generated under %s", run_dir)
-
-        if folds:
-            last_curve = folds[-1].equity_curve
             logger.info(
-                "%d folds complete, last equity=%.4f",
-                len(folds),
-                last_curve[-1] if last_curve else float("nan"),
+                "fetched %d bars, dev=%d, holdout_start=%s",
+                len(bars_full),
+                len(dev),
+                boundary.isoformat() if boundary is not None else None,
             )
 
-        return result
+            checkpoint_root = run_dir / EXPERIMENT_CHECKPOINTS_SUBDIR if opts.checkpoint else None
+            fold_results: list[FoldResult] = evaluate_walk_forward(
+                strategy=self.strategy,
+                bars=dev,
+                validator=self.validator,
+                engine=self.engine,
+                slippage=self.slippage,
+                interval=self.config.data.interval,
+                risk_free_rate=self.config.risk_free_rate,
+                feature_pipeline_factory=self.feature_pipeline_factory,
+                progress=opts.progress,
+                checkpoint_root=checkpoint_root,
+            )
+            folds = tuple(FoldRecord.from_fold_result(fr) for fr in fold_results)
+
+            json_io.write_jsonl(run_dir / FOLD_RESULTS_JSONL, (f.to_dict() for f in folds))
+            json_io.write(run_dir / EXPERIMENT_METRICS_JSON, aggregate_folds(folds).to_dict())
+            _maybe_save_strategy(self.strategy, run_dir / EXPERIMENT_STRATEGY_SUBDIR)
+
+            result = ExperimentResult(
+                experiment_id=experiment_id,
+                folds=folds,
+                manifest=manifest,
+            )
+
+            if opts.write_report:
+                from src.visualization.strategy_reporter import StrategyReporter
+
+                StrategyReporter().generate_full_report(
+                    result, run_dir, publish_label=opts.publish_label
+                )
+                logger.info("report generated under %s", run_dir)
+
+            if folds:
+                last_curve = folds[-1].equity_curve
+                logger.info(
+                    "%d folds complete, last equity=%.4f",
+                    len(folds),
+                    last_curve[-1] if last_curve else float("nan"),
+                )
+
+            return result
 
 
 def _maybe_save_strategy(strategy: IStrategy, path: Path) -> None:
