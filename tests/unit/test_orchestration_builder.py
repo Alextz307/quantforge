@@ -114,7 +114,8 @@ class TestBuildExperiment:
         exp = build_experiment(cfg)
 
         assert isinstance(exp.slippage, SlippageConfig)
-        assert exp.slippage.base_bps == pytest.approx(1.0)
+        # default tier is NORMAL → 2 bp slippage
+        assert exp.slippage.base_bps == pytest.approx(2.0)
 
     def test_no_features_by_default(self) -> None:
         cfg = ExperimentConfig.model_validate(_cfg_dict())

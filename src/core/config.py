@@ -242,14 +242,20 @@ class ValidationConfig(BaseModel):
 
 class SlippageConfigSpec(BaseModel):
     """
-    Slippage scenario selector — indexes into ``SLIPPAGE_SCENARIOS``.
+    Cost-tier selector — indexes into ``COST_SCENARIOS``.
+
+    A tier sets both slippage (per fill) and commission (per turnover);
+    see :mod:`src.engine.scenarios`.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     scenario: SlippageScenario = Field(
         default=SlippageScenario.NORMAL,
-        description="Slippage profile applied at fill time. One of: zero, normal, severe.",
+        description=(
+            "Cost tier (slippage + commission) applied during backtest "
+            "execution. One of: zero, low, normal, high."
+        ),
     )
 
 

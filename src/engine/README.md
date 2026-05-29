@@ -12,7 +12,7 @@ and metrics into per-fold results.
 | `CppBacktestEngine` | Pandas → numpy → `quant_engine.BacktestEngine` adapter. Validates index + OHLCV columns at the boundary; defers all hot-loop work to C++. |
 | `evaluate_walk_forward(strategy, bars, validator, engine, slippage, ...)` | Per-fold pipeline: optional feature-pipeline fit → `strategy.train` → deep-metadata leakage check → `generate_signals` → engine dispatch → `MetricsCalculator`. Returns `list[FoldResult]`. |
 | `FoldResult` | Frozen bundle: fold index, train/test bounds, raw `BacktestResult`, computed `PerformanceMetrics`. |
-| `SlippageScenario` (StrEnum) + `SLIPPAGE_SCENARIOS` (dict) | Named friction levels (`ZERO`, `NORMAL`, `HIGH`, `EXTREME`) backed by `SlippageConfig` instances. |
+| `SlippageScenario` (StrEnum) + `COST_SCENARIOS` (dict) | Named cost tiers — `ZERO` 0/0, `LOW` 1/1, `NORMAL` (default) 2/2, `HIGH` 5/5, as (slippage bp / commission bp). `CostScenario` bundles a `SlippageConfig` with `commission_bps`; `commission_fraction_for` converts to the engine's `transaction_fee_rate`. `SLIPPAGE_SCENARIOS` is the derived slippage-only view. |
 
 ## Layout
 
@@ -21,7 +21,7 @@ and metrics into per-fold results.
 | `interface.py` | `IBacktestEngine` ABC. |
 | `cpp_engine.py` | Numpy marshalling + `_validate_bars_columns` / `_bars_to_ohlcv_arrays` helpers; `run` / `run_scenarios` / `run_pairs`. |
 | `walk_forward.py` | `evaluate_walk_forward` + `validate_deep_metadata` (composite leaf-aware) + `split_pairs_frame` (wide → two single-leg frames via `PAIRS_LEG_SUFFIXES`). |
-| `scenarios.py` | The four named slippage scenarios. |
+| `scenarios.py` | The four named cost tiers (slippage + commission); single source of truth shared by the backtest and the deployment scorecard. |
 
 ## Single-leg vs pairs dispatch
 

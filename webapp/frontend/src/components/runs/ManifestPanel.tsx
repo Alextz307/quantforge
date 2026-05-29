@@ -19,7 +19,7 @@ export function ManifestPanel({ run }: { run: RunDetail }) {
         <MetadataField label="Git SHA" value={shortHash(run.git_sha)} />
         <MetadataField label="Seed" value={run.seed} />
         <MetadataField label="Data hash" value={shortHash(run.data_hash)} />
-        <MetadataField label="Slippage" value={run.slippage_scenario} />
+        <MetadataField label="Cost tier" value={run.slippage_scenario} />
         <MetadataField
           label="Holdout start"
           value={run.holdout_start ? formatDateTime(run.holdout_start) : "—"}

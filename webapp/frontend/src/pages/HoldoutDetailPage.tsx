@@ -22,7 +22,7 @@ function IdentityCard({ holdout }: { holdout: HoldoutEvalDetail }) {
         <MetadataField label="Git SHA" value={shortHash(holdout.git_sha)} />
         <MetadataField label="Holdout start" value={formatDateTime(holdout.holdout_start)} />
         <MetadataField label="Data hash" value={shortHash(holdout.data_hash)} />
-        <MetadataField label="Slippage" value={holdout.slippage_scenario} />
+        <MetadataField label="Cost tier" value={holdout.slippage_scenario} />
       </CardContent>
     </Card>
   );

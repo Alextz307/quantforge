@@ -44,6 +44,6 @@ strategy:
     garch_q_max: 3
 
 slippage:
-  scenario: normal          # zero | normal | high | extreme
+  scenario: normal          # cost tier (slippage+commission bp): zero 0/0 | low 1/1 | normal 2/2 | high 5/5
 
 risk_free_rate: 0.0

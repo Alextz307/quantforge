@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
+from quant_engine import BacktestEngine
 from src.core.config import ComponentConfig, ExperimentConfig
 from src.core.registry import (
     data_source_registry,
@@ -20,7 +21,7 @@ from src.core.registry import (
 )
 from src.core.temporal import WalkForwardValidator
 from src.engine.cpp_engine import CppBacktestEngine
-from src.engine.scenarios import SLIPPAGE_SCENARIOS
+from src.engine.scenarios import COST_SCENARIOS, commission_fraction_for
 from src.features.interface import IFeaturePipeline
 from src.orchestration.experiment import Experiment
 from src.strategies.interface import IStrategy
@@ -141,8 +142,14 @@ def build_experiment(cfg: ExperimentConfig) -> Experiment:
         expanding=cfg.validation.expanding,
         snap_to_day=cfg.validation.snap_to_day,
     )
-    engine = CppBacktestEngine()
-    slippage = SLIPPAGE_SCENARIOS[cfg.slippage.scenario]
+    # The cost tier drives BOTH legs of friction: slippage is passed per
+    # run; commission is fixed on the engine instance (transaction_fee_rate),
+    # so it must be set at construction from the same tier.
+    cost = COST_SCENARIOS[cfg.slippage.scenario]
+    engine = CppBacktestEngine(
+        BacktestEngine(transaction_fee_rate=commission_fraction_for(cfg.slippage.scenario))
+    )
+    slippage = cost.slippage
 
     return Experiment(
         config=cfg,
