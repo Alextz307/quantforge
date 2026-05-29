@@ -65,7 +65,7 @@ function DeploymentBody({ deployment }: { deployment: DeploymentDetail }) {
             <SignalBadge signal={latest?.signal ?? null} loading={computing} kind={kind} />
             {latest !== null && (
               <span className="text-xs text-muted-foreground">
-                Signal date {formatDate(latest.bar_ts)}
+                Signal date {formatDate(latest.signal_date)}
               </span>
             )}
           </div>
@@ -204,7 +204,7 @@ function SignalHistoryTable({
         <tbody>
           {newestFirst.map((row) => (
             <tr key={`${row.bar_ts}-${row.submitted_at}`} className="border-b last:border-0">
-              <td className="py-2 pr-4 font-mono text-xs">{formatDate(row.bar_ts)}</td>
+              <td className="py-2 pr-4 font-mono text-xs">{formatDate(row.signal_date)}</td>
               <td className="py-2 pr-4">
                 <SignalBadge signal={row.signal} kind={kind} />
               </td>

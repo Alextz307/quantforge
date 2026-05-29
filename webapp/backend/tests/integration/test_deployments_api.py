@@ -442,5 +442,7 @@ def test_detail_surfaces_latest_signal_after_predict(
     detail = authed_client.get(f"{DEPLOYMENTS_PATH}/{deployment_id}").json()
     assert detail["latest_signal"] is not None
     assert "bar_ts" in detail["latest_signal"]
+    # signal_date is the session the signal is *for* — strictly after the bar it was computed from
+    assert detail["latest_signal"]["signal_date"] > detail["latest_signal"]["bar_ts"]
 
 

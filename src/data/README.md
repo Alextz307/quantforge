@@ -19,7 +19,7 @@ holdout-eval uses to detect vendor drift.
 | `fingerprint_bars(df)` | SHA-256 content hash over (columns, timestamps, OHLCV bytes). Stable across pandas / numpy upgrades. |
 | `fingerprint_pair_bars(df)` | Same hash, wide-format pair columns (`open_a` … `volume_b`). |
 | `LiveBarFetcher` | Protocol: cadence-specific live OHLCV fetcher used by the deployment layer. |
-| `DailyLiveBarFetcher` | Daily implementation backed by `YFinanceSource`; rejects non-daily intervals defensively. |
+| `DailyLiveBarFetcher` | Daily implementation backed by `YFinanceSource`; drops the trailing bar while its NYSE session is still open (so a signal is never computed off a forming bar) and rejects non-daily intervals defensively. |
 | `resolve_fetcher(interval)` | Dispatch site — picks the right `LiveBarFetcher` for an interval. Daily today; intraday is a future drop-in. |
 
 ## Layout

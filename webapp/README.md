@@ -42,7 +42,7 @@ Read-only artifact API (auth-gated, all `GET`):
 
 Deployments (auth-gated; per-user scope, admins may pass `?all=1`):
 - `GET /api/deployments`, `POST /api/deployments`, `GET /api/deployments/{id}`, `PATCH /api/deployments/{id}`, `DELETE /api/deployments/{id}` — saved pointers to a previously trained run or HPO best trial that accumulate a daily signal log. Create with `{source_kind: "run"|"hpo", source_id, name?, warmup_bars?}`; `name` and `warmup_bars` auto-derive from the source's manifest + strategy when omitted. The DB row carries denormalised `ticker / strategy_name / interval / train_end` columns read from the source at create time. Pairs and non-daily sources are refused upfront with 422.
-- `GET /api/deployments/{id}/signals?limit=N` — append-only signal log read from `signals.jsonl`. `submitted_at` (wall-clock predict time) and `bar_ts` (the bar the signal is for) are tracked separately.
+- `GET /api/deployments/{id}/signals?limit=N` — append-only signal log read from `signals.jsonl`. `submitted_at` (wall-clock predict time) and `bar_ts` (the last completed bar the signal was computed from) are tracked separately; the response also carries a derived `signal_date` — the trading day the signal is *for* (next session after `bar_ts`).
 - `POST /api/deployments/{id}/predict-if-stale` — synchronous. Recalls today's signal from `signals.jsonl` if its `bar_ts` is at or beyond the vendor's latest available bar; otherwise invokes the framework's `predict()` inside FastAPI's threadpool, appends a new row (idempotent on `bar_ts`), and returns it. Surfaces the framework's `LeakageError` / `WarmupInsufficientError` as 422.
 
 Configs (auth-gated):

@@ -466,6 +466,7 @@ export const SEED_JOBS: JobRow[] = [JOB_RUNNING, JOB_COMPLETED, JOB_FAILED];
 export const DEPLOY_SIGNAL_LATEST: SignalRowOut = {
   submitted_at: "2026-05-28T16:30:00Z",
   bar_ts: "2026-05-28T00:00:00Z",
+  signal_date: "2026-05-29T00:00:00Z",
   signal: 1.0,
   warmup_fingerprint: "sha256:deadbeef",
   source_run_id: RUN_SPY.experiment_id,
@@ -476,6 +477,7 @@ export const DEPLOY_SIGNAL_HISTORY: SignalRowOut[] = [
   {
     ...DEPLOY_SIGNAL_LATEST,
     bar_ts: "2026-05-27T00:00:00Z",
+    signal_date: "2026-05-28T00:00:00Z",
     submitted_at: "2026-05-27T16:31:00Z",
     signal: 0.0,
   },

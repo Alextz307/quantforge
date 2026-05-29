@@ -35,13 +35,16 @@ from __future__ import annotations
 import uuid
 from collections.abc import Callable
 from dataclasses import dataclass
+from functools import cache
 from pathlib import Path
 from typing import cast
 
 import pandas as pd
+import pandas_market_calendars as mcal
 
 from src.core import json_io
 from src.core.config import ComponentConfig
+from src.core.constants import NYSE_CALENDAR_NAME
 from src.core.exceptions import LeakageError, WarmupInsufficientError
 from src.core.logging import get_logger
 from src.core.persistence import (
@@ -142,10 +145,12 @@ class SignalRow:
     """
     One row appended to ``signals.jsonl`` per successful predict.
 
-    ``submitted_at`` is the wall-clock instant the predict ran;
-    ``bar_ts`` is the timestamp of the bar the signal is *for*. These
-    are kept distinct so daily / hourly / scheduled cadences stay
-    distinguishable without schema breaks.
+    ``submitted_at`` is the wall-clock instant the predict ran; ``bar_ts``
+    is the last *completed* bar the signal was computed from. The signal
+    itself is the position to hold over the *next* session — the trading
+    day it is *for* is :func:`next_signal_date`. The two clocks are kept
+    distinct so daily / hourly / scheduled cadences stay distinguishable
+    without schema breaks.
     """
 
     submitted_at: pd.Timestamp
@@ -175,6 +180,53 @@ class SignalRow:
             source_run_id=json_io.get_str(d, "source_run_id"),
             warmup_bars_used=json_io.get_int(d, "warmup_bars_used"),
         )
+
+
+_NEXT_SESSION_SEARCH_DAYS = 15
+
+
+@cache
+def _nyse_calendar() -> mcal.MarketCalendar:
+    """
+    Cached NYSE calendar — building it lazily memoises the holiday rule set.
+
+    A fresh ``get_calendar(...)`` rebuilds that rule set on its first
+    ``valid_days`` / ``schedule`` call (tens of ms); reusing one instance
+    keeps per-row signal-log labelling cheap.
+    """
+
+    return mcal.get_calendar(NYSE_CALENDAR_NAME)
+
+
+def next_signal_date(bar_ts: pd.Timestamp, interval: Interval) -> pd.Timestamp:
+    """
+    The trading day a signal computed at ``bar_ts`` is *for*.
+
+    A strategy emits its signal at bar ``t`` from information available at
+    that bar's close; the engine's ``t -> t+1`` shift makes it the position
+    held over the *next* session. This returns that next NYSE session from
+    the exchange calendar — US-equity holidays and early closes included, so
+    a Thursday before an observed-holiday Friday rolls to the following
+    Monday rather than naively onto the holiday. Display-only; never a
+    leakage boundary (the on-disk anchor stays ``bar_ts``).
+    """
+
+    if interval is not Interval.DAILY:
+        raise NotImplementedError(
+            f"next_signal_date not implemented for interval={interval}; daily is "
+            f"the only supported cadence today."
+        )
+    day_after = _to_naive(bar_ts).normalize() + pd.Timedelta(days=1)
+    horizon = day_after + pd.Timedelta(days=_NEXT_SESSION_SEARCH_DAYS)
+    sessions = _nyse_calendar().valid_days(
+        start_date=day_after.date(), end_date=horizon.date()
+    )
+    if len(sessions) == 0:
+        raise RuntimeError(
+            f"no NYSE trading session found within {_NEXT_SESSION_SEARCH_DAYS} days "
+            f"after {bar_ts}; the exchange calendar may be misconfigured."
+        )
+    return _to_naive(pd.Timestamp(sessions[0]))
 
 
 def resolve_deployment_dir(store_root: Path, deployment_id: str) -> Path:
@@ -521,6 +573,15 @@ def predict(
         metadata=metadata,
     )
     signals = strategy.generate_signals(featured)
+    signal_bar_ts = _to_naive(pd.Timestamp(signals.index[-1]))
+    if signal_bar_ts != last_bar_ts:
+        raise RuntimeError(
+            f"deployment {deployment_id!r}: signal index ends at {signal_bar_ts} "
+            f"but the fetched bars end at {last_bar_ts}. generate_signals must "
+            f"return a signal aligned to the input bars' trailing index — "
+            f"refusing to stamp this signal with a bar it was not computed at "
+            f"(an off-by-one would mislabel which session it acts on)."
+        )
     last_signal = signals.iloc[-1]
     if pd.isna(last_signal):
         vendor_first_bar = pd.Timestamp(bars.index[0])
@@ -641,6 +702,7 @@ __all__ = [
     "SignalRow",
     "create_deployment",
     "load_deployment",
+    "next_signal_date",
     "predict",
     "read_signals",
     "recommend_warmup_bars",

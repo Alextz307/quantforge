@@ -4,6 +4,7 @@ import {
   LayoutDashboard,
   ListChecks,
   PlayCircle,
+  Radio,
   Target,
   Workflow,
 } from "lucide-react";
@@ -64,6 +65,12 @@ export function HomePage() {
           icon={Target}
           title="Holdout"
           description="Refit on full dev, evaluate once on the reserved holdout — honest OOS metrics."
+        />
+        <NavCard
+          to={ROUTES.deployments}
+          icon={Radio}
+          title="Deployments"
+          description="Live inference over a frozen run — today's signal for the next session, append-only log."
         />
       </section>
     </div>

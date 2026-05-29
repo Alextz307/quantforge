@@ -27,3 +27,5 @@ OHLCV_COLUMNS: tuple[str, str, str, str, str] = (
 )
 
 PAIRS_LEG_SUFFIXES: tuple[str, str] = ("_a", "_b")
+
+NYSE_CALENDAR_NAME: str = "NYSE"

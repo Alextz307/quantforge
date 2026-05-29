@@ -51,10 +51,17 @@ class DeploymentSummary(BaseModel):
 
 
 class SignalRowOut(BaseModel):
-    """One row from the deployment's signal log."""
+    """
+    One row from the deployment's signal log.
+
+    ``bar_ts`` is the last completed bar the signal was computed from;
+    ``signal_date`` is the trading day the signal is *for* (the next
+    session after ``bar_ts``).
+    """
 
     submitted_at: datetime
     bar_ts: datetime
+    signal_date: datetime
     signal: float
     warmup_fingerprint: str
     source_run_id: str

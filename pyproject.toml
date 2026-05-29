@@ -21,6 +21,7 @@ dependencies = [
     "pmdarima>=2.0",
     "matplotlib>=3.8",
     "yfinance>=0.2",
+    "pandas-market-calendars>=4.0",
     "click>=8.1",
     "psutil>=5.9",
     "tqdm>=4.66",

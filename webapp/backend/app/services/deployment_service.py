@@ -27,6 +27,7 @@ from src.data.live_fetcher import resolve_fetcher
 from src.orchestration.deployment import (
     SignalRow,
     _to_naive,
+    next_signal_date,
     read_signals,
     resolve_deployment_dir,
     resolve_strategy_state_path,
@@ -221,10 +222,11 @@ def _row_to_summary(row: sqlite3.Row, owner_username: str) -> DeploymentSummary:
     )
 
 
-def _signal_to_out(row: SignalRow) -> SignalRowOut:
+def _signal_to_out(row: SignalRow, interval: Interval) -> SignalRowOut:
     return SignalRowOut(
         submitted_at=row.submitted_at.to_pydatetime(),
         bar_ts=row.bar_ts.to_pydatetime(),
+        signal_date=next_signal_date(row.bar_ts, interval).to_pydatetime(),
         signal=row.signal,
         warmup_fingerprint=row.warmup_fingerprint,
         source_run_id=row.source_run_id,
@@ -403,7 +405,7 @@ def get_deployment(
     summary = _row_to_summary(row, _resolve_username(conn, row["user_id"]))
     return DeploymentDetail(
         **summary.model_dump(),
-        latest_signal=_signal_to_out(last) if last is not None else None,
+        latest_signal=_signal_to_out(last, summary.interval) if last is not None else None,
     )
 
 
@@ -463,9 +465,10 @@ def read_signal_log(
     if row is None:
         raise DeploymentNotFoundError(deployment_id)
     _enforce_access(row, user)
+    interval = Interval(row["interval"])
     signals = read_signals(store_root, deployment_id)
     tail = signals if limit is None else signals[-limit:]
-    return [_signal_to_out(s) for s in tail]
+    return [_signal_to_out(s, interval) for s in tail]
 
 
 def predict_if_stale(
@@ -491,7 +494,7 @@ def predict_if_stale(
         latest_available = _to_naive(_latest_available_bar_ts_cached(ticker, interval))
         cached = _last_signal(store_root, deployment_id)
         if cached is not None and _to_naive(cached.bar_ts) >= latest_available:
-            return PredictIfStaleResponse(stale=False, signal=_signal_to_out(cached))
+            return PredictIfStaleResponse(stale=False, signal=_signal_to_out(cached, interval))
 
         new_signal = framework_predict(
             deployment_id=deployment_id,
@@ -500,7 +503,7 @@ def predict_if_stale(
             strategy_loader=_load_strategy_cached,
         )
         is_stale = cached is None or _to_naive(cached.bar_ts) != _to_naive(new_signal.bar_ts)
-        return PredictIfStaleResponse(stale=is_stale, signal=_signal_to_out(new_signal))
+        return PredictIfStaleResponse(stale=is_stale, signal=_signal_to_out(new_signal, interval))
 
 
 def _clear_caches_for_tests() -> None:

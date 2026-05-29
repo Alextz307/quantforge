@@ -33,6 +33,7 @@ from src.core.persistence import (
 from src.core.types import Interval
 from src.orchestration.deployment import (
     create_deployment,
+    next_signal_date,
     predict,
     read_signals,
 )
@@ -411,3 +412,49 @@ def test_predict_empty_fetch_raises(
             store_root=trained_run,
             as_of=pd.Timestamp(bars.index[-1]),
         )
+
+
+def test_next_signal_date_advances_to_next_session() -> None:
+    """
+    The signal at bar ``t`` is for the next session: a mid-week close rolls
+    one day, a Friday close rolls over the weekend to Monday.
+    """
+
+    wednesday = pd.Timestamp("2026-05-27")
+    thursday = pd.Timestamp("2026-05-28")
+    friday = pd.Timestamp("2026-05-29")
+    monday = pd.Timestamp("2026-06-01")
+
+    assert next_signal_date(wednesday, Interval.DAILY) == thursday
+    assert next_signal_date(friday, Interval.DAILY) == monday
+
+
+def test_next_signal_date_skips_exchange_holidays() -> None:
+    """
+    The NYSE calendar skips holidays a bare weekday roll would land on.
+
+    2026-07-03 is the observed Independence Day holiday (July 4 falls on a
+    Saturday), so the session after Thursday 2026-07-02 is Monday 2026-07-06
+    — not the holiday Friday a naive next-business-day would pick.
+    """
+
+    thursday_before_holiday = pd.Timestamp("2026-07-02")
+    monday_after_holiday = pd.Timestamp("2026-07-06")
+
+    assert next_signal_date(thursday_before_holiday, Interval.DAILY) == monday_after_holiday
+
+
+def test_next_signal_date_normalises_tz_aware_intraday_anchor() -> None:
+    """
+    A tz-aware ``bar_ts`` carrying a wall-clock time still yields a naive
+    next-business-day midnight — the signal date never carries a time.
+    """
+
+    friday_evening_utc = pd.Timestamp("2026-05-29T20:30:00", tz="UTC")
+
+    assert next_signal_date(friday_evening_utc, Interval.DAILY) == pd.Timestamp("2026-06-01")
+
+
+def test_next_signal_date_rejects_non_daily() -> None:
+    with pytest.raises(NotImplementedError, match="daily"):
+        next_signal_date(pd.Timestamp("2026-05-29"), Interval.HOUR)

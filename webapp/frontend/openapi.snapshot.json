@@ -1809,7 +1809,7 @@
         "type": "object"
       },
       "SignalRowOut": {
-        "description": "One row from the deployment's signal log.",
+        "description": "One row from the deployment's signal log.\n\n``bar_ts`` is the last completed bar the signal was computed from;\n``signal_date`` is the trading day the signal is *for* (the next\nsession after ``bar_ts``).",
         "properties": {
           "bar_ts": {
             "format": "date-time",
@@ -1819,6 +1819,11 @@
           "signal": {
             "title": "Signal",
             "type": "number"
+          },
+          "signal_date": {
+            "format": "date-time",
+            "title": "Signal Date",
+            "type": "string"
           },
           "source_run_id": {
             "title": "Source Run Id",
@@ -1841,6 +1846,7 @@
         "required": [
           "submitted_at",
           "bar_ts",
+          "signal_date",
           "signal",
           "warmup_fingerprint",
           "source_run_id",
