@@ -1808,6 +1808,261 @@
         "title": "RunsPage",
         "type": "object"
       },
+      "ScoredSignalOut": {
+        "description": "One emitted signal scored open\u2192open against realised session opens.\n\nEntered at ``entry_date``'s open (the first session after ``bar_ts``),\nexited at ``exit_date``'s open (the next session). ``listened_return``\nis the signed, leverage-scaled realised return. The realised fields are\npopulated together iff ``scored`` is true \u2014 a signal stays unscored\nuntil its exit session has opened. ``hit`` is null for a FLAT signal.",
+        "properties": {
+          "asset_return": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Asset Return"
+          },
+          "bar_ts": {
+            "format": "date-time",
+            "title": "Bar Ts",
+            "type": "string"
+          },
+          "cost": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cost"
+          },
+          "cumulative_return": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cumulative Return"
+          },
+          "entry_date": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entry Date"
+          },
+          "entry_open": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entry Open"
+          },
+          "exit_date": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exit Date"
+          },
+          "exit_open": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exit Open"
+          },
+          "hit": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hit"
+          },
+          "listened_return": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Listened Return"
+          },
+          "net_cumulative_return": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Net Cumulative Return"
+          },
+          "net_listened_return": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Net Listened Return"
+          },
+          "scored": {
+            "title": "Scored",
+            "type": "boolean"
+          },
+          "signal": {
+            "title": "Signal",
+            "type": "number"
+          }
+        },
+        "required": [
+          "bar_ts",
+          "signal",
+          "entry_date",
+          "entry_open",
+          "exit_date",
+          "exit_open",
+          "asset_return",
+          "listened_return",
+          "hit",
+          "cumulative_return",
+          "cost",
+          "net_listened_return",
+          "net_cumulative_return",
+          "scored"
+        ],
+        "title": "ScoredSignalOut",
+        "type": "object"
+      },
+      "SignalEvaluationOut": {
+        "description": "Response for GET /deployments/{id}/signal-evaluation.\n\nPer-signal scores plus headline stats over the scored subset.\n``hit_rate`` covers directional (non-FLAT) scored signals only;\n``cumulative_return`` compounds every scored ``listened_return``\n(gross), and ``net_cumulative_return`` does so after costs. All summary\nstats are null when nothing has been scored yet. ``cost_scenario`` is\nthe tier whose slippage + commission produced the net figures.",
+        "properties": {
+          "cost_scenario": {
+            "$ref": "#/components/schemas/SlippageScenario"
+          },
+          "cumulative_return": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cumulative Return"
+          },
+          "hit_rate": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hit Rate"
+          },
+          "mean_return": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mean Return"
+          },
+          "n_hits": {
+            "title": "N Hits",
+            "type": "integer"
+          },
+          "n_scored": {
+            "title": "N Scored",
+            "type": "integer"
+          },
+          "n_signals": {
+            "title": "N Signals",
+            "type": "integer"
+          },
+          "net_cumulative_return": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Net Cumulative Return"
+          },
+          "net_mean_return": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Net Mean Return"
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/ScoredSignalOut"
+            },
+            "title": "Rows",
+            "type": "array"
+          }
+        },
+        "required": [
+          "rows",
+          "n_signals",
+          "n_scored",
+          "n_hits",
+          "hit_rate",
+          "cumulative_return",
+          "mean_return",
+          "net_cumulative_return",
+          "net_mean_return",
+          "cost_scenario"
+        ],
+        "title": "SignalEvaluationOut",
+        "type": "object"
+      },
       "SignalRowOut": {
         "description": "One row from the deployment's signal log.\n\n``bar_ts`` is the last completed bar the signal was computed from;\n``signal_date`` is the trading day the signal is *for* (the next\nsession after ``bar_ts``).",
         "properties": {
@@ -1865,12 +2120,12 @@
         "type": "string"
       },
       "SlippageScenario": {
-        "description": "Named lookup keys for ``SLIPPAGE_SCENARIOS``.",
+        "description": "Named cost tiers \u2014 keys into ``COST_SCENARIOS`` / ``SLIPPAGE_SCENARIOS``.",
         "enum": [
           "zero",
+          "low",
           "normal",
-          "high",
-          "extreme"
+          "high"
         ],
         "title": "SlippageScenario",
         "type": "string"
@@ -3769,6 +4024,58 @@
           }
         },
         "summary": "Post Predict If Stale",
+        "tags": [
+          "deployments"
+        ]
+      }
+    },
+    "/api/deployments/{deployment_id}/signal-evaluation": {
+      "get": {
+        "description": "Score the deployment's emitted signals open\u2192open; ``cost`` sets the net friction tier.",
+        "operationId": "get_signal_evaluation_api_deployments__deployment_id__signal_evaluation_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "deployment_id",
+            "required": true,
+            "schema": {
+              "title": "Deployment Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cost",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/SlippageScenario",
+              "default": "normal"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignalEvaluationOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Signal Evaluation",
         "tags": [
           "deployments"
         ]

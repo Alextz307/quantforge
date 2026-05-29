@@ -21,6 +21,7 @@ holdout-eval uses to detect vendor drift.
 | `LiveBarFetcher` | Protocol: cadence-specific live OHLCV fetcher used by the deployment layer. |
 | `DailyLiveBarFetcher` | Daily implementation backed by `YFinanceSource`; drops the trailing bar while its NYSE session is still open (so a signal is never computed off a forming bar) and rejects non-daily intervals defensively. |
 | `resolve_fetcher(interval)` | Dispatch site — picks the right `LiveBarFetcher` for an interval. Daily today; intraday is a future drop-in. |
+| `fetch_session_opens(ticker, start, end, interval, now)` | Evaluation-side data source: open price per session that has *opened* by `now` (keeps the still-forming session's open — fixed at the bell). Open-boundary mirror of the generation fetcher's close-boundary drop; used to score emitted signals open→open. Daily only. |
 
 ## Layout
 
@@ -35,7 +36,7 @@ holdout-eval uses to detect vendor drift.
 | `validator.py` | `validate_bars` semantic checks. |
 | `cache.py` | `DataCache` (parquet, ~/.quant_cache by default). |
 | `fingerprint.py` | `_fingerprint` core + `fingerprint_bars` / `fingerprint_pair_bars` wrappers. |
-| `live_fetcher.py` | `LiveBarFetcher` protocol + `DailyLiveBarFetcher` + `resolve_fetcher` dispatcher (live-inference cadence layer). |
+| `live_fetcher.py` | `LiveBarFetcher` protocol + `DailyLiveBarFetcher` + `resolve_fetcher` dispatcher (generation, close-discipline) + `fetch_session_opens` (evaluation, open-discipline). |
 
 ## Single vs pair fingerprint
 

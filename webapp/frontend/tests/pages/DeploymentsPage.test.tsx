@@ -26,6 +26,11 @@ describe("DeploymentsPage", () => {
     expect(await screen.findByRole("link", { name: DEPLOY_SPY.name })).toBeInTheDocument();
   });
 
+  it("auto-opens the deploy picker when arriving with ?new=1 (from Configure)", async () => {
+    renderWithProviders(<Tree />, { initialEntries: [`${ROUTES.deployments}?new=1`] });
+    expect(await screen.findByTestId("deploy-picker")).toBeInTheDocument();
+  });
+
   it("opens the deploy picker and ranks holdout-backed models by Sharpe, nulls last", async () => {
     const NULL_EVAL: HoldoutEvalSummary = {
       name: "MomentumGatekeeper__qqq_daily_5y",

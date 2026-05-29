@@ -49,4 +49,6 @@ export const queryKeys = {
   deploymentsList: (allUsers: boolean) => ["deployments", { allUsers }] as const,
   deployment: (id: string) => ["deployments", id] as const,
   deploymentSignals: (id: string) => ["deployments", id, "signals"] as const,
+  deploymentEvaluation: (id: string, cost: string) =>
+    ["deployments", id, "evaluation", cost] as const,
 } as const;

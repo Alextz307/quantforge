@@ -22,8 +22,10 @@ from typing import cast
 
 import pandas as pd
 
+from src.analysis.signal_evaluation import SignalEvaluation, evaluate_signals
 from src.core.types import Interval
-from src.data.live_fetcher import resolve_fetcher
+from src.data.live_fetcher import fetch_session_opens, resolve_fetcher
+from src.engine.scenarios import SlippageScenario, total_cost_fraction_for
 from src.orchestration.deployment import (
     SignalRow,
     _to_naive,
@@ -49,6 +51,8 @@ from webapp.backend.app.schemas.deployments import (
     DeploymentDetail,
     DeploymentSummary,
     PredictIfStaleResponse,
+    ScoredSignalOut,
+    SignalEvaluationOut,
     SignalRowOut,
 )
 from webapp.backend.app.schemas.users import UserPublic
@@ -60,6 +64,7 @@ __all__ = [
     "DeploymentSourceInvalidError",
     "create_deployment",
     "delete_deployment",
+    "evaluate_signal_log",
     "get_deployment",
     "list_deployments",
     "predict_if_stale",
@@ -469,6 +474,109 @@ def read_signal_log(
     signals = read_signals(store_root, deployment_id)
     tail = signals if limit is None else signals[-limit:]
     return [_signal_to_out(s, interval) for s in tail]
+
+
+# Pad the opens fetch a few sessions before the earliest signal so the
+# entry session (first session strictly after that bar_ts) is always in
+# the frame, with slack for weekends / holidays.
+_EVAL_FETCH_PAD_DAYS = 7
+
+
+def _fetch_opens(ticker: str, interval: Interval, signals: tuple[SignalRow, ...]) -> pd.Series:
+    """
+    Open price per opened session covering the whole signal log.
+
+    Exposed at module level so tests monkeypatch it without faking
+    yfinance end-to-end — mirrors :func:`_probe_latest_bar_ts`.
+    """
+
+    now = pd.Timestamp.now(tz="UTC")
+    earliest = min(_to_naive(s.bar_ts) for s in signals)
+    start = (earliest - pd.Timedelta(days=_EVAL_FETCH_PAD_DAYS)).to_pydatetime()
+    return fetch_session_opens(ticker, start, now.to_pydatetime(), interval, now)
+
+
+def _evaluation_to_out(
+    evaluation: SignalEvaluation, cost_scenario: SlippageScenario
+) -> SignalEvaluationOut:
+    rows = [
+        ScoredSignalOut(
+            bar_ts=row.bar_ts.to_pydatetime(),
+            signal=row.signal,
+            entry_date=row.entry_date.to_pydatetime() if row.entry_date is not None else None,
+            entry_open=row.entry_open,
+            exit_date=row.exit_date.to_pydatetime() if row.exit_date is not None else None,
+            exit_open=row.exit_open,
+            asset_return=row.asset_return,
+            listened_return=row.listened_return,
+            hit=row.hit,
+            cumulative_return=row.cumulative_return,
+            cost=row.cost,
+            net_listened_return=row.net_listened_return,
+            net_cumulative_return=row.net_cumulative_return,
+            scored=row.scored,
+        )
+        for row in evaluation.rows
+    ]
+    return SignalEvaluationOut(
+        rows=rows,
+        n_signals=evaluation.n_signals,
+        n_scored=evaluation.n_scored,
+        n_hits=evaluation.n_hits,
+        hit_rate=evaluation.hit_rate,
+        cumulative_return=evaluation.cumulative_return,
+        mean_return=evaluation.mean_return,
+        net_cumulative_return=evaluation.net_cumulative_return,
+        net_mean_return=evaluation.net_mean_return,
+        cost_scenario=cost_scenario,
+    )
+
+
+def evaluate_signal_log(
+    conn: sqlite3.Connection,
+    *,
+    store_root: Path,
+    user: UserPublic,
+    deployment_id: str,
+    cost_scenario: SlippageScenario = SlippageScenario.NORMAL,
+) -> SignalEvaluationOut:
+    """
+    Score the deployment's emitted signals open→open against realised opens.
+
+    ``cost_scenario`` selects the friction tier (slippage + commission) for
+    the net figures; gross figures are always cost-free. Read-only: never
+    recomputes or appends a signal, never touches a close price. Independent
+    of the generation path — evaluating cannot mutate deployment state or
+    trigger a predict.
+    """
+
+    row = _fetch_row(conn, deployment_id)
+    if row is None:
+        raise DeploymentNotFoundError(deployment_id)
+    _enforce_access(row, user)
+
+    signals = read_signals(store_root, deployment_id)
+    if not signals:
+        return SignalEvaluationOut(
+            rows=[],
+            n_signals=0,
+            n_scored=0,
+            n_hits=0,
+            hit_rate=None,
+            cumulative_return=None,
+            mean_return=None,
+            net_cumulative_return=None,
+            net_mean_return=None,
+            cost_scenario=cost_scenario,
+        )
+    opens = _fetch_opens(row["ticker"], Interval(row["interval"]), signals)
+    evaluation = evaluate_signals(
+        [s.bar_ts for s in signals],
+        [s.signal for s in signals],
+        opens,
+        cost_fraction=total_cost_fraction_for(cost_scenario),
+    )
+    return _evaluation_to_out(evaluation, cost_scenario)
 
 
 def predict_if_stale(

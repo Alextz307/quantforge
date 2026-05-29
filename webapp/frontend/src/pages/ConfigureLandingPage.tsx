@@ -1,4 +1,12 @@
-import { Beaker, GitCompareArrows, Globe, LayoutGrid, PlayCircle, ShieldCheck } from "lucide-react";
+import {
+  Beaker,
+  GitCompareArrows,
+  Globe,
+  LayoutGrid,
+  PlayCircle,
+  Radio,
+  ShieldCheck,
+} from "lucide-react";
 import { NavCard } from "@/components/NavCard";
 import { ROUTES } from "@/lib/routes";
 
@@ -8,8 +16,8 @@ export function ConfigureLandingPage() {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Configure</h1>
         <p className="text-sm text-muted-foreground">
-          Pick what to launch. Run + tune build experiments from scratch; compare + holdout reuse
-          completed artifacts.
+          Pick what to launch. Run + tune build experiments from scratch; compare, holdout + deploy
+          reuse completed artifacts.
         </p>
       </div>
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -36,6 +44,12 @@ export function ConfigureLandingPage() {
           icon={ShieldCheck}
           title="New holdout eval"
           description="Refit on full dev, evaluate once on the reserved holdout — honest OOS metrics."
+        />
+        <NavCard
+          to={`${ROUTES.deployments}?new=1`}
+          icon={Radio}
+          title="New deployment"
+          description="Deploy a trained model for live daily signals — pick a holdout-evaluated source, ranked by OOS Sharpe."
         />
         <NavCard
           to={ROUTES.configureStudy}

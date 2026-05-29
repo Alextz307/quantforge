@@ -16,6 +16,9 @@ export type DeploymentDetail = components["schemas"]["DeploymentDetail"];
 export type DeploymentCreate = components["schemas"]["DeploymentCreate"];
 export type SignalRowOut = components["schemas"]["SignalRowOut"];
 export type PredictIfStaleResponse = components["schemas"]["PredictIfStaleResponse"];
+export type SignalEvaluationOut = components["schemas"]["SignalEvaluationOut"];
+export type ScoredSignalOut = components["schemas"]["ScoredSignalOut"];
+export type CostScenario = components["schemas"]["SlippageScenario"];
 
 const LIST_STALE_TIME = 30_000;
 
@@ -55,6 +58,21 @@ function deploymentSignalsConfig(id: string): ApiQueryOptions<SignalRowOut[]> {
   };
 }
 
+function deploymentEvaluationConfig(
+  id: string,
+  cost: CostScenario,
+): ApiQueryOptions<SignalEvaluationOut> {
+  return {
+    queryKey: queryKeys.deploymentEvaluation(id, cost),
+    fetcher: () =>
+      apiClient.GET(API_PATHS.deploymentEvaluation, {
+        params: { path: { deployment_id: id }, query: { cost } },
+      }),
+    errorMsg: "Failed to load signal evaluation",
+    staleTime: Infinity,
+  };
+}
+
 export function useDeployments(
   opts: DeploymentsListOptions = {},
 ): UseQueryResult<DeploymentSummary[]> {
@@ -67,6 +85,13 @@ export function useDeployment(id: string): UseQueryResult<DeploymentDetail> {
 
 export function useDeploymentSignals(id: string): UseQueryResult<SignalRowOut[]> {
   return useApiQuery(deploymentSignalsConfig(id));
+}
+
+export function useSignalEvaluation(
+  id: string,
+  cost: CostScenario,
+): UseQueryResult<SignalEvaluationOut> {
+  return useApiQuery(deploymentEvaluationConfig(id, cost));
 }
 
 export function usePrefetchDeployment(): (id: string) => void {
@@ -148,8 +173,9 @@ export function usePredictIfStale(id: string) {
       // A fresh predict appended a row and moved latest_signal; a recall changed
       // nothing on disk, so only invalidate the cached views when stale.
       if (res.stale) {
+        // ["deployments", id] is a prefix of the signals + evaluation keys,
+        // so this invalidates the detail and every cost-tier evaluation too.
         void qc.invalidateQueries({ queryKey: queryKeys.deployment(id) });
-        void qc.invalidateQueries({ queryKey: queryKeys.deploymentSignals(id) });
       }
     },
   });

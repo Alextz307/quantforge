@@ -9,6 +9,7 @@ from datetime import datetime
 from pydantic import BaseModel, Field
 
 from src.core.types import Interval
+from src.engine.scenarios import SlippageScenario
 from src.orchestration.holdout_eval import SourceKind
 
 
@@ -84,3 +85,54 @@ class PredictIfStaleResponse(BaseModel):
 
     stale: bool
     signal: SignalRowOut
+
+
+class ScoredSignalOut(BaseModel):
+    """
+    One emitted signal scored open→open against realised session opens.
+
+    Entered at ``entry_date``'s open (the first session after ``bar_ts``),
+    exited at ``exit_date``'s open (the next session). ``listened_return``
+    is the signed, leverage-scaled realised return. The realised fields are
+    populated together iff ``scored`` is true — a signal stays unscored
+    until its exit session has opened. ``hit`` is null for a FLAT signal.
+    """
+
+    bar_ts: datetime
+    signal: float
+    entry_date: datetime | None
+    entry_open: float | None
+    exit_date: datetime | None
+    exit_open: float | None
+    asset_return: float | None
+    listened_return: float | None
+    hit: bool | None
+    cumulative_return: float | None
+    cost: float | None
+    net_listened_return: float | None
+    net_cumulative_return: float | None
+    scored: bool
+
+
+class SignalEvaluationOut(BaseModel):
+    """
+    Response for GET /deployments/{id}/signal-evaluation.
+
+    Per-signal scores plus headline stats over the scored subset.
+    ``hit_rate`` covers directional (non-FLAT) scored signals only;
+    ``cumulative_return`` compounds every scored ``listened_return``
+    (gross), and ``net_cumulative_return`` does so after costs. All summary
+    stats are null when nothing has been scored yet. ``cost_scenario`` is
+    the tier whose slippage + commission produced the net figures.
+    """
+
+    rows: list[ScoredSignalOut]
+    n_signals: int
+    n_scored: int
+    n_hits: int
+    hit_rate: float | None
+    cumulative_return: float | None
+    mean_return: float | None
+    net_cumulative_return: float | None
+    net_mean_return: float | None
+    cost_scenario: SlippageScenario

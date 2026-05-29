@@ -44,6 +44,7 @@ Deployments (auth-gated; per-user scope, admins may pass `?all=1`):
 - `GET /api/deployments`, `POST /api/deployments`, `GET /api/deployments/{id}`, `PATCH /api/deployments/{id}`, `DELETE /api/deployments/{id}` — saved pointers to a previously trained run or HPO best trial that accumulate a daily signal log. Create with `{source_kind: "run"|"hpo", source_id, name?, warmup_bars?}`; `name` and `warmup_bars` auto-derive from the source's manifest + strategy when omitted. The DB row carries denormalised `ticker / strategy_name / interval / train_end` columns read from the source at create time. Pairs and non-daily sources are refused upfront with 422.
 - `GET /api/deployments/{id}/signals?limit=N` — append-only signal log read from `signals.jsonl`. `submitted_at` (wall-clock predict time) and `bar_ts` (the last completed bar the signal was computed from) are tracked separately; the response also carries a derived `signal_date` — the trading day the signal is *for* (next session after `bar_ts`).
 - `POST /api/deployments/{id}/predict-if-stale` — synchronous. Recalls today's signal from `signals.jsonl` if its `bar_ts` is at or beyond the vendor's latest available bar; otherwise invokes the framework's `predict()` inside FastAPI's threadpool, appends a new row (idempotent on `bar_ts`), and returns it. Surfaces the framework's `LeakageError` / `WarmupInsufficientError` as 422.
+- `GET /api/deployments/{id}/signal-evaluation?cost=<tier>` — read-only, backward scoring of the emitted signals. Each signal is scored open→open (enter at `signal_date`'s open, exit at the next session's open) for a leverage-scaled realised return + directional hit; the response carries per-signal rows plus hit-rate and **gross + net** cumulative-return headline stats. `cost` selects the friction tier (`zero`/`low`/`normal`/`high`, default `normal`) whose slippage + commission produce the net figures (net subtracts `|Δleverage| × cost` per rebalance). Decoupled from generation: it reads only session **opens** (via the open-discipline fetch, which keeps a still-forming session's open) and never recomputes, appends, or touches a close. A signal stays unscored until its exit session has opened.
 
 Configs (auth-gated):
 - `GET /api/configs/{kind}` — list `*.yaml` under `config/<kind>/` (kinds: experiment / universe / strategy / hpo / study / model).
@@ -115,10 +116,12 @@ upgrade so the session cookie travels through dev mode unchanged.
 The backend accepts `POST /api/jobs`, spawns the matching `experiment`
 subcommand (`run` / `tune` / `compare` / `holdout-eval`) under
 `webapp/data/jobs/<job_id>.{yaml,log}`, and the SPA's Configure + Jobs
-pages drive the lifecycle. `/configure` is a 4-card hub: Run / Tune build
-experiments from scratch, while Compare / Holdout reuse completed
+pages drive the lifecycle. `/configure` is a hub: Run / Tune build
+experiments from scratch, while Compare / Holdout / Deploy reuse completed
 artifacts (the run/HPO detail pages also surface contextual "Run holdout
-eval" CTAs when the source carries the required artifact).
+eval" CTAs when the source carries the required artifact). The **New
+deployment** card routes to `/deployments?new=1`, which opens the deploy
+picker directly.
 
 `/deployments` lists saved deployments and hosts an inline picker that shows
 **only** models with a holdout evaluation (run- or HPO-sourced, one row per
@@ -128,8 +131,15 @@ page (reachable via the `Runs` page), which warns that you are deploying
 without out-of-sample validation. `Deploy` actions also live on each
 holdout-eval row. `/deployments/:deploymentId`
 computes today's signal on mount via `predict-if-stale`, shows the
-append-only signal history, and offers inline rename. The shared
-`SignalBadge` renders the LONG / SHORT / FLAT / computing states.
+append-only signal history, and offers inline rename. A **Signal
+performance** card scores past signals open→open (via
+`signal-evaluation`): hit-rate plus **gross and net** cumulative-return
+stats, a cost-tier selector (zero/low/normal/high), and gross + net
+cumulative-equity curves. The history table joins per-signal entry-open /
+asset-move / gross / net columns and a lifecycle Status (pending →
+holding → win/loss/flat) so a row reads as not-entered vs live vs scored
+at a glance. The shared `SignalBadge` renders the LONG / SHORT / FLAT /
+computing states.
 
 ## Cross-links
 

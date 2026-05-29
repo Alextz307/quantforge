@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Trash2 } from "lucide-react";
 import { useMe } from "@/api/auth";
 import {
@@ -25,8 +25,10 @@ import { sourceKindLabel, type SourceKind } from "@/lib/sourceKind";
 export function DeploymentsPage() {
   const me = useMe();
   const isAdmin = me.data?.role === "admin";
+  const [searchParams] = useSearchParams();
   const [allUsers, setAllUsers] = useState(false);
-  const [showPicker, setShowPicker] = useState(false);
+  // Arriving from Configure → "New deployment" lands with the picker open.
+  const [showPicker, setShowPicker] = useState(searchParams.get("new") === "1");
   const query = useDeployments({ allUsers: isAdmin && allUsers });
   const deleteDeployment = useDeleteDeployment();
 

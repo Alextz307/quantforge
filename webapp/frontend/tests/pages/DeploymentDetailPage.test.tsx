@@ -38,6 +38,32 @@ describe("DeploymentDetailPage", () => {
     expect(within(table).getAllByTestId("signal-badge").length).toBeGreaterThan(0);
   });
 
+  it("renders the signal performance summary and per-signal scores", async () => {
+    renderDetail();
+    const perf = await screen.findByTestId("signal-performance");
+    expect(within(perf).getByText("100.00%")).toBeInTheDocument(); // hit rate 1.0
+    expect(within(perf).getByText("1 / 3")).toBeInTheDocument(); // scored count
+  });
+
+  it("shows gross and net cumulative with a cost-tier selector", async () => {
+    renderDetail();
+    const perf = await screen.findByTestId("signal-performance");
+    expect(within(perf).getByText("1.20%")).toBeInTheDocument(); // gross cumulative
+    expect(within(perf).getByText("1.16%")).toBeInTheDocument(); // net of costs
+    expect(screen.getByTestId("cost-tier-selector")).toBeInTheDocument();
+  });
+
+  it("distinguishes scored, holding, and pending signals in the history", async () => {
+    renderDetail();
+    const table = await screen.findByTestId("signal-history-table");
+    // scored row → outcome; holding row → live; pending row → not entered.
+    expect(within(table).getByText("✓ win")).toBeInTheDocument();
+    expect(within(table).getByText("holding")).toBeInTheDocument();
+    expect(within(table).getByText("pending")).toBeInTheDocument();
+    // the holding row surfaces its entry-open price even with no score yet
+    expect(within(table).getByText("101.20")).toBeInTheDocument();
+  });
+
   it("surfaces a 422 predict error inline", async () => {
     server.use(
       http.post(toMswPath(API_PATHS.deploymentPredict), () =>

@@ -17,6 +17,7 @@ pairwise / forecaster significance tests.
 | `deflated_sharpe_ratio(trial_sharpes, *, sample_length)` → `DeflatedSharpe` | Bailey-López de Prado 2014 multiple-testing-adjusted significance for an HPO study's best Sharpe. Inputs come from the Optuna `study.db`. |
 | `compute_buy_and_hold(bars, *, slippage, interval, ...)` → `BaselineResult` | Long-only "do nothing" baseline on canonical OHLCV; runs through the same `IBacktestEngine` + slippage scenario as the strategy. |
 | `percentile_ci(samples, confidence)` | Symmetric percentile bounds; reused by aggregator and bootstrap helpers. |
+| `evaluate_signals(bar_timestamps, signal_values, opens)` → `SignalEvaluation` | Backward open→open scoring of a deployment's emitted signals against realised session opens: per-signal realised return + directional hit + cumulative growth, plus hit-rate / cumulative-return headline stats. Pure and read-only — the evaluation counterpart to signal generation. |
 
 ## Layout
 
@@ -26,6 +27,7 @@ pairwise / forecaster significance tests.
 | `ranking.py` | `RankingMetric` (StrEnum) + `rank_strategies` (stable mergesort tie-break). |
 | `significance.py` | Stationary bootstrap (Politis-Romano), Diebold-Mariano (HLN-corrected), deflated Sharpe (Bailey-López de Prado), `DMLoss`, `DMDirection`, `DeflatedSharpe`. |
 | `baselines.py` | `BaselineResult` + `compute_buy_and_hold` — per-universe long-only reference. |
+| `signal_evaluation.py` | `ScoredSignal`, `SignalEvaluation`, `evaluate_signals` — open→open scoring of a deployment's signal log. |
 
 ## Aggregation choices worth knowing
 

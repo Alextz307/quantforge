@@ -49,6 +49,11 @@ _BOLLINGER_TREND = 50
 _GARCH_P = 1
 _GARCH_Q = 1
 _PREDICT_BAR_OFFSET = 30
+_EVAL_ENTRY_OPEN = 100.0
+_EVAL_EXIT_OPEN = 110.0
+_EVAL_ASSET_RETURN = 0.10
+_EVAL_TOL = 1e-9
+_NORMAL_COST_FRACTION = 0.0004  # (2 bp slippage + 2 bp commission) / 10_000
 
 
 def _materialise_run(store_root: Path, run_id: str) -> Path:
@@ -444,5 +449,151 @@ def test_detail_surfaces_latest_signal_after_predict(
     assert "bar_ts" in detail["latest_signal"]
     # signal_date is the session the signal is *for* — strictly after the bar it was computed from
     assert detail["latest_signal"]["signal_date"] > detail["latest_signal"]["bar_ts"]
+
+
+# ---------------------------------------------------------------------------
+# Signal evaluation
+# ---------------------------------------------------------------------------
+
+
+def test_signal_evaluation_requires_auth(client: TestClient, trained_store: Path) -> None:
+    response = client.get(f"{DEPLOYMENTS_PATH}/anything/signal-evaluation")
+    assert response.status_code == HTTPStatus.UNAUTHORIZED
+
+
+def test_signal_evaluation_empty_on_fresh_deployment(
+    authed_client: TestClient, trained_store: Path
+) -> None:
+    created = authed_client.post(
+        DEPLOYMENTS_PATH, json={"source_kind": "run", "source_id": _RUN_ID}
+    ).json()
+    response = authed_client.get(f"{DEPLOYMENTS_PATH}/{created['id']}/signal-evaluation")
+
+    assert response.status_code == HTTPStatus.OK
+    payload = response.json()
+    assert payload["n_signals"] == 0
+    assert payload["rows"] == []
+    assert payload["hit_rate"] is None
+    assert payload["cumulative_return"] is None
+
+
+def test_signal_evaluation_404_for_other_user(
+    authed_client: TestClient,
+    trained_store: Path,
+    db_conn: sqlite3.Connection,
+    client: TestClient,
+) -> None:
+    created = authed_client.post(
+        DEPLOYMENTS_PATH, json={"source_kind": "run", "source_id": _RUN_ID}
+    ).json()
+    deployment_id = created["id"]
+
+    _create_secondary_user(db_conn)
+    authed_client.post("/api/auth/logout")
+    _login(client, SECONDARY_USERNAME, SECONDARY_PASSWORD)
+
+    response = client.get(f"{DEPLOYMENTS_PATH}/{deployment_id}/signal-evaluation")
+    assert response.status_code == HTTPStatus.NOT_FOUND
+
+
+def test_signal_evaluation_scores_emitted_signal(
+    authed_client: TestClient,
+    trained_store: Path,
+    stubbed_fetcher: tuple[pd.DataFrame, pd.Timestamp],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """
+    A predicted signal is scored open→open once two later session opens exist.
+
+    ``_fetch_opens`` is stubbed (no yfinance) with two sessions strictly
+    after the signal's ``bar_ts`` so the open→open window closes; the
+    realised return must equal ``signal * asset_return``.
+    """
+
+    created = authed_client.post(
+        DEPLOYMENTS_PATH, json={"source_kind": "run", "source_id": _RUN_ID}
+    ).json()
+    deployment_id = created["id"]
+    predicted = authed_client.post(
+        f"{DEPLOYMENTS_PATH}/{deployment_id}/predict-if-stale"
+    ).json()
+    signal_value = predicted["signal"]["signal"]
+    bar_ts = pd.Timestamp(predicted["signal"]["bar_ts"])
+
+    opens = pd.Series(
+        [_EVAL_ENTRY_OPEN, _EVAL_EXIT_OPEN],
+        index=pd.DatetimeIndex(
+            [bar_ts + pd.Timedelta(days=1), bar_ts + pd.Timedelta(days=2)]
+        ),
+    )
+
+    def _stub_fetch_opens(_ticker: str, _interval: Interval, _signals: object) -> pd.Series:
+        return opens
+
+    monkeypatch.setattr(
+        "webapp.backend.app.services.deployment_service._fetch_opens",
+        _stub_fetch_opens,
+    )
+
+    response = authed_client.get(f"{DEPLOYMENTS_PATH}/{deployment_id}/signal-evaluation")
+    assert response.status_code == HTTPStatus.OK, response.text
+    payload = response.json()
+    assert payload["n_signals"] == 1
+    assert payload["n_scored"] == 1
+    assert payload["cost_scenario"] == "normal"
+    row = payload["rows"][0]
+    assert row["scored"] is True
+    assert row["asset_return"] == pytest.approx(_EVAL_ASSET_RETURN, abs=_EVAL_TOL)
+    assert row["listened_return"] == pytest.approx(
+        signal_value * _EVAL_ASSET_RETURN, abs=_EVAL_TOL
+    )
+    # default tier (normal) charges |Δleverage| × cost_fraction; first signal carries from flat.
+    assert row["cost"] == pytest.approx(abs(signal_value) * _NORMAL_COST_FRACTION, abs=_EVAL_TOL)
+    assert row["net_listened_return"] == pytest.approx(
+        row["listened_return"] - row["cost"], abs=_EVAL_TOL
+    )
+
+
+def test_signal_evaluation_zero_cost_tier_matches_gross(
+    authed_client: TestClient,
+    trained_store: Path,
+    stubbed_fetcher: tuple[pd.DataFrame, pd.Timestamp],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    created = authed_client.post(
+        DEPLOYMENTS_PATH, json={"source_kind": "run", "source_id": _RUN_ID}
+    ).json()
+    deployment_id = created["id"]
+    predicted = authed_client.post(
+        f"{DEPLOYMENTS_PATH}/{deployment_id}/predict-if-stale"
+    ).json()
+    bar_ts = pd.Timestamp(predicted["signal"]["bar_ts"])
+    opens = pd.Series(
+        [_EVAL_ENTRY_OPEN, _EVAL_EXIT_OPEN],
+        index=pd.DatetimeIndex(
+            [bar_ts + pd.Timedelta(days=1), bar_ts + pd.Timedelta(days=2)]
+        ),
+    )
+
+    def _stub_fetch_opens(_ticker: str, _interval: Interval, _signals: object) -> pd.Series:
+        return opens
+
+    monkeypatch.setattr(
+        "webapp.backend.app.services.deployment_service._fetch_opens",
+        _stub_fetch_opens,
+    )
+
+    response = authed_client.get(
+        f"{DEPLOYMENTS_PATH}/{deployment_id}/signal-evaluation?cost=zero"
+    )
+    assert response.status_code == HTTPStatus.OK, response.text
+    payload = response.json()
+    assert payload["cost_scenario"] == "zero"
+    row = payload["rows"][0]
+    assert row["cost"] == pytest.approx(0.0, abs=_EVAL_TOL)
+    assert row["net_listened_return"] == pytest.approx(row["listened_return"], abs=_EVAL_TOL)
+    assert payload["net_cumulative_return"] == pytest.approx(
+        payload["cumulative_return"], abs=_EVAL_TOL
+    )
 
 

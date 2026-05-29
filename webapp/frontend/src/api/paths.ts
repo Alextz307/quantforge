@@ -41,6 +41,7 @@ export const API_PATHS = {
   deployment: "/api/deployments/{deployment_id}",
   deploymentSignals: "/api/deployments/{deployment_id}/signals",
   deploymentPredict: "/api/deployments/{deployment_id}/predict-if-stale",
+  deploymentEvaluation: "/api/deployments/{deployment_id}/signal-evaluation",
 } as const;
 
 // MSW v2 expects `:name` path params; openapi-fetch (matching FastAPI's path

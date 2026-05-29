@@ -7,6 +7,7 @@ import sqlite3
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from src.core.exceptions import LeakageError, WarmupInsufficientError
+from src.engine.scenarios import SlippageScenario
 from webapp.backend.app.core.deps import get_current_user, get_db
 from webapp.backend.app.core.settings import get_settings
 from webapp.backend.app.schemas.deployments import (
@@ -15,6 +16,7 @@ from webapp.backend.app.schemas.deployments import (
     DeploymentRename,
     DeploymentSummary,
     PredictIfStaleResponse,
+    SignalEvaluationOut,
     SignalRowOut,
 )
 from webapp.backend.app.schemas.users import UserPublic
@@ -24,6 +26,7 @@ from webapp.backend.app.services.deployment_service import (
     DeploymentSourceInvalidError,
     create_deployment,
     delete_deployment,
+    evaluate_signal_log,
     get_deployment,
     list_deployments,
     predict_if_stale,
@@ -144,6 +147,27 @@ def get_signal_log(
             user=user,
             deployment_id=deployment_id,
             limit=limit,
+        )
+    except (DeploymentNotFoundError, DeploymentAccessDeniedError) as exc:
+        raise _not_found(exc) from exc
+
+
+@router.get("/{deployment_id}/signal-evaluation", response_model=SignalEvaluationOut)
+def get_signal_evaluation(
+    deployment_id: str,
+    cost: SlippageScenario = Query(SlippageScenario.NORMAL),
+    user: UserPublic = Depends(get_current_user),
+    conn: sqlite3.Connection = Depends(get_db),
+) -> SignalEvaluationOut:
+    """Score the deployment's emitted signals open→open; ``cost`` sets the net friction tier."""
+
+    try:
+        return evaluate_signal_log(
+            conn,
+            store_root=get_settings().store_root,
+            user=user,
+            deployment_id=deployment_id,
+            cost_scenario=cost,
         )
     except (DeploymentNotFoundError, DeploymentAccessDeniedError) as exc:
         raise _not_found(exc) from exc

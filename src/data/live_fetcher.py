@@ -21,10 +21,11 @@ cadence-agnostic.
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from functools import cache
 from typing import Protocol
 
+import numpy as np
 import pandas as pd
 import pandas_market_calendars as mcal
 
@@ -56,6 +57,24 @@ class LiveBarFetcher(Protocol):
         """
         Fetch bars in ``[start, end]`` for ``ticker`` at ``interval``.
         """
+
+
+def _vendor_end_inclusive(end: datetime) -> datetime:
+    """
+    Bump ``end`` one day so the vendor's exclusive end-date includes it.
+
+    yfinance treats ``end`` as exclusive of its calendar date, so a live
+    fetch with ``end=now`` silently drops the bar dated today — exactly the
+    most recent bar live inference needs (and, when reproducing a training
+    window, the bar at ``train_end`` itself). Adding a day pulls that bar in;
+    the cadence-specific freshness filters
+    (:func:`_drop_unclosed_last_session` / :func:`_opens_of_opened_sessions`)
+    then decide whether it is actually actionable yet. The backtest path uses
+    :class:`YFinanceSource` directly and keeps the vendor's exclusive
+    semantics, so its cached windows and data hashes are unaffected.
+    """
+
+    return end + timedelta(days=1)
 
 
 class DailyLiveBarFetcher:
@@ -92,7 +111,7 @@ class DailyLiveBarFetcher:
                 f"fix by routing non-daily intervals through resolve_fetcher() "
                 f"once an intraday implementation lands."
             )
-        bars = self._source.fetch(ticker, start, end, interval)
+        bars = self._source.fetch(ticker, start, _vendor_end_inclusive(end), interval)
         return _drop_unclosed_last_session(bars, pd.Timestamp.now(tz="UTC"))
 
 
@@ -131,6 +150,65 @@ def _drop_unclosed_last_session(bars: pd.DataFrame, now: pd.Timestamp) -> pd.Dat
     if now < market_close:
         return bars.iloc[:-1]
     return bars
+
+
+def _opens_of_opened_sessions(bars: pd.DataFrame, now: pd.Timestamp) -> pd.Series:
+    """
+    Keep each session's open whose session has opened by ``now``.
+
+    Open-boundary mirror of :func:`_drop_unclosed_last_session`: that
+    drops a session whose *close* is still in the future (the close keeps
+    moving, so generation can't trust it); this admits a session whose
+    *open* has already printed. An open is fixed at the bell and never
+    revised, so a currently-forming session contributes its open here —
+    but never its still-moving close — letting a signal be scored the
+    moment its exit session opens. Returns a tz-naive, normalised,
+    ascending float Series; empty when the vendor has no bars.
+    """
+
+    if bars.empty:
+        return pd.Series(dtype="float64")
+    sessions = pd.DatetimeIndex(bars.index)
+    if sessions.tz is not None:
+        sessions = sessions.tz_localize(None)
+    sessions = sessions.normalize()
+    opens = pd.Series(np.asarray(bars["open"], dtype=np.float64), index=sessions)
+    schedule = _nyse_calendar().schedule(
+        start_date=sessions[0].date(), end_date=sessions[-1].date()
+    )
+    market_open = schedule["market_open"].reindex(sessions)
+    keep = np.asarray(market_open <= now)
+    return opens[keep]
+
+
+def fetch_session_opens(
+    ticker: str,
+    start: datetime,
+    end: datetime,
+    interval: Interval,
+    now: pd.Timestamp,
+    *,
+    source: YFinanceSource | None = None,
+) -> pd.Series:
+    """
+    Open price per opened session for ``ticker`` over ``[start, end]``.
+
+    The evaluation-side data source, deliberately separate from
+    :class:`DailyLiveBarFetcher` (the generation source). Generation drops
+    the still-forming bar because it reads the close; evaluation keeps it
+    because it reads only the open. ``now`` is injected (not read from the
+    wall clock) so callers and tests control the reference instant,
+    mirroring ``predict(as_of=...)``. Daily cadence only today.
+    """
+
+    if interval is not Interval.DAILY:
+        raise NotImplementedError(
+            f"fetch_session_opens only supports Interval.DAILY, got {interval}; "
+            f"intraday signal evaluation lands with the intraday fetcher."
+        )
+    src = source if source is not None else YFinanceSource()
+    bars = src.fetch(ticker, start, _vendor_end_inclusive(end), interval)
+    return _opens_of_opened_sessions(bars, now)
 
 
 def resolve_fetcher(interval: Interval) -> LiveBarFetcher:

@@ -6,6 +6,7 @@ import type {
   DeploymentDetail,
   DeploymentSummary,
   PredictIfStaleResponse,
+  SignalEvaluationOut,
   SignalRowOut,
 } from "@/api/deployments";
 import type { HoldoutEvalDetail, HoldoutEvalSummary } from "@/api/holdout";
@@ -476,13 +477,85 @@ export const DEPLOY_SIGNAL_LATEST: SignalRowOut = {
 export const DEPLOY_SIGNAL_HISTORY: SignalRowOut[] = [
   {
     ...DEPLOY_SIGNAL_LATEST,
+    bar_ts: "2026-05-26T00:00:00Z",
+    signal_date: "2026-05-27T00:00:00Z",
+    submitted_at: "2026-05-26T16:31:00Z",
+    signal: 1.0,
+  },
+  {
+    ...DEPLOY_SIGNAL_LATEST,
     bar_ts: "2026-05-27T00:00:00Z",
     signal_date: "2026-05-28T00:00:00Z",
     submitted_at: "2026-05-27T16:31:00Z",
-    signal: 0.0,
+    signal: -1.0,
   },
   DEPLOY_SIGNAL_LATEST,
 ];
+
+export const DEPLOY_EVALUATION: SignalEvaluationOut = {
+  rows: [
+    {
+      // scored: both opens printed
+      bar_ts: "2026-05-26T00:00:00Z",
+      signal: 1.0,
+      entry_date: "2026-05-27T00:00:00Z",
+      entry_open: 100.0,
+      exit_date: "2026-05-28T00:00:00Z",
+      exit_open: 101.2,
+      asset_return: 0.012,
+      listened_return: 0.012,
+      hit: true,
+      cumulative_return: 0.012,
+      cost: 0.0004,
+      net_listened_return: 0.0116,
+      net_cumulative_return: 0.0116,
+      scored: true,
+    },
+    {
+      // holding: entered at the open, exit session not opened yet
+      bar_ts: "2026-05-27T00:00:00Z",
+      signal: -1.0,
+      entry_date: "2026-05-28T00:00:00Z",
+      entry_open: 101.2,
+      exit_date: null,
+      exit_open: null,
+      asset_return: null,
+      listened_return: null,
+      hit: null,
+      cumulative_return: null,
+      cost: null,
+      net_listened_return: null,
+      net_cumulative_return: null,
+      scored: false,
+    },
+    {
+      // pending: entry session not opened yet
+      bar_ts: "2026-05-28T00:00:00Z",
+      signal: 1.0,
+      entry_date: null,
+      entry_open: null,
+      exit_date: null,
+      exit_open: null,
+      asset_return: null,
+      listened_return: null,
+      hit: null,
+      cumulative_return: null,
+      cost: null,
+      net_listened_return: null,
+      net_cumulative_return: null,
+      scored: false,
+    },
+  ],
+  n_signals: 3,
+  n_scored: 1,
+  n_hits: 1,
+  hit_rate: 1.0,
+  cumulative_return: 0.012,
+  mean_return: 0.012,
+  net_cumulative_return: 0.0116,
+  net_mean_return: 0.0116,
+  cost_scenario: "normal",
+};
 
 export const DEPLOY_SPY: DeploymentSummary = {
   id: "dep_spy",
@@ -676,5 +749,9 @@ export const handlers = [
       stale: false,
       signal: DEPLOY_SIGNAL_LATEST,
     } satisfies PredictIfStaleResponse);
+  }),
+  http.get(toMswPath(API_PATHS.deploymentEvaluation), ({ params }) => {
+    if (!isKnownDeployment(params.deployment_id)) return new HttpResponse(null, { status: 404 });
+    return HttpResponse.json(DEPLOY_EVALUATION);
   }),
 ];
