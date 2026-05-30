@@ -74,6 +74,22 @@ class Device(StrEnum):
     CPU = "cpu"
 
 
+class JobKind(StrEnum):
+    """
+    Kind of framework operation that produces a persisted artifact.
+
+    Every ``experiment`` CLI subcommand emits one of these. Defined in core
+    so the CLI and the webapp share a single definition (the webapp uses it
+    as a job's kind); the CLI must not import webapp to name the kinds.
+    """
+
+    RUN = "run"
+    TUNE = "tune"
+    COMPARE = "compare"
+    HOLDOUT = "holdout"
+    STUDY = "study"
+
+
 _ANNUALIZATION_FACTORS: dict[Interval, int] = {
     Interval.SECOND: TRADING_DAYS_PER_YEAR * US_TRADING_SECONDS_PER_DAY,
     Interval.MINUTE: TRADING_DAYS_PER_YEAR * US_TRADING_MINUTES_PER_DAY,

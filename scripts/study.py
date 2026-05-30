@@ -27,10 +27,10 @@ from pydantic import ValidationError
 from scripts._attribution import attribute_via_username, default_username
 from src.core.exceptions import LeakageError
 from src.core.logging import attach_cli_log_file
+from src.core.types import JobKind
 from src.orchestration.study import run_study
 from src.orchestration.study_report import consolidate_study
 from src.visualization.study_report_reporter import StudyReportReporter
-from webapp.backend.app.schemas.jobs import JobKind
 
 DEFAULT_STORE_ROOT = Path("experiment_results")
 

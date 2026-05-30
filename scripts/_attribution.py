@@ -33,12 +33,12 @@ from typing import TextIO
 
 import click
 
-from webapp.backend.app.core.settings import get_settings
-from webapp.backend.app.core.types import Role
-from webapp.backend.app.infrastructure.db import bootstrap_schema, open_db
-from webapp.backend.app.schemas.jobs import JobKind, JobStatus
-from webapp.backend.app.services.auth_service import MIN_PASSWORD_LENGTH
-from webapp.backend.app.services.user_service import create_user
+from src.core.types import JobKind
+
+# The webapp modules are imported lazily inside the functions that touch the
+# webapp DB, so the core CLI can be imported and run without the optional
+# webapp dependencies (fastapi, pydantic-settings, ...) installed. Attribution
+# simply no-ops when they are absent.
 
 
 class UserNotFoundNonInteractiveError(click.ClickException):
@@ -84,6 +84,8 @@ def insert_synthetic_job(
     Insert one synthetic ``jobs`` row. Caller is responsible for ``commit()``.
     """
 
+    from webapp.backend.app.schemas.jobs import JobStatus
+
     conn.execute(
         "INSERT INTO jobs ("
         "id, user_id, kind, command, config_path, log_path, "
@@ -111,6 +113,10 @@ def _prompt_and_create(conn: sqlite3.Connection, username: str) -> int:
     Raises ``click.ClickException`` on confirm decline, mismatched
     passwords, or too-short passwords.
     """
+
+    from webapp.backend.app.core.types import Role
+    from webapp.backend.app.services.auth_service import MIN_PASSWORD_LENGTH
+    from webapp.backend.app.services.user_service import create_user
 
     click.echo(f"webapp user '{username}' not found.")
     if not click.confirm(f"Create new webapp user '{username}'?", default=False):
@@ -201,10 +207,17 @@ def attribute_via_username(
     re-raise on sqlite errors - attribution must never block the
     artifact-producing path.
 
-    Silently skips when the webapp DB doesn't exist yet: the CLI must not
-    lazy-create ``webapp/data/webapp.sqlite`` for users who haven't bootstrapped
-    the webapp, and pytest fixtures use a missing path to opt out.
+    Silently skips when the webapp package isn't installed (the core CLI runs
+    without webapp deps) or when the webapp DB doesn't exist yet: the CLI must
+    not lazy-create ``webapp/data/webapp.sqlite`` for users who haven't
+    bootstrapped the webapp, and pytest fixtures use a missing path to opt out.
     """
+
+    try:
+        from webapp.backend.app.core.settings import get_settings
+        from webapp.backend.app.infrastructure.db import bootstrap_schema, open_db
+    except ModuleNotFoundError:
+        return
 
     if not get_settings().db_path.exists():
         return

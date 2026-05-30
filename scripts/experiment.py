@@ -41,13 +41,13 @@ from src.core.persistence import (
     HPO_SUBDIR,
     RUNS_SUBDIR,
 )
+from src.core.types import JobKind
 from src.orchestration.builder import build_experiment
 from src.orchestration.comparison import SignificanceTest, run_comparison
 from src.orchestration.experiment import RunOptions
 from src.orchestration.holdout_eval import resolve_source, run_holdout_eval
 from src.orchestration.run_loader import load_experiment_result
 from src.orchestration.types import ExperimentResult
-from webapp.backend.app.schemas.jobs import JobKind
 
 # ``optuna`` is deferred into ``tune_cmd`` so it does not load on every CLI
 # invocation. Visualization reporters are also lazy for symmetry; matplotlib

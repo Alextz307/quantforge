@@ -10,6 +10,10 @@ from typing import Annotated, Literal, Self
 
 from pydantic import BaseModel, Field, model_validator
 
+# Re-export the core-owned enum under this module's public surface (the
+# ``as`` makes it an explicit re-export under mypy --strict's
+# no-implicit-reexport). A webapp job's kind IS the framework JobKind.
+from src.core.types import JobKind as JobKind
 from src.orchestration.comparison import SignificanceTest
 from src.orchestration.holdout_eval import SourceKind
 
@@ -21,14 +25,6 @@ _SLUG_PATTERN = r"^[A-Za-z0-9_\-:]+$"
 _MIN_COMPARE_RUNS = 2
 _MAX_COMPARE_RUNS = 8
 _MAX_COMPARE_N_JOBS = 8
-
-
-class JobKind(StrEnum):
-    RUN = "run"
-    TUNE = "tune"
-    COMPARE = "compare"
-    HOLDOUT = "holdout"
-    STUDY = "study"
 
 
 class JobStatus(StrEnum):

@@ -11,6 +11,7 @@ device selection, and small JSON / FS helpers.
 | --- | --- |
 | `Interval` (StrEnum) | Bar timeframe; `annualization_factor()` returns bars/year. |
 | `LossFunction`, `InformationCriterion`, `Device` | Strict StrEnum types used in ctor params + Optuna search spaces. |
+| `JobKind` (StrEnum) | Kind of framework operation that produces a persisted artifact (`run`/`tune`/`compare`/`holdout`/`study`). Single source of truth: the CLI attributes artifacts with it and the webapp imports it as a job's kind. |
 | `BarData`, `Signal`, `PairSignal` | Pydantic v2 frozen value types with bounds + invariants. |
 | `OHLCV_COLUMNS`, `PAIRS_LEG_SUFFIXES`, `TRADING_DAYS_PER_YEAR`, `DEFAULT_REALIZED_VOL_WINDOW`, ... | Centralised constants: magic numbers live here, never inline. |
 | `ComponentRegistry[T]` + globals | `strategy_registry`, `model_registry`, `classifier_registry`, `data_source_registry`, `feature_registry`. `create_from_config(ComponentConfig)` is the config-layer entry point. |
