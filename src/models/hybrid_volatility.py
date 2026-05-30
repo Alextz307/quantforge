@@ -190,6 +190,15 @@ class HybridVolatilityModel(IPredictor):
 
         guard_scaler_fit_once(self._scaler, "HybridVolatilityModel")
 
+        missing = [c for c in self._feature_columns if c not in train_data.columns]
+        if missing:
+            raise ValueError(
+                f"HybridVolatilityModel.fit(): feature_columns {missing} not in train_data "
+                f"(have {list(train_data.columns)}). If a feature-pipeline period such as "
+                f"roc_period / adx_period was overridden, the produced column name shifts "
+                f"(e.g. roc_63 -> roc_<period>); update feature_columns to match."
+            )
+
         log_returns = compute_log_returns(train_data["close"]).dropna()
         with log_stage(logger, "HybridVolatility [stage=garch]", n=len(log_returns)):
             self._garch.fit(train_data.loc[log_returns.index], log_returns)

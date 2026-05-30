@@ -34,6 +34,14 @@ strategy:
       - macd
       - macd_signal
       - macd_hist
+      - roc_63
+      - garman_klass
+      - intraday_range
+      - overnight_gap
+      - bb_pctb
+      - adx_14
+      - volume_zscore
+      - obv_z
     position_scale: 20.0
     max_leverage: 1.5
     # ARMA + LSTM hyperparams the HPO sweep tunes.

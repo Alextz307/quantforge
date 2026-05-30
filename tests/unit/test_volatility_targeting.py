@@ -233,4 +233,6 @@ class TestVolatilityTargetingStrategy:
         for col in synthetic_feature_columns:
             df[col] = rng.normal(0, 1, len(df))
         signals = fitted_strategy.generate_signals(df).dropna()
+        # Guard against a vacuous pass: an all-NaN signal makes (empty == 0.0).all() True.
+        assert not signals.empty
         assert (signals == 0.0).all()

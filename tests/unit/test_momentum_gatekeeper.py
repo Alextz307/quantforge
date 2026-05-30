@@ -13,8 +13,8 @@ from src.core.types import Interval
 from src.strategies.momentum_gatekeeper import MomentumGatekeeperStrategy, _MomentumConfig
 from tests.conftest import (
     assert_params_match_constructor,
-    make_declining_close_df,
-    make_synthetic_close_df,
+    make_declining_ohlcv_df,
+    make_synthetic_ohlcv_df,
 )
 
 COMPACT_N_ESTIMATORS = 20
@@ -22,8 +22,8 @@ COMPACT_MAX_DEPTH = 3
 
 MA_WINDOW = 20
 PROB_THRESHOLD = 0.55
-# MACD signal line (slow=26 + signal=9 - 2) dominates the hard-NaN horizon.
-FEATURE_PIPELINE_WARMUP = 33
+# roc_63 dominates the hard-NaN horizon (ahead of MACD signal at 33).
+FEATURE_PIPELINE_WARMUP = 63
 
 EVAL_ROW_COUNT = 80
 EVAL_START_DATE = "2021-01-04"
@@ -34,12 +34,12 @@ VALID_SIGNALS = {0.0, 1.0}
 
 @pytest.fixture
 def train_df() -> pd.DataFrame:
-    return make_synthetic_close_df()
+    return make_synthetic_ohlcv_df()
 
 
 @pytest.fixture
 def eval_df() -> pd.DataFrame:
-    return make_synthetic_close_df(n_rows=EVAL_ROW_COUNT, start=EVAL_START_DATE, seed=EVAL_SEED)
+    return make_synthetic_ohlcv_df(n_rows=EVAL_ROW_COUNT, start=EVAL_START_DATE, seed=EVAL_SEED)
 
 
 @pytest.fixture
@@ -145,9 +145,12 @@ class TestMomentumGatekeeperStrategy:
         In a monotone decline, the trend gate must suppress all long signals.
         """
 
-        df = make_declining_close_df()
+        df = make_declining_ohlcv_df()
         signals = fitted_strategy.generate_signals(df)
         non_nan = signals.dropna()
+        # Guard against a vacuous pass: an all-NaN signal (e.g. a degenerate
+        # feature poisoning the valid-row mask) makes (empty == 0.0).all() True.
+        assert not non_nan.empty
         assert (non_nan == 0.0).all()
 
     def test_explicit_feature_subset_honored(self, train_df: pd.DataFrame) -> None:

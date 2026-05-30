@@ -154,14 +154,14 @@ class TestMomentumGatekeeperSaveLoad:
 
     def test_round_trip_matches_original(
         self,
-        close_df: pd.DataFrame,
+        ohlcv_df: pd.DataFrame,
         tmp_path: Path,
     ) -> None:
         original = MomentumGatekeeperStrategy(
             n_estimators=COMPACT_XGB_N_ESTIMATORS,
             max_depth=COMPACT_XGB_MAX_DEPTH,
         )
-        original.train(close_df)
+        original.train(ohlcv_df)
 
         path = tmp_path / "momentum"
         original.save(path)
@@ -171,8 +171,8 @@ class TestMomentumGatekeeperSaveLoad:
         assert loaded._resolved_feature_columns == original._resolved_feature_columns
         assert loaded.training_metadata == original.training_metadata
         np.testing.assert_array_equal(
-            loaded.generate_signals(close_df).to_numpy(),
-            original.generate_signals(close_df).to_numpy(),
+            loaded.generate_signals(ohlcv_df).to_numpy(),
+            original.generate_signals(ohlcv_df).to_numpy(),
         )
 
 

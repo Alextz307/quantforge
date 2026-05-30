@@ -17,10 +17,9 @@ data:
   end: 2024-12-31
   interval: daily
 
-# Standard pipeline emits {return_1d, return_5d, return_21d, vol_20,
-# ma_ratio, rsi_14, macd, macd_signal, macd_hist}. ``keep_ohlc: true``
-# concatenates raw OHLCV (un-scaled) so the strategy's Garman-Klass
-# realized-vol target - which needs high/low/open/close - still resolves.
+# ``keep_ohlc: true`` concatenates raw OHLCV (un-scaled) so the strategy's
+# Garman-Klass realized-vol target - which needs high/low/open/close -
+# still resolves alongside the scaled engineered features.
 features:
   name: standard
   params:
@@ -39,6 +38,14 @@ strategy:
       - macd
       - macd_signal
       - macd_hist
+      - roc_63
+      - garman_klass
+      - intraday_range
+      - overnight_gap
+      - bb_pctb
+      - adx_14
+      - volume_zscore
+      - obv_z
     target_vol: 0.15
     trend_window: 100
     max_leverage: 1.5

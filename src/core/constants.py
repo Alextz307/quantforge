@@ -18,6 +18,14 @@ MAX_POSITION: float = 3.0
 
 DEFAULT_REALIZED_VOL_WINDOW: int = 20
 
+ROC_QUARTER_PERIOD: int = 63
+GARMAN_KLASS_WINDOW: int = 20
+BOLLINGER_PERIOD: int = 20
+BOLLINGER_NUM_STD: float = 2.0
+ADX_PERIOD: int = 14
+VOLUME_ZSCORE_WINDOW: int = 20
+OBV_ZSCORE_WINDOW: int = 20
+
 OHLCV_COLUMNS: tuple[str, str, str, str, str] = (
     "open",
     "high",

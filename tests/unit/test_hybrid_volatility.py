@@ -93,6 +93,19 @@ def _fit_model(
 
 
 class TestHybridVolatilityModel:
+    def test_fit_missing_feature_column_raises(
+        self, hybrid_train_df: pd.DataFrame, realized_vol_target: pd.Series
+    ) -> None:
+        """
+        A configured feature absent from train_data (e.g. after a feature
+        period override renames roc_63 -> roc_<period>) fails with a clear
+        ValueError naming the column, not an opaque downstream KeyError.
+        """
+
+        model = HybridVolatilityModel(feature_columns=["absent_feature"])
+        with pytest.raises(ValueError, match="absent_feature"):
+            model.fit(hybrid_train_df, realized_vol_target)
+
     def test_predict_before_fit_raises(
         self, hybrid_train_df: pd.DataFrame, synthetic_feature_columns: list[str]
     ) -> None:

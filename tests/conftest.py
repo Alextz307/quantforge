@@ -84,6 +84,13 @@ SYNTH_DEFAULT_BASE_PRICE = 100.0
 SYNTH_RETURN_MEAN = 0.0003
 SYNTH_RETURN_STD = 0.012
 SYNTH_FIXED_VOLUME = 1e6
+# Relative volume variation for the OHLCV fixtures - constant volume makes
+# the rolling volume_zscore feature degenerate (0/0), so the fixtures draw
+# a positive, varying volume around SYNTH_FIXED_VOLUME.
+SYNTH_VOLUME_REL_STD = 0.3
+SYNTH_VOLUME_FLOOR_FRAC = 0.1
+# Dedicated seed for the declining fixture's volume (its prices are a fixed linspace).
+DECLINING_VOLUME_SEED = 19
 
 DAILY_DEFAULT_START_DATE = "2020-01-01"
 DAILY_FIXED_VOLUME = 1000
@@ -248,7 +255,13 @@ def make_synthetic_ohlcv_df(
     low = np.minimum(close, open_) * (1 - daily_range)
     high = np.maximum(high, np.maximum(open_, close))
     low = np.minimum(low, np.minimum(open_, close))
-    volume = np.full(n_rows, SYNTH_FIXED_VOLUME)
+    # Local Generator so the global RNG (and thus the price columns above)
+    # stays untouched - no perturbation for later global np.random consumers.
+    volume_rng = np.random.default_rng(seed)
+    volume_scale = np.clip(
+        volume_rng.normal(1.0, SYNTH_VOLUME_REL_STD, n_rows), SYNTH_VOLUME_FLOOR_FRAC, None
+    )
+    volume = SYNTH_FIXED_VOLUME * volume_scale
     return pd.DataFrame(
         {"open": open_, "high": high, "low": low, "close": close, "volume": volume},
         index=idx,
@@ -573,13 +586,17 @@ def make_declining_ohlcv_df(
     start_price: float = 200.0,
     end_price: float = 100.0,
     band: float = DECLINING_OHLCV_BAND,
+    seed: int = DECLINING_VOLUME_SEED,
 ) -> pd.DataFrame:
     """
     Monotone-declining OHLCV series for bearish-regime tests.
 
     Open = prior close (first bar's open = ``start_price``); high/low bracket
     the OC range by a small symmetric ``band`` so HLOC ordering holds and the
-    Garman-Klass estimator receives non-degenerate OHLC input.
+    Garman-Klass estimator receives non-degenerate OHLC input. Volume varies
+    (constant volume makes volume_zscore all-NaN, which zeroes the valid-row
+    mask so every signal comes back NaN and downstream ``.dropna()`` assertions
+    pass vacuously). Drawn from a local Generator to leave the global RNG alone.
     """
 
     idx = pd.bdate_range(start=start, periods=n_rows, freq="B")
@@ -589,8 +606,13 @@ def make_declining_ohlcv_df(
     open_[1:] = close[:-1]
     high = np.maximum(open_, close) * (1.0 + band)
     low = np.minimum(open_, close) * (1.0 - band)
+    volume_rng = np.random.default_rng(seed)
+    volume_scale = np.clip(
+        volume_rng.normal(1.0, SYNTH_VOLUME_REL_STD, n_rows), SYNTH_VOLUME_FLOOR_FRAC, None
+    )
+    volume = SYNTH_FIXED_VOLUME * volume_scale
     return pd.DataFrame(
-        {"open": open_, "high": high, "low": low, "close": close, "volume": [1e6] * n_rows},
+        {"open": open_, "high": high, "low": low, "close": close, "volume": volume},
         index=idx,
     )
 
