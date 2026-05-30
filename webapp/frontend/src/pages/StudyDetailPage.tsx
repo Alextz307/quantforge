@@ -113,7 +113,11 @@ export function StudyDetailPage() {
   const stream = useStudyStream(name);
 
   return (
-    <QueryRenderer query={query} errorTitle="Failed to load study" loadingMessage="Loading study...">
+    <QueryRenderer
+      query={query}
+      errorTitle="Failed to load study"
+      loadingMessage="Loading study..."
+    >
       {(study) => {
         const isLive = study.completed_legs < study.total_legs;
         return (

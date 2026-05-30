@@ -64,11 +64,7 @@ function describe(signal: number | null, loading: boolean, kind: SignalKind): Si
     state: signal > 0 ? "long" : "short",
     label,
     icon:
-      signal > 0 ? (
-        <TrendingUp className={ICON_CLASS} />
-      ) : (
-        <TrendingDown className={ICON_CLASS} />
-      ),
+      signal > 0 ? <TrendingUp className={ICON_CLASS} /> : <TrendingDown className={ICON_CLASS} />,
     title: signal.toFixed(4),
   };
 }
