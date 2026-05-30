@@ -3,7 +3,7 @@ Unit tests for :mod:`src.optimization.objectives`.
 
 Each objective is a pure function over the ``aggregate_metrics`` dict
 produced by :meth:`src.analysis.metrics_aggregator.AggregateStats.to_dict`
-— no strategy or walk-forward setup required. Fixture dicts mirror the
+- no strategy or walk-forward setup required. Fixture dicts mirror the
 exact keys that module writes.
 """
 
@@ -54,7 +54,7 @@ class TestSharpeObjective:
             SharpeObjective()({"sharpe_mean": "1.5"})
 
     def test_bool_value_rejected_as_non_numeric(self) -> None:
-        # ``bool`` is a subclass of ``int`` in Python — guard against a
+        # ``bool`` is a subclass of ``int`` in Python - guard against a
         # truthy value silently passing as 1.0.
         with pytest.raises(TypeError):
             SharpeObjective()({"sharpe_mean": True})

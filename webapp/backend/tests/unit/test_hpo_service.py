@@ -38,15 +38,15 @@ EXPECTED_N_COMPLETE = 3
 AFTER_TRIAL_FILTER = 1
 
 
-def test_list_hpo_studies_sorts_newest_first(
-    tmp_path: Path, db_conn: sqlite3.Connection
-) -> None:
+def test_list_hpo_studies_sorts_newest_first(tmp_path: Path, db_conn: sqlite3.Connection) -> None:
     root = tmp_path / "experiment_results"
     parent = root / "studies" / "main" / HPO_SUBDIR
     make_synthetic_hpo_study(parent, name=OLDER_NAME, created_at=OLDER_TS)
     make_synthetic_hpo_study(parent, name=NEWER_NAME, created_at=NEWER_TS)
 
-    summaries = list_hpo_studies(root, conn=db_conn, user=make_viewer_user(db_conn), all_users=False)
+    summaries = list_hpo_studies(
+        root, conn=db_conn, user=make_viewer_user(db_conn), all_users=False
+    )
 
     assert [s.name for s in summaries] == [NEWER_NAME, OLDER_NAME]
 
@@ -64,9 +64,9 @@ def test_list_hpo_studies_surfaces_best_and_store(
         best_trial_number=EXPECTED_BEST_TRIAL_NUMBER,
     )
 
-    summary = list_hpo_studies(
-        root, conn=db_conn, user=make_viewer_user(db_conn), all_users=False
-    )[0]
+    summary = list_hpo_studies(root, conn=db_conn, user=make_viewer_user(db_conn), all_users=False)[
+        0
+    ]
 
     assert summary.n_trials == EXPECTED_N_TRIALS
     assert summary.n_complete == EXPECTED_N_COMPLETE
@@ -75,9 +75,7 @@ def test_list_hpo_studies_surfaces_best_and_store(
     assert summary.store == "studies/main/hpo"
 
 
-def test_get_hpo_study_returns_best_config(
-    tmp_path: Path, db_conn: sqlite3.Connection
-) -> None:
+def test_get_hpo_study_returns_best_config(tmp_path: Path, db_conn: sqlite3.Connection) -> None:
     root = tmp_path / "experiment_results"
     make_synthetic_hpo_study(
         root / "studies" / "main" / HPO_SUBDIR,
@@ -121,9 +119,7 @@ def test_get_hpo_study_handles_missing_best_config(
     assert detail.best_trial_number is None
 
 
-def test_get_hpo_study_raises_for_unknown_name(
-    tmp_path: Path, db_conn: sqlite3.Connection
-) -> None:
+def test_get_hpo_study_raises_for_unknown_name(tmp_path: Path, db_conn: sqlite3.Connection) -> None:
     root = tmp_path / "experiment_results"
     make_synthetic_hpo_study(root / "studies" / "main" / HPO_SUBDIR, name=NEWER_NAME)
 
@@ -131,9 +127,7 @@ def test_get_hpo_study_raises_for_unknown_name(
         get_hpo_study(root, "missing_hpo", conn=db_conn, user=make_viewer_user(db_conn))
 
 
-def test_list_trials_returns_all_by_default(
-    tmp_path: Path, db_conn: sqlite3.Connection
-) -> None:
+def test_list_trials_returns_all_by_default(tmp_path: Path, db_conn: sqlite3.Connection) -> None:
     root = tmp_path / "experiment_results"
     make_synthetic_hpo_study(
         root / "studies" / "main" / HPO_SUBDIR,
@@ -153,9 +147,7 @@ def test_list_trials_returns_all_by_default(
     assert sum(1 for r in rows if r.state == "COMPLETE") == EXPECTED_N_COMPLETE
 
 
-def test_list_trials_filters_by_after_trial(
-    tmp_path: Path, db_conn: sqlite3.Connection
-) -> None:
+def test_list_trials_filters_by_after_trial(tmp_path: Path, db_conn: sqlite3.Connection) -> None:
     root = tmp_path / "experiment_results"
     make_synthetic_hpo_study(
         root / "studies" / "main" / HPO_SUBDIR,
@@ -174,9 +166,7 @@ def test_list_trials_filters_by_after_trial(
     assert [r.number for r in rows] == list(range(AFTER_TRIAL_FILTER + 1, EXPECTED_N_TRIALS))
 
 
-def test_list_trials_raises_for_unknown_name(
-    tmp_path: Path, db_conn: sqlite3.Connection
-) -> None:
+def test_list_trials_raises_for_unknown_name(tmp_path: Path, db_conn: sqlite3.Connection) -> None:
     root = tmp_path / "experiment_results"
     make_synthetic_hpo_study(root / "studies" / "main" / HPO_SUBDIR, name=NEWER_NAME)
 
@@ -297,9 +287,7 @@ def test_get_param_importance_raises_for_unknown_name(
     make_synthetic_hpo_study(root / "studies" / "main" / HPO_SUBDIR, name=NEWER_NAME)
 
     with pytest.raises(HpoStudyNotFoundError):
-        get_param_importance(
-            root, "missing_hpo", conn=db_conn, user=make_viewer_user(db_conn)
-        )
+        get_param_importance(root, "missing_hpo", conn=db_conn, user=make_viewer_user(db_conn))
 
 
 def test_find_live_job_for_returns_none_when_no_jobs(tmp_path: Path) -> None:

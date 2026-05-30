@@ -180,7 +180,7 @@ class PairsTradingStrategy(IStrategy):
         prices_a = np.asarray(data["close_a"], dtype=np.float64)
         prices_b = np.asarray(data["close_b"], dtype=np.float64)
         # The C++ rolling z-score uses a Welford accumulator that cannot
-        # recover once any NaN enters — unlike pandas' rolling(w).std().
+        # recover once any NaN enters - unlike pandas' rolling(w).std().
         # Fail loud at the boundary rather than silently emit all-NaN
         # signals from the first corrupted bar onward.
         if not np.isfinite(prices_a).all() or not np.isfinite(prices_b).all():
@@ -232,7 +232,7 @@ class PairsTradingStrategy(IStrategy):
         """
         Snapshot of this strategy's constructor kwargs as JSON-ready values.
 
-        Single source of truth for the save-time config — the load path reads
+        Single source of truth for the save-time config - the load path reads
         the same keys back. Exercised by a parametrized drift test that
         compares these keys against ``__init__``'s parameter set.
         """

@@ -1,6 +1,6 @@
 #pragma once
 
-// Independent reference implementation of MACD — separate EMA vectors
+// Independent reference implementation of MACD - separate EMA vectors
 // composed sequentially. Exists only to give the parity tests a fixed
 // point to compare the production kernel against.
 

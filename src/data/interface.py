@@ -17,7 +17,7 @@ from src.data.validator import validate_bars
 
 class IDataSource(ABC):
     """
-    Pluggable data source — swap yfinance for any provider.
+    Pluggable data source - swap yfinance for any provider.
 
     Concrete implementations only need to implement fetch_raw().
     The base class handles caching, column normalization, and ingestion-time

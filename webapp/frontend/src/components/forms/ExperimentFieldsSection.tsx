@@ -14,7 +14,7 @@ import {
 
 /**
  * The form fields shared between Run and Tune launchers (everything in
- * ``ExperimentConfig`` — data block, strategy, walk-forward knobs). Tune
+ * ``ExperimentConfig`` - data block, strategy, walk-forward knobs). Tune
  * adds its own ``<HpoFieldsSection>`` underneath; Run uses this block
  * standalone.
  *
@@ -53,7 +53,7 @@ export function ExperimentFieldsSection<T extends ConfigureFormValues>({
   };
 
   // RHF's `errors` on a generic `T` types each field as `FieldError | undefined`,
-  // and `register` paths similarly need narrowing — single cast at the boundary
+  // and `register` paths similarly need narrowing - single cast at the boundary
   // keeps the JSX free of repeated `as never` annotations.
   const e = errors as FieldErrors<ConfigureFormValues>;
   const reg = register as unknown as UseFormRegister<ConfigureFormValues>;
@@ -108,7 +108,7 @@ export function ExperimentFieldsSection<T extends ConfigureFormValues>({
             disabled={isSubmitting || strategies.isLoading}
             className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
           >
-            <option value="">— select strategy —</option>
+            <option value="">- select strategy -</option>
             {strategies.data?.map((entry) => (
               <option key={entry.name} value={entry.name}>
                 {entry.name}

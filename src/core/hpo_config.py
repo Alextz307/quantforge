@@ -3,7 +3,7 @@ Typed config for ``StrategyTuner`` / ``experiment tune``.
 
 Kept deliberately separate from :class:`ExperimentConfig`:
 
-* ``Experiment.run()`` consumes none of these fields — embedding them in
+* ``Experiment.run()`` consumes none of these fields - embedding them in
   every ``run`` config would force unused HPO knobs into every YAML.
 * The tuner takes ``(experiment_cfg, hpo_cfg)`` explicitly; a single
   experiment config can be reused across multiple studies (different
@@ -39,7 +39,7 @@ class PrunerKind(StrEnum):
     """
     Optuna pruner selector for :func:`build_pruner`.
 
-    ``NONE`` maps to ``optuna.pruners.NopPruner`` — keeps the field
+    ``NONE`` maps to ``optuna.pruners.NopPruner`` - keeps the field
     uniformly enum-typed instead of carrying an ``Optional`` in every
     downstream signature.
     """
@@ -54,7 +54,7 @@ class ObjectiveKind(StrEnum):
     """
     Which aggregate metric the study maximises.
 
-    All three read from ``ExperimentResult.aggregate_metrics`` keys — the
+    All three read from ``ExperimentResult.aggregate_metrics`` keys - the
     objective layer is a thin adapter, no per-fold maths lives in the
     tuner.
     """
@@ -69,13 +69,13 @@ class HPOConfig(BaseModel):
     Typed knobs for one Optuna study.
 
     ``study_name`` doubles as the on-disk directory under
-    ``experiment_results/hpo/<study_name>/`` — keep it filesystem-safe.
+    ``experiment_results/hpo/<study_name>/`` - keep it filesystem-safe.
     Resume works by re-running with the same ``study_name`` against the
     same SQLite file; Optuna replays completed trials automatically.
 
     ``n_jobs`` is a positive integer. The CLI layer resolves a
     convenience ``-1`` / ``"auto"`` to ``os.cpu_count()`` before
-    constructing this model — keeping the pydantic side strictly ``ge=1``
+    constructing this model - keeping the pydantic side strictly ``ge=1``
     means the in-process invariant "parallelism count is a known int"
     holds everywhere downstream.
 
@@ -100,7 +100,7 @@ class HPOConfig(BaseModel):
             raise ValueError(
                 f"hpo.study_name must not contain path separators; got "
                 f"{self.study_name!r}. Use a plain identifier like "
-                f"'spy_bollinger_sharpe' — the runner creates the "
+                f"'spy_bollinger_sharpe' - the runner creates the "
                 f"directory under experiment_results/hpo/ automatically."
             )
         return self

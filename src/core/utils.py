@@ -71,8 +71,8 @@ def next_bar_direction(close: pd.Series[float]) -> pd.Series[int]:
     Shared between ``DirectionalClassifier`` training targets (standalone
     dispatcher and MomentumGatekeeperStrategy's in-strategy batch builder)
     so the target formula cannot drift across call sites. The last row has
-    no ``t+1`` close — returning its comparison would be a leakage hazard
-    — so it's dropped, not filled.
+    no ``t+1`` close - returning its comparison would be a leakage hazard
+    - so it's dropped, not filled.
     """
 
     direction: pd.Series[int] = (close.shift(-1) > close).astype(int).iloc[:-1]

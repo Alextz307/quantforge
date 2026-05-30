@@ -50,7 +50,7 @@ class FeatureEngineeringPipeline(IFeaturePipeline):
     Standard feature pipeline with anti-leakage scaling.
 
     Computes return-based, volatility, and technical features from
-    OHLCV data.  StandardScaler is fit ONCE on training data — a
+    OHLCV data.  StandardScaler is fit ONCE on training data - a
     second ``fit()`` raises ``LeakageError``.
 
     Leading NaN from warmup periods is preserved (never back-filled).
@@ -110,7 +110,7 @@ class FeatureEngineeringPipeline(IFeaturePipeline):
 
         Used by ``load()`` paths that reconstruct the pipeline from a
         persisted scaler rather than re-fitting. The loaded scaler is
-        assumed fitted — sklearn will raise on the first ``transform()``
+        assumed fitted - sklearn will raise on the first ``transform()``
         call otherwise.
         """
 

@@ -8,7 +8,7 @@ interface SubmitFailureAlertProps {
 
 /**
  * Renders the generic submit-failure Alert iff the mutation errored AND the
- * error is NOT a SubmitJobError — those carry structured field errors that
+ * error is NOT a SubmitJobError - those carry structured field errors that
  * <ServerErrorList> already surfaces. This guard prevents double-rendering.
  */
 export function SubmitFailureAlert({ mutation }: SubmitFailureAlertProps): ReactNode {

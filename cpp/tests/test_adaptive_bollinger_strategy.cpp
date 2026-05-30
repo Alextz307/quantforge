@@ -34,7 +34,7 @@ TEST(AdaptiveBollingerStrategy, RejectsBadConfig) {
 }
 
 TEST(AdaptiveBollingerStrategy, GenerateSignalsMatchesManualComposition) {
-    // Sinusoidal close with constant vol → bands oscillate around the mid;
+    // Sinusoidal close with constant vol -> bands oscillate around the mid;
     // verify the strategy's end-to-end output equals the explicit
     // rolling_mean + bands + state_machine composition.
     const std::size_t n = 200;
@@ -76,7 +76,7 @@ TEST(AdaptiveBollingerStrategy, GenerateSignalsMatchesManualComposition) {
 }
 
 TEST(AdaptiveBollingerStrategy, NaNCondVolProducesFlatOutput) {
-    // cond_vol all NaN → upper/lower NaN → state machine emits NaN from bar 0
+    // cond_vol all NaN -> upper/lower NaN -> state machine emits NaN from bar 0
     // (no entries possible). All output bars are NaN.
     std::vector<double> close(30, 100.0);
     std::vector<double> cond_vol(30, kNaN);

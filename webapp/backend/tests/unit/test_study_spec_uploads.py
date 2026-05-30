@@ -110,9 +110,7 @@ def test_validate_missing_required_field(tmp_path: Path) -> None:
 
 def test_validate_missing_strategy_config(tmp_path: Path) -> None:
     _seed_library_files(tmp_path)
-    yaml_text = _valid_yaml(tmp_path).replace(
-        "adaptive_bollinger.yaml", "missing.yaml", 1
-    )
+    yaml_text = _valid_yaml(tmp_path).replace("adaptive_bollinger.yaml", "missing.yaml", 1)
     result = validate_study_spec_text(yaml_text, config_root=tmp_path)
     assert result.valid is False
     assert any(
@@ -126,9 +124,7 @@ def test_validate_unknown_universe(tmp_path: Path) -> None:
     yaml_text = _valid_yaml(tmp_path).replace("spy_daily_5y", "ghost_universe")
     result = validate_study_spec_text(yaml_text, config_root=tmp_path)
     assert result.valid is False
-    assert any(
-        err.loc == ["legs", "0", "universes", "0"] for err in result.errors
-    )
+    assert any(err.loc == ["legs", "0", "universes", "0"] for err in result.errors)
 
 
 def test_save_creates_row_and_yaml_file(db_conn: sqlite3.Connection, tmp_path: Path) -> None:
@@ -152,9 +148,7 @@ def test_save_creates_row_and_yaml_file(db_conn: sqlite3.Connection, tmp_path: P
     assert on_disk.read_text(encoding="utf-8") == _valid_yaml(tmp_path)
 
 
-def test_save_overwrites_existing_active_row(
-    db_conn: sqlite3.Connection, tmp_path: Path
-) -> None:
+def test_save_overwrites_existing_active_row(db_conn: sqlite3.Connection, tmp_path: Path) -> None:
     _seed_library_files(tmp_path)
     user = _user(db_conn, "alice")
     uploads_root = tmp_path / "uploads"
@@ -185,9 +179,7 @@ def test_save_overwrites_existing_active_row(
     assert rows["n"] == 1
 
 
-def test_save_rejects_library_slug_collision(
-    db_conn: sqlite3.Connection, tmp_path: Path
-) -> None:
+def test_save_rejects_library_slug_collision(db_conn: sqlite3.Connection, tmp_path: Path) -> None:
     _seed_library_files(tmp_path)
     (tmp_path / "study").mkdir()
     (tmp_path / "study" / "main_study.yaml").write_text("body\n")
@@ -218,9 +210,7 @@ def test_save_rejects_invalid_yaml(db_conn: sqlite3.Connection, tmp_path: Path) 
     assert exc_info.value.errors
 
 
-def test_list_scopes_to_caller_by_default(
-    db_conn: sqlite3.Connection, tmp_path: Path
-) -> None:
+def test_list_scopes_to_caller_by_default(db_conn: sqlite3.Connection, tmp_path: Path) -> None:
     _seed_library_files(tmp_path)
     alice = _user(db_conn, "alice")
     bob = _user(db_conn, "bob")
@@ -248,9 +238,7 @@ def test_list_scopes_to_caller_by_default(
 def test_list_all_users_admin_only(db_conn: sqlite3.Connection, tmp_path: Path) -> None:
     _seed_library_files(tmp_path)
     alice = _user(db_conn, "alice")
-    bob = create_user(
-        db_conn, username="bob", password=USER_PASSWORD, role=Role.ADMIN
-    )
+    bob = create_user(db_conn, username="bob", password=USER_PASSWORD, role=Role.ADMIN)
     save_upload(
         db_conn,
         user=alice,
@@ -298,7 +286,7 @@ def test_save_after_soft_delete_reactivates_row(
     db_conn: sqlite3.Connection, tmp_path: Path
 ) -> None:
     """
-    Tombstone-collision regression — see [[soft-delete-schema-pattern]].
+    Tombstone-collision regression - see [[soft-delete-schema-pattern]].
 
     A previously-soft-deleted (user_id, slug) row must be re-savable. The
     partial unique index plus the UPDATE-on-existing branch in save_upload

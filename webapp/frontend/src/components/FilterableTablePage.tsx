@@ -60,7 +60,7 @@ function SortableHeader<K extends string>({
   onToggle,
 }: SortableHeaderProps<K>): ReactNode {
   const active = state.sortBy === sortKey;
-  const indicator = active ? (state.order === "desc" ? " ↓" : " ↑") : "";
+  const indicator = active ? (state.order === "desc" ? " v" : " ^") : "";
   return (
     <button
       type="button"

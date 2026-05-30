@@ -1,7 +1,7 @@
 """
 Per-universe reference baselines for honest strategy evaluation.
 
-A backtested strategy on its own is uninterpretable — a Sharpe of 0.8
+A backtested strategy on its own is uninterpretable - a Sharpe of 0.8
 sounds respectable until you learn the underlying universe (e.g. SPY
 2010-2020) buy-and-hold scored 1.1 under the same slippage assumptions.
 The baseline computed here is the long-only "do nothing" benchmark: hold
@@ -10,7 +10,7 @@ the last, paying identical entry / exit slippage to the strategy.
 
 Anti-leakage note
 -----------------
-The baseline holds a constant signal of 1.0 across every bar — there is
+The baseline holds a constant signal of 1.0 across every bar - there is
 no fit step, no parameter to leak. The function takes a slice of bars
 already known to the caller (typically the holdout window) and re-runs
 the SAME ``IBacktestEngine`` with the SAME slippage scenario the
@@ -96,13 +96,13 @@ def compute_buy_and_hold(
     caller wants the baseline computed against (typically the holdout
     region) and in canonical ``open/high/low/close/volume`` form.
     Pairs / multi-feature universes should slice the primary leg
-    before calling — see :func:`src.engine.walk_forward.split_pairs_frame`
+    before calling - see :func:`src.engine.walk_forward.split_pairs_frame`
     and :func:`slice_primary_ohlcv`.
 
     Args:
         bars: OHLCV frame with a DatetimeIndex covering the evaluation
             window. Must have at least 2 bars.
-        slippage: Same slippage scenario the strategy used — the
+        slippage: Same slippage scenario the strategy used - the
             baseline must pay the same friction or the comparison is
             unfair.
         interval: Bar interval, used for the annualisation factor.

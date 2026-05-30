@@ -129,7 +129,7 @@ class TestStandardScalerRoundTrip:
         Sklearn's ``n_samples_seen_`` is a 1-D ndarray when the fit input
         contains NaN values (per-feature non-NaN counts), not a scalar int.
         The production feature pipeline produces leading warmup NaNs, so this
-        is the live path — the round-trip must serialize the array shape.
+        is the live path - the round-trip must serialize the array shape.
         """
 
         rng = np.random.default_rng(SCALER_MEAN_SEED)

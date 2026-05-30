@@ -107,7 +107,7 @@ class TestVolatilityTargetingStrategy:
         self, fitted_strategy: VolatilityTargetingStrategy
     ) -> None:
         """
-        No predict yet — the floor-bind metric is not reported.
+        No predict yet - the floor-bind metric is not reported.
         """
 
         assert dict(fitted_strategy.get_fold_diagnostics()) == {}

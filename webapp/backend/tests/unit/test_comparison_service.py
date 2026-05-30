@@ -33,15 +33,15 @@ EXPECTED_SHARPE = 0.5
 EXPECTED_STRATEGY_COUNT = 2
 
 
-def test_list_comparisons_sorts_newest_first(
-    tmp_path: Path, db_conn: sqlite3.Connection
-) -> None:
+def test_list_comparisons_sorts_newest_first(tmp_path: Path, db_conn: sqlite3.Connection) -> None:
     root = tmp_path / "experiment_results"
     parent = root / "flat_store" / COMPARISONS_SUBDIR
     make_synthetic_comparison(parent, name=OLDER_NAME, created_at=OLDER_TS)
     make_synthetic_comparison(parent, name=NEWER_NAME, created_at=NEWER_TS)
 
-    summaries = list_comparisons(root, conn=db_conn, user=make_viewer_user(db_conn), all_users=False)
+    summaries = list_comparisons(
+        root, conn=db_conn, user=make_viewer_user(db_conn), all_users=False
+    )
 
     assert [s.name for s in summaries] == [NEWER_NAME, OLDER_NAME]
 
@@ -56,18 +56,16 @@ def test_list_comparisons_surfaces_strategies_and_store(
         strategies={"A": "id_a", "B": "id_b"},
     )
 
-    summary = list_comparisons(
-        root, conn=db_conn, user=make_viewer_user(db_conn), all_users=False
-    )[0]
+    summary = list_comparisons(root, conn=db_conn, user=make_viewer_user(db_conn), all_users=False)[
+        0
+    ]
 
     assert summary.strategies == ["A", "B"]
     assert len(summary.strategies) == EXPECTED_STRATEGY_COUNT
     assert summary.store == "studies/main/comparisons"
 
 
-def test_get_comparison_returns_full_detail(
-    tmp_path: Path, db_conn: sqlite3.Connection
-) -> None:
+def test_get_comparison_returns_full_detail(tmp_path: Path, db_conn: sqlite3.Connection) -> None:
     root = tmp_path / "experiment_results"
     make_synthetic_comparison(
         root / "flat_store" / COMPARISONS_SUBDIR,
@@ -111,9 +109,7 @@ def test_resolve_plot_returns_path_for_existing_file(
     assert path.read_bytes() == PLOT_BYTES
 
 
-def test_resolve_plot_rejects_traversal(
-    tmp_path: Path, db_conn: sqlite3.Connection
-) -> None:
+def test_resolve_plot_rejects_traversal(tmp_path: Path, db_conn: sqlite3.Connection) -> None:
     root = tmp_path / "experiment_results"
     make_synthetic_comparison(root / "flat_store" / COMPARISONS_SUBDIR, name=NEWER_NAME)
 

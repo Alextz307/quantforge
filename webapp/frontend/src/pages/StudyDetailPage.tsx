@@ -52,7 +52,7 @@ function ConsolidatedSection({ name, hasReport }: { name: string; hasReport: boo
         <CardContent className="flex flex-col gap-3">
           <p className="text-sm text-muted-foreground">
             Not yet generated. This consolidates per-leg runs, holdout evaluations, and pairwise
-            comparisons into cross-leg rankings, a strategy × universe heatmap, and a dev-vs-holdout
+            comparisons into cross-leg rankings, a strategy x universe heatmap, and a dev-vs-holdout
             scatter.
           </p>
           <div className="flex items-center gap-3">
@@ -64,7 +64,7 @@ function ConsolidatedSection({ name, hasReport }: { name: string; hasReport: boo
                 mutation.mutate();
               }}
             >
-              {mutation.isPending ? "Generating…" : "Generate report"}
+              {mutation.isPending ? "Generating..." : "Generate report"}
             </Button>
             {mutation.isError ? (
               <span className="text-sm text-destructive">{mutation.error.message}</span>
@@ -75,7 +75,7 @@ function ConsolidatedSection({ name, hasReport }: { name: string; hasReport: boo
     );
   }
   if (query.isPending) {
-    return <p className="text-sm text-muted-foreground">Loading consolidated report…</p>;
+    return <p className="text-sm text-muted-foreground">Loading consolidated report...</p>;
   }
   if (query.isError) {
     return (
@@ -97,7 +97,7 @@ function ConsolidatedSection({ name, hasReport }: { name: string; hasReport: boo
             mutation.mutate();
           }}
         >
-          {mutation.isPending ? "Regenerating…" : "Regenerate report"}
+          {mutation.isPending ? "Regenerating..." : "Regenerate report"}
         </Button>
         {mutation.isError ? (
           <span className="text-sm text-destructive">{mutation.error.message}</span>
@@ -113,7 +113,7 @@ export function StudyDetailPage() {
   const stream = useStudyStream(name);
 
   return (
-    <QueryRenderer query={query} errorTitle="Failed to load study" loadingMessage="Loading study…">
+    <QueryRenderer query={query} errorTitle="Failed to load study" loadingMessage="Loading study...">
       {(study) => {
         const isLive = study.completed_legs < study.total_legs;
         return (

@@ -8,7 +8,7 @@ fetch, wide-format inner-join, ``fingerprint_pair_bars`` dispatch,
 covers the single-asset path; this file fills the gap so a regression in
 the pairs branch fails CI loudly.
 
-Opt-in via ``RUN_EXP_SMOKE=1`` matches the run + holdout-eval smoke tests —
+Opt-in via ``RUN_EXP_SMOKE=1`` matches the run + holdout-eval smoke tests -
 even on 300 synthetic bars, the cointegration ADF + walk-forward fold loop
 takes a few seconds.
 """
@@ -50,7 +50,7 @@ pytestmark = pytest.mark.skipif(
 
 def test_pairs_run_produces_full_artifact_tree(tmp_path: Path) -> None:
     """
-    Happy path: pairs CLI run → wide-format hash + cointegration weights on disk.
+    Happy path: pairs CLI run -> wide-format hash + cointegration weights on disk.
     """
 
     config_path = make_pair_mini_experiment_fixture(tmp_path, n_splits=_N_SPLITS)
@@ -72,7 +72,7 @@ def test_pairs_run_produces_full_artifact_tree(tmp_path: Path) -> None:
     assert cfg.data.tickers == [_TICKER_A, _TICKER_B]
 
     # Catches a regression where the orchestrator picks the single-leg
-    # ``fingerprint_bars`` for a pair frame — the resulting hash would no
+    # ``fingerprint_bars`` for a pair frame - the resulting hash would no
     # longer be sensitive to leg B.
     manifest = read_experiment_manifest(run_dir)
     source = data_source_registry.create_from_config(cfg.data.source)

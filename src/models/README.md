@@ -14,8 +14,8 @@ native-format persistence.
 | `IClassifier` | ABC: `fit`, `predict_proba`, `predict`, default `save` / `load`, same metadata plumbing. |
 | `GARCHPredictor` (`"garch"`) | GARCH(p,q) volatility predictor; AIC/BIC order selection; params frozen after `fit`. |
 | `ARMAPredictor` (`"arma"`) | ARMA(p,q) return predictor; `pmdarima.auto_arima` order selection; one-step-ahead `predict`. |
-| `LSTMPredictor` (`"lstm"`) | torch LSTM with early stopping + best-state checkpointing (`best_state.pt`). The training module is wrapped in `torch.compile(mode="reduce-overhead")` for kernel reordering; the `amp: bool = False` ctor kwarg opts into mixed-precision (CUDA-only — MPS / CPU silently no-op even when `True`). |
-| `DirectionalClassifier` (`"directional_classifier"`) | XGBoost binary classifier (price-direction); early stopping + best-iteration checkpointing (`best_iteration.ubj`). |
+| `LSTMPredictor` (`"lstm"`) | torch LSTM with early stopping + best-state checkpointing (`best_state.pt`). The training module is wrapped in `torch.compile(mode="reduce-overhead")` for kernel reordering; the `amp: bool = False` ctor kwarg opts into mixed-precision (CUDA-only; MPS / CPU no-op even when `True`). |
+| `DirectionalClassifier` (`"xgboost_directional"`) | XGBoost binary classifier (price-direction); early stopping + best-iteration checkpointing (`best_iteration.ubj`). |
 | `HybridVolatilityModel` (`"hybrid_volatility"`) | GARCH conditional variance + LSTM residual correction. Owns both leaves; rebuilt fresh per `fit`. |
 | `HybridReturnModel` (`"hybrid_return"`) | ARMA conditional mean + LSTM residual correction. Same composition pattern. |
 | `CointegrationTester` + `CointegrationResult` | `engle_granger(series_a, series_b, p_value_threshold)` static helper. |
@@ -23,7 +23,7 @@ native-format persistence.
 
 All model and classifier classes register themselves on
 `model_registry` / `classifier_registry` for config-driven
-instantiation and standalone-training artifacts.
+instantiation.
 
 ## Layout
 
@@ -31,14 +31,15 @@ instantiation and standalone-training artifacts.
 | --- | --- |
 | `interface.py` | `IPredictor`, `IClassifier` ABCs + composite-aware `get_all_training_metadata`. |
 | `garch.py` | `GARCHPredictor` + arch-library wrapper. |
-| `arma.py` | `ARMAPredictor` + `_StatsmodelsARMAAdapter` (round-trips pmdarima → statsmodels at load time). |
+| `arma.py` | `ARMAPredictor` + `_StatsmodelsARMAAdapter` (round-trips pmdarima -> statsmodels at load time). |
 | `lstm.py` | `LSTMPredictor` + `MarketLSTM` torch module + loss-function dispatch. |
 | `xgboost_classifier.py` | `DirectionalClassifier` + `_ProgressAndCheckpointCallback`. |
 | `hybrid_volatility.py` | `HybridVolatilityModel` + frozen `_HybridVolConfig`. |
 | `hybrid_return.py` | `HybridReturnModel` + frozen `_HybridReturnConfig`. |
+| `_hybrid_warmup.py` | `drop_feature_warmup` - trims the leading NaN warmup rows a hybrid model's leaves share before fitting. |
 | `cointegration.py` | `CointegrationTester.engle_granger`. |
 | `dataset.py` | `TemporalDataset` (anti-leakage sliding window). |
-| `_garch_cache.py` | Module-private `GarchGridCache` + `garch_cache_context`; `StrategyTuner.run` binds the cache for an entire HPO study so two trials whose `(p_max, q_max)` grids overlap on the same fold reuse one another's `(p, q)` AIC tables. Outside HPO the `ContextVar` is unset and `_grid_search` runs a fresh sweep — same path as before the cache shipped. |
+| `_garch_cache.py` | Module-private `GarchGridCache` + `garch_cache_context`; `StrategyTuner.run` binds the cache for an entire HPO study so two trials whose `(p_max, q_max)` grids overlap on the same fold reuse one another's `(p, q)` AIC tables. Outside HPO the `ContextVar` is unset and `_grid_search` runs a fresh sweep - same path as before the cache shipped. |
 
 ## Fit / persistence patterns
 
@@ -52,22 +53,22 @@ instantiation and standalone-training artifacts.
   layer leaf-presence checks (`_scaler is None`, `_model is None`) as
   separate statements.
 - **Statistical leaves freeze params after `fit`.** GARCH conditional
-  variance and ARMA one-step forecast use only the fitted params —
+  variance and ARMA one-step forecast use only the fitted params, with
   no re-estimation during `predict`.
 - **Required `feature_columns`.** LSTM, XGBoost, hybrids, and the
   underlying `TemporalDataset` all take `feature_columns: list[str]`
-  as a required ctor parameter — never inferred from
-  `train_data.columns` (the caller may legitimately carry extra
-  columns like raw `close` alongside features). An empty list raises
-  `ValueError` at construction.
+  as a required ctor parameter, never inferred from
+  `train_data.columns` (the caller may carry extra columns like raw
+  `close` alongside features). An empty list raises `ValueError` at
+  construction.
 - **Best-state checkpointing.** `LSTMPredictor.fit` and
   `DirectionalClassifier.fit` accept a `checkpoint_path`; on every
   validation-metric improvement they write `best_state.pt` /
   `best_iteration.ubj`. The walk-forward orchestrator wires these per
   fold under `<run_dir>/checkpoints/fold_<i>/`.
 - **Composite black-box composition.** `HybridVolatilityModel` and
-  `HybridReturnModel` own their leaves and call public API only —
-  never reach into private state. Each rebuilds its leaves from a
+  `HybridReturnModel` own their leaves and call public API only,
+  never reaching into private state. Each rebuilds its leaves from a
   frozen `_Hybrid*Config` at the top of `fit` so a fresh scaler is
   created (the leaves' fit-once guard rejects a second `fit` on the
   same instance).
@@ -98,4 +99,4 @@ sigma_forecast = predictor.predict(bars.iloc[-holdout:])
 - Anti-leakage primitives (`TrainingMetadata`, `TrackedMetadata`,
   `collect_metadata`) live in `src/core/temporal.py`.
 - Strategies in `src/strategies/` own composite leaves directly via
-  their own ctor — each strategy refits its leaves per fold.
+  their own ctor - each strategy refits its leaves per fold.

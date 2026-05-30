@@ -27,7 +27,7 @@ DUMMY_SECRET = "x" * 64
 
 def build_openapi_spec() -> dict[str, Any]:
     """
-    Return the FastAPI OpenAPI dict — single source for dump + drift check.
+    Return the FastAPI OpenAPI dict - single source for dump + drift check.
 
     Webapp imports are lazy so importers that only need ``DEFAULT_SNAPSHOT_PATH``
     (e.g. the drift-guard unit test) don't pay for fastapi at import time.

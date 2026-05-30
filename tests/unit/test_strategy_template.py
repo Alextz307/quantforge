@@ -1,7 +1,7 @@
 """
 Drift guards for ``src/strategies/_template.py``.
 
-The template is an underscored module on purpose — ``autoload_package``
+The template is an underscored module on purpose - ``autoload_package``
 must skip it so it never registers itself, and its abstract-method stubs
 must surface a clear error if a reader instantiates it without renaming
 and filling in the logic. Both invariants are tested here so a future
@@ -41,7 +41,7 @@ def test_template_module_does_not_register() -> None:
     the other six tests, which only need ``_TemplateStrategy``.
     """
 
-    import src.strategies  # noqa: F401 — populates strategy_registry via autoload side-effect
+    import src.strategies  # noqa: F401 - populates strategy_registry via autoload side-effect
     from src.core.registry import strategy_registry
 
     forbidden = {"Template", "template", "_Template", "_template", "TemplateStrategy"}
@@ -72,7 +72,7 @@ def test_template_generate_signals_before_train_raises_runtime_error(
 
     Exercises the read-side fitted-state guard. Triggering the post-guard
     ``NotImplementedError`` would require a working ``train()`` call, which
-    the template doesn't have — that branch is left unexercised by design.
+    the template doesn't have - that branch is left unexercised by design.
     """
 
     s, df = unfitted_template
@@ -82,7 +82,7 @@ def test_template_generate_signals_before_train_raises_runtime_error(
 
 def test_template_invalid_window_raises() -> None:
     """
-    Ctor validation fires — readers see the same error shape as real strategies.
+    Ctor validation fires - readers see the same error shape as real strategies.
     """
 
     with pytest.raises(ValueError, match="window"):
@@ -91,7 +91,7 @@ def test_template_invalid_window_raises() -> None:
 
 def test_template_invalid_threshold_raises() -> None:
     """
-    Ctor validation fires — readers see the same error shape as real strategies.
+    Ctor validation fires - readers see the same error shape as real strategies.
     """
 
     with pytest.raises(ValueError, match="threshold"):
@@ -103,7 +103,7 @@ def test_template_suggest_params_keys_match_ctor() -> None:
     ``suggest_params`` keys must be a subset of ctor kwarg names.
 
     If a future edit renames a ctor kwarg without updating ``suggest_params``,
-    StrategyTuner would raise ``TypeError`` at trial-build time — this test
+    StrategyTuner would raise ``TypeError`` at trial-build time - this test
     catches that drift at unit-test time.
     """
 
@@ -118,5 +118,5 @@ def test_template_suggest_params_keys_match_ctor() -> None:
     ctor_kwargs = set(inspect.signature(_TemplateStrategy.__init__).parameters) - {"self"}
     assert set(suggested).issubset(ctor_kwargs), (
         f"suggest_params keys {sorted(suggested)} are not a subset of ctor "
-        f"kwargs {sorted(ctor_kwargs)} — StrategyTuner would TypeError."
+        f"kwargs {sorted(ctor_kwargs)} - StrategyTuner would TypeError."
     )

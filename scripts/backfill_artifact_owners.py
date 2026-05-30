@@ -5,7 +5,7 @@ Walks ``store_root`` for every artifact kind that the read endpoints expose
 (runs, comparisons, holdout evaluations, studies, top-level HPO studies) and
 inserts a synthetic ``jobs`` row pointing at the named user for any artifact
 that has no matching row yet. The actual artifact contents under the store
-are never touched — this is a metadata-only fixup.
+are never touched - this is a metadata-only fixup.
 
 Idempotent. Re-running over the same tree skips artifacts that already have
 an owner. ``--dry-run`` prints the planned inserts without writing anything.
@@ -86,7 +86,7 @@ def _require_user_id(conn: sqlite3.Connection, username: str) -> int:
     user_id = resolve_user_id(conn, username)
     if user_id is None:
         raise click.ClickException(
-            f"webapp user '{username}' not found — create it first via "
+            f"webapp user '{username}' not found - create it first via "
             f"`python -m scripts.create_user {username}`"
         )
     return user_id
@@ -108,7 +108,7 @@ def _mtime_iso(path: Path) -> str:
 @dataclass(frozen=True)
 class BackfillPlan:
     """
-    Planned synthetic row — emitted in dry-run, written otherwise.
+    Planned synthetic row - emitted in dry-run, written otherwise.
     """
 
     kind_label: str
@@ -159,7 +159,7 @@ def backfill(
     dry_run: bool,
 ) -> list[BackfillPlan]:
     """
-    Public entrypoint — resolves the user, builds the plan, optionally commits.
+    Public entrypoint - resolves the user, builds the plan, optionally commits.
 
     Returns the plan regardless of ``dry_run`` so callers (and tests) can
     inspect what would change. A return list of length 0 means every
@@ -203,7 +203,7 @@ def main(username: str, store_root: Path | None, dry_run: bool) -> None:
         bootstrap_schema(conn)
         plans = backfill(conn, username=username, store_root=root, dry_run=dry_run)
     if not plans:
-        click.echo("nothing to backfill — every artifact already has an owner")
+        click.echo("nothing to backfill - every artifact already has an owner")
         return
     verb = "would attribute" if dry_run else "attributed"
     click.echo(f"{verb} {len(plans)} artifact(s) to '{username}':")

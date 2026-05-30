@@ -30,7 +30,7 @@ RSTD_PARITY_RTOL = 1e-10
 
 def _pandas_zscore_reference(spread: F64Array, window: int) -> F64Array:
     """
-    pandas ``rolling(window).mean/std`` → z-score; zero-std bars → NaN.
+    pandas ``rolling(window).mean/std`` -> z-score; zero-std bars -> NaN.
     """
 
     s = pd.Series(spread)

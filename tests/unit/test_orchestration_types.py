@@ -136,7 +136,7 @@ class TestFoldRecordFromFoldResult:
 
     def test_equity_curve_is_tuple_of_python_floats(self) -> None:
         """
-        ``.tolist()`` must yield native Python floats, not numpy scalars —
+        ``.tolist()`` must yield native Python floats, not numpy scalars -
         otherwise JSON serialisation downstream produces numpy-specific
         literals that don't round-trip."""
 

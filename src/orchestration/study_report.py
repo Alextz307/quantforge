@@ -6,12 +6,12 @@ writes per-leg artifact directories under ``<study_dir>/``:
 
 * ``runs/<run_experiment_id>/``           one per leg (best-config materialised run)
 * ``holdout_evals/<leg_id>/``             one per leg, only when validation reserved a holdout
-* ``comparisons/<universe>/``             one per universe with ≥2 strategies
+* ``comparisons/<universe>/``             one per universe with >=2 strategies
 
 This module walks that tree and builds a single
 :class:`ConsolidatedStudyReport` value object covering every completed
 leg. It is **read-only** with respect to the study tree: the
-consolidator does not refit, retrain, or recompute anything — every
+consolidator does not refit, retrain, or recompute anything - every
 scalar comes from a JSON / JSONL artifact already on disk.
 
 The downstream :class:`src.visualization.study_report_reporter.StudyReportReporter`
@@ -59,10 +59,10 @@ _logger = get_logger(__name__)
 @dataclass(frozen=True)
 class FloorBindStats:
     """
-    Aggregate σ_min saturation across a leg's folds.
+    Aggregate sigma_min saturation across a leg's folds.
 
     ``mean`` / ``max`` / ``min`` are taken over the folds that emitted a
-    ``floor_bind_fraction`` diagnostic — typically every fold for a
+    ``floor_bind_fraction`` diagnostic - typically every fold for a
     VolatilityTargeting leg, none for any other strategy. ``n_folds`` is
     the count of contributing folds; when zero the leg never produced
     the diagnostic and consumers should treat the row as absent.
@@ -204,7 +204,7 @@ class ConsolidatedStudyReport:
 
     def __post_init__(self) -> None:
         # Wrap mapping fields so callers cannot mutate the maps in place
-        # after construction — frozen=True freezes the bindings, not the
+        # after construction - frozen=True freezes the bindings, not the
         # dict contents themselves.
         object.__setattr__(
             self, "per_leg_aggregate", MappingProxyType(dict(self.per_leg_aggregate))
@@ -247,7 +247,7 @@ def consolidate_study(study_dir: Path) -> ConsolidatedStudyReport:
     data comes from ``comparisons/<universe>/manifest.json``.
 
     Raises ``FileNotFoundError`` only when ``study_state.json`` itself is
-    missing — every other artifact is treated as best-effort. Incomplete
+    missing - every other artifact is treated as best-effort. Incomplete
     legs are surfaced via :attr:`ConsolidatedStudyReport.incomplete_leg_ids`
     so the reporter can flag them in the consolidated manifest.
     """

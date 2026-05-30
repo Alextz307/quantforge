@@ -27,9 +27,9 @@ TEST(MeanReversionStateMachine, FlatWhenAllBandsNaN) {
 
 TEST(MeanReversionStateMachine, BullishLongEntryAndMidExit) {
     // Bull regime: close > trend_ma throughout.
-    // Bar 0: close below lower → enter long.
-    // Bar 1: close between lower and mid → hold long.
-    // Bar 2: close at mid → exit to flat.
+    // Bar 0: close below lower -> enter long.
+    // Bar 1: close between lower and mid -> hold long.
+    // Bar 2: close at mid -> exit to flat.
     const std::vector<double> close    = {90.0, 95.0, 100.0};
     const std::vector<double> mid      = {100.0, 100.0, 100.0};
     const std::vector<double> upper    = {110.0, 110.0, 110.0};
@@ -60,7 +60,7 @@ TEST(MeanReversionStateMachine, BearishShortEntryAndMidExit) {
 
 TEST(MeanReversionStateMachine, NaNBandSkipsBarAndHoldsPosition) {
     // Enter long at bar 0, NaN band at bar 1 (skip + NaN out, position held),
-    // resume at bar 2 still below mid → still long.
+    // resume at bar 2 still below mid -> still long.
     const std::vector<double> close    = {90.0, 95.0, 96.0};
     const std::vector<double> mid      = {100.0, 100.0, 100.0};
     const std::vector<double> upper    = {110.0, kNaN, 110.0};
@@ -106,7 +106,7 @@ TEST(PairsStateMachine, EntryLongAndExit) {
 }
 
 TEST(PairsStateMachine, StopLossForcesFlat) {
-    // Enter short on bar 0; z blows past stop-loss on bar 1 → flat.
+    // Enter short on bar 0; z blows past stop-loss on bar 1 -> flat.
     // Bar 2: |z|=1.0 is inside the entry band, so the state holds at flat.
     const std::vector<double> z = {2.5, 3.5, 1.0};
     const auto out = run_pairs_state_machine(z, kEntryZ, kExitZ, kStopLossZ);

@@ -8,8 +8,8 @@ these stubs fill the gap until the first real multi-feature strategy
 lands.
 
 Importing this module registers the stubs as side effect.
-``tests/conftest.py`` does this once at pytest collection so any test —
-unit, integration, smoke — can reference the stubs by name through the
+``tests/conftest.py`` does this once at pytest collection so any test -
+unit, integration, smoke - can reference the stubs by name through the
 registry without an explicit import.
 """
 
@@ -86,7 +86,7 @@ class MultiFeatureTestStub(IStrategy):
         return {}
 
     @classmethod
-    def load(cls, path: str | Path) -> Self:  # pragma: no cover — not exercised
+    def load(cls, path: str | Path) -> Self:  # pragma: no cover - not exercised
         raise NotImplementedError
 
 

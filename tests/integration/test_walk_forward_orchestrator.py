@@ -6,8 +6,8 @@ the only stochastic input is the synthetic OHLCV; two runs over the
 same panel must produce bit-identical per-fold metrics.
 
 Most tests share a single ``orchestrator_results`` module-scoped
-fixture — running the full walk-forward once and asserting against the
-shared list of folds is ~5× cheaper than re-running per assertion.
+fixture - running the full walk-forward once and asserting against the
+shared list of folds is ~5x cheaper than re-running per assertion.
 """
 
 from __future__ import annotations
@@ -110,7 +110,7 @@ def test_folds_are_temporally_ordered(orchestrator_results: list[FoldResult]) ->
 
 def test_train_strictly_precedes_test(orchestrator_results: list[FoldResult]) -> None:
     """
-    The orchestrator's tripwire would fire otherwise — sanity check.
+    The orchestrator's tripwire would fire otherwise - sanity check.
     """
 
     for r in orchestrator_results:
@@ -125,9 +125,9 @@ def test_fold_result_carries_metrics(orchestrator_results: list[FoldResult]) -> 
 
 def test_two_runs_are_bit_identical(wf_bars: pd.DataFrame) -> None:
     """
-    Determinism: same panel + same strategy → identical metrics.
+    Determinism: same panel + same strategy -> identical metrics.
 
-    Intentionally NOT using ``orchestrator_results`` — needs two
+    Intentionally NOT using ``orchestrator_results`` - needs two
     independent runs to verify reproducibility.
     """
 

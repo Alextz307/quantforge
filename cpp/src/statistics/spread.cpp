@@ -54,7 +54,7 @@ std::vector<double> SpreadCalculator::compute_zscore(
 }
 
 // Keep the Welford recurrence below in sync with detail::rolling_mean_std.
-// NaN semantics diverge from pandas — see the header docstring.
+// NaN semantics diverge from pandas - see the header docstring.
 void SpreadCalculator::compute_zscore(
     std::span<const double> spread,
     int window,

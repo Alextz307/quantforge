@@ -6,7 +6,7 @@ and the figure geometry so every PNG / SVG produced by this codebase renders
 at exactly the same size and DPI across macOS / Linux / CI.
 
 Import this module (or any symbol from it) before any other module touches
-matplotlib.pyplot — the Agg backend setting is global and sticky.
+matplotlib.pyplot - the Agg backend setting is global and sticky.
 """
 
 from __future__ import annotations
@@ -44,7 +44,7 @@ def normalise_to_unit_base(curve: Sequence[float]) -> list[float] | None:
     Divide ``curve`` by its first value so the series starts at 1.0.
 
     Returns ``None`` if the first value is missing, non-finite, or
-    non-positive — cases where naive division would produce a misleading
+    non-positive - cases where naive division would produce a misleading
     plot (NaN propagation through matplotlib silently leaves an
     unexplained gap; a non-positive base inverts the sign of the visual
     narrative). Callers downgrade to a placeholder (skip the plot, log a
@@ -104,7 +104,7 @@ def render_value_heatmap(
 
     NaN cells render in light grey, finite cells in viridis with .3f text
     coloured white below the midpoint and black above. ``placeholder_log_label``
-    appears in the warning when every cell is non-finite — keeps the call
+    appears in the warning when every cell is non-finite - keeps the call
     site identifiable in logs.
     """
 
@@ -114,7 +114,7 @@ def render_value_heatmap(
     finite_values = matrix[np.isfinite(matrix)]
     if finite_values.size == 0:
         _logger.warning(
-            "%s heatmap has no finite cells — rendering placeholder", placeholder_log_label
+            "%s heatmap has no finite cells - rendering placeholder", placeholder_log_label
         )
         vmin, vmax = 0.0, 1.0
     else:

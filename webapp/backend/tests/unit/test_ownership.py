@@ -1,8 +1,8 @@
 """
 Unit tests for the artifact-ownership helpers.
 
-Covers the three resolution states (matching jobs row → owner;
-no jobs row → ownerless = shared; admin override) and the helpers'
+Covers the three resolution states (matching jobs row -> owner;
+no jobs row -> ownerless = shared; admin override) and the helpers'
 list-mode behaviour.
 """
 
@@ -57,9 +57,7 @@ def _seed_job(
             log_path=Path(f"/tmp/{experiment_id}.log"),
         ),
     )
-    db_conn.execute(
-        "UPDATE jobs SET experiment_id = ? WHERE id = ?", (experiment_id, job.id)
-    )
+    db_conn.execute("UPDATE jobs SET experiment_id = ? WHERE id = ?", (experiment_id, job.id))
     db_conn.commit()
     return job
 
@@ -139,9 +137,10 @@ def test_filter_visible_empty_input_short_circuits(
     db_conn: sqlite3.Connection,
 ) -> None:
     alice = _user(db_conn, "alice")
-    assert filter_visible_experiment_ids(
-        db_conn, experiment_ids=[], user=alice, all_users=False
-    ) == set()
+    assert (
+        filter_visible_experiment_ids(db_conn, experiment_ids=[], user=alice, all_users=False)
+        == set()
+    )
 
 
 def test_resolve_usernames_maps_matched_eids_only(
@@ -151,15 +150,11 @@ def test_resolve_usernames_maps_matched_eids_only(
     bob = _user(db_conn, "bob")
     _seed_job(db_conn, user=alice, experiment_id=_ALICE_EID)
     _seed_job(db_conn, user=bob, experiment_id=_BOB_EID)
-    usernames = resolve_owner_usernames(
-        db_conn, experiment_ids=[_ALICE_EID, _BOB_EID, _LEGACY_EID]
-    )
+    usernames = resolve_owner_usernames(db_conn, experiment_ids=[_ALICE_EID, _BOB_EID, _LEGACY_EID])
     assert usernames == {_ALICE_EID: "alice", _BOB_EID: "bob"}
 
 
-def _seed_n_jobs(
-    db_conn: sqlite3.Connection, *, user: UserPublic, count: int
-) -> list[str]:
+def _seed_n_jobs(db_conn: sqlite3.Connection, *, user: UserPublic, count: int) -> list[str]:
     eids = [f"chunk-eid-{i:04d}" for i in range(count)]
     for eid in eids:
         _seed_job(db_conn, user=user, experiment_id=eid)

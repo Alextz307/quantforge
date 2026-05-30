@@ -4,7 +4,7 @@ Anti-leakage + idempotency + warmup behaviour for :func:`deployment.predict`.
 A stub :class:`~src.data.live_fetcher.LiveBarFetcher` is monkeypatched
 in via :func:`src.orchestration.deployment.resolve_fetcher` so the
 predict path runs without yfinance / network. The stub returns a
-deterministic slice of a fixed synthetic OHLCV frame — long enough to
+deterministic slice of a fixed synthetic OHLCV frame - long enough to
 warm GARCH + the Bollinger windows, short enough to keep tests fast.
 
 These tests are the load-bearing anti-leakage proof: they pin the
@@ -118,9 +118,7 @@ def trained_run(tmp_path: Path, bars: pd.DataFrame) -> Path:
 
 
 @pytest.fixture
-def stub_fetcher(
-    bars: pd.DataFrame, monkeypatch: pytest.MonkeyPatch
-) -> Iterator[dict[str, int]]:
+def stub_fetcher(bars: pd.DataFrame, monkeypatch: pytest.MonkeyPatch) -> Iterator[dict[str, int]]:
     """
     Patch ``resolve_fetcher`` with a stub whose last bar is controllable.
 
@@ -171,7 +169,7 @@ def test_predict_at_train_end_raises_leakage(
     trained_run: Path, stub_fetcher: dict[str, int], bars: pd.DataFrame
 ) -> None:
     """
-    A bar AT train_end is not strictly after — must raise.
+    A bar AT train_end is not strictly after - must raise.
     """
 
     _create(trained_run)
@@ -186,7 +184,7 @@ def test_predict_before_train_end_raises_leakage(
     trained_run: Path, stub_fetcher: dict[str, int], bars: pd.DataFrame
 ) -> None:
     """
-    A bar strictly before train_end also fails — defence in depth.
+    A bar strictly before train_end also fails - defence in depth.
     """
 
     _create(trained_run)
@@ -213,12 +211,8 @@ def test_predict_idempotent_on_same_bar(
 
     assert first.to_dict() == second.to_dict()
 
-    log_path = (
-        trained_run / DEPLOYMENTS_SUBDIR / _DEPLOYMENT_ID / DEPLOYMENT_SIGNALS_JSONL
-    )
-    lines = [
-        line for line in log_path.read_text(encoding="utf-8").splitlines() if line
-    ]
+    log_path = trained_run / DEPLOYMENTS_SUBDIR / _DEPLOYMENT_ID / DEPLOYMENT_SIGNALS_JSONL
+    lines = [line for line in log_path.read_text(encoding="utf-8").splitlines() if line]
     assert len(lines) == 1
 
 
@@ -229,7 +223,7 @@ def test_predict_strategy_state_frozen(
     GARCH params + scaler must be byte-identical pre/post-predict.
 
     Hashes the trained strategy state directory before and after a
-    predict call — any in-place mutation of weights / config / metadata
+    predict call - any in-place mutation of weights / config / metadata
     would change the bytes.
     """
 
@@ -279,9 +273,7 @@ def test_predict_warmup_insufficient_raises(
             del ticker, start, end, interval
             return bars.iloc[last - _INSUFFICIENT_WARMUP_BARS : last + 1]
 
-    monkeypatch.setattr(
-        "src.orchestration.deployment.resolve_fetcher", lambda _: _ShortFetcher()
-    )
+    monkeypatch.setattr("src.orchestration.deployment.resolve_fetcher", lambda _: _ShortFetcher())
 
     as_of = pd.Timestamp(bars.index[last])
     with pytest.raises(WarmupInsufficientError, match="NaN"):
@@ -325,7 +317,7 @@ def test_predict_appends_one_row_per_unique_bar(
 def test_featurize_rebuilds_external_pipeline_columns(bars: pd.DataFrame) -> None:
     """
     A strategy with an external feature pipeline gets its feature columns
-    rebuilt — fit on the model's training window, applied to the live bars —
+    rebuilt - fit on the model's training window, applied to the live bars -
     before ``generate_signals`` sees them.
     """
 
@@ -364,7 +356,7 @@ def test_featurize_rebuilds_external_pipeline_columns(bars: pd.DataFrame) -> Non
 def test_featurize_passthrough_when_no_pipeline(bars: pd.DataFrame) -> None:
     """
     Strategies that self-compute from OHLCV (``features_cfg is None``) are
-    handed the raw bars unchanged — no spurious training-window fetch.
+    handed the raw bars unchanged - no spurious training-window fetch.
     """
 
     from src.core.temporal import TrainingMetadata
@@ -402,9 +394,7 @@ def test_predict_empty_fetch_raises(
             del ticker, start, end, interval
             return bars.iloc[0:0]
 
-    monkeypatch.setattr(
-        "src.orchestration.deployment.resolve_fetcher", lambda _: _EmptyFetcher()
-    )
+    monkeypatch.setattr("src.orchestration.deployment.resolve_fetcher", lambda _: _EmptyFetcher())
 
     with pytest.raises(WarmupInsufficientError, match="no bars"):
         predict(
@@ -435,7 +425,7 @@ def test_next_signal_date_skips_exchange_holidays() -> None:
 
     2026-07-03 is the observed Independence Day holiday (July 4 falls on a
     Saturday), so the session after Thursday 2026-07-02 is Monday 2026-07-06
-    — not the holiday Friday a naive next-business-day would pick.
+    - not the holiday Friday a naive next-business-day would pick.
     """
 
     thursday_before_holiday = pd.Timestamp("2026-07-02")
@@ -447,7 +437,7 @@ def test_next_signal_date_skips_exchange_holidays() -> None:
 def test_next_signal_date_normalises_tz_aware_intraday_anchor() -> None:
     """
     A tz-aware ``bar_ts`` carrying a wall-clock time still yields a naive
-    next-business-day midnight — the signal date never carries a time.
+    next-business-day midnight - the signal date never carries a time.
     """
 
     friday_evening_utc = pd.Timestamp("2026-05-29T20:30:00", tz="UTC")

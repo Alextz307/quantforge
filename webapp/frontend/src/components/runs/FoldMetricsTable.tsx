@@ -27,10 +27,10 @@ export function FoldMetricsTable({ folds }: { folds: readonly FoldRow[] }) {
             <tr key={f.fold_index} className="border-b last:border-0">
               <td className="py-2 pr-4 font-mono">{f.fold_index}</td>
               <td className="py-2 pr-4 font-mono text-xs">
-                {formatDate(f.train_start)} → {formatDate(f.train_end)}
+                {formatDate(f.train_start)} to {formatDate(f.train_end)}
               </td>
               <td className="py-2 pr-4 font-mono text-xs">
-                {formatDate(f.test_start)} → {formatDate(f.test_end)}
+                {formatDate(f.test_start)} to {formatDate(f.test_end)}
               </td>
               <td className="py-2 pr-4 text-right font-mono">{formatPercent(f.total_return)}</td>
               <td className="py-2 pr-4 text-right font-mono">{formatMetric(f.sharpe_ratio)}</td>

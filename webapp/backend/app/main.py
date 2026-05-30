@@ -22,7 +22,7 @@ from webapp.backend.app.api import (
     studies,
     users,
 )
-from webapp.backend.app.core import rate_limit, error_handlers
+from webapp.backend.app.core import error_handlers, rate_limit
 from webapp.backend.app.core.lifespan import lifespan
 from webapp.backend.app.core.security import SessionCookies
 from webapp.backend.app.core.settings import WebappEnv, get_settings

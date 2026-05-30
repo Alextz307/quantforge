@@ -3,7 +3,7 @@ Tests for :func:`src.orchestration.comparison.run_comparison`.
 
 Monkeypatches ``build_experiment`` so each fake experiment yields
 deterministic equity curves (no real walk-forward). Only ``n_jobs=1``
-(in-process) is exercised here — the ``n_jobs>1`` ProcessPoolExecutor
+(in-process) is exercised here - the ``n_jobs>1`` ProcessPoolExecutor
 path needs module-level fakes that survive pickling, which adds more
 scaffolding than benefits this test file. The in-process path covers
 the orchestration logic (validation, aggregation, pairwise) end to end.
@@ -82,7 +82,7 @@ class _StubExperiment:
 def patched_build(monkeypatch: pytest.MonkeyPatch) -> dict[str, float]:
     """
     Route ``build_experiment(cfg)`` to a stub whose sharpe is taken from
-    a name→sharpe dict the test fills. The fixture returns the dict so
+    a name->sharpe dict the test fills. The fixture returns the dict so
     tests can populate it before invoking ``run_comparison``.
     """
 
@@ -197,7 +197,7 @@ class TestRunComparisonAlignment:
     ) -> None:
         """
         Strategies with different fold counts cannot be paired-bootstrapped
-        — the orchestrator must refuse rather than silently align on the shorter.
+        - the orchestrator must refuse rather than silently align on the shorter.
         """
 
         def _fake_build_mismatched(cfg: ExperimentConfig) -> _StubExperiment:

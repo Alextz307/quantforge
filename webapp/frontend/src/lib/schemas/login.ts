@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-// Mirrored from webapp/backend/app/schemas/auth.py — kept in sync via the
+// Mirrored from webapp/backend/app/schemas/auth.py - kept in sync via the
 // check_webapp_schema_mirror.py drift guard. Forms below import these to
 // set HTML maxLength so the input stops accepting keystrokes at the limit.
 export const LOGIN_USERNAME_MAX = 64;

@@ -1,7 +1,7 @@
 """
 Trial-parameter composition for :func:`sample_trial_params`.
 
-Each strategy already owns its ``suggest_params`` — the sampler delegates
+Each strategy already owns its ``suggest_params`` - the sampler delegates
 to the registered ``strategy_cls`` and returns a fresh dict per call.
 """
 

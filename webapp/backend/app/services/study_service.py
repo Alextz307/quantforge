@@ -88,7 +88,7 @@ def list_studies(
     for study_dir in cached_artifact_dirs(root, "study", iter_study_dirs):
         try:
             state = read_study_state(study_dir / STUDY_STATE_FILENAME)
-        except Exception as exc:  # noqa: BLE001 — one bad study must not 500 the whole listing
+        except Exception as exc:  # noqa: BLE001 - one bad study must not 500 the whole listing
             logger.warning("skipping unreadable study at %s: %s", study_dir, exc)
             continue
         summaries.append(_summary_from_state(study_dir.name, state))
@@ -123,7 +123,7 @@ def build_study_detail(study_dir: Path) -> StudyDetail:
     """
     Read the full detail payload from an already-resolved study directory.
 
-    Skips the recursive glob inside :func:`find_study_dir` — callers that
+    Skips the recursive glob inside :func:`find_study_dir` - callers that
     already hold the resolved path (e.g. the WS streamer) reuse it across
     mtime ticks without re-globbing the store on every frame.
     """
@@ -203,7 +203,7 @@ def generate_consolidated(
     Build (or rebuild) the consolidated report for a study and return its DTO.
 
     Idempotent: safe to call against a study that already has a consolidated
-    report — old tables/plots are overwritten. Raises :class:`StudyNotFoundError`
+    report - old tables/plots are overwritten. Raises :class:`StudyNotFoundError`
     if the study doesn't exist, :class:`StudyConsolidationError` if the per-leg
     artifacts are missing or malformed (e.g. running against a study that
     hasn't completed any legs yet).
@@ -278,7 +278,7 @@ def find_live_study_job_for(conn: sqlite3.Connection, output_dir_name: str) -> s
 
     Study jobs persist ``experiment_id = spec.output_dir.name`` at
     submission time. At most one non-terminal STUDY job per output dir
-    is expected — submit_job rejects collisions; this helper powers the
+    is expected - submit_job rejects collisions; this helper powers the
     rejection check.
     """
 

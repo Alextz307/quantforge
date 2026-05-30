@@ -6,6 +6,6 @@
 
 namespace quant {
 
-// Intentionally empty — all core types are defined in headers.
+// Intentionally empty - all core types are defined in headers.
 
 }  // namespace quant

@@ -3,7 +3,7 @@ Live OHLCV fetchers for the deployment layer.
 
 Live inference needs bars right up to the present. The walk-forward
 runner only ever asks for bars inside a frozen training/test window, so
-its data path is purely cache-friendly — fingerprinted, deterministic.
+its data path is purely cache-friendly - fingerprinted, deterministic.
 Live inference is cache-friendly *as far as the past goes* but extends
 the request out to ``now``, where the vendor is the only source of
 truth and the cadence (daily vs. intraday) gates whether the most
@@ -64,7 +64,7 @@ def _vendor_end_inclusive(end: datetime) -> datetime:
     Bump ``end`` one day so the vendor's exclusive end-date includes it.
 
     yfinance treats ``end`` as exclusive of its calendar date, so a live
-    fetch with ``end=now`` silently drops the bar dated today — exactly the
+    fetch with ``end=now`` silently drops the bar dated today - exactly the
     most recent bar live inference needs (and, when reproducing a training
     window, the bar at ``train_end`` itself). Adding a day pulls that bar in;
     the cadence-specific freshness filters
@@ -82,7 +82,7 @@ class DailyLiveBarFetcher:
     Daily live fetcher backed by :class:`~src.data.loader.YFinanceSource`.
 
     yfinance exposes the *current* session's daily bar while it is still
-    forming — its OHLC keeps moving until the close. Acting on that would
+    forming - its OHLC keeps moving until the close. Acting on that would
     pin a signal computed from an incomplete bar (the deployment signal log
     dedups by bar date and never recomputes). So the fetch drops the
     trailing bar whenever its NYSE session has not closed yet, leaving the
@@ -118,7 +118,7 @@ class DailyLiveBarFetcher:
 @cache
 def _nyse_calendar() -> mcal.MarketCalendar:
     """
-    Cached NYSE calendar — building it lazily memoises the holiday rule set.
+    Cached NYSE calendar - building it lazily memoises the holiday rule set.
 
     A fresh ``get_calendar(...)`` rebuilds that rule set on its first
     ``schedule`` call (tens of ms); reusing one instance keeps the
@@ -137,7 +137,7 @@ def _drop_unclosed_last_session(bars: pd.DataFrame, now: pd.Timestamp) -> pd.Dat
     The trailing bar is dropped only when its session's close is still in the
     future: historical windows and weekend/holiday-trailing fetches keep
     every row, since their last session closed in the past. Early-close
-    half-days are handled correctly — the schedule carries the real close.
+    half-days are handled correctly - the schedule carries the real close.
     """
 
     if bars.empty:
@@ -160,8 +160,8 @@ def _opens_of_opened_sessions(bars: pd.DataFrame, now: pd.Timestamp) -> pd.Serie
     drops a session whose *close* is still in the future (the close keeps
     moving, so generation can't trust it); this admits a session whose
     *open* has already printed. An open is fixed at the bell and never
-    revised, so a currently-forming session contributes its open here —
-    but never its still-moving close — letting a signal be scored the
+    revised, so a currently-forming session contributes its open here -
+    but never its still-moving close - letting a signal be scored the
     moment its exit session opens. Returns a tz-naive, normalised,
     ascending float Series; empty when the vendor has no bars.
     """
@@ -226,5 +226,5 @@ def resolve_fetcher(interval: Interval) -> LiveBarFetcher:
     raise NotImplementedError(
         f"no LiveBarFetcher implemented for interval={interval}; daily is "
         f"the only cadence supported today. Intraday support is tracked as "
-        f"a follow-up workstream — see the deployment extensibility seams."
+        f"a follow-up workstream - see the deployment extensibility seams."
     )

@@ -4,13 +4,13 @@ Behavioral tests for :mod:`src.analysis.metrics_aggregator`.
 Verifies:
 
 * :meth:`AggregateStats.to_dict` keys are a strict SUPERSET of the
-  pre-refactor ``_aggregate_metrics`` keys — the downstream objective
+  pre-refactor ``_aggregate_metrics`` keys - the downstream objective
   adapters and ``metrics.json`` readers rely on the old keys staying.
 * Empty-fold path short-circuits to ``{"n_folds": 0}`` (objectives'
   error messages depend on the absence of other keys, not on NaN).
 * Single-fold path collapses std + CI to the point estimate.
 * Multi-fold path reports finite, ordered CI bounds around the sample mean.
-* Determinism — two calls with the same folds produce bit-identical CIs.
+* Determinism - two calls with the same folds produce bit-identical CIs.
 """
 
 from __future__ import annotations
@@ -73,7 +73,7 @@ def _make_fold(
 class TestEmptyFolds:
     def test_returns_sentinel_aggregate(self) -> None:
         """
-        Equality would fail on NaN scalars — check the sentinel via the
+        Equality would fail on NaN scalars - check the sentinel via the
         discriminator field instead.
         """
 
@@ -162,7 +162,7 @@ class TestNanPropagation:
     def test_nan_fold_sharpe_flows_into_mean_and_ci(self) -> None:
         """
         Zero-vol folds produce NaN metrics. Aggregate must surface NaN
-        rather than silently hiding the degenerate fold — callers can then
+        rather than silently hiding the degenerate fold - callers can then
         decide whether to treat the run as invalid.
         """
 

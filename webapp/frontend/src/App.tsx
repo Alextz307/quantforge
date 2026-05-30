@@ -61,7 +61,7 @@ const DeploymentDetailPage = lazy(() =>
 );
 
 function ChartFallback() {
-  return <p className="text-sm text-muted-foreground">Loading…</p>;
+  return <p className="text-sm text-muted-foreground">Loading...</p>;
 }
 
 function ProtectedShell() {

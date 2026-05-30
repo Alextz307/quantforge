@@ -6,10 +6,10 @@ the cache write. Catches bad data at ingestion so it doesn't reach cached
 storage or surface late from an indicator's OHLC guard deep inside a backtest.
 
 Explicitly does NOT cover:
-- Column presence / DatetimeIndex contracts — owned by ``DataNormalizer``.
-- Structural alignment of bars/signals — owned by ``CppBacktestEngine._validate_inputs``.
-- Temporal overlap of train/test windows — owned by ``TrainingMetadata.validate_no_overlap``.
-- Gap detection — weekends/holidays on daily bars and session boundaries on
+- Column presence / DatetimeIndex contracts - owned by ``DataNormalizer``.
+- Structural alignment of bars/signals - owned by ``CppBacktestEngine._validate_inputs``.
+- Temporal overlap of train/test windows - owned by ``TrainingMetadata.validate_no_overlap``.
+- Gap detection - weekends/holidays on daily bars and session boundaries on
   intraday bars produce so many legitimate gaps that a general gap check is
   noisy; callers with interval-aware calendars should add their own.
 """

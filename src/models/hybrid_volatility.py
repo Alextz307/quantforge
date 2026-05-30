@@ -49,7 +49,7 @@ class _HybridVolConfig:
     One source of truth for save/load + drift-guard tests. ``feature_columns``
     is a tuple so ``frozen=True`` actually guarantees immutability (a list
     field would still be mutable). Field names MUST mirror the ctor param
-    names — the drift test catches misalignment.
+    names - the drift test catches misalignment.
     """
 
     feature_columns: tuple[str, ...]
@@ -185,7 +185,7 @@ class HybridVolatilityModel(IPredictor):
                 ``train_data`` (caller computes via e.g. Garman-Klass).
             checkpoint_path: Forwarded to ``LSTMPredictor.fit`` for best-state
                 checkpointing of the residual-correction leaf.
-            **kwargs: Forwarded to LSTM fit — supports Optuna ``trial``.
+            **kwargs: Forwarded to LSTM fit - supports Optuna ``trial``.
         """
 
         guard_scaler_fit_once(self._scaler, "HybridVolatilityModel")
@@ -282,7 +282,7 @@ class HybridVolatilityModel(IPredictor):
         ``<path>/lstm/`` + ``<path>/scaler.json`` + config + metadata.
 
         Every ctor kwarg is persisted in the composite's own ``config.json``
-        — we don't reach into leaf private state on load (see
+        - we don't reach into leaf private state on load (see
         black-box-composition rule). The leaf directories exist solely to
         round-trip the fitted weights.
         """
@@ -308,7 +308,7 @@ class HybridVolatilityModel(IPredictor):
         """
         Snapshot of this composite's constructor kwargs as JSON-ready values.
 
-        ``frozen_params_to_json`` handles the tuple→list + Enum→value
+        ``frozen_params_to_json`` handles the tuple->list + Enum->value
         conversions uniformly; ``lstm_device`` is dropped so the saved JSON
         doesn't pin a device that may not exist on the loading machine. The
         drift guard in ``tests/integration/test_strategy_save_load.py``
@@ -323,7 +323,7 @@ class HybridVolatilityModel(IPredictor):
         Reconstruct a fitted HybridVolatilityModel from ``path``.
 
         Construct the composite instance from its own ``config.json`` BEFORE
-        loading sub-models — a corrupt composite config fast-fails with a
+        loading sub-models - a corrupt composite config fast-fails with a
         named-field error, without wasting I/O on the GARCH/LSTM subdirs.
         """
 

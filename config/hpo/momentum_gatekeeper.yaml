@@ -1,4 +1,4 @@
-# HPO study config for MomentumGatekeeper (standalone — no pretrained leaf).
+# HPO study config for MomentumGatekeeper.
 #
 # Pair with config/strategies/momentum_gatekeeper.yaml:
 #   python -m scripts.experiment tune \

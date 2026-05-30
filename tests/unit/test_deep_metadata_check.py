@@ -11,7 +11,7 @@ Covers the key invariants of the deep leakage tripwire:
 * Absent metadata on one component is logged + skipped rather than
   collapsing the whole check.
 
-No composite ``train()`` is run with real ML leaves here — those paths are
+No composite ``train()`` is run with real ML leaves here - those paths are
 covered by the existing composite test suites. This file targets the deep
 check itself, using the cheap strategies (AdaptiveBollinger has GARCH but
 is fast) plus targeted monkey-patching for the drift scenarios.
@@ -53,7 +53,7 @@ def eval_df() -> pd.DataFrame:
 
 class TestDefaultOverrideForSimpleStrategies:
     """
-    PairsTradingStrategy inherits the default — metadata tuple length 1.
+    PairsTradingStrategy inherits the default - metadata tuple length 1.
     """
 
     def test_pairs_trading_uses_default(self) -> None:
@@ -108,7 +108,7 @@ class TestWalkForwardDeepCheck:
         """
         Simulate GARCH metadata drift: leaf's train_end lies AFTER eval.start.
 
-        This models the failure mode the deep check exists to catch —
+        This models the failure mode the deep check exists to catch -
         ``strategy.training_metadata`` looks fine, but a wrapped model's
         metadata drifted forward so its training region overlaps the
         incoming fold's test window.
@@ -173,7 +173,7 @@ class TestWalkForwardDeepCheck:
         eval_df: pd.DataFrame,
     ) -> None:
         """
-        Every tracked component being None is a contract violation —
+        Every tracked component being None is a contract violation -
         no part of the strategy has completed fit()."""
 
         class _StubStrategy:

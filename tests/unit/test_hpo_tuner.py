@@ -4,7 +4,7 @@ StrategyTuner integration tests.
 Mocks ``build_experiment`` + ``aggregate_folds`` so the tuner's own
 logic (config materialisation, SQLite study creation, trial-to-objective
 plumbing, resume, best-config refresh) is exercised without paying for
-real ML training. The model/strategy layers have their own tests —
+real ML training. The model/strategy layers have their own tests -
 repeating them here would just make the suite slow.
 """
 
@@ -46,7 +46,7 @@ _SHARPE_PENALTY_PER_UNIT = 0.05
 
 class _FakeExperiment:
     """
-    Stand-in for a wired ``Experiment`` — ``run()`` returns a fake result.
+    Stand-in for a wired ``Experiment`` - ``run()`` returns a fake result.
     """
 
     def __init__(self, experiment_id: str) -> None:
@@ -227,15 +227,15 @@ class TestStrategyTunerResume:
             store_root=tmp_path,
         )
         study = second.run()
-        # Optuna's n_trials is ADDITIONAL per call — 2 + 3 = 5.
+        # Optuna's n_trials is ADDITIONAL per call - 2 + 3 = 5.
         assert len(study.trials) == 5
 
 
 class TestStrategyTunerPruning:
     """
     ``optuna.TrialPruned`` raised from the objective (as LSTM/XGBoost
-    leaves do under a live pruner) must be caught by Optuna — marking the
-    trial PRUNED instead of FAILED — and must not short-circuit the rest
+    leaves do under a live pruner) must be caught by Optuna - marking the
+    trial PRUNED instead of FAILED - and must not short-circuit the rest
     of the study.
     """
 
@@ -244,7 +244,7 @@ class TestStrategyTunerPruning:
     ) -> None:
         import src.optimization.tuner as tm
 
-        # Trial 0 completes; trial 1 raises TrialPruned from aggregate_folds —
+        # Trial 0 completes; trial 1 raises TrialPruned from aggregate_folds -
         # the closest mid-trial stand-in without plumbing through a real model.
         counter = {"n": 0}
 

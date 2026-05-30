@@ -3,7 +3,7 @@ Cross-trial AIC cache for the GARCH ``(p, q)`` grid search.
 
 Within an Optuna study, every HPO trial runs the same walk-forward fold
 loop. For each fold, ``GARCHPredictor.fit`` calls ``_grid_search`` over
-``(p, q) in [1, p_max] x [1, q_max]`` — up to 25 ``arch_model.fit`` calls
+``(p, q) in [1, p_max] x [1, q_max]`` - up to 25 ``arch_model.fit`` calls
 per fold-trial. The AIC of fitting ``GARCH(p, q)`` on a given returns
 window is independent of the trial's *strategy-level* hyperparameters,
 so two trials whose ``(p_max, q_max)`` overlap on the same fold are
@@ -16,7 +16,7 @@ The cache is *study-scoped*, not strategy-scoped: the strategy /
 ``GARCHPredictor`` instance is rebuilt every trial via
 ``build_experiment``, so attaching the cache to the predictor would
 discard it across trial boundaries. Threading the cache through
-``ExperimentConfig`` is also blocked — that model is Pydantic-frozen and
+``ExperimentConfig`` is also blocked - that model is Pydantic-frozen and
 serialisable, so it can't carry a runtime object. We use a
 ``ContextVar`` set by :class:`StrategyTuner.run` for the duration of
 ``study.optimize``; ``GARCHPredictor._grid_search`` reads the active
@@ -28,7 +28,7 @@ Keying
 The cache key is ``(sha256(scaled_returns_bytes), p, q)``. Different
 fold training windows produce different return arrays and therefore
 distinct hashes, so cross-fold cache hits are impossible by
-construction — only AIC values across HPO trials sharing the same fold
+construction - only AIC values across HPO trials sharing the same fold
 data alias.
 """
 
@@ -53,7 +53,7 @@ class GarchGridCache:
     """
     In-memory ``(returns_hash, p, q) -> (aic, fitted_result)`` table.
 
-    Mutable and not thread-safe — Optuna's ``n_jobs > 1`` mode runs
+    Mutable and not thread-safe - Optuna's ``n_jobs > 1`` mode runs
     trials in *threads* (not processes) sharing one Python interpreter,
     so concurrent dict writes from two trials grid-searching the same
     fold could race. Optuna's HPO config caps ``n_jobs`` at 4 in
@@ -69,7 +69,7 @@ class GarchGridCache:
     @staticmethod
     def hash_returns(scaled: np.ndarray[tuple[int], np.dtype[np.float64]]) -> bytes:
         """
-        SHA-256 of the scaled-returns bytes — stable across processes.
+        SHA-256 of the scaled-returns bytes - stable across processes.
         """
 
         return hashlib.sha256(scaled.tobytes()).digest()
@@ -87,7 +87,7 @@ class GarchGridCache:
         For each cell, returns the cached fit if present; otherwise
         invokes ``fit_fn(p, q)`` and stores the result. ``fit_fn`` must
         return ``None`` on a fit failure (matching the existing
-        ``_grid_search`` ``try/except`` convention) — failed cells are
+        ``_grid_search`` ``try/except`` convention) - failed cells are
         NOT cached so a future trial with a different ``arch`` build or
         numerical seed gets a fresh attempt.
 

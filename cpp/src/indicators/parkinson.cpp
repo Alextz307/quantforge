@@ -11,7 +11,7 @@
 namespace quant {
 
 namespace {
-// 1 / (4 * ln(2)) ≈ 0.3607
+// 1 / (4 * ln(2)) ~= 0.3607
 constexpr double kPKCoeff = 1.0 / (4.0 * std::numbers::ln2);
 }  // namespace
 

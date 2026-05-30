@@ -15,7 +15,7 @@ The flow is:
    :func:`attribute_artifact` to insert a synthetic ``jobs`` row keyed by
    the artifact's ``experiment_id``.
 
-The synthetic row mirrors the shape the backfill script writes — same
+The synthetic row mirrors the shape the backfill script writes - same
 ``status=COMPLETED``, same ``kind`` per artifact type. This keeps the
 ownership lookup (``SELECT user_id FROM jobs WHERE experiment_id = ?``)
 uniform regardless of whether attribution happened at launch time or via
@@ -198,7 +198,7 @@ def attribute_via_username(
     Convenience wrapper: open the webapp DB, resolve the user, stamp the row.
 
     Subcommands call this once at the end of execution. Logs but does not
-    re-raise on sqlite errors — attribution must never block the
+    re-raise on sqlite errors - attribution must never block the
     artifact-producing path.
 
     Silently skips when the webapp DB doesn't exist yet: the CLI must not
@@ -225,7 +225,7 @@ def attribute_via_username(
 
 def default_username() -> str:
     """
-    The OS username — the default value for ``--user`` flags.
+    The OS username - the default value for ``--user`` flags.
     """
 
     return getpass.getuser()

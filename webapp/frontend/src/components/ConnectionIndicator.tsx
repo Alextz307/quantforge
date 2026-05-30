@@ -2,7 +2,7 @@ import { cn } from "@/lib/cn";
 import type { ConnectionState } from "@/hooks/useEventStream";
 
 const STATE_META: Record<ConnectionState, { label: string; dot: string }> = {
-  connecting: { label: "Connecting…", dot: "bg-amber-500 animate-pulse" },
+  connecting: { label: "Connecting...", dot: "bg-amber-500 animate-pulse" },
   open: { label: "Streaming", dot: "bg-emerald-500" },
   closed: { label: "Disconnected", dot: "bg-slate-400" },
   error: { label: "Connection lost", dot: "bg-rose-500" },

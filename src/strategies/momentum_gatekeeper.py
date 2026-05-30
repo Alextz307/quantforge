@@ -258,7 +258,7 @@ class MomentumGatekeeperStrategy(IStrategy):
         Persist MomentumGatekeeper config + nested DirectionalClassifier.
 
         Feature-pipeline hyperparams live in this config alongside strategy
-        hyperparams — the pipeline is stateless (no scaler to round-trip),
+        hyperparams - the pipeline is stateless (no scaler to round-trip),
         it's rebuilt on load from the same ctor kwargs. Device preference is
         NOT persisted: the classifier subdir captures whatever device was
         resolved at fit time, and on load we defer to the classifier's own
@@ -291,10 +291,10 @@ class MomentumGatekeeperStrategy(IStrategy):
         """
         Snapshot of this strategy's constructor kwargs as JSON-ready values.
 
-        Delegates tuple→list + Enum→value conversions to
+        Delegates tuple->list + Enum->value conversions to
         ``frozen_params_to_json``; ``device`` is dropped (re-resolved on load
         via ``select_xgboost_device()``). ``feature_columns`` is overwritten
-        with ``_resolved_feature_columns`` — the list the classifier was
+        with ``_resolved_feature_columns`` - the list the classifier was
         actually fit on (the ctor's ``feature_columns`` kwarg, when ``None``,
         resolves to the pipeline's full column set at ``train()`` time).
         Post-fit the two are equivalent.
@@ -310,7 +310,7 @@ class MomentumGatekeeperStrategy(IStrategy):
         Reconstruct a trained MomentumGatekeeperStrategy from ``path``.
 
         Narrow the strategy's ``config.json`` into ctor kwargs BEFORE loading
-        the classifier + pipeline scaler — a corrupt composite config
+        the classifier + pipeline scaler - a corrupt composite config
         fast-fails with a named-field error rather than crashing deep inside
         a sub-loader.
         """
@@ -343,7 +343,7 @@ class MomentumGatekeeperStrategy(IStrategy):
 
         instance._classifier = DirectionalClassifier.load(root / CLASSIFIER_SUBDIR)
         # Replace the pipeline's unfitted scaler with the loaded fitted one.
-        # The pipeline is stateless aside from this scaler — reusing the
+        # The pipeline is stateless aside from this scaler - reusing the
         # ctor-built pipeline keeps hyperparams in one place.
         instance._pipeline.scaler = load_standard_scaler(root / PIPELINE_SCALER_JSON)
         instance._resolved_feature_columns = resolved

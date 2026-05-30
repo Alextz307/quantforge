@@ -5,7 +5,7 @@ A post-HPO/post-run command. Loads a completed source (a single
 ``experiment run`` directory or an ``experiment tune`` study), refits a
 fresh strategy on the FULL dev region, evaluates once on the holdout
 region, and writes a one-shot result bundle. Walk-forward is *not*
-re-run here — holdout-eval produces the single honest OOS number that
+re-run here - holdout-eval produces the single honest OOS number that
 the dev/HPO loop deliberately never sees.
 
 The CLI layer in ``scripts/experiment.py`` is a thin click wrapper
@@ -14,7 +14,7 @@ around :func:`run_holdout_eval`.
 Why fresh fit on full dev (not reuse the source run's trained state)
 --------------------------------------------------------------------
 The source run's ``strategy_state/`` reflects only the *last fold*'s
-training window — strictly less data than full dev. Reusing it would
+training window - strictly less data than full dev. Reusing it would
 trade away a few minutes of compute against measurable model quality.
 Full-dev refit gives the strongest honest-OOS signal the framework can
 produce.
@@ -22,15 +22,15 @@ produce.
 Anti-leakage tripwires fired here, in this exact order
 ------------------------------------------------------
 1. ``manifest.holdout_start`` is non-None (else the source had no
-   holdout reservation — refuse).
-2. Re-fetched ``data_hash == manifest.data_hash`` (else vendor drift —
+   holdout reservation - refuse).
+2. Re-fetched ``data_hash == manifest.data_hash`` (else vendor drift -
    refuse, the boundary timestamp would slide silently).
 3. ``resolve_holdout_boundary`` validates the pinned timestamp is
    present in the re-fetched index (a missing bar at the pin would
    trip a separate :class:`LeakageError` from the resolver).
 4. ``TemporalSplit(train=dev, test=holdout, split_date=boundary)``
    re-asserts ``dev.index[-1] < holdout.index[0]`` after the slice.
-5. Deep metadata check (same loop walk-forward uses) — every tracked
+5. Deep metadata check (same loop walk-forward uses) - every tracked
    training metadata validates that no component saw the holdout window.
 """
 
@@ -82,7 +82,7 @@ class HoldoutEvalResult:
     In-memory output of :func:`run_holdout_eval`.
 
     Mirrors :class:`ExperimentResult`'s shape (one record + provenance)
-    so callers — tests, future reporters, the Streamlit workbench —
+    so callers - tests, future reporters, the Streamlit workbench -
     don't have to round-trip through disk to read the metrics.
 
     ``sharpe_ci`` carries the stationary-bootstrap 95% CI on the
@@ -119,7 +119,7 @@ class HoldoutEvalResult:
         """
         Serialise to the canonical ``holdout_eval.json`` payload.
 
-        ``is_holdout_eval: true`` is the discriminator — automated tooling
+        ``is_holdout_eval: true`` is the discriminator - automated tooling
         (study orchestrator, future ``experiment study`` consolidator)
         uses it to refuse feeding this bundle back into HPO.
         """
@@ -181,7 +181,7 @@ def resolve_source(
     """
     Resolve a CLI source pair into the two on-disk anchors the workflow needs.
 
-    Exactly one of ``run_dir`` / ``hpo_dir`` must be set — the CLI layer
+    Exactly one of ``run_dir`` / ``hpo_dir`` must be set - the CLI layer
     enforces mutual exclusion and this guard is defence-in-depth.
 
     For ``--hpo-best``: discovers the per-trial manifest by reading the
@@ -222,14 +222,14 @@ def resolve_source(
     if not best_config_path.is_file():
         raise FileNotFoundError(
             f"missing {BEST_CONFIG_YAML_NAME} under {hpo_dir}; the HPO study "
-            f"may have no completed trials yet — run the study to completion "
+            f"may have no completed trials yet - run the study to completion "
             f"or pass --run-dir against a finished run instead."
         )
     trials_root = hpo_dir / TRIAL_ARTIFACTS_SUBDIR / HPO_TRIALS_RUNS_SUBDIR
     if not trials_root.is_dir():
         raise FileNotFoundError(
             f"missing {trials_root} under {hpo_dir}; no trial has produced "
-            f"artifacts yet — run the study to completion."
+            f"artifacts yet - run the study to completion."
         )
     first_trial = next((p for p in trials_root.iterdir() if p.is_dir()), None)
     if first_trial is None:

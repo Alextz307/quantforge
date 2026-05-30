@@ -51,7 +51,7 @@ def hybrid_train_df(synthetic_feature_columns: list[str]) -> pd.DataFrame:
 @pytest.fixture
 def log_return_target(hybrid_train_df: pd.DataFrame) -> pd.Series:
     """
-    Log returns target — leading NaN dropped internally by HybridReturnModel.
+    Log returns target - leading NaN dropped internally by HybridReturnModel.
     """
 
     return compute_log_returns(hybrid_train_df["close"])

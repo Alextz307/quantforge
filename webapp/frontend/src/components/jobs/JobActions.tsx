@@ -22,7 +22,7 @@ export function JobActions({ job }: JobActionsProps) {
           cancel.mutate();
         }}
       >
-        {cancel.isPending ? "Cancelling…" : "Cancel"}
+        {cancel.isPending ? "Cancelling..." : "Cancel"}
       </Button>
       <a
         href={jobLogDownloadUrl(job.id)}

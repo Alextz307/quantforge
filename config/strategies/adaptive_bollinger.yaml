@@ -1,5 +1,5 @@
-# Standalone AdaptiveBollinger experiment — no pretrained leaves, no
-# external feature pipeline. The strategy owns its own GARCH and operates
+# AdaptiveBollinger experiment - no external feature pipeline. The
+# strategy owns its own GARCH and operates
 # directly on close prices, so this YAML is fully runnable today via:
 #
 #   python -m scripts.experiment run --config config/strategies/adaptive_bollinger.yaml

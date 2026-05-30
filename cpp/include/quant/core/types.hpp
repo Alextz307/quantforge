@@ -70,7 +70,7 @@ struct Bar {
     }
 };
 
-// Structure of Arrays — for computation hot paths.
+// Structure of Arrays - for computation hot paths.
 struct BarSoA {
     // Heap data alignment depends on the allocator (macOS default is 16-byte,
     // sufficient for NEON). Use a custom aligned allocator if cache-line

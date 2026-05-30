@@ -75,7 +75,7 @@ class HybridReturnModel(IPredictor):
     ARMA + LSTM hybrid: ARMA provides a one-step-ahead conditional mean
     forecast of log returns; an LSTM corrects the residual between the
     realized return and the ARMA forecast. Final output is
-    ``arma_forecast + lstm_residual`` (no clipping — returns can be negative).
+    ``arma_forecast + lstm_residual`` (no clipping - returns can be negative).
     """
 
     def __init__(
@@ -166,12 +166,12 @@ class HybridReturnModel(IPredictor):
         Args:
             train_data: DataFrame with ``close`` column and all
                 ``feature_columns``. DatetimeIndex required.
-            target: Log returns series (may include leading NaN — it is
+            target: Log returns series (may include leading NaN - it is
                 dropped internally). Same convention as
                 ``compute_log_returns(train_data["close"])``.
             checkpoint_path: Forwarded to ``LSTMPredictor.fit`` for best-state
                 checkpointing of the residual-correction leaf.
-            **kwargs: Forwarded to LSTM fit — supports Optuna ``trial``.
+            **kwargs: Forwarded to LSTM fit - supports Optuna ``trial``.
         """
 
         guard_scaler_fit_once(self._scaler, "HybridReturnModel")
@@ -281,7 +281,7 @@ class HybridReturnModel(IPredictor):
         """
         Snapshot of this composite's constructor kwargs as JSON-ready values.
 
-        ``frozen_params_to_json`` handles the tuple→list + Enum→value
+        ``frozen_params_to_json`` handles the tuple->list + Enum->value
         conversions uniformly; ``lstm_device`` is dropped so the saved JSON
         doesn't pin a device that may not exist on the loading machine. The
         drift guard in ``tests/integration/test_strategy_save_load.py``
@@ -296,7 +296,7 @@ class HybridReturnModel(IPredictor):
         Reconstruct a fitted HybridReturnModel from ``path``.
 
         Construct the composite instance from its own ``config.json`` BEFORE
-        loading sub-models — a corrupt composite config fast-fails with a
+        loading sub-models - a corrupt composite config fast-fails with a
         named-field error, without wasting I/O on the ARMA/LSTM subdirs.
         """
 

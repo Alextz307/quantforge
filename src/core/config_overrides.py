@@ -23,7 +23,7 @@ dict and resolve to a sub-dict. ``--override dat.tickers=[QQQ]`` (typo
 for ``data``) raises :class:`ValueError` instead of silently inserting
 a stub key that pydantic's ``extra="forbid"`` mode would later reject
 with a less-actionable message. The leaf segment may either replace an
-existing field or add a new one — pydantic catches genuine spelling
+existing field or add a new one - pydantic catches genuine spelling
 mistakes at the leaf via the same ``extra="forbid"``.
 """
 

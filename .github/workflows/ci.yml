@@ -108,7 +108,7 @@ jobs:
         run: pip install -e ".[webapp]"
       - name: Check OpenAPI snapshot is current
         run: python -m scripts.check_openapi_snapshot
-      - name: Check Pydantic ↔ zod schema mirror is current
+      - name: Check Pydantic <-> zod schema mirror is current
         run: python -m scripts.check_webapp_schema_mirror
       - name: Install frontend dependencies
         working-directory: webapp/frontend

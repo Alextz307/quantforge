@@ -43,13 +43,13 @@ export function ConfigureLandingPage() {
           to={ROUTES.configureHoldout}
           icon={ShieldCheck}
           title="New holdout eval"
-          description="Refit on full dev, evaluate once on the reserved holdout — honest OOS metrics."
+          description="Refit on full dev, evaluate once on the reserved holdout - honest OOS metrics."
         />
         <NavCard
           to={`${ROUTES.deployments}?new=1`}
           icon={Radio}
           title="New deployment"
-          description="Deploy a trained model for live daily signals — pick a holdout-evaluated source, ranked by OOS Sharpe."
+          description="Deploy a trained model for live daily signals - pick a holdout-evaluated source, ranked by OOS Sharpe."
         />
         <NavCard
           to={ROUTES.configureStudy}

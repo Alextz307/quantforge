@@ -28,9 +28,7 @@ _PASSWORD = "alice-password"
 
 
 def _user(db_conn: sqlite3.Connection, name: str, *, auto: bool, role: Role = Role.USER) -> int:
-    user = create_user(
-        db_conn, username=name, password=_PASSWORD, role=role, auto_created=auto
-    )
+    user = create_user(db_conn, username=name, password=_PASSWORD, role=role, auto_created=auto)
     return int(user.id)
 
 
@@ -94,7 +92,7 @@ def test_delete_cmd_refuses_non_tty_without_yes(
     db_conn: sqlite3.Connection, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     """
-    Scripts/CI calling ``users delete`` MUST pass ``--yes`` — never silently drop.
+    Scripts/CI calling ``users delete`` MUST pass ``--yes`` - never silently drop.
     """
 
     _user(db_conn, "alxe", auto=True)

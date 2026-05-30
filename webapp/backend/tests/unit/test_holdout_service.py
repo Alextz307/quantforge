@@ -35,15 +35,15 @@ EXPECTED_SHARPE = 0.6
 EXPECTED_EQUITY_CURVE = [10000.0, 10100.0, 10500.0]
 
 
-def test_list_holdout_evals_sorts_newest_first(
-    tmp_path: Path, db_conn: sqlite3.Connection
-) -> None:
+def test_list_holdout_evals_sorts_newest_first(tmp_path: Path, db_conn: sqlite3.Connection) -> None:
     root = tmp_path / "experiment_results"
     parent = root / "studies" / "main" / HOLDOUT_EVALS_SUBDIR
     make_synthetic_holdout_eval(parent, name=OLDER_NAME, created_at=OLDER_TS)
     make_synthetic_holdout_eval(parent, name=NEWER_NAME, created_at=NEWER_TS)
 
-    summaries = list_holdout_evals(root, conn=db_conn, user=make_viewer_user(db_conn), all_users=False)
+    summaries = list_holdout_evals(
+        root, conn=db_conn, user=make_viewer_user(db_conn), all_users=False
+    )
 
     assert [s.name for s in summaries] == [NEWER_NAME, OLDER_NAME]
 
@@ -70,9 +70,7 @@ def test_list_holdout_evals_surfaces_source_and_store(
     assert summary.store == "flat_store/holdout_evals"
 
 
-def test_get_holdout_eval_returns_full_detail(
-    tmp_path: Path, db_conn: sqlite3.Connection
-) -> None:
+def test_get_holdout_eval_returns_full_detail(tmp_path: Path, db_conn: sqlite3.Connection) -> None:
     root = tmp_path / "experiment_results"
     make_synthetic_holdout_eval(
         root / "studies" / "main" / HOLDOUT_EVALS_SUBDIR,
@@ -114,9 +112,7 @@ def test_resolve_plot_returns_path_for_existing_file(
     assert path.read_bytes() == PLOT_BYTES
 
 
-def test_resolve_plot_rejects_traversal(
-    tmp_path: Path, db_conn: sqlite3.Connection
-) -> None:
+def test_resolve_plot_rejects_traversal(tmp_path: Path, db_conn: sqlite3.Connection) -> None:
     root = tmp_path / "experiment_results"
     make_synthetic_holdout_eval(root / "studies" / "main" / HOLDOUT_EVALS_SUBDIR, name=NEWER_NAME)
 

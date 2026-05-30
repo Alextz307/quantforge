@@ -2,7 +2,7 @@
 Backfill ``.save_complete`` markers for models saved before the marker existed.
 
 Every model/strategy ``load()`` calls ``assert_save_complete`` and refuses a
-save directory that lacks the ``.save_complete`` marker — the invariant that
+save directory that lacks the ``.save_complete`` marker - the invariant that
 the producing ``save()`` ran to completion. Models persisted before the marker
 was introduced have none, so they fail to load even though their directories
 are intact. This walks ``store_root`` for save directories (any directory that
@@ -13,7 +13,7 @@ load has the provisional markers removed and is reported, so a genuinely
 half-written save is never silently certified.
 
 Only marker-less directories are touched, so an already-marked store is walked
-cheaply (no load). The model data under the store is never modified — this
+cheaply (no load). The model data under the store is never modified - this
 writes only the empty marker file. Idempotent.
 
 Usage::
@@ -62,7 +62,7 @@ def _unmarked_save_dirs(state_dir: Path) -> list[Path]:
     """
     Every save directory under (and including) ``state_dir`` lacking a marker.
 
-    A save directory is one that holds a ``metadata.json`` — the strategy's
+    A save directory is one that holds a ``metadata.json`` - the strategy's
     own ``strategy_state/`` plus each nested leaf model dir (e.g. ``garch/``,
     ``hybrid_vol/lstm/``). Leaf ``load()`` calls assert their own marker, so
     all levels must be certified together.
@@ -98,7 +98,7 @@ def backfill_run(run_dir: Path, *, dry_run: bool) -> MarkerResult | None:
         mark_save_complete(save_dir)
     try:
         load_strategy_from_run_dir(run_dir)
-    except Exception as exc:  # noqa: BLE001 — any load failure means "not certified"
+    except Exception as exc:  # noqa: BLE001 - any load failure means "not certified"
         for save_dir in pending:
             (save_dir / SAVE_COMPLETE_MARKER).unlink(missing_ok=True)
         return MarkerResult(run_dir, "failed", 0, error=str(exc))
@@ -148,7 +148,7 @@ def main(store_root: Path, dry_run: bool) -> None:
         sys.exit(1)
     results = backfill_store(store_root, dry_run=dry_run)
     if not results:
-        click.echo("nothing to backfill — every save already carries its marker")
+        click.echo("nothing to backfill - every save already carries its marker")
         return
     failed = [r for r in results if r.status == "failed"]
     certified = [r for r in results if r.status != "failed"]

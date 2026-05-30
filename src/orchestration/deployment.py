@@ -4,7 +4,7 @@ Live deployment of a previously trained strategy.
 A deployment is the smallest persistent primitive that bridges the
 framework's backtest world (frozen, validated strategies on disk) and
 practical decision support (today's signal for a given ticker). It is
-*only* a pointer to a trained run plus an accumulating signal log —
+*only* a pointer to a trained run plus an accumulating signal log -
 no model state of its own, no refit clock. Refreshing a stale model is
 out of scope here: the user trains a fresher run via the existing
 experiment flow and points a new deployment at it.
@@ -15,7 +15,7 @@ On-disk layout per deployment::
         manifest.json            # typed round-trippable Deployment
         signals.jsonl            # append-only signal log (one row per bar)
 
-Anti-leakage contract — read this before changing :func:`predict`
+Anti-leakage contract - read this before changing :func:`predict`
 -----------------------------------------------------------------
 The single invariant ``predict`` enforces is
 
@@ -23,10 +23,10 @@ The single invariant ``predict`` enforces is
 
 i.e. the bar whose signal we act on is strictly after the last bar the
 model was fit on. The warmup window is allowed to *overlap* the training
-period (the model is frozen on disk, the bars are public market data —
+period (the model is frozen on disk, the bars are public market data -
 no leakage vector exists). This is strictly weaker than the
 walk-forward's ``validate_no_overlap`` check, which guards the
-test-set OOS contract — irrelevant in a live setting where the model is
+test-set OOS contract - irrelevant in a live setting where the model is
 already validated.
 """
 
@@ -80,7 +80,7 @@ def recommend_warmup_bars(strategy: IStrategy) -> int:
     Compute the smallest warmup window that still produces a stable signal.
 
     Composes the strategy's own ``required_warmup_bars`` (the indicator
-    lookback floor — below this every signal is NaN at the last position)
+    lookback floor - below this every signal is NaN at the last position)
     with its ``convergence_margin_bars`` (extra rows that let GARCH/ARMA
     leaves converge out of the fitted backcast). Padded by an absolute
     floor so a tiny-window strategy still ends up with enough bars to
@@ -99,7 +99,7 @@ class Deployment:
     """
     Provenance + configuration for one live deployment.
 
-    Immutable by construction — the source run id never changes, and the
+    Immutable by construction - the source run id never changes, and the
     auto-generated ``name`` is user-editable by writing a new manifest
     with a different ``name`` (no in-place mutation). ``deployment_id``
     is opaque; ``name`` is the user-facing label.
@@ -147,7 +147,7 @@ class SignalRow:
 
     ``submitted_at`` is the wall-clock instant the predict ran; ``bar_ts``
     is the last *completed* bar the signal was computed from. The signal
-    itself is the position to hold over the *next* session — the trading
+    itself is the position to hold over the *next* session - the trading
     day it is *for* is :func:`next_signal_date`. The two clocks are kept
     distinct so daily / hourly / scheduled cadences stay distinguishable
     without schema breaks.
@@ -188,7 +188,7 @@ _NEXT_SESSION_SEARCH_DAYS = 15
 @cache
 def _nyse_calendar() -> mcal.MarketCalendar:
     """
-    Cached NYSE calendar — building it lazily memoises the holiday rule set.
+    Cached NYSE calendar - building it lazily memoises the holiday rule set.
 
     A fresh ``get_calendar(...)`` rebuilds that rule set on its first
     ``valid_days`` / ``schedule`` call (tens of ms); reusing one instance
@@ -205,7 +205,7 @@ def next_signal_date(bar_ts: pd.Timestamp, interval: Interval) -> pd.Timestamp:
     A strategy emits its signal at bar ``t`` from information available at
     that bar's close; the engine's ``t -> t+1`` shift makes it the position
     held over the *next* session. This returns that next NYSE session from
-    the exchange calendar — US-equity holidays and early closes included, so
+    the exchange calendar - US-equity holidays and early closes included, so
     a Thursday before an observed-holiday Friday rolls to the following
     Monday rather than naively onto the holiday. Display-only; never a
     leakage boundary (the on-disk anchor stays ``bar_ts``).
@@ -218,9 +218,7 @@ def next_signal_date(bar_ts: pd.Timestamp, interval: Interval) -> pd.Timestamp:
         )
     day_after = _to_naive(bar_ts).normalize() + pd.Timedelta(days=1)
     horizon = day_after + pd.Timedelta(days=_NEXT_SESSION_SEARCH_DAYS)
-    sessions = _nyse_calendar().valid_days(
-        start_date=day_after.date(), end_date=horizon.date()
-    )
+    sessions = _nyse_calendar().valid_days(start_date=day_after.date(), end_date=horizon.date())
     if len(sessions) == 0:
         raise RuntimeError(
             f"no NYSE trading session found within {_NEXT_SESSION_SEARCH_DAYS} days "
@@ -242,7 +240,7 @@ def resolve_strategy_state_path(source_kind: SourceKind, source_id: str, store_r
     Return the on-disk ``strategy_state/`` directory for a source.
 
     Single source of truth for "where does the saved strategy live"
-    — the deployment layer never branches on ``source_kind`` outside
+    - the deployment layer never branches on ``source_kind`` outside
     this helper. Adding a new source kind is one new branch here and
     zero changes in the predict path.
 
@@ -389,7 +387,7 @@ def create_deployment(
     stored count, so a model change post-create does not silently move
     the goalposts.
 
-    ``deployment_id`` is auto-generated (UUID4 hex) unless supplied —
+    ``deployment_id`` is auto-generated (UUID4 hex) unless supplied -
     callers in test harnesses pin it for determinism; everyday use
     accepts the default.
     """
@@ -500,7 +498,7 @@ def predict(
     3. Resolve ``as_of`` (default: wall-clock UTC now) and fetch a
        warmup window of bars through ``as_of`` via the cadence-specific
        :class:`~src.data.live_fetcher.LiveBarFetcher`. The window is
-       allowed to overlap the training period — see the module docstring.
+       allowed to overlap the training period - see the module docstring.
     4. **Anti-leakage guard**: assert the *last fetched bar* is strictly
        after ``train_end``. Doing the check on the fetched data (not on
        the user-supplied ``as_of``) handles the realistic case where
@@ -508,7 +506,7 @@ def predict(
     5. Run ``strategy.generate_signals(bars)``; the signal at
        ``bars.index[-1]`` is today's value. NaN at that position means
        the warmup window is too short for the strategy's longest
-       indicator — surface loudly as :class:`WarmupInsufficientError`.
+       indicator - surface loudly as :class:`WarmupInsufficientError`.
     6. **Idempotent append**: if ``signals.jsonl`` already carries a row
        for ``bars.index[-1]``, return that row unchanged. Otherwise
        append a new row and return it.
@@ -578,7 +576,7 @@ def predict(
         raise RuntimeError(
             f"deployment {deployment_id!r}: signal index ends at {signal_bar_ts} "
             f"but the fetched bars end at {last_bar_ts}. generate_signals must "
-            f"return a signal aligned to the input bars' trailing index — "
+            f"return a signal aligned to the input bars' trailing index - "
             f"refusing to stamp this signal with a bar it was not computed at "
             f"(an off-by-one would mislabel which session it acts on)."
         )
@@ -667,7 +665,7 @@ def _append_or_recall_signal(
     """
     Append a new signal row for ``last_bar_ts`` unless one already exists.
 
-    Dedup is by ``bar_ts`` only — two predicts on different
+    Dedup is by ``bar_ts`` only - two predicts on different
     ``submitted_at`` wall-clocks but the same target bar produce one
     row, not two. Returns either the freshly written row or the prior
     row, byte-equivalent under :meth:`SignalRow.to_dict`.

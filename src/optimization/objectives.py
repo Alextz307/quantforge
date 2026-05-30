@@ -6,10 +6,10 @@ objective and returns the scalar to Optuna. Keeping the adapter boundary
 at ``dict[str, object]`` (the exact shape
 :meth:`src.analysis.metrics_aggregator.AggregateStats.to_dict` produces)
 means objectives stay mockable without depending on the full
-``AggregateStats`` type graph — the tuner converts via ``to_dict()``
+``AggregateStats`` type graph - the tuner converts via ``to_dict()``
 immediately before dispatch.
 
-Every objective is MAXIMIZED — Optuna studies are configured with
+Every objective is MAXIMIZED - Optuna studies are configured with
 ``direction="maximize"``. Drawdown / loss-style metrics are negated at
 the objective layer so the study semantics stay uniform.
 """
@@ -40,7 +40,7 @@ def _read_float_metric(aggregate_metrics: Mapping[str, object], key: str) -> flo
 
     The tuner surfaces these errors to Optuna as failed trials; a missing
     key usually means the experiment ran on zero folds (empty dev slice)
-    and the aggregator short-circuited — the error message points that
+    and the aggregator short-circuited - the error message points that
     out so the user doesn't go hunting for a bug in the objective itself.
     """
 
@@ -49,21 +49,21 @@ def _read_float_metric(aggregate_metrics: Mapping[str, object], key: str) -> flo
             f"objective needs aggregate_metrics['{key}'] but the experiment did "
             f"not produce it; available keys: {sorted(aggregate_metrics)}. "
             f"Most common cause: the dev slice had zero folds after holdout "
-            f"reservation — shorten validation.holdout_pct or widen data.end."
+            f"reservation - shorten validation.holdout_pct or widen data.end."
         )
     value = aggregate_metrics[key]
     if not isinstance(value, int | float) or isinstance(value, bool):
         raise TypeError(
             f"objective expected aggregate_metrics['{key}'] as numeric, got "
             f"{type(value).__name__}={value!r}; this usually means the "
-            f"aggregator path changed shape — regenerate the experiment."
+            f"aggregator path changed shape - regenerate the experiment."
         )
     return float(value)
 
 
 class SharpeObjective:
     """
-    Mean Sharpe across folds — the thesis-default single-objective.
+    Mean Sharpe across folds - the thesis-default single-objective.
     """
 
     def __call__(self, aggregate_metrics: Mapping[str, object]) -> float:
@@ -72,7 +72,7 @@ class SharpeObjective:
 
 class CalmarObjective:
     """
-    Mean Calmar across folds — rewards return-per-unit-drawdown.
+    Mean Calmar across folds - rewards return-per-unit-drawdown.
     """
 
     def __call__(self, aggregate_metrics: Mapping[str, object]) -> float:

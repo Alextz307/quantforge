@@ -22,8 +22,8 @@ validation:                                  # optional, mirrors ValidationConfi
 ```
 
 Walk-forward knobs (`n_splits`, `test_size`, `gap`, `expanding`,
-`snap_to_day`) come from the strategy YAML on merge — universe
-profiles intentionally only fix the data fetch and the holdout.
+`snap_to_day`) come from the strategy YAML on merge. A universe
+profile fixes only the data fetch and the holdout.
 
 ## Inventory
 
@@ -32,21 +32,21 @@ GFC stress window:
 
 | File | Tickers | Range | Notes |
 | --- | --- | --- | --- |
-| `spy_daily_5y.yaml` | SPY | 2020–2024 | broad-market baseline |
-| `spy_daily_10y.yaml` | SPY | 2014–2024 | spans two cycles |
-| `spy_daily_covid.yaml` | SPY | 2019–2022 | pre-COVID + crash + recovery |
-| `qqq_daily_5y.yaml` | QQQ | 2020–2024 | tech-tilt index |
-| `iwm_daily_5y.yaml` | IWM | 2020–2024 | small-cap index |
-| `dia_daily_5y.yaml` | DIA | 2020–2024 | blue-chip index |
-| `aapl_daily_5y.yaml` | AAPL | 2020–2024 | single large-cap |
-| `msft_daily_5y.yaml` | MSFT | 2020–2024 | single large-cap |
-| `jpm_daily_5y.yaml` | JPM | 2020–2024 | financial-sector single name |
-| `gld_daily_5y.yaml` | GLD | 2020–2024 | commodity ETF |
-| `ivv_voo_daily_5y.yaml` | IVV, VOO | 2020–2024 | S&P 500 ETF pair |
-| `spy_daily_2008.yaml` | SPY | 2007–2010 | GFC stress; `holdout_pct: 0.0` |
+| `spy_daily_5y.yaml` | SPY | 2020-2024 | broad-market baseline |
+| `spy_daily_10y.yaml` | SPY | 2014-2024 | spans two cycles |
+| `spy_daily_covid.yaml` | SPY | 2019-2022 | pre-COVID + crash + recovery |
+| `qqq_daily_5y.yaml` | QQQ | 2020-2024 | tech-tilt index |
+| `iwm_daily_5y.yaml` | IWM | 2020-2024 | small-cap index |
+| `dia_daily_5y.yaml` | DIA | 2020-2024 | blue-chip index |
+| `aapl_daily_5y.yaml` | AAPL | 2020-2024 | single large-cap |
+| `msft_daily_5y.yaml` | MSFT | 2020-2024 | single large-cap |
+| `jpm_daily_5y.yaml` | JPM | 2020-2024 | financial-sector single name |
+| `gld_daily_5y.yaml` | GLD | 2020-2024 | commodity ETF |
+| `ivv_voo_daily_5y.yaml` | IVV, VOO | 2020-2024 | S&P 500 ETF pair |
+| `spy_daily_2008.yaml` | SPY | 2007-2010 | GFC stress; `holdout_pct: 0.0` |
 
-`spy_daily_2008` deliberately disables holdout — the crisis window IS
-the test; slicing off the last 20% would discard most of the recovery
+`spy_daily_2008` disables holdout because the crisis window is the
+test; slicing off the last 20% would discard most of the recovery
 period.
 
 ## Loading a profile

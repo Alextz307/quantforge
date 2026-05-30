@@ -3,7 +3,7 @@ Tests for the multi-feature single-asset dispatch path.
 
 Verifies the third dispatcher arm: strategies that read a wide multi-ticker
 frame for features but trade exactly one asset. The C++ engine sees only
-the primary asset's OHLCV — companion tickers never enter its books.
+the primary asset's OHLCV - companion tickers never enter its books.
 """
 
 from __future__ import annotations
@@ -72,7 +72,7 @@ class _FakeDataSource(IDataSource):
     def __init__(self) -> None:
         self.call_log: list[str] = []
         # Skip parent __init__: it constructs a DataNormalizer that uses
-        # ``self.name`` — bypass keeps this fixture independent of the
+        # ``self.name`` - bypass keeps this fixture independent of the
         # normalizer registry.
         self.cache = None
 
@@ -92,7 +92,7 @@ class _FakeDataSource(IDataSource):
         start: datetime,
         end: datetime,
         interval: Interval = Interval.DAILY,
-    ) -> pd.DataFrame:  # pragma: no cover — fetch() bypasses raw
+    ) -> pd.DataFrame:  # pragma: no cover - fetch() bypasses raw
         return self.fetch(ticker, start, end, interval)
 
     def available_tickers(self) -> list[str]:  # pragma: no cover
@@ -198,7 +198,7 @@ class TestFetchBarsMultiFeature:
 
     def test_single_ticker_multi_feature_path(self) -> None:
         """
-        N=1 multi-feature is degenerate but legal — only the primary is fetched.
+        N=1 multi-feature is degenerate but legal - only the primary is fetched.
         """
 
         source = _FakeDataSource()
@@ -214,7 +214,7 @@ class TestFetchBarsMultiFeature:
 
     def test_two_ticker_multi_feature_uses_ticker_suffix_not_pairs_suffix(self) -> None:
         """
-        Critical: 2-ticker multi-feature ≠ pairs at the data layer.
+        Critical: 2-ticker multi-feature != pairs at the data layer.
         """
 
         source = _FakeDataSource()
@@ -298,12 +298,12 @@ def _zero_slippage() -> SlippageConfig:
 class TestWalkForwardDispatch:
     def test_evaluate_walk_forward_routes_through_slice(self) -> None:
         """
-        Wide-format input → engine sees sliced primary OHLCV; strategy sees wide frame.
+        Wide-format input -> engine sees sliced primary OHLCV; strategy sees wide frame.
 
         ``MultiFeatureTestStub.generate_signals`` indexes ``data[f"close_{primary}"]``;
         if the dispatcher had wrongly handed the strategy a sliced single-asset
         frame, that lookup would KeyError. Successful equity-curve return proves
-        both halves of the dispatch — strategy got wide, engine got sliced.
+        both halves of the dispatch - strategy got wide, engine got sliced.
         """
 
         bars = _wide_frame((_PRIMARY, _FEATURE))

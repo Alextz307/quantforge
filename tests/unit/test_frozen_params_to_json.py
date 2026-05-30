@@ -1,8 +1,8 @@
 """
-Tests for :func:`frozen_params_to_json` — composite ctor-kwargs serializer.
+Tests for :func:`frozen_params_to_json` - composite ctor-kwargs serializer.
 
-Pins the three conversions every composite relies on: tuple→list,
-Enum→.value, and ``omit`` drop. A regression here silently corrupts every
+Pins the three conversions every composite relies on: tuple->list,
+Enum->.value, and ``omit`` drop. A regression here silently corrupts every
 composite's ``config.json`` on save.
 """
 
@@ -68,7 +68,7 @@ class TestFrozenParamsToJson:
 
     def test_rejects_dataclass_class(self) -> None:
         """
-        Passing the CLASS instead of an instance is a common mistake — catch it.
+        Passing the CLASS instead of an instance is a common mistake - catch it.
         """
 
         with pytest.raises(TypeError, match="dataclass INSTANCE"):

@@ -80,7 +80,7 @@ function zodTypeName(field: z.ZodTypeAny): string {
   return def.typeName ?? "unknown";
 }
 
-describe("Pydantic ↔ zod schema mirror", () => {
+describe("Pydantic <-> zod schema mirror", () => {
   it("login zod schema matches the snapshot", () => {
     expect(shapeOf(loginSchema)).toEqual(snapshot.login);
   });

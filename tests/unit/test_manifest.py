@@ -3,9 +3,9 @@ Tests for :class:`Manifest` round-trip and :func:`write_experiment_manifest`.
 
 Catches the two classes of failure a typed manifest prevents:
 
-* silent typos in field names (``holdoutStart`` vs ``holdout_start``) —
+* silent typos in field names (``holdoutStart`` vs ``holdout_start``) -
   verified by asserting ``from_dict`` rejects wrong-type / missing keys.
-* drift between timestamp round-trip format and what consumers expect —
+* drift between timestamp round-trip format and what consumers expect -
   verified by an exact-string check on ``holdout_start`` ISO output.
 """
 

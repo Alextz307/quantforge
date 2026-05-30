@@ -46,9 +46,7 @@ def get_hpo_studies(
     user: UserPublic = Depends(get_current_user),
     conn: sqlite3.Connection = Depends(get_db),
 ) -> list[HpoSummary]:
-    return list_hpo_studies(
-        get_settings().store_root, conn=conn, user=user, all_users=all_users
-    )
+    return list_hpo_studies(get_settings().store_root, conn=conn, user=user, all_users=all_users)
 
 
 @router.get("/{wire_id}", response_model=HpoDetail)
@@ -96,9 +94,7 @@ def get_hpo_param_importance(
     conn: sqlite3.Connection = Depends(get_db),
 ) -> ParamImportanceResponse:
     try:
-        return get_param_importance(
-            get_settings().store_root, wire_id, conn=conn, user=user
-        )
+        return get_param_importance(get_settings().store_root, wire_id, conn=conn, user=user)
     except HpoStudyNotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
 
@@ -112,7 +108,7 @@ async def stream_hpo(
     """
     Push ``TrialFrame``s as new lines land in ``trials.jsonl``.
 
-    Per-connection file tailer — works whether the producer is a webapp
+    Per-connection file tailer - works whether the producer is a webapp
     tune subprocess, the study orchestrator writing a nested HPO leg, or
     a CLI invocation. ``tail_hpo_trials`` replays existing lines from
     byte 0 then yields live appends through the same loop, so the WS

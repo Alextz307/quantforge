@@ -1,11 +1,11 @@
 import type { ReactElement } from "react";
 
 interface AllUsersToggleProps {
-  /** Hide the toggle when ``false`` — non-admins never see this control. */
+  /** Hide the toggle when ``false`` - non-admins never see this control. */
   isAdmin: boolean;
   checked: boolean;
   onChange: (value: boolean) => void;
-  /** What artifact kind the toggle applies to — surfaced in the label. */
+  /** What artifact kind the toggle applies to - surfaced in the label. */
   artifactLabel: string;
   testId?: string;
 }

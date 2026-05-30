@@ -1,5 +1,5 @@
 """
-Drift guard for the Pydantic ↔ zod form-validation mirror.
+Drift guard for the Pydantic <-> zod form-validation mirror.
 
 The frontend mirrors a small set of Pydantic write-DTOs as zod schemas under
 ``webapp/frontend/src/lib/schemas/`` so forms validate before hitting the

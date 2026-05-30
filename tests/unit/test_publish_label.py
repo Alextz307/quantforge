@@ -2,7 +2,7 @@
 Tests for the ``--publish-label`` flow.
 
 Two surfaces:
-1. :func:`src.visualization.latex.validate_publish_label` — the regex
+1. :func:`src.visualization.latex.validate_publish_label` - the regex
    that gatekeeps slugs. Tests canonicalised here so every reporter's
    call site has a single source of truth for the rules.
 2. End-to-end: each reporter's ``generate_full_report`` switches to
@@ -80,7 +80,7 @@ class TestStrategyReporterPublishLabel:
         result = make_stub_experiment_result("Demo", folds=folds)
         StrategyReporter().generate_full_report(result, tmp_path, publish_label="metrics_demo")
         tex = (tmp_path / "tables" / "metrics_summary.tex").read_text()
-        assert r"\caption{Fold metrics — metrics_demo}" in tex
+        assert r"\caption{Fold metrics - metrics_demo}" in tex
         assert r"\label{tab:metrics_metrics_demo}" in tex
 
     def test_legacy_caption_when_unset(self, tmp_path: Path) -> None:
@@ -163,7 +163,7 @@ class TestHoldoutPublishLabel:
     def test_invalid_slug_raises_through_reporter(self, tmp_path: Path) -> None:
         """
         Invalid slugs raise from the validator, regardless of which
-        reporter receives the value — covers the shared codepath without
+        reporter receives the value - covers the shared codepath without
         materialising heavy fixtures for every reporter."""
 
         from src.visualization.strategy_reporter import StrategyReporter

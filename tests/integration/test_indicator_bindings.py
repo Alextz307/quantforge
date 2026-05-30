@@ -3,12 +3,12 @@ Numerical-parity tests for the C++ indicator pybind11 bindings.
 
 The underlying C++ logic is exhaustively covered by gtest in
 ``cpp/tests/test_indicators.cpp``. These tests verify the **binding layer**:
-numpy array marshalling, keyword-arg round-trips, f32→f64 forcecast, and
+numpy array marshalling, keyword-arg round-trips, f32->f64 forcecast, and
 that the bindings produce bit-identical values to equivalent pandas /
 hand-computed references.
 
 RSI reference values come from the C++ tests (`KnownReferenceValue`).
-MACD and BollingerBands are parity-checked against pandas — the C++
+MACD and BollingerBands are parity-checked against pandas - the C++
 implementations match pandas' semantics exactly (`ewm(adjust=False)` for
 MACD, `rolling(...).std(ddof=1)` for Bollinger). Parkinson and
 Garman-Klass are checked against their published closed-form formulas.
@@ -89,7 +89,7 @@ class TestRSIBinding:
 
     def test_hand_computed_reference(self) -> None:
         """
-        Mirrors the C++ KnownReferenceValue test — Wilder's smoothing.
+        Mirrors the C++ KnownReferenceValue test - Wilder's smoothing.
         """
 
         prices = np.array(RSI_HAND_PRICES, dtype=np.float64)
@@ -122,7 +122,7 @@ def _pandas_macd(
     C++ seeds the fast/slow EMAs at ``data[0]`` and the signal EMA at the
     first valid MACD bar (index ``slow-1``). Pandas ``ewm(adjust=False)``
     matches the first behaviour natively, but its signal EMA on the full
-    MACD series would seed at ``macd[0]`` and drift from C++ — so we
+    MACD series would seed at ``macd[0]`` and drift from C++ - so we
     slice to the valid range before running the signal EMA.
     """
 
@@ -410,7 +410,7 @@ class TestGILRelease:
     The plan mandates `gil_scoped_release` on every new compute method so
     that Python-side parallelism (Optuna HPO, pytest-xdist) can actually run
     indicators concurrently. A busted release would deadlock, reference-count
-    races, or serialize — this test detects all three classes of failure by
+    races, or serialize - this test detects all three classes of failure by
     launching multiple threads that all hammer the same indicator and
     asserting they finish within a loose timeout with bit-identical output.
     """
@@ -489,7 +489,7 @@ def _backtest_equity_curve(_field: str) -> npt.NDArray[np.float64]:
 def test_zero_copy_view_survives_parent_gc(view_factory: object, field: str) -> None:
     """
     The numpy view's base must keep the C++ parent alive after the factory
-    drops its local handle — otherwise forcing GC would dangle the storage."""
+    drops its local handle - otherwise forcing GC would dangle the storage."""
 
     import gc
 

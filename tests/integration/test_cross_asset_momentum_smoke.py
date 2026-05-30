@@ -2,7 +2,7 @@
 End-to-end smoke for CrossAssetMomentumStrategy via the multi-feature path.
 
 Runs in-process via ``Experiment.run()`` (mirrors
-``test_multi_feature_smoke.py``'s pattern) — the strategy is the first
+``test_multi_feature_smoke.py``'s pattern) - the strategy is the first
 production exemplar of the multi-feature dispatch path. Asserts the
 manifest's ``data_hash`` matches ``fingerprint_multi_bars`` (catches a
 silent regression where the orchestrator routes to the wrong fingerprint
@@ -10,7 +10,7 @@ helper for an N-ticker frame), the classifier artifact landed under the
 strategy's save tree, and the walk-forward fold count matches the spec.
 
 Opt-in via ``RUN_EXP_SMOKE=1`` matches the run / pairs / multi-feature
-smokes — even on tiny synthetic data the full ``Experiment.run`` writes a
+smokes - even on tiny synthetic data the full ``Experiment.run`` writes a
 half-megabyte artifact tree.
 """
 
@@ -56,7 +56,7 @@ pytestmark = pytest.mark.skipif(
 
 def test_cross_asset_momentum_run_produces_full_artifact_tree(tmp_path: Path) -> None:
     """
-    Happy path: production multi-feature run → wide-format hash + classifier on disk.
+    Happy path: production multi-feature run -> wide-format hash + classifier on disk.
     """
 
     config_path = make_multi_feature_mini_experiment_fixture(

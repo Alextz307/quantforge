@@ -13,7 +13,7 @@ inline constexpr double kVarianceFloor = 1e-12;
 /// `alpha.size() == p`, `beta.size() == q`. `mu` and `backcast` are the
 /// training-time sample mean and initial conditional variance, respectively.
 /// All values are expressed in the caller's scaled-returns space (typically
-/// returns × 100, per arch-library convention).
+/// returns x 100, per arch-library convention).
 struct GarchParams {
     double omega = 0.0;
     std::vector<double> alpha;

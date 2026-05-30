@@ -2,7 +2,7 @@
 Round-trip + create/load behaviour for :class:`Deployment`.
 
 Tests the persistence shape (``manifest.json`` + ``deployment.yaml`` +
-empty ``signals.jsonl``) and the auto-name generation rules — the
+empty ``signals.jsonl``) and the auto-name generation rules - the
 ``predict`` flow is exercised in ``test_deployment_predict.py``.
 """
 
@@ -284,7 +284,7 @@ def test_resolve_hpo_study_dir_absent_returns_flat(tmp_path: Path) -> None:
 
 def test_recommend_warmup_bars_includes_convergence_margin() -> None:
     """
-    AdaptiveBollinger (GARCH leaf) → required + 100 margin.
+    AdaptiveBollinger (GARCH leaf) -> required + 100 margin.
     """
 
     strategy = AdaptiveBollingerStrategy(
@@ -301,7 +301,7 @@ def test_recommend_warmup_bars_includes_convergence_margin() -> None:
 def test_recommend_warmup_bars_respects_absolute_floor() -> None:
     """
     A strategy with a tiny required_warmup_bars + zero margin still hits
-    the absolute floor — empirically 50 today.
+    the absolute floor - empirically 50 today.
     """
 
     class _TinyStubStrategy:

@@ -5,7 +5,7 @@
 #       --config config/strategies/adaptive_bollinger.yaml \
 #       --hpo-config config/hpo/adaptive_bollinger.yaml
 #
-# Optuna's `n_trials` is "additional trials per invocation" — re-running
+# Optuna's `n_trials` is "additional trials per invocation" - re-running
 # resumes from the SQLite study and adds another `n_trials` on top.
 
 study_name: spy_adaptive_bollinger_sharpe

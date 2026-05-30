@@ -12,7 +12,7 @@ export type SamplerValue = (typeof SAMPLER_VALUES)[number];
 export type PrunerValue = (typeof PRUNER_VALUES)[number];
 export type ObjectiveValue = (typeof OBJECTIVE_VALUES)[number];
 
-// Mirrored from the HPOConfig.study_name backend constraint — imported by
+// Mirrored from the HPOConfig.study_name backend constraint - imported by
 // HpoFieldsSection so the input's HTML maxLength matches the server.
 export const STUDY_NAME_MAX = 128;
 const DEFAULT_N_TRIALS = 50;

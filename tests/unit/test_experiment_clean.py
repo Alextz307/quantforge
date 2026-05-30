@@ -116,7 +116,7 @@ def test_apply_clean_refuses_when_tracked_files_present(tmp_path: Path) -> None:
 
 def test_format_plan_empty_store(tmp_path: Path) -> None:
     """
-    Missing or empty store → human-readable 'nothing to wipe' line.
+    Missing or empty store -> human-readable 'nothing to wipe' line.
     """
 
     store = tmp_path / "nonexistent"
@@ -141,7 +141,7 @@ def test_format_plan_lists_size_and_action(tmp_path: Path) -> None:
 
 def test_plan_clean_ignores_files_at_top_level(tmp_path: Path) -> None:
     """
-    A stray top-level file (e.g., README) is left alone — only dirs are candidates.
+    A stray top-level file (e.g., README) is left alone - only dirs are candidates.
     """
 
     store = tmp_path / "experiment_results"

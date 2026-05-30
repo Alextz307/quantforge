@@ -46,7 +46,7 @@ export const API_PATHS = {
 
 // MSW v2 expects `:name` path params; openapi-fetch (matching FastAPI's path
 // template) uses `{name}`. Same param name on both sides keeps tests aligned
-// with production routes — change the API path here and MSW handlers track it.
+// with production routes - change the API path here and MSW handlers track it.
 export function toMswPath(path: string): string {
   return path.replace(/\{(\w+)\}/g, ":$1");
 }

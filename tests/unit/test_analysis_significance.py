@@ -5,7 +5,7 @@ Bootstrap tests use a seeded RNG so percentile draws are stable across
 runs. Significance tests use synthetic return / forecast series with
 known ground truth (a fixed-Sharpe AR(1) series for the bootstrap, a
 deliberately biased forecast for DM) so the pass/fail decision is
-deterministic — no statistical flakiness in CI.
+deterministic - no statistical flakiness in CI.
 """
 
 from __future__ import annotations
@@ -41,11 +41,11 @@ def _make_rng(seed: int = _BOOTSTRAP_SEED) -> np.random.Generator:
 
 def _daily_returns_with_known_sharpe(n: int, *, sharpe: float, seed: int) -> _FloatArray:
     """
-    IID normal returns engineered so sample Sharpe ≈ ``sharpe``.
+    IID normal returns engineered so sample Sharpe ~= ``sharpe``.
 
     Draws from N(mu, sigma^2) with mu = sharpe * sigma; sample Sharpe
     converges to the population value as n grows. At n=500 the sample
-    Sharpe is within ~10% of the population value at 95% confidence —
+    Sharpe is within ~10% of the population value at 95% confidence -
     enough headroom for the CI test below.
     """
 
@@ -62,8 +62,8 @@ class TestBootstrapSharpeCI:
 
     def test_ci_brackets_the_known_population_sharpe(self) -> None:
         """
-        For a 500-bar series with engineered Sharpe ≈ 0.05, the
-        bootstrap 95% CI should include 0.05 with very high probability —
+        For a 500-bar series with engineered Sharpe ~= 0.05, the
+        bootstrap 95% CI should include 0.05 with very high probability -
         the test uses a fixed seed so the outcome is deterministic.
         """
 
@@ -91,7 +91,7 @@ class TestPairedBootstrapDifferential:
 
     def test_dominant_strategy_differential_excludes_zero(self) -> None:
         """
-        Series a has higher mean return than b at the same volatility —
+        Series a has higher mean return than b at the same volatility -
         the Sharpe differential is positive and the 95% CI should exclude 0.
         """
 
@@ -150,7 +150,7 @@ class TestDieboldMariano:
     def test_mae_loss_also_detects_biased_forecast(self) -> None:
         """
         MAE and MSE should agree on which forecaster is better when
-        the bias is large — the HLN-corrected statistic flips sign with
+        the bias is large - the HLN-corrected statistic flips sign with
         the mean loss differential, independent of the loss choice.
         """
 
@@ -182,7 +182,7 @@ class TestDeflatedSharpeRatio:
 
     def test_single_trial_collapses_to_one_sided_p_value(self) -> None:
         """
-        N=1 ⇒ no selection penalty (E[max] = 0); DSR is the
+        N=1 => no selection penalty (E[max] = 0); DSR is the
         standard-normal CDF of ``Sh*sqrt(T-1)``.
         """
 
@@ -195,7 +195,7 @@ class TestDeflatedSharpeRatio:
 
     def test_outlier_best_sharpe_is_significant(self) -> None:
         """
-        49 trials drawn from N(0, 0.1²) plus one outlier at 2.0 —
+        49 trials drawn from N(0, 0.1^2) plus one outlier at 2.0 -
         the outlier is way past the expected maximum and should deflate
         to a near-1 probability.
         """
@@ -210,7 +210,7 @@ class TestDeflatedSharpeRatio:
 
     def test_max_of_noise_pool_is_not_significant(self) -> None:
         """
-        50 trials all drawn from a centred normal — the best is the
+        50 trials all drawn from a centred normal - the best is the
         sample maximum of pure noise, and the DSR should sit well below
         any reasonable significance threshold.
         """
@@ -222,7 +222,7 @@ class TestDeflatedSharpeRatio:
 
     def test_zero_variance_trial_pool_collapses_penalty(self) -> None:
         """
-        All trials identical ⇒ trial variance = 0 ⇒ E[max] = 0;
+        All trials identical => trial variance = 0 => E[max] = 0;
         deflated value equals the plain one-sided p of the observed Sharpe.
         """
 

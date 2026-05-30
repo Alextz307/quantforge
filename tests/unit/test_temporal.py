@@ -353,7 +353,7 @@ class TestResolveHoldoutBoundary:
         A pinned timestamp that is no longer present in the fetched data
         means the vendor adjusted / added / removed a bar since the
         boundary was recorded in a manifest. Returning a nearest-neighbour
-        would silently shift bars across the dev / holdout line — the
+        would silently shift bars across the dev / holdout line - the
         exact leakage vector we're defending against.
         """
 
@@ -394,8 +394,8 @@ class TestResolveHoldoutBoundary:
 
     def test_pinned_timestamp_resolves_same_boundary_as_matching_pct(self) -> None:
         """
-        Two runs of the SAME boundary — one via pct, one via pinned timestamp
-        derived from the pct's first run — yield identical results. This is
+        Two runs of the SAME boundary - one via pct, one via pinned timestamp
+        derived from the pct's first run - yield identical results. This is
         how the manifest round-trip is supposed to work in practice: dev run
         records the derived timestamp, holdout eval reads it back pinned."""
 

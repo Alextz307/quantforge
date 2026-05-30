@@ -11,7 +11,7 @@ Directory layout
 ::
 
     <store_root>/hpo/<study_name>/
-        optuna_study.db           # SQLite — enables cross-process resume
+        optuna_study.db           # SQLite - enables cross-process resume
         experiment_config.yaml    # frozen copy of the base config
         hpo_config.yaml           # frozen copy of the HPO config
         best_config.yaml          # refreshed per new-best trial
@@ -25,7 +25,7 @@ Resume semantics
 ----------------
 Re-running with the same ``study_name`` + ``store_root`` loads the
 existing SQLite study and runs ``n_trials`` MORE trials (Optuna's own
-semantics — the count is "additional trials", not "target total"). The
+semantics - the count is "additional trials", not "target total"). The
 base ``experiment_config.yaml`` is written once on first run; if the
 user passes a different config under the same study name the SQLite
 trials are still valid-as-executed but the objective may have changed
@@ -88,7 +88,7 @@ class StrategyTuner:
     """
     Drive one Optuna study against one :class:`ExperimentConfig`.
 
-    Construction is deliberately minimal — the interesting work happens
+    Construction is deliberately minimal - the interesting work happens
     in :meth:`run`. Frozen because the tuner is pure configuration: once
     built it's a read-only handle to a study, and accidental ctor-arg
     reassignment mid-run (e.g. mutating ``store_root`` after ``study_dir``
@@ -119,7 +119,7 @@ class StrategyTuner:
         SQLite URL Optuna stores the study under.
 
         Absolute path so the URL is invariant to the working directory
-        the tuner is invoked from — matters for resume from a different
+        the tuner is invoked from - matters for resume from a different
         shell or CI worker.
         """
 
@@ -200,7 +200,7 @@ class StrategyTuner:
         # ``best_trial`` is direction-aware (Optuna picks max for "maximize"
         # and min for "minimize"); using it instead of a hand-rolled compare
         # keeps the log honest if the study direction ever changes. It raises
-        # ValueError before any trial completes — only the very first trial
+        # ValueError before any trial completes - only the very first trial
         # hits that branch and there's nothing better than itself yet.
         try:
             best = trial.study.best_trial
@@ -232,7 +232,7 @@ class StrategyTuner:
         a pointed error instead of studying under two different
         objectives.
 
-        Both files are written together — a crash that leaves only one
+        Both files are written together - a crash that leaves only one
         on disk is treated as a half-initialised study dir and the next
         run re-writes whichever is missing, so the "both frozen yamls
         present" invariant is always restored on a clean rerun.
@@ -265,7 +265,7 @@ def storage_url_for(study_dir: Path) -> str:
     """
     SQLite URL Optuna stores the study DB under ``study_dir``.
 
-    Uses ``Path.as_posix()`` so the URL is well-formed on Windows too —
+    Uses ``Path.as_posix()`` so the URL is well-formed on Windows too -
     SQLAlchemy expects forward slashes regardless of platform.
     """
 
@@ -279,7 +279,7 @@ def _materialize_trial_config(
     """
     Merge sampled ctor kwargs into ``base.strategy.params`` and re-validate.
 
-    Revalidation is required — registry lookups and strategy-name
+    Revalidation is required - registry lookups and strategy-name
     validation live on the ``ExperimentConfig`` validators and we want a
     trial's config to pass the same gates as any user-authored YAML.
     """
@@ -296,7 +296,7 @@ def _materialize_trial_config(
 
 def _config_content_hash(cfg: ExperimentConfig) -> str:
     """
-    Stable SHA over a model's JSON dump — content equality, not object identity.
+    Stable SHA over a model's JSON dump - content equality, not object identity.
     """
 
     payload = yaml.safe_dump(cfg.model_dump(mode="json"), sort_keys=True)

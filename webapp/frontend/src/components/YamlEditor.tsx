@@ -119,7 +119,7 @@ export function YamlEditor({
  * ``- strategy:`` line so the squiggle lands on something the reader can see
  * even if the precise sub-field can't be uniquely identified.
  *
- * Errors that can't be located fall through to ``null`` — the calling page
+ * Errors that can't be located fall through to ``null`` - the calling page
  * surfaces them in the structured error list under the editor instead.
  */
 function locToLine(loc: readonly string[], text: string): number | null {

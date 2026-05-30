@@ -1,6 +1,6 @@
 #pragma once
 
-// Independent reference implementation of spread z-score — composes
+// Independent reference implementation of spread z-score - composes
 // rolling_mean + rolling_std + a divide pass. Exists only as a parity
 // fixed point for the production kernel.
 

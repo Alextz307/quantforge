@@ -124,9 +124,7 @@ def test_save_library_slug_collision(db_conn: sqlite3.Connection, tmp_path: Path
         )
 
 
-def test_list_uploads_scopes_to_caller(
-    db_conn: sqlite3.Connection, tmp_path: Path
-) -> None:
+def test_list_uploads_scopes_to_caller(db_conn: sqlite3.Connection, tmp_path: Path) -> None:
     alice = _user(db_conn, "alice")
     bob = _user(db_conn, "bob")
     save_upload(
@@ -149,14 +147,10 @@ def test_list_uploads_scopes_to_caller(
     assert [u.slug for u in alice_view] == ["alice_universe"]
 
 
-def test_admin_all_users_lists_everything(
-    db_conn: sqlite3.Connection, tmp_path: Path
-) -> None:
+def test_admin_all_users_lists_everything(db_conn: sqlite3.Connection, tmp_path: Path) -> None:
     alice = _user(db_conn, "alice")
     bob = _user(db_conn, "bob")
-    admin = create_user(
-        db_conn, username="admin", password=_USER_PASSWORD, role=Role.ADMIN
-    )
+    admin = create_user(db_conn, username="admin", password=_USER_PASSWORD, role=Role.ADMIN)
     save_upload(
         db_conn,
         user=alice,
@@ -215,9 +209,7 @@ def test_get_upload_other_users_returns_not_found(
         get_upload(db_conn, user=bob, slug="u")
 
 
-def test_soft_delete_removes_file_and_row(
-    db_conn: sqlite3.Connection, tmp_path: Path
-) -> None:
+def test_soft_delete_removes_file_and_row(db_conn: sqlite3.Connection, tmp_path: Path) -> None:
     alice = _user(db_conn, "alice")
     save_upload(
         db_conn,

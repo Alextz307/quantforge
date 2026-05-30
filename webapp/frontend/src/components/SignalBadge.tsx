@@ -40,12 +40,12 @@ function describe(signal: number | null, loading: boolean, kind: SignalKind): Si
   if (loading) {
     return {
       state: "computing",
-      label: "computing…",
+      label: "computing...",
       icon: <Loader2 className={cn(ICON_CLASS, "animate-spin")} />,
     };
   }
   if (signal === null || !Number.isFinite(signal)) {
-    return { state: "unknown", label: "—", icon: <Minus className={ICON_CLASS} /> };
+    return { state: "unknown", label: "-", icon: <Minus className={ICON_CLASS} /> };
   }
   if (signal === 0) {
     return {
@@ -55,11 +55,11 @@ function describe(signal: number | null, loading: boolean, kind: SignalKind): Si
       title: signal.toFixed(4),
     };
   }
-  // Directional strategies emit ±1, so the magnitude carries no information —
+  // Directional strategies emit +/-1, so the magnitude carries no information -
   // show the word alone. Leverage strategies emit a position-size multiplier,
-  // so surface it explicitly as "1.39×".
+  // so surface it explicitly as "1.39x".
   const word = signal > 0 ? "LONG" : "SHORT";
-  const label = kind === "leverage" ? `${word} · ${Math.abs(signal).toFixed(2)}×` : word;
+  const label = kind === "leverage" ? `${word} | ${Math.abs(signal).toFixed(2)}x` : word;
   return {
     state: signal > 0 ? "long" : "short",
     label,

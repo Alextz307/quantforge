@@ -8,20 +8,20 @@ holdout-eval uses to detect vendor drift.
 
 | Symbol | Role |
 | --- | --- |
-| `IDataSource` | ABC. `fetch(ticker, start, end, interval)` is the public entry point — wraps `fetch_raw` (subclass-provided) with caching, normalisation, and `validate_bars`. |
+| `IDataSource` | ABC. `fetch(ticker, start, end, interval)` is the public entry point, wrapping `fetch_raw` (subclass-provided) with caching, normalisation, and `validate_bars`. |
 | `LocalFileSource` | Intermediate ABC: shared scaffolding for local-file sources (path resolution, date-range mask, empty-result error, `available_tickers`). Subclass overrides `_extension` + `_read_file`. |
 | `YFinanceSource` (`"yfinance"`) | yfinance-backed source with retry + exponential backoff. Registered on `data_source_registry`. |
 | `CSVSource` (`"csv"`) | Local-CSV source for offline / fixture work. |
 | `ParquetSource` (`"parquet"`) | Local-parquet source. Used by offline tests against the committed `tests/fixtures/SPY.parquet`. |
-| `DataNormalizer` | Source-aware column renamer (`Open` → `open`, etc.); enforces required OHLCV columns + `DatetimeIndex`. |
+| `DataNormalizer` | Source-aware column renamer (`Open` -> `open`, etc.); enforces required OHLCV columns + `DatetimeIndex`. |
 | `validate_bars(df)` | Raises `DataQualityError` on empty / NaN / non-positive prices / OHLC ordering / duplicate timestamps. Runs at every fetch. |
 | `DataCache` | Parquet on-disk cache keyed by SHA-256 of `(source, ticker, start, end, interval)`. |
 | `fingerprint_bars(df)` | SHA-256 content hash over (columns, timestamps, OHLCV bytes). Stable across pandas / numpy upgrades. |
-| `fingerprint_pair_bars(df)` | Same hash, wide-format pair columns (`open_a` … `volume_b`). |
+| `fingerprint_pair_bars(df)` | Same hash, wide-format pair columns (`open_a` ... `volume_b`). |
 | `LiveBarFetcher` | Protocol: cadence-specific live OHLCV fetcher used by the deployment layer. |
 | `DailyLiveBarFetcher` | Daily implementation backed by `YFinanceSource`; drops the trailing bar while its NYSE session is still open (so a signal is never computed off a forming bar) and rejects non-daily intervals defensively. |
-| `resolve_fetcher(interval)` | Dispatch site — picks the right `LiveBarFetcher` for an interval. Daily today; intraday is a future drop-in. |
-| `fetch_session_opens(ticker, start, end, interval, now)` | Evaluation-side data source: open price per session that has *opened* by `now` (keeps the still-forming session's open — fixed at the bell). Open-boundary mirror of the generation fetcher's close-boundary drop; used to score emitted signals open→open. Daily only. |
+| `resolve_fetcher(interval)` | Dispatch site: picks the right `LiveBarFetcher` for an interval. Daily today; intraday is a future drop-in. |
+| `fetch_session_opens(ticker, start, end, interval, now)` | Evaluation-side data source: open price per session that has *opened* by `now` (keeps the still-forming session's open, fixed at the bell). Open-boundary mirror of the generation fetcher's close-boundary drop; used to score emitted signals open->open. Daily only. |
 
 ## Layout
 
@@ -32,7 +32,7 @@ holdout-eval uses to detect vendor drift.
 | `loader.py` | `YFinanceSource`. |
 | `csv_source.py` | `CSVSource` (extends `LocalFileSource`). |
 | `parquet_source.py` | `ParquetSource` (extends `LocalFileSource`). |
-| `normalizer.py` | `DataNormalizer` (source → canonical OHLCV mapping). |
+| `normalizer.py` | `DataNormalizer` (source -> canonical OHLCV mapping). |
 | `validator.py` | `validate_bars` semantic checks. |
 | `cache.py` | `DataCache` (parquet, ~/.quant_cache by default). |
 | `fingerprint.py` | `_fingerprint` core + `fingerprint_bars` / `fingerprint_pair_bars` wrappers. |
@@ -48,7 +48,7 @@ picks the right fingerprint variant based on `len(cfg.data.tickers)`.
 
 ## Validation contract
 
-`validate_bars` runs **at every fetch boundary** — both fresh fetches
+`validate_bars` runs **at every fetch boundary**, both fresh fetches
 and cache hits. A cache parquet written by an older code version (with
 weaker validation) does not bypass current checks. Owned concerns:
 

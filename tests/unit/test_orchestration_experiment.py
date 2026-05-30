@@ -5,8 +5,8 @@ These tests construct a CSV-source-backed ``Experiment`` against a tiny
 synthetic bars fixture written to a tmp_path, so the run completes in
 ~1 second without hitting yfinance or ML leaves. The strategy is
 ``AdaptiveBollinger`` (minimal-ML, fast GARCH grid) so every invariant
-tested here — manifest contents, fold count, experiment-id shape,
-strategy-state artifact, holdout reservation — is exercised on real
+tested here - manifest contents, fold count, experiment-id shape,
+strategy-state artifact, holdout reservation - is exercised on real
 components, not mocks.
 """
 
@@ -97,7 +97,7 @@ def cfg_dict(csv_dir: Path) -> dict[str, Any]:
 @pytest.fixture
 def run_result(cfg_dict: dict[str, Any], tmp_path: Path) -> tuple[Path, ExperimentResult]:
     """
-    Execute a single run once per test — GARCH fit is the slow step.
+    Execute a single run once per test - GARCH fit is the slow step.
     """
 
     cfg = ExperimentConfig.model_validate(cfg_dict)
@@ -304,7 +304,7 @@ def pairs_csv_dir(tmp_path: Path) -> Path:
 
     Leg A is GBM-style geometric noise; leg B = ``hedge * A + spread`` where
     ``spread`` is a mean-reverting OU process. The Engle-Granger test only
-    needs cointegration to *exist*, not to be high-quality — these fixtures
+    needs cointegration to *exist*, not to be high-quality - these fixtures
     pass the default p-value threshold (0.05) on every seed we've tried.
     """
 
@@ -346,8 +346,8 @@ class TestPairsExperimentEndToEnd:
         """
         A PairsTrading config with two tickers walks forward without error.
 
-        Validates the full chain: multi-ticker fetch → wide-format frame
-        → walk-forward dispatch to ``engine.run_pairs`` → equity curve
+        Validates the full chain: multi-ticker fetch -> wide-format frame
+        -> walk-forward dispatch to ``engine.run_pairs`` -> equity curve
         consumes both legs.
         """
 
@@ -436,7 +436,7 @@ class TestFetchPairBars:
 class TestWalkForwardPairsSplit:
     def test_split_pairs_frame_extracts_leg_subframes(self) -> None:
         """
-        The wide → two-OHLCV split helper round-trips.
+        The wide -> two-OHLCV split helper round-trips.
         """
 
         from src.engine.walk_forward import split_pairs_frame

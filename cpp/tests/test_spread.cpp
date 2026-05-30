@@ -81,7 +81,7 @@ TEST(SpreadCalculator, ZScoreWindowTwoIsSmallestLegalValue) {
 }
 
 TEST(SpreadCalculator, ZScoreNaNInInputPoisonsSubsequentOutputs) {
-    // Documented semantics: Welford has no recovery from NaN in the input —
+    // Documented semantics: Welford has no recovery from NaN in the input -
     // once a NaN enters the accumulator, every subsequent output is NaN
     // (unlike pandas' rolling(w).std() which resumes when NaN exits the
     // window). Pin the behavior so future refactors don't silently change

@@ -4,7 +4,7 @@ Regenerate + clean pybind11 type stubs for the ``quant_engine`` extension.
 pybind11-stubgen produces a working stub but its default output fails
 ``ruff check``:
 
-- enum class locations are unqualified → E501 when the inline ``# value = …``
+- enum class locations are unqualified -> E501 when the inline ``# value = ...``
   comment expands the ``__members__`` line beyond 100 columns even after
   ``ruff format`` wraps it;
 - imports are unsorted;
@@ -40,7 +40,7 @@ MODULE_STUB = PACKAGE_DIR / "quant_engine.pyi"
 _MEMBERS_PATTERN = re.compile(r"__members__: typing\.ClassVar\[dict\[str, SlippageModel\]\][^\n]*")
 _MEMBERS_REPLACEMENT = "__members__: typing.ClassVar[dict[str, SlippageModel]]  # noqa: E501"
 
-# Rewrite stubgen's `numpy.ndarray[numpy.X]` to `numpy.typing.NDArray[X]` —
+# Rewrite stubgen's `numpy.ndarray[numpy.X]` to `numpy.typing.NDArray[X]` -
 # numpy 2.x's `Generic[Shape, DType]` resolves the former as
 # `ndarray[Shape=X, DType=Any]` (wrong slot). Also injects the missing
 # `numpy.typing` import.

@@ -21,7 +21,7 @@ export function BackLink({ to, children }: BackLinkProps) {
   return (
     <div>
       <Link to={target} className="text-xs text-primary hover:underline">
-        ← {children}
+        {"<-"} {children}
       </Link>
     </div>
   );

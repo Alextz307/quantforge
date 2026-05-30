@@ -62,7 +62,7 @@ TEST(MetricsCalculatorTest, EquityToReturnsNonPositivePrevGivesZero) {
 TEST(MetricsCalculatorTest, MaxDrawdownPeakToTrough) {
     const std::vector<double> equity{100.0, 110.0, 90.0, 95.0, 80.0, 85.0};
     const double expected =
-        (kDrawdownTrough - kDrawdownPeak) / kDrawdownPeak;  // ≈ -0.2727
+        (kDrawdownTrough - kDrawdownPeak) / kDrawdownPeak;  // ~= -0.2727
     EXPECT_NEAR(MetricsCalculator::max_drawdown(equity), expected, kExactTol);
 }
 
@@ -93,7 +93,7 @@ TEST(MetricsCalculatorTest, WinRateAllZerosSafeZero) {
 }
 
 TEST(MetricsCalculatorTest, AnnualizedReturnGeometric) {
-    // Equity doubled over one period with ann=2 → 2^2 - 1 = 3.0.
+    // Equity doubled over one period with ann=2 -> 2^2 - 1 = 3.0.
     const std::vector<double> equity{100.0, 200.0};
     EXPECT_NEAR(MetricsCalculator::annualized_return(equity, kYear2),
                 3.0, kExactTol);
@@ -106,7 +106,7 @@ TEST(MetricsCalculatorTest, AnnualizedReturnFlatZero) {
 }
 
 TEST(MetricsCalculatorTest, AnnualizedVolatilityScalesBySqrtFactor) {
-    // returns = [0.01, 0.02, 0.03] → sample_std = 0.01 exactly.
+    // returns = [0.01, 0.02, 0.03] -> sample_std = 0.01 exactly.
     const std::vector<double> returns{0.01, 0.02, 0.03};
     const double expected = 0.01 * std::sqrt(static_cast<double>(kYear4));
     EXPECT_NEAR(MetricsCalculator::annualized_volatility(returns, kYear4),
@@ -125,7 +125,7 @@ TEST(MetricsCalculatorTest, SharpeRiskFreeLowersRatio) {
 }
 
 TEST(MetricsCalculatorTest, SharpeZeroVarianceSafeZero) {
-    // Flat returns → std = 0 → 0 rather than NaN/Inf.
+    // Flat returns -> std = 0 -> 0 rather than NaN/Inf.
     const std::vector<double> returns{0.01, 0.01, 0.01};
     EXPECT_DOUBLE_EQ(MetricsCalculator::sharpe_ratio(returns, kYear252), 0.0);
 }
@@ -136,8 +136,8 @@ TEST(MetricsCalculatorTest, SharpeSingleObservationZero) {
 }
 
 TEST(MetricsCalculatorTest, SharpeHandComputed) {
-    // returns = [0.01, 0.02, 0.03] → mean=0.02, sample_std=0.01 exactly
-    // (symmetric around the mean, deviations ±0.01, sum_sq=2e-4, var=1e-4).
+    // returns = [0.01, 0.02, 0.03] -> mean=0.02, sample_std=0.01 exactly
+    // (symmetric around the mean, deviations +/-0.01, sum_sq=2e-4, var=1e-4).
     const std::vector<double> returns{0.01, 0.02, 0.03};
     const double mean_val = 0.02;
     const double sd = 0.01;
@@ -148,7 +148,7 @@ TEST(MetricsCalculatorTest, SharpeHandComputed) {
 }
 
 TEST(MetricsCalculatorTest, SortinoOnlyPositiveReturnsZero) {
-    // No downside → downside_var = 0 → safe zero.
+    // No downside -> downside_var = 0 -> safe zero.
     const std::vector<double> returns{0.01, 0.02, 0.03};
     EXPECT_DOUBLE_EQ(MetricsCalculator::sortino_ratio(returns, kYear252), 0.0);
 }
@@ -169,7 +169,7 @@ TEST(MetricsCalculatorTest, SortinoHandComputed) {
 }
 
 TEST(MetricsCalculatorTest, SortinoAllNegativeReturnsIsNegative) {
-    // All downside → numerator negative, denominator positive → negative sortino.
+    // All downside -> numerator negative, denominator positive -> negative sortino.
     const std::vector<double> returns{-0.01, -0.02, -0.03};
     EXPECT_LT(MetricsCalculator::sortino_ratio(returns, kYear252), 0.0);
 }
@@ -188,7 +188,7 @@ TEST(MetricsCalculatorTest, ComputeFlatEquityAllZero) {
 
 TEST(MetricsCalculatorTest, ComputeMatchesIndividualMethods) {
     // Curve mixes drop, recovery, and modest final loss so every metric is
-    // non-trivial. compute() is a thin aggregator — verify its fields match
+    // non-trivial. compute() is a thin aggregator - verify its fields match
     // what the individual static methods return on the same inputs.
     const std::vector<double> equity{
         100.0, 110.0, 90.0, 95.0, 80.0, 85.0, 120.0, 115.0};
@@ -226,7 +226,7 @@ TEST(MetricsCalculatorTest, ComputeRiskFreeLowersSharpeAndSortino) {
     EXPECT_GT(zero_rf.sharpe_ratio, 0.0);
     EXPECT_LT(with_rf.sharpe_ratio, zero_rf.sharpe_ratio);
     EXPECT_LT(with_rf.sortino_ratio, zero_rf.sortino_ratio);
-    // rf is a Sharpe/Sortino input only — cash-flow metrics stay put.
+    // rf is a Sharpe/Sortino input only - cash-flow metrics stay put.
     EXPECT_DOUBLE_EQ(with_rf.max_drawdown, zero_rf.max_drawdown);
     EXPECT_DOUBLE_EQ(with_rf.annualized_return, zero_rf.annualized_return);
 }

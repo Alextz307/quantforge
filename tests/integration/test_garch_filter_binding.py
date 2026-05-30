@@ -3,7 +3,7 @@ Numerical-parity tests for the C++ ``garch_filter`` binding.
 
 The recursive filter logic is exhaustively covered by gtest in
 ``cpp/tests/test_garch_filter.cpp``. These tests verify the **binding layer**:
-numpy array marshalling, ``GarchParams`` keyword round-trip, f32→f64 forcecast,
+numpy array marshalling, ``GarchParams`` keyword round-trip, f32->f64 forcecast,
 and that ``GARCHPredictor.predict()`` still produces bit-identical values when
 its recursion is delegated to C++.
 """

@@ -44,7 +44,7 @@ class _HybridReturnParams:
     Stored on the strategy so ``train()`` can rebuild a fresh hybrid with a
     clean scaler each invocation (the hybrid's fit-once guard rejects a
     second fit on the same instance). ``feature_columns`` is a tuple so the
-    bundle is truly immutable — frozen=True alone wouldn't prevent mutation
+    bundle is truly immutable - frozen=True alone wouldn't prevent mutation
     of a list field.
     """
 
@@ -70,11 +70,11 @@ class _HybridReturnParams:
 @strategy_registry.register("ReturnForecast")
 class ReturnForecastStrategy(IStrategy):
     """
-    Position = clip(``position_scale * forecast_return``, ±``max_leverage``).
+    Position = clip(``position_scale * forecast_return``, +/-``max_leverage``).
 
     Uses ``HybridReturnModel`` (ARMA + LSTM residual) for the conditional-mean
-    forecast of next-bar log returns. Positive forecast → long, negative
-    forecast → short, scaled linearly and then clipped.
+    forecast of next-bar log returns. Positive forecast -> long, negative
+    forecast -> short, scaled linearly and then clipped.
     """
 
     convergence_margin_bars = RECURSIVE_LEAF_CONVERGENCE_MARGIN_BARS
@@ -106,7 +106,7 @@ class ReturnForecastStrategy(IStrategy):
             raise ValueError(
                 f"position_scale must be > 0, got {position_scale}; fix by passing "
                 f"a strictly positive multiplier on the forecasted return "
-                f"(typical: 1.0 — adjust to control aggressiveness)."
+                f"(typical: 1.0 - adjust to control aggressiveness)."
             )
         if max_leverage <= 0:
             raise ValueError(
@@ -187,7 +187,7 @@ class ReturnForecastStrategy(IStrategy):
         Persist ReturnForecast config + nested HybridReturn to ``path``.
 
         Strategy-specific kwargs (``position_scale``, ``max_leverage``) are
-        written alongside every passthrough ``_HybridReturnParams`` field —
+        written alongside every passthrough ``_HybridReturnParams`` field -
         the two together reconstruct the full ctor signature on load. Leaf
         device preference is NOT persisted (the hybrid subdir carries the
         fitted state; device re-resolves on load).
@@ -238,7 +238,7 @@ class ReturnForecastStrategy(IStrategy):
         Reconstruct a trained ReturnForecastStrategy from ``path``.
 
         Narrow the strategy's ``config.json`` into ctor kwargs BEFORE loading
-        the nested ``hybrid_return/`` subdir — a corrupt strategy config
+        the nested ``hybrid_return/`` subdir - a corrupt strategy config
         fast-fails with a named-field error, without wasting I/O on the
         HybridReturnModel's nested ARMA + LSTM + scaler loads.
         """

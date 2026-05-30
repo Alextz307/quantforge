@@ -20,7 +20,7 @@ interface StudySpecFormatHelpProps {
  * Side-panel reference shown next to the YAML editor.
  *
  * Three sections: a field reference table auto-derived from
- * ``GET /api/configs/study_spec/schema`` (single source of truth — the same
+ * ``GET /api/configs/study_spec/schema`` (single source of truth - the same
  * descriptions hover-show inside ``mypy`` and surface on the Pydantic
  * models), the canonical 1-leg example, and quick-action buttons.
  *
@@ -68,7 +68,7 @@ export function StudySpecFormatHelp({ onInsertLeg }: StudySpecFormatHelpProps) {
             {showUniverses && (
               <div className="rounded-md border border-input bg-muted/50 p-2">
                 {universesQuery.isLoading ? (
-                  <p className="text-xs text-muted-foreground">Loading…</p>
+                  <p className="text-xs text-muted-foreground">Loading...</p>
                 ) : universesQuery.isError ? (
                   <p className="text-xs text-destructive">Failed to load universes.</p>
                 ) : universesQuery.data && universesQuery.data.length > 0 ? (
@@ -91,7 +91,7 @@ export function StudySpecFormatHelp({ onInsertLeg }: StudySpecFormatHelpProps) {
       <section>
         <h3 className="mb-2 text-sm font-semibold">Field reference</h3>
         {schemaQuery.isLoading ? (
-          <p className="text-xs text-muted-foreground">Loading schema…</p>
+          <p className="text-xs text-muted-foreground">Loading schema...</p>
         ) : schemaQuery.isError ? (
           <p className="text-xs text-destructive">Failed to load schema.</p>
         ) : (
@@ -110,8 +110,8 @@ export function StudySpecFormatHelp({ onInsertLeg }: StudySpecFormatHelpProps) {
                   <tr key={row.path} className="border-t border-input align-top">
                     <td className="px-2 py-1 font-mono">{row.path}</td>
                     <td className="px-2 py-1 font-mono">{row.type}</td>
-                    <td className="px-2 py-1">{row.required ? "✓" : ""}</td>
-                    <td className="px-2 py-1 font-mono">{row.default || "—"}</td>
+                    <td className="px-2 py-1">{row.required ? "yes" : ""}</td>
+                    <td className="px-2 py-1 font-mono">{row.default || "-"}</td>
                   </tr>
                 ))}
               </tbody>
@@ -138,7 +138,7 @@ export function StudySpecFormatHelp({ onInsertLeg }: StudySpecFormatHelpProps) {
   );
 }
 
-/** Canonical multi-leg example — sized to fit alongside the editor. */
+/** Canonical multi-leg example - sized to fit alongside the editor. */
 const EXAMPLE_YAML = `name: main_study
 description: Empirical sweep across strategies and universes.
 seed: 42

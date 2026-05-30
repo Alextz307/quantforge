@@ -2,7 +2,7 @@
 Dispatch + seeding tests for :mod:`src.optimization.samplers` and
 :mod:`src.optimization.pruners`.
 
-These are shallow factories — the Optuna classes themselves are
+These are shallow factories - the Optuna classes themselves are
 upstream-tested. What we verify here is (a) every enum value wires to the
 correct class, and (b) samplers respect the seed so two HPOConfigs with
 the same ``seed`` produce reproducible first-trial draws.

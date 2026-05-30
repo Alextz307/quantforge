@@ -15,9 +15,9 @@ namespace quant {
 namespace {
 
 // Strip `std::to_string(double)`'s trailing zeros for display names.
-// Keeps one zero after the decimal (`2.000000` → `2.0`) so the value
+// Keeps one zero after the decimal (`2.000000` -> `2.0`) so the value
 // is still visibly a float; non-round values lose only the padding
-// (`2.500000` → `2.5`).
+// (`2.500000` -> `2.5`).
 std::string format_double(double x) {
     std::string s = std::to_string(x);
     const auto dot = s.find('.');

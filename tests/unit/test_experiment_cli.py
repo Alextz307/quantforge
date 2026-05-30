@@ -3,8 +3,8 @@ Smoke tests for the ``scripts/experiment.py`` click CLI.
 
 These exercise the subcommand glue (config-override, error wrapping,
 tune-study artifact layout) that otherwise lacks coverage. The ``run``
-subcommand is left out here — it needs a full walk-forward smoke under
-the gated integration tests — but ``tune`` + the override helpers all
+subcommand is left out here - it needs a full walk-forward smoke under
+the gated integration tests - but ``tune`` + the override helpers all
 fit a fast unit-test shape.
 
 Uses ``click.testing.CliRunner`` so no subprocess is spawned.
@@ -44,7 +44,7 @@ _TUNE_STUDY_NAME = "cli_tune_smoke"
 def _write_experiment_config(tmp_path: Path, *, name: str = "cli_tune") -> Path:
     """
     Write a minimal :class:`ExperimentConfig` YAML that the tuner
-    accepts. Data source / walk-forward knobs are never actually touched —
+    accepts. Data source / walk-forward knobs are never actually touched -
     the tune test monkeypatches ``build_experiment`` + ``aggregate_folds``.
     """
 
@@ -89,7 +89,7 @@ def _write_hpo_config(tmp_path: Path, *, study_name: str = _TUNE_STUDY_NAME) -> 
 
 class _StubExperimentResult:
     """
-    Shape-minimal stand-in for ``ExperimentResult`` — matches the two
+    Shape-minimal stand-in for ``ExperimentResult`` - matches the two
     attributes the tuner reads (``experiment_id`` + ``folds``).
     """
 

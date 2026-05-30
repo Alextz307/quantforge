@@ -3,7 +3,7 @@ Best-effort git-sha reader shared by experiment + standalone-model runs.
 
 Lives in a dedicated module rather than inside either ``experiment.py`` or
 ``standalone_training.py`` so both callers converge on one implementation
-— drift between "experiment manifest SHA format" and "model artifact
+- drift between "experiment manifest SHA format" and "model artifact
 manifest SHA format" would be a silent reproducibility bug.
 """
 
@@ -22,7 +22,7 @@ def read_git_sha() -> str:
 
     "Unavailable" covers: not in a git tree, git not on PATH, subprocess
     timeout, or a corrupt repo. Callers persist the returned string
-    verbatim — consumers that want to detect the unknown case compare to
+    verbatim - consumers that want to detect the unknown case compare to
     ``"unknown"`` or to a known non-empty SHA.
     """
 

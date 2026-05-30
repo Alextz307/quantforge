@@ -4,9 +4,9 @@ Best-effort ctor introspection for the hybrid configure form.
 The frontend renders typed inputs for ``int|float|str|bool|enum`` params
 and falls back to a JSON editor for ``complex``: non-Optional union types
 (``int | str``), generics (``list[str]``, ``Mapping[...]``), forward refs
-that fail to resolve. ``Optional[T]`` / ``T | None`` is peeled — the
+that fail to resolve. ``Optional[T]`` / ``T | None`` is peeled - the
 inner ``T`` drives the kind, and ``nullable=True`` is set so the form
-labels the empty option "— none —" and (for Enums) renders a typed
+labels the empty option "- none -" and (for Enums) renders a typed
 dropdown instead of a JSON textarea. Recursive type unwrapping beyond
 one Optional layer is intentionally out of scope.
 """
@@ -34,8 +34,8 @@ from webapp.backend.app.schemas.strategies import (
 
 # Ctor params that are framework-injected or duplicate a top-level config
 # block, so they must never surface as form fields:
-#   * ``self`` — Python receiver.
-#   * ``interval`` — always equal to ``data.interval``; showing it as a
+#   * ``self`` - Python receiver.
+#   * ``interval`` - always equal to ``data.interval``; showing it as a
 #     strategy param duplicates the data-block field and lets the user
 #     desync the two.
 _HIDDEN_PARAMS: frozenset[str] = frozenset({"self", "interval"})
@@ -87,7 +87,7 @@ def _classify(annotation: object) -> tuple[ParamKind, list[str] | None, bool]:
     if origin is typing.Union or origin is types.UnionType:
         return ParamKind.COMPLEX, None, nullable
     if isinstance(inner, type):
-        # ``bool`` must precede ``int`` — bool is a subclass of int.
+        # ``bool`` must precede ``int`` - bool is a subclass of int.
         if inner is bool:
             return ParamKind.BOOL, None, nullable
         if inner is int:
@@ -117,14 +117,14 @@ def _default_for_wire(value: object, kind: ParamKind) -> object | None:
         return str(value.value)
     if isinstance(value, (str, int, float, bool)) or value is None:
         return value
-    # Lists / dicts / Path / arbitrary objects — surface as a string so
+    # Lists / dicts / Path / arbitrary objects - surface as a string so
     # the JSON editor has a starting hint without serializing wrong.
     return repr(value)
 
 
 def _strategy_yaml_stem(name: str) -> str:
     """
-    ``CrossAssetMomentum`` → ``cross_asset_momentum``.
+    ``CrossAssetMomentum`` -> ``cross_asset_momentum``.
     """
 
     return re.sub(r"(?<!^)(?=[A-Z])", "_", name).lower()
@@ -132,7 +132,7 @@ def _strategy_yaml_stem(name: str) -> str:
 
 def get_canonical_strategy_params(config_root: Path, name: str) -> dict[str, object] | None:
     """
-    Best-effort load of ``<config_root>/strategies/<snake_case>.yaml`` →
+    Best-effort load of ``<config_root>/strategies/<snake_case>.yaml`` ->
     ``strategy.params``. Returns ``None`` for missing/malformed YAML and
     strips ``_HIDDEN_PARAMS`` so the form never receives framework-managed
     keys it would have to filter again.

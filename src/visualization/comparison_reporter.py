@@ -3,22 +3,22 @@ Cross-strategy comparison report generator.
 
 Consumes an in-memory :class:`StrategyComparisonReport` and writes:
 
-* ``manifest.json``               — scalar identity (out_name, timestamp,
+* ``manifest.json``               - scalar identity (out_name, timestamp,
                                     git sha) + per-strategy stats + the
-                                    name→experiment_id map so a reader can
+                                    name->experiment_id map so a reader can
                                     drill into any specific run.
-* ``tables/ranking.tex``          — booktabs LaTeX of the rank DataFrame.
-* ``tables/pairwise_significance.tex`` — upper-triangular pairwise table
+* ``tables/ranking.tex``          - booktabs LaTeX of the rank DataFrame.
+* ``tables/pairwise_significance.tex`` - upper-triangular pairwise table
                                     (only written when at least one pair
                                     was computed).
-* ``plots/equity_overlay.png/svg`` — overlaid per-strategy concatenated
+* ``plots/equity_overlay.png/svg`` - overlaid per-strategy concatenated
                                     equity curves, each normalised to 1.0
                                     at the first bar so strategies with
                                     different starting equity remain
                                     visually comparable.
 
 The reporter is a separate class from :class:`StrategyReporter` rather
-than an extension — single-experiment plots and cross-experiment tables
+than an extension - single-experiment plots and cross-experiment tables
 don't share much code, and keeping them in sibling classes matches the
 HPOReporter / StrategyReporter split already in place.
 """
@@ -74,7 +74,7 @@ class ComparisonReporter:
         """
         Write every artifact under ``out_dir`` and return ``out_dir``.
 
-        ``folds_by_strategy`` feeds the equity overlay — it lives
+        ``folds_by_strategy`` feeds the equity overlay - it lives
         alongside :class:`StrategyComparisonReport` rather than inside it
         because fold records are heavy and the comparison orchestrator
         already has them in hand. If ``None`` (report loaded from disk
@@ -108,7 +108,7 @@ class ComparisonReporter:
         write_booktabs_table(
             report.ranking,
             tables_dir / _RANKING_FILENAME,
-            caption=f"Strategy ranking — comparison {slug}",
+            caption=f"Strategy ranking - comparison {slug}",
             label=f"tab:ranking_{slug}",
         )
 
@@ -118,7 +118,7 @@ class ComparisonReporter:
                 tables_dir / _PAIRWISE_FILENAME,
                 caption=(
                     f"Pairwise Sharpe differential, 95\\% stationary bootstrap CI "
-                    f"(row - col) — comparison {slug}"
+                    f"(row - col) - comparison {slug}"
                 ),
                 label=f"tab:pairwise_{slug}",
             )
@@ -166,7 +166,7 @@ class ComparisonReporter:
         """
         Overlay each strategy's concatenated equity curve.
 
-        Each concatenated curve is normalised to 1.0 at its first bar —
+        Each concatenated curve is normalised to 1.0 at its first bar -
         strategies with very different absolute equity levels would
         otherwise dominate the y-axis and collapse the interesting
         visual comparison.
@@ -178,7 +178,7 @@ class ComparisonReporter:
             curve = _concatenated_equity_normalised(folds)
             if curve is None:
                 _logger.warning(
-                    "strategy '%s' has no plottable equity curve — skipping from overlay",
+                    "strategy '%s' has no plottable equity curve - skipping from overlay",
                     name,
                 )
                 continue
@@ -234,7 +234,7 @@ def _concatenated_equity_normalised(
     Concatenate fold equity curves and normalise to ``curve[0] = 1.0``.
 
     Returns ``None`` if the concatenated curve is empty or its first
-    value is non-finite / non-positive — matplotlib would silently NaN
+    value is non-finite / non-positive - matplotlib would silently NaN
     through a bad divisor and produce a misleading overlay.
     """
 

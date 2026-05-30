@@ -53,7 +53,7 @@ def fitted_strategy(pair_df: pd.DataFrame) -> PairsTradingStrategy:
 
 def _make_independent_random_walks() -> pd.DataFrame:
     """
-    Two independent random walks — not cointegrated.
+    Two independent random walks - not cointegrated.
     """
 
     idx = pd.bdate_range(start=RW_START_DATE, periods=RW_ROW_COUNT, freq="B")
@@ -121,7 +121,7 @@ class TestPairsTradingStrategy:
     ) -> None:
         """
         The C++ Welford z-score is poisoned by any NaN/inf in the price
-        inputs and cannot recover once the NaN slides out — unlike pandas'
+        inputs and cannot recover once the NaN slides out - unlike pandas'
         rolling std. Inject a NaN / inf and expect a loud boundary error
         instead of silently-NaN signals."""
 

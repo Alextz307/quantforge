@@ -1,5 +1,5 @@
 """
-Smoke test — the compiled C++ extension module is importable and responsive.
+Smoke test - the compiled C++ extension module is importable and responsive.
 
 If this test fails, the pybind11 + scikit-build-core wiring is broken and
 every subsequent engine/metrics binding test will fail too. Keep it as the

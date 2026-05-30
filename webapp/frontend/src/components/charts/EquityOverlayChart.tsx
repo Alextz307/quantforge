@@ -76,7 +76,7 @@ export function EquityOverlayChart({ specs, height = 420 }: OverlayProps) {
   if (anyPending && traces.length === 0) {
     return (
       <div data-testid="equity-overlay-loading" className="text-sm text-muted-foreground py-8">
-        Loading equity curves…
+        Loading equity curves...
       </div>
     );
   }

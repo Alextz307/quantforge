@@ -1,5 +1,5 @@
 """
-Tests for :mod:`src.visualization.plots` — shared matplotlib primitives.
+Tests for :mod:`src.visualization.plots` - shared matplotlib primitives.
 """
 
 from __future__ import annotations
@@ -19,7 +19,7 @@ from src.visualization.plots import (
 def test_agg_backend_is_active() -> None:
     """
     Importing the module must force the Agg backend before any pyplot
-    import touches the GUI — otherwise CI jobs crash on the headless box."""
+    import touches the GUI - otherwise CI jobs crash on the headless box."""
 
     assert matplotlib.get_backend().lower() == "agg"
 

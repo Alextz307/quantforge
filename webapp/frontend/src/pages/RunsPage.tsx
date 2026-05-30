@@ -266,7 +266,7 @@ function RunsBody({ page, state, onToggleSort, onPrev, onNext }: RunsBodyProps) 
 
       <div className="flex items-center justify-between text-sm text-muted-foreground">
         <span>
-          Showing {start}–{end} of {total}
+          Showing {start}-{end} of {total}
         </span>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" disabled={!hasPrev} onClick={onPrev}>
@@ -299,7 +299,7 @@ function SortableHeader({
   isLast,
 }: SortableHeaderProps) {
   const active = state.sortBy === col;
-  const indicator = active ? (state.order === "desc" ? " ↓" : " ↑") : "";
+  const indicator = active ? (state.order === "desc" ? " v" : " ^") : "";
   const padRight = isLast ? "pr-0" : "pr-4";
   const alignCls = align === "right" ? "text-right" : "text-left";
   return (

@@ -4,7 +4,7 @@ Factory mapping :class:`PrunerKind` to Optuna ``BasePruner`` instances.
 Pruners need intermediate values reported via ``trial.report(value, step)``
 to actually prune anything. The LSTM and XGBoost leaves re-raise
 ``optuna.TrialPruned`` from their training loops when a pruner decides
-mid-training that a trial is unpromising — the tuner lets that exception
+mid-training that a trial is unpromising - the tuner lets that exception
 propagate so Optuna marks the trial pruned rather than failed.
 
 ``PrunerKind.NONE`` maps to ``NopPruner`` so the pruner field stays

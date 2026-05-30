@@ -1,5 +1,5 @@
 """
-Config → wired :class:`Experiment` factory.
+Config -> wired :class:`Experiment` factory.
 
 Resolves every :class:`ComponentConfig` against its global registry and
 instantiates the concrete validator, engine, and slippage scenario. Kept
@@ -33,7 +33,7 @@ def _make_feature_pipeline_factory(
     """
     Capture ``features_cfg`` in a closure so callers get a fresh instance per call.
 
-    Split out so the closure binds ``features_cfg`` once, not a loop variable —
+    Split out so the closure binds ``features_cfg`` once, not a loop variable -
     avoids the late-binding trap if this ever ends up inside a loop.
     """
 
@@ -47,7 +47,7 @@ def _validate_strategy_data_shape(cfg: ExperimentConfig) -> None:
     Three valid shapes, all mutually exclusive:
 
     * **Pairs**: exactly two tickers (one per leg); no feature pipeline.
-    * **Multi-feature**: N≥1 tickers; ``cfg.strategy.params['primary_ticker']``
+    * **Multi-feature**: N>=1 tickers; ``cfg.strategy.params['primary_ticker']``
       MUST be in ``cfg.data.tickers``; no feature pipeline (the strategy
       reads the wide frame directly).
     * **Single-asset**: exactly one ticker.
@@ -112,7 +112,7 @@ def _validate_strategy_data_shape(cfg: ExperimentConfig) -> None:
                 f"strategy '{cfg.strategy.name}' is multi-feature and reads "
                 f"the wide multi-ticker frame directly; got features="
                 f"{cfg.features.name!r}. Fix by removing the 'features:' block "
-                f"from the config — multi-feature strategies engineer their "
+                f"from the config - multi-feature strategies engineer their "
                 f"own cross-asset features inline."
             )
     elif n_tickers != 1:

@@ -1,5 +1,5 @@
 # Reference ExperimentConfig. Every field documented; copy-and-edit for a new run.
-# Loaded via `load_experiment_config(path)` — see src/core/config.py.
+# Loaded via `load_experiment_config(path)` - see src/core/config.py.
 
 name: example_spy_adaptive_bollinger
 seed: 42
@@ -23,7 +23,7 @@ data:
 #   Setting both raises a ValidationError.
 # - The runner resolves the boundary to an absolute timestamp at fetch time
 #   and persists it in the experiment manifest. Subsequent runs (e.g. the final
-#   holdout eval) read that manifest timestamp, NOT this config's percentage —
+#   holdout eval) read that manifest timestamp, NOT this config's percentage -
 #   so data-vendor drift can't silently shift bars across the dev/holdout line.
 validation:
   n_splits: 4

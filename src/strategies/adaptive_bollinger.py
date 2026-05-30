@@ -41,7 +41,7 @@ class AdaptiveBollingerStrategy(IStrategy):
     """
     Mean-reversion Bollinger-band strategy with GARCH-adaptive band widths.
 
-    Bands are computed as ``mid ± k * daily_price_sigma`` where
+    Bands are computed as ``mid +/- k * daily_price_sigma`` where
     ``daily_price_sigma = (garch_vol_annual / sqrt(ann_factor)) * close``.
     A longer-window SMA filters trend direction: longs entered only in
     bullish regimes, shorts only in bearish regimes.
@@ -165,7 +165,7 @@ class AdaptiveBollingerStrategy(IStrategy):
         Reconstruct a trained AdaptiveBollingerStrategy from ``path``.
 
         Narrow the strategy's ``config.json`` into ctor kwargs BEFORE loading
-        the GARCH subdir — a corrupt composite config fast-fails with a
+        the GARCH subdir - a corrupt composite config fast-fails with a
         named-field error rather than crashing deep inside ``GARCH.load()``.
         """
 

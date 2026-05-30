@@ -1,10 +1,10 @@
 """
-Fold-level → run-level metric aggregation.
+Fold-level -> run-level metric aggregation.
 
 :class:`AggregateStats` collapses a tuple of :class:`FoldRecord` objects into
 a frozen dataclass holding per-metric mean / std / 95% CI plus a couple of
 run-wide scalars (worst drawdown, total trades). :meth:`AggregateStats.to_dict`
-returns a flat ``dict[str, object]`` — the shape the objective adapters and
+returns a flat ``dict[str, object]`` - the shape the objective adapters and
 ``metrics.json`` readers rely on.
 
 CI semantics
@@ -15,7 +15,7 @@ so IID resampling of fold means is the right null. Autocorrelation-aware
 bootstrap on raw return series lives in :mod:`src.analysis.significance`.
 
 RNG is seeded from a fixed internal seed so ``metrics.json`` is a
-deterministic function of fold values — two ``experiment run``
+deterministic function of fold values - two ``experiment run``
 invocations on the same config produce bit-identical CI bounds.
 """
 
@@ -48,7 +48,7 @@ class AggregateStats:
     Summary of a walk-forward run's fold-level metrics.
 
     All ``*_mean`` / ``*_std`` / ``*_ci95_*`` fields are ``float('nan')``
-    when ``n_folds == 0`` — the zero-fold path is a degenerate case (empty
+    when ``n_folds == 0`` - the zero-fold path is a degenerate case (empty
     dev slice after holdout reservation) that callers should surface as an
     error, not aggregate over.
     """
@@ -77,7 +77,7 @@ class AggregateStats:
         """
         Flatten to the dict shape consumed by objectives + ``metrics.json``.
 
-        Empty-fold path short-circuits to ``{"n_folds": 0}`` — matches the
+        Empty-fold path short-circuits to ``{"n_folds": 0}`` - matches the
         pre-refactor behavior that the HPO objectives rely on for clear
         error messages ("missing ``sharpe_mean``: most likely zero folds").
         """
@@ -111,7 +111,7 @@ class AggregateStats:
         """
         Zero-fold sentinel: every numeric stat ``NaN``, trade-count 0.
 
-        Discriminate via ``n_folds == 0`` before reading other fields —
+        Discriminate via ``n_folds == 0`` before reading other fields -
         ``to_dict()`` short-circuits the dict view to ``{"n_folds": 0}``,
         but in-process callers that read attributes directly will see NaN
         and should treat that as "no aggregate available."
@@ -150,12 +150,12 @@ def aggregate_folds(
     Collapse ``folds`` into per-metric mean / std / 95% CI.
 
     ``rng`` seeds the IID bootstrap resampler. Defaults to a fixed internal
-    seed so ``metrics.json`` is a deterministic function of fold values —
+    seed so ``metrics.json`` is a deterministic function of fold values -
     pass a user-seeded generator only if you need to vary CI bounds
     deliberately (e.g., ensembles of experiment reports).
 
     Single-fold case: std is ``0.0`` and the CI collapses to the point
-    estimate — matches how :func:`numpy.std` treats a one-element array
+    estimate - matches how :func:`numpy.std` treats a one-element array
     with ``ddof=1``. We substitute ``0.0`` for std there rather than
     propagating ``NaN`` so ``AggregateStats`` stays comparable via ``==``
     in tests.
@@ -211,11 +211,11 @@ def _mean_std_ci(
     Return ``(mean, std_ddof1, ci95_low, ci95_high)`` via IID percentile bootstrap.
 
     NaN inputs (zero-vol folds produce NaN Sharpe/Sortino) propagate
-    through ``np.mean`` / ``np.std`` as ``NaN`` — preserved on purpose so
+    through ``np.mean`` / ``np.std`` as ``NaN`` - preserved on purpose so
     the aggregate surfaces the degenerate fold instead of hiding it.
 
     ``n == 1`` short-circuits: std is ``0.0`` and the CI collapses to the
-    point — bootstrapping a one-element sample just re-draws the same
+    point - bootstrapping a one-element sample just re-draws the same
     value every time and is wasted work.
     """
 

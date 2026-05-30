@@ -38,7 +38,7 @@ def _ensure_registries_populated() -> None:
     Import the component packages so their registry decorators run.
 
     Each package's ``__init__.py`` walks its own directory and imports every
-    non-private, non-``interface`` module — so a new strategy / data source /
+    non-private, non-``interface`` module - so a new strategy / data source /
     feature pipeline / model file registers itself automatically, with no
     edits here.
 
@@ -69,7 +69,7 @@ class ComponentConfig(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     name: str = Field(
-        description="Registry key — must match a registered component name.",
+        description="Registry key - must match a registered component name.",
     )
     params: dict[str, object] = Field(
         default_factory=dict,
@@ -92,7 +92,7 @@ class DataConfig(BaseModel):
     source: ComponentConfig = Field(
         description=(
             "Data-source component spec. Accepts the bare-string short form "
-            "(e.g. `source: yfinance`) — coerced to ComponentConfig(name=..., params={})."
+            "(e.g. `source: yfinance`) - coerced to ComponentConfig(name=..., params={})."
         ),
     )
     tickers: list[str] = Field(
@@ -149,7 +149,7 @@ class ValidationConfig(BaseModel):
     --------------------
     The holdout region is the chunk of data at the END of ``(data.start,
     data.end)`` that MUST NOT be seen by any dev run, HPO trial, or model fit.
-    It is reserved for a single post-thesis out-of-sample evaluation — the
+    It is reserved for a single post-thesis out-of-sample evaluation - the
     honest number Chapter 7 reports.
 
     Two mutually-exclusive ways to express the boundary:
@@ -160,7 +160,7 @@ class ValidationConfig(BaseModel):
     * ``holdout_start``: explicit pinned timestamp. Use this to reproduce a
       prior run exactly, or to pin the boundary against data-vendor drift.
 
-    Setting BOTH raises ``ValidationError`` — the boundary must have exactly
+    Setting BOTH raises ``ValidationError`` - the boundary must have exactly
     one canonical source. Setting NEITHER disables holdout reservation
     entirely (the caller is responsible for having shortened ``data.end``
     themselves if they meant to reserve something).
@@ -192,7 +192,7 @@ class ValidationConfig(BaseModel):
     test_size: int = Field(
         default=252,
         ge=1,
-        description="Per-fold test-window size in bars (>= 1). 252 ≈ one daily trading year.",
+        description="Per-fold test-window size in bars (>= 1). 252 ~= one daily trading year.",
     )
     gap: int = Field(
         default=5,
@@ -242,7 +242,7 @@ class ValidationConfig(BaseModel):
 
 class SlippageConfigSpec(BaseModel):
     """
-    Cost-tier selector — indexes into ``COST_SCENARIOS``.
+    Cost-tier selector - indexes into ``COST_SCENARIOS``.
 
     A tier sets both slippage (per fill) and commission (per turnover);
     see :mod:`src.engine.scenarios`.
@@ -277,7 +277,7 @@ class ExperimentConfig(BaseModel):
         default=42,
         description="Master RNG seed for reproducibility (numpy, torch, Optuna).",
     )
-    data: DataConfig = Field(description="Data-fetch spec — source, tickers, range, interval.")
+    data: DataConfig = Field(description="Data-fetch spec - source, tickers, range, interval.")
     features: ComponentConfig | None = Field(
         default=None,
         description=(
@@ -286,7 +286,7 @@ class ExperimentConfig(BaseModel):
         ),
     )
     strategy: ComponentConfig = Field(
-        description="Strategy component spec — registry name plus per-strategy kwargs.",
+        description="Strategy component spec - registry name plus per-strategy kwargs.",
     )
     validation: ValidationConfig = Field(
         default_factory=ValidationConfig,
@@ -342,7 +342,7 @@ class UniverseProfile(BaseModel):
 
 class StudyLeg(BaseModel):
     """
-    One (strategy × set-of-universes) leg of an empirical study.
+    One (strategy x set-of-universes) leg of an empirical study.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -385,7 +385,7 @@ class StudyLeg(BaseModel):
 
 class StudySpec(BaseModel):
     """
-    Declarative enumeration of every (strategy × universe) leg of a study.
+    Declarative enumeration of every (strategy x universe) leg of a study.
 
     Path fields are typed ``Path`` but not checked for existence at schema
     validation time so the schema stays pure. The orchestrator and the
@@ -438,7 +438,7 @@ def write_frozen_yaml(path: str | Path, cfg: BaseModel, *, sort_keys: bool = Tru
     ``mode="json"`` coerces ``datetime`` / ``Path`` / enum values to
     JSON-safe primitives ``yaml.safe_dump`` accepts. Used by the experiment
     runner to write the frozen ``config.yaml`` alongside ``manifest.json``,
-    and by the tuner to write ``best_config.yaml`` — the tune→run handoff,
+    and by the tuner to write ``best_config.yaml`` - the tune->run handoff,
     which must not be left half-written on a crash mid-sweep.
     """
 
@@ -453,7 +453,7 @@ def load_yaml_config[T: BaseModel](path: str | Path, cls: type[T], kind: str) ->
     Shared YAML-load pipeline for :class:`ExperimentConfig` and siblings.
 
     ``experiment run`` / ``experiment tune`` want identical error framing
-    for missing / empty / invalid config files — extracting the common
+    for missing / empty / invalid config files - extracting the common
     logic avoids drift in the error messages users actually see.
     """
 

@@ -175,7 +175,7 @@ class _HandlerCtx:
     Per-submission context threaded through validate() + plan().
 
     Bundles environment knobs that one or more kinds need but that vary
-    per-request: ``user`` (for ownership-scoped resource lookups —
+    per-request: ``user`` (for ownership-scoped resource lookups -
     currently only study-spec uploads), ``conn`` (collision detection
     against live jobs), ``config_root``, ``store_root``, and the
     user-uploads root. Kinds that don't need a given field just don't
@@ -376,15 +376,13 @@ def _resolve_spec_path(payload: StudyPayload, ctx: _HandlerCtx) -> Path:
     """
     Pick the on-disk spec file: user uploads first, library second.
 
-    Uploads can never shadow library entries — the upload-save endpoint
-    rejects slugs matching ``config/study/<slug>.yaml`` — so this two-step
+    Uploads can never shadow library entries - the upload-save endpoint
+    rejects slugs matching ``config/study/<slug>.yaml`` - so this two-step
     lookup is unambiguous. Caller is responsible for surfacing a 422 if
     neither location resolves.
     """
 
-    upload_path = find_upload_path(
-        ctx.study_spec_uploads_dir, ctx.user.id, payload.spec_name
-    )
+    upload_path = find_upload_path(ctx.study_spec_uploads_dir, ctx.user.id, payload.spec_name)
     if upload_path is not None:
         return upload_path
     return _library_spec_path(payload.spec_name, ctx.config_root)
@@ -796,7 +794,7 @@ def _job_artifact_present(job: JobRow, valid_run_ids: set[str], valid_hpo_ids: s
     if job.kind is JobKind.TUNE:
         return job.experiment_id in valid_hpo_ids
     # COMPARE / HOLDOUT artifacts aren't covered by the cached id sets;
-    # skip filtering for them — a missing dir surfaces a 404 on click,
+    # skip filtering for them - a missing dir surfaces a 404 on click,
     # which is the right UX for now.
     return True
 
@@ -853,7 +851,7 @@ def _enforce_ownership(job: JobRow, user: UserPublic) -> None:
 
 
 def _pid_alive(pid: int) -> bool:
-    # EPERM (PermissionError) means the PID was recycled to another user — also dead.
+    # EPERM (PermissionError) means the PID was recycled to another user - also dead.
     try:
         os.kill(pid, 0)
     except (ProcessLookupError, PermissionError):

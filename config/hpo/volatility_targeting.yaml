@@ -1,4 +1,4 @@
-# HPO study config for VolatilityTargeting (standalone — no pretrained leaf).
+# HPO study config for VolatilityTargeting.
 #
 # Pair with config/strategies/volatility_targeting.yaml:
 #   python -m scripts.experiment tune \

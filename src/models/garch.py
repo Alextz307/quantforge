@@ -118,7 +118,7 @@ class GARCHPredictor(IPredictor):
 
         cache = active_cache()
         if cache is None:
-            # No HPO context → throwaway local cache. Entries don't persist
+            # No HPO context -> throwaway local cache. Entries don't persist
             # across calls, so any constant hash key (b"") is fine.
             cache = GarchGridCache()
             returns_hash = b""
@@ -187,10 +187,10 @@ class GARCHPredictor(IPredictor):
         Produce annualized conditional volatility series.
 
         Args:
-            data: DataFrame with 'close' column and DatetimeIndex — used for
+            data: DataFrame with 'close' column and DatetimeIndex - used for
                 output index alignment.
             returns: Optional pre-computed log returns (dropna'd). Its index
-                must be a subset of ``data.index`` — typically
+                must be a subset of ``data.index`` - typically
                 ``data.index[1:]`` when derived from the same frame, though
                 composites may pass a sub-range. Skips the internal
                 ``compute_log_returns(data["close"])`` derivation when
@@ -271,7 +271,7 @@ class GARCHPredictor(IPredictor):
         """
         Persist fitted GARCH params to ``path`` as a directory.
 
-        ``best_p`` and ``best_q`` are NOT persisted — they are always equal to
+        ``best_p`` and ``best_q`` are NOT persisted - they are always equal to
         ``len(alpha)`` and ``len(beta)`` respectively, so storing them would
         introduce a silent consistency failure point.
         """

@@ -34,7 +34,7 @@ fold via a factory closure to keep walk-forward leakage-free.
 | `rsi_{rsi_period}` | C++ `RSI(period).compute(close)` (Wilder's smoothing, default 14) |
 | `macd`, `macd_signal`, `macd_hist` | C++ `MACD(fast, slow, signal).compute_all(close)` (default 12/26/9) |
 
-Leading NaN from warmup is preserved — never `.bfill()` or `.fillna(0)`.
+Leading NaN from warmup is preserved, never `.bfill()` or `.fillna(0)`.
 
 ## `keep_ohlc` flag
 
@@ -48,14 +48,14 @@ OHLCV columns un-scaled alongside the scaled engineered features.
 
 - **Fit-once.** `fit` calls `guard_scaler_fit_once` before fitting; a
   second `fit` on the same instance raises `LeakageError`. The
-  walk-forward orchestrator never reuses an instance — it calls a
+  walk-forward orchestrator never reuses an instance; it calls a
   zero-arg factory to get a fresh pipeline per fold and fits on
   `fold.train` only.
 - **Transform-time alignment.** Transform applies the fitted scaler to
   non-NaN rows in place; warmup rows stay NaN.
 - **Persistence round-trip.** When a strategy persists its pipeline
   (e.g. `MomentumGatekeeperStrategy`), the scaler is round-tripped via
-  the public `scaler` property — no reaching into `_scaler`.
+  the public `scaler` property, never reaching into `_scaler`.
 
 ## Snippet
 

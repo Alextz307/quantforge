@@ -12,7 +12,7 @@ export interface QueryRendererProps<T> {
 export function QueryRenderer<T>({
   query,
   errorTitle,
-  loadingMessage = "Loading…",
+  loadingMessage = "Loading...",
   children,
 }: QueryRendererProps<T>) {
   if (query.isPending) {

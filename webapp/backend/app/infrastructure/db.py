@@ -18,7 +18,7 @@ from webapp.backend.app.core.settings import get_settings
 # the schema layer: identifiers are restricted to ``^[A-Za-z_][A-Za-z0-9_]*$``
 # (no quotes, no semicolons, no whitespace) and type definitions to a small
 # alphanumeric + whitespace allowlist that covers ``TEXT``, ``INTEGER NOT
-# NULL``, ``INTEGER DEFAULT 0`` and similar — string defaults requiring
+# NULL``, ``INTEGER DEFAULT 0`` and similar - string defaults requiring
 # quotes are deliberately not allowed; extending the regex forces review.
 _IDENTIFIER_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 _TYPE_DEFINITION_RE = re.compile(r"^[A-Za-z0-9_ ]+$")
@@ -153,7 +153,7 @@ def bootstrap_schema(conn: sqlite3.Connection) -> None:
     conn.executescript(DEPLOYMENTS_SCHEMA)
     # Migration: ``users.auto_created_at`` distinguishes CLI ``--user`` auto-
     # creates from deliberate ``scripts.create_user`` runs so an admin can find
-    # typo-stub accounts. Pre-existing rows stay NULL — only new auto-creates
+    # typo-stub accounts. Pre-existing rows stay NULL - only new auto-creates
     # stamp it.
     _ensure_column(conn, "users", "auto_created_at", "TEXT")
     conn.commit()

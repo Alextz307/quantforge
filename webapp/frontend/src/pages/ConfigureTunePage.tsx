@@ -128,7 +128,7 @@ export function ConfigureTunePage() {
 
           <div className="flex justify-end gap-2">
             <Button type="submit" disabled={isSubmitting || submit.isPending}>
-              {submit.isPending ? "Launching…" : "Launch tune"}
+              {submit.isPending ? "Launching..." : "Launch tune"}
             </Button>
           </div>
         </form>

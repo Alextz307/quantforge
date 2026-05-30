@@ -216,7 +216,7 @@ export function ConfigureHoldoutPage() {
 
           <div className="flex justify-end gap-2">
             <Button type="submit" disabled={submit.isPending}>
-              {submit.isPending ? "Launching…" : "Launch holdout"}
+              {submit.isPending ? "Launching..." : "Launch holdout"}
             </Button>
           </div>
         </form>

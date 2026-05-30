@@ -58,7 +58,7 @@ export function RunDetailPage() {
   }
 
   return (
-    <QueryRenderer query={runQuery} errorTitle="Failed to load run" loadingMessage="Loading run…">
+    <QueryRenderer query={runQuery} errorTitle="Failed to load run" loadingMessage="Loading run...">
       {(run) => (
         <div className="flex flex-col gap-4">
           <div className="flex items-center justify-between">
@@ -117,7 +117,7 @@ export function RunDetailPage() {
               <QueryRenderer
                 query={foldsQuery}
                 errorTitle="Failed to load folds"
-                loadingMessage="Loading folds…"
+                loadingMessage="Loading folds..."
               >
                 {(folds) => <EquityChart traces={foldsToTraces(folds)} xLabel="Bar within fold" />}
               </QueryRenderer>
@@ -132,7 +132,7 @@ export function RunDetailPage() {
               <QueryRenderer
                 query={foldsQuery}
                 errorTitle="Failed to load folds"
-                loadingMessage="Loading folds…"
+                loadingMessage="Loading folds..."
               >
                 {(folds) => <FoldMetricsTable folds={folds} />}
               </QueryRenderer>

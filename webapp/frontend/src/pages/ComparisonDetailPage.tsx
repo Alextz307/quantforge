@@ -41,7 +41,7 @@ export function ComparisonDetailPage() {
     <QueryRenderer
       query={query}
       errorTitle="Failed to load comparison"
-      loadingMessage="Loading comparison…"
+      loadingMessage="Loading comparison..."
     >
       {(comparison) => (
         <div className="flex flex-col gap-4">

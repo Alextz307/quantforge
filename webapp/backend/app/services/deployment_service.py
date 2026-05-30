@@ -269,7 +269,7 @@ def _validate_source_for_predict(
     """
     Resolve the source's manifest + strategy and validate it is predictable.
 
-    Returns ``(ticker, strategy_name, interval, train_end)`` —
+    Returns ``(ticker, strategy_name, interval, train_end)`` -
     denormalised columns persisted on the deployment row at create time.
     Surfaces the framework's pair / non-daily limitation at create time
     so the user finds out before submitting an unusable predict.
@@ -425,7 +425,7 @@ def rename_deployment(
     """
     Update the deployment's display name.
 
-    The on-disk manifest's ``name`` is NOT rewritten — the DB row is the
+    The on-disk manifest's ``name`` is NOT rewritten - the DB row is the
     canonical UI label; the manifest records the auto-generated identity
     at creation time and stays stable for audit reproducibility.
     """
@@ -487,7 +487,7 @@ def _fetch_opens(ticker: str, interval: Interval, signals: tuple[SignalRow, ...]
     Open price per opened session covering the whole signal log.
 
     Exposed at module level so tests monkeypatch it without faking
-    yfinance end-to-end — mirrors :func:`_probe_latest_bar_ts`.
+    yfinance end-to-end - mirrors :func:`_probe_latest_bar_ts`.
     """
 
     now = pd.Timestamp.now(tz="UTC")
@@ -541,12 +541,12 @@ def evaluate_signal_log(
     cost_scenario: SlippageScenario = SlippageScenario.NORMAL,
 ) -> SignalEvaluationOut:
     """
-    Score the deployment's emitted signals open→open against realised opens.
+    Score the deployment's emitted signals open->open against realised opens.
 
     ``cost_scenario`` selects the friction tier (slippage + commission) for
     the net figures; gross figures are always cost-free. Read-only: never
     recomputes or appends a signal, never touches a close price. Independent
-    of the generation path — evaluating cannot mutate deployment state or
+    of the generation path - evaluating cannot mutate deployment state or
     trigger a predict.
     """
 
@@ -587,7 +587,7 @@ def predict_if_stale(
     deployment_id: str,
 ) -> PredictIfStaleResponse:
     """
-    Return today's signal — recall the cached row when fresh, otherwise predict.
+    Return today's signal - recall the cached row when fresh, otherwise predict.
     """
 
     row = _fetch_row(conn, deployment_id)

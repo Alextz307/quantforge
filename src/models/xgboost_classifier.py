@@ -46,7 +46,7 @@ class _ProgressAndCheckpointCallback(xgb.callback.TrainingCallback):
     with the latest eval metric for each (data, metric) pair, and a
     ``best_iteration.ubj`` snapshot is written into ``checkpoint_path``
     whenever the **validation** metric improves on the best-seen value. Train-
-    set improvements are tracked for the log line but never trigger a save —
+    set improvements are tracked for the log line but never trigger a save -
     train logloss is monotone in boosting rounds, so saving on it would
     persist the latest booster every round, defeating "best-on-val" semantics.
     """
@@ -266,7 +266,7 @@ class DirectionalClassifier(IClassifier):
         """
         Persist classifier config + booster to ``path``.
 
-        Uses XGBoost's native UBJSON format (``model.ubj``) for the booster —
+        Uses XGBoost's native UBJSON format (``model.ubj``) for the booster -
         the most version-stable option available. Device is NOT persisted; it
         is re-resolved on load via ``select_xgboost_device()``.
         """
@@ -302,7 +302,7 @@ class DirectionalClassifier(IClassifier):
         """
         Reconstruct a fitted DirectionalClassifier from ``path``.
 
-        Only ``device`` is threaded through to the fresh XGBClassifier — every
+        Only ``device`` is threaded through to the fresh XGBClassifier - every
         other hyperparameter is baked into the booster UBJ and re-setting them
         on the wrapper would just be discarded the moment ``load_model`` runs.
         """

@@ -1,8 +1,8 @@
 """
 Behavioral tests for :func:`src.analysis.ranking.rank_strategies`.
 
-Validates the deterministic sort (primary metric desc → tiebreaker
-metric desc → name asc) and the tidy column set.
+Validates the deterministic sort (primary metric desc -> tiebreaker
+metric desc -> name asc) and the tidy column set.
 """
 
 from __future__ import annotations

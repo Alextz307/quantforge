@@ -6,10 +6,10 @@ thesis-ready artifacts under ``<run_dir>/plots/`` + ``<run_dir>/tables/``.
 
 The two artifacts Chapter 7 relies on at the single-experiment level:
 
-* ``plots/equity_curves.png/svg`` — per-fold equity curves overlaid, each
+* ``plots/equity_curves.png/svg`` - per-fold equity curves overlaid, each
   series normalised to 1.0 at fold start so a reader eyeballs the fold's
   own performance rather than being dominated by compounding across folds.
-* ``tables/metrics_summary.tex`` — booktabs LaTeX, one row per fold with
+* ``tables/metrics_summary.tex`` - booktabs LaTeX, one row per fold with
   Sharpe / Sortino / Calmar / MaxDD / TotalReturn / TradeCount. Per-run
   mean is NOT included here (it's a cross-run concern; ``comparison``
   reporter owns that).
@@ -73,10 +73,10 @@ class StrategyReporter:
 
         if publish_label is not None:
             slug = validate_publish_label(publish_label)
-            caption = f"Fold metrics — {slug}"
+            caption = f"Fold metrics - {slug}"
             label = f"tab:metrics_{slug}"
         else:
-            caption = f"Fold metrics — experiment {result.experiment_id}"
+            caption = f"Fold metrics - experiment {result.experiment_id}"
             label = f"tab:metrics_{result.experiment_id}"
 
         metrics_df = self._build_metrics_dataframe(result.folds)
@@ -125,10 +125,10 @@ class StrategyReporter:
         Overlay per-fold equity curves normalised to 1.0 at fold start.
 
         Normalisation is per-fold (divide by the first value) so folds with
-        very different absolute equity levels stay visually comparable —
+        very different absolute equity levels stay visually comparable -
         otherwise the lowest-equity fold crushes the plot's y-axis.
 
-        Folds whose initial equity is non-finite (NaN/inf — zero-trade fold
+        Folds whose initial equity is non-finite (NaN/inf - zero-trade fold
         with degenerate metrics) or non-positive (catastrophic loss leaving
         debt at fold start) are logged + skipped rather than dividing by a
         bad base. NaN propagates silently through matplotlib's plotter and
@@ -142,7 +142,7 @@ class StrategyReporter:
             normalised = normalise_to_unit_base(fold.equity_curve)
             if normalised is None:
                 _logger.warning(
-                    "fold %d: equity_curve[0]=%s is non-finite or non-positive — "
+                    "fold %d: equity_curve[0]=%s is non-finite or non-positive - "
                     "skipping from equity plot",
                     fold.fold_index,
                     fold.equity_curve[0] if fold.equity_curve else "empty",

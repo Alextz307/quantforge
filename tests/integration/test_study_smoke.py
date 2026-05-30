@@ -10,7 +10,7 @@ semantics on a second invocation.
 Opt-in via ``RUN_STUDY_SMOKE=1`` (mirrors ``RUN_EXP_SMOKE`` on the run
 smoke) because the inner HPO + run stages take ~30-60s on a tiny config.
 Cross-strategy compare is exercised by ``test_comparison.py`` and is
-deliberately NOT in scope here — the orchestrator's compare step is a
+deliberately NOT in scope here - the orchestrator's compare step is a
 thin wrapper over ``run_comparison``.
 """
 
@@ -115,7 +115,7 @@ def _write_strategy(path: Path) -> None:
 
 def _write_hpo(path: Path) -> None:
     """
-    Tiny HPO config — n_trials=2 to keep the smoke under a minute.
+    Tiny HPO config - n_trials=2 to keep the smoke under a minute.
     """
 
     payload: dict[str, object] = {

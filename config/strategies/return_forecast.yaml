@@ -1,5 +1,5 @@
-# Standalone ReturnForecast experiment — full HPO from scratch, no
-# pretrained leaf. The strategy needs ``close`` for log-return computation
+# ReturnForecast experiment - full HPO from scratch. The strategy needs
+# ``close`` for log-return computation
 # AND the engineered features for the LSTM residual, so ``keep_ohlc: true``
 # preserves OHLCV alongside the scaled features.
 #

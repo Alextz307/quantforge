@@ -25,7 +25,7 @@ export function JobArtifactLink({
       className={cn("text-primary hover:underline", className)}
       data-testid="job-view-run-link"
     >
-      {compact ? "view →" : link.label}
+      {compact ? "view ->" : link.label}
     </Link>
   );
 }

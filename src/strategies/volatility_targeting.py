@@ -49,7 +49,7 @@ class _HybridVolParams:
     Stored on the strategy so ``train()`` can rebuild a fresh hybrid with a
     clean scaler each invocation (the hybrid's fit-once guard rejects a
     second fit on the same instance). ``feature_columns`` is a tuple so the
-    bundle is truly immutable — frozen=True alone wouldn't prevent mutation
+    bundle is truly immutable - frozen=True alone wouldn't prevent mutation
     of a list field.
     """
 
@@ -79,7 +79,7 @@ class VolatilityTargetingStrategy(IStrategy):
 
     Leverage = ``target_vol / forecast_vol`` clipped to ``[0, max_leverage]``.
     A trend MA gates the regime: in bearish windows, leverage is multiplied
-    by ``bearish_exposure`` (default 0 → flat).
+    by ``bearish_exposure`` (default 0 -> flat).
 
     The realized-volatility training target is the annualized Garman-Klass
     OHLC estimator over ``realized_vol_window`` bars. Input DataFrames must
@@ -287,7 +287,7 @@ class VolatilityTargetingStrategy(IStrategy):
         Reconstruct a trained VolatilityTargetingStrategy from ``path``.
 
         Narrow the strategy's ``config.json`` into ctor kwargs BEFORE loading
-        the nested ``hybrid_vol/`` subdir — a corrupt strategy config
+        the nested ``hybrid_vol/`` subdir - a corrupt strategy config
         fast-fails with a named-field error, without wasting I/O on the
         HybridVolatilityModel's nested GARCH + LSTM + scaler loads.
         """
@@ -346,14 +346,14 @@ class VolatilityTargetingStrategy(IStrategy):
 
     def get_fold_diagnostics(self) -> Mapping[str, float]:
         """
-        Surface HybridVolatility's σ_min floor-saturation rate for this fold.
+        Surface HybridVolatility's sigma_min floor-saturation rate for this fold.
 
         ``floor_bind_fraction`` is the fraction of non-NaN bars where the
         most recent ``predict()`` clipped ``garch_vol + lstm_residual`` up
-        to ``min_vol``. A high value indicates the floor is binding often —
+        to ``min_vol``. A high value indicates the floor is binding often -
         either ``min_vol`` is set too high relative to realised vol, or
         the GARCH+LSTM forecast is too pessimistic. Persisted per-fold in
-        the experiment manifest for the thesis §3.6 floor-saturation table.
+        the experiment manifest for the thesis Section 3.6 floor-saturation table.
         """
 
         frac = self._hybrid_vol.last_floor_bind_fraction

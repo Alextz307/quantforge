@@ -45,7 +45,7 @@ def no_future_data[**P, R](
           A function that uses future prices to compute current features
           will NOT be caught if output timestamps stay within input range.
         - Non-pandas return types (numpy arrays, dicts, tuples) bypass
-          the check entirely — only DataFrame/Series outputs are validated.
+          the check entirely - only DataFrame/Series outputs are validated.
         - When multiple DataFrames are passed as arguments, the bound is
           the maximum timestamp across ALL inputs. This means a function
           receiving both train and test data will use the test max as the

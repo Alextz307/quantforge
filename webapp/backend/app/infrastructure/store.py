@@ -223,7 +223,7 @@ def find_hpo_study_dir(root: Path, name: str) -> Path:
     """
     Resolve an HPO-study ``name`` to its directory.
 
-    Glob-by-basename — returns whichever matching dir is found first when two
+    Glob-by-basename - returns whichever matching dir is found first when two
     studies share the same name. Use :func:`find_hpo_study_dir_by_wire_id`
     for deterministic lookup against nested study trees.
     """
@@ -252,7 +252,7 @@ def hpo_wire_id_from_dir(study_dir: Path, root: Path) -> str:
 
     Resolves both inputs before the relative computation so callers may
     pass either a relative root (default settings) or an absolute root
-    (test fixtures) — the listing-glob path and the detail-resolver path
+    (test fixtures) - the listing-glob path and the detail-resolver path
     can disagree on which they hold.
     """
 
@@ -271,7 +271,7 @@ def find_hpo_study_dir_by_wire_id(root: Path, wire_id: str) -> Path:
     """
 
     if HPO_WIRE_DELIMITER not in wire_id and "/" in wire_id:
-        # Reject leaked slashes — wire ids must use the encoded form so
+        # Reject leaked slashes - wire ids must use the encoded form so
         # routing stays single-segment.
         raise HpoStudyNotFoundError(f"hpo study not found: {wire_id}")
     relative = wire_id.replace(HPO_WIRE_DELIMITER, "/")

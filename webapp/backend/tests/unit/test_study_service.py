@@ -23,9 +23,7 @@ EXPECTED_COMPLETED_LEGS = 2
 EXPECTED_COMPLETION_PCT = pytest.approx(EXPECTED_COMPLETED_LEGS / EXPECTED_TOTAL_LEGS * 100.0)
 
 
-def test_list_studies_sorts_newest_first(
-    tmp_path: Path, db_conn: sqlite3.Connection
-) -> None:
+def test_list_studies_sorts_newest_first(tmp_path: Path, db_conn: sqlite3.Connection) -> None:
     root = tmp_path / "experiment_results"
     parent = root / "studies"
     make_synthetic_study(parent, name=OLDER_NAME, started_at=OLDER_TS)
@@ -36,9 +34,7 @@ def test_list_studies_sorts_newest_first(
     assert [s.name for s in summaries] == [NEWER_NAME, OLDER_NAME]
 
 
-def test_list_studies_surfaces_completion(
-    tmp_path: Path, db_conn: sqlite3.Connection
-) -> None:
+def test_list_studies_surfaces_completion(tmp_path: Path, db_conn: sqlite3.Connection) -> None:
     root = tmp_path / "experiment_results"
     make_synthetic_study(
         root / "studies",
@@ -50,18 +46,14 @@ def test_list_studies_surfaces_completion(
         ),
     )
 
-    summary = list_studies(
-        root, conn=db_conn, user=make_viewer_user(db_conn), all_users=False
-    )[0]
+    summary = list_studies(root, conn=db_conn, user=make_viewer_user(db_conn), all_users=False)[0]
 
     assert summary.total_legs == EXPECTED_TOTAL_LEGS
     assert summary.completed_legs == EXPECTED_COMPLETED_LEGS
     assert summary.completion_pct == EXPECTED_COMPLETION_PCT
 
 
-def test_get_study_returns_full_detail(
-    tmp_path: Path, db_conn: sqlite3.Connection
-) -> None:
+def test_get_study_returns_full_detail(tmp_path: Path, db_conn: sqlite3.Connection) -> None:
     root = tmp_path / "experiment_results"
     make_synthetic_study(
         root / "studies",
@@ -80,9 +72,7 @@ def test_get_study_returns_full_detail(
     assert "tune" in completed_leg.steps_completed
 
 
-def test_get_study_raises_for_unknown_name(
-    tmp_path: Path, db_conn: sqlite3.Connection
-) -> None:
+def test_get_study_raises_for_unknown_name(tmp_path: Path, db_conn: sqlite3.Connection) -> None:
     root = tmp_path / "experiment_results"
     make_synthetic_study(root / "studies", name=NEWER_NAME)
 

@@ -37,8 +37,8 @@ function JobDetailBody({ job }: { job: JobRow }) {
             <span>kind: {job.kind}</span>
             {job.pid !== null && <span>pid: {job.pid}</span>}
             {job.exit_code !== null && <span>exit: {job.exit_code}</span>}
-            <span>started: {job.started_at ? formatDateTime(job.started_at) : "—"}</span>
-            <span>finished: {job.finished_at ? formatDateTime(job.finished_at) : "—"}</span>
+            <span>started: {job.started_at ? formatDateTime(job.started_at) : "-"}</span>
+            <span>finished: {job.finished_at ? formatDateTime(job.finished_at) : "-"}</span>
           </div>
         </div>
         <JobActions job={job} />

@@ -50,7 +50,7 @@ META_OVERLAP_DF_ROWS = 50
 META_OVERLAP_START = "2023-06-01"
 META_FUTURE_START = "2023-07-02"
 META_BOUNDARY_DF_ROWS = 10
-# Same timestamp as META_TRAIN_END — exact boundary must still be rejected.
+# Same timestamp as META_TRAIN_END - exact boundary must still be rejected.
 META_BOUNDARY_START = META_TRAIN_END
 META_PLAIN_ROWS = 10
 

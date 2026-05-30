@@ -4,14 +4,14 @@ HPO study report generator.
 Consumes an :class:`optuna.Study` and writes thesis-ready artifacts
 under ``<study_dir>/plots/`` + ``<study_dir>/tables/``:
 
-* ``plots/convergence.png/svg`` — per-trial objective value + rolling
+* ``plots/convergence.png/svg`` - per-trial objective value + rolling
   best-so-far line. The story is "did the study converge, and how
   quickly did it find the best region".
-* ``plots/param_importance.png/svg`` — horizontal bar chart from
+* ``plots/param_importance.png/svg`` - horizontal bar chart from
   ``optuna.importance.get_param_importances``. Skipped (with an info log)
   for studies with <2 completed trials where the importance computation
   is undefined.
-* ``tables/top_trials.tex`` — booktabs LaTeX ranking the top-N trials
+* ``tables/top_trials.tex`` - booktabs LaTeX ranking the top-N trials
   by objective value, one row per trial with number + value + key
   params. Row count capped at :data:`_TOP_TRIALS_N`.
 """
@@ -73,7 +73,7 @@ class HPOReporter:
             write_booktabs_table(
                 self._build_top_trials_df(completed),
                 tables_dir / _TOP_TRIALS_FILENAME,
-                caption=f"Top {_TOP_TRIALS_N} trials — study {study.study_name}",
+                caption=f"Top {_TOP_TRIALS_N} trials - study {study.study_name}",
                 label=f"tab:hpo_{study.study_name}",
             )
 
@@ -81,7 +81,7 @@ class HPOReporter:
             self._plot_param_importance(study, plots_dir / _IMPORTANCE_FILENAME)
         else:
             _logger.info(
-                "skipping param-importance plot: need ≥%d completed trials, have %d",
+                "skipping param-importance plot: need >=%d completed trials, have %d",
                 _MIN_TRIALS_FOR_IMPORTANCE,
                 len(completed),
             )

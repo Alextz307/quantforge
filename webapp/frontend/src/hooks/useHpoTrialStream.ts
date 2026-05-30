@@ -21,7 +21,7 @@ export interface HpoTrialStreamSnapshot {
  * The backend replays all existing trials on connect (filtered by
  * ``afterTrial`` when set) and then live-tails ``trials.jsonl`` for any
  * new lines. Works uniformly across top-level webapp tune jobs, nested
- * HPO studies inside a running study job, and CLI-launched studies —
+ * HPO studies inside a running study job, and CLI-launched studies -
  * the source of truth is the on-disk file, not an in-process broker.
  *
  * Always-enabled by design: completed studies see no new frames, which

@@ -27,7 +27,7 @@ export function DeploymentsPage() {
   const isAdmin = me.data?.role === "admin";
   const [searchParams] = useSearchParams();
   const [allUsers, setAllUsers] = useState(false);
-  // Arriving from Configure → "New deployment" lands with the picker open.
+  // Arriving from Configure -> "New deployment" lands with the picker open.
   const [showPicker, setShowPicker] = useState(searchParams.get("new") === "1");
   const query = useDeployments({ allUsers: isAdmin && allUsers });
   const deleteDeployment = useDeleteDeployment();
@@ -113,7 +113,7 @@ function DeploymentsTable({ rows, onDelete, deleting }: TableProps) {
         prefetch(r.id);
       }}
       tableTestId="deployments-table"
-      emptyMessage="No deployments yet. Use “+ New Deployment” to deploy a trained model."
+      emptyMessage="No deployments yet. Use '+ New Deployment' to deploy a trained model."
       columns={[
         { header: "Ticker", cellClassName: "font-mono", render: (r) => r.ticker },
         { header: "Strategy", render: (r) => r.strategy_name },
@@ -265,7 +265,7 @@ function PickerTable({ holdouts, onDeploy, deploying }: PickerTableProps) {
             >
               <td className="py-2 pr-4">{c.name}</td>
               <td className="py-2 pr-4 font-mono text-xs">
-                {sourceKindLabel(c.sourceKind)} · {c.sourceId}
+                {sourceKindLabel(c.sourceKind)} | {c.sourceId}
               </td>
               <td className="py-2 pr-4 text-right font-mono">{formatMetric(c.sharpe)}</td>
               <td className="py-2 text-right">

@@ -23,7 +23,7 @@ function formatParamValue(v: unknown): string {
 
 function paramsSummary(params: Readonly<Record<string, unknown>>): string {
   const keys = Object.keys(params).sort();
-  if (keys.length === 0) return "—";
+  if (keys.length === 0) return "-";
   return keys.map((k) => `${k}=${formatParamValue(params[k])}`).join(", ");
 }
 
@@ -65,7 +65,7 @@ export function TrialTable({ trials, bestTrialNumber }: TrialTableProps) {
                 <td className="py-2 pr-4 text-right font-mono">{formatMetric(t.value)}</td>
                 <td className="py-2 pr-4 font-mono text-xs">{paramsSummary(t.params)}</td>
                 <td className="py-2 pr-4 font-mono text-xs">
-                  {t.datetime_start ? formatDateTime(t.datetime_start) : "—"}
+                  {t.datetime_start ? formatDateTime(t.datetime_start) : "-"}
                 </td>
                 <td className="py-2 pr-0 font-mono text-xs">
                   {t.experiment_id && t.state === TRIAL_STATE_COMPLETE ? (
@@ -76,7 +76,7 @@ export function TrialTable({ trials, bestTrialNumber }: TrialTableProps) {
                       open
                     </Link>
                   ) : (
-                    "—"
+                    "-"
                   )}
                 </td>
               </tr>

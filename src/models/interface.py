@@ -61,7 +61,7 @@ class IPredictor(ABC):
         ``FileExistsError`` if ``path`` exists and is non-empty.
 
         The base implementation raises ``NotImplementedError`` so concrete
-        models must override explicitly — a silent no-op would let tests pass
+        models must override explicitly - a silent no-op would let tests pass
         without actually persisting anything.
         """
 
@@ -113,7 +113,7 @@ class IPredictor(ABC):
         """
         Return ``self.training_metadata`` narrowed to non-None, raising otherwise.
 
-        Canonical read-side guard — every method that requires a completed
+        Canonical read-side guard - every method that requires a completed
         ``fit()`` (``predict``, ``predict_single``, ``save``, ``update``)
         calls this. Composite predictors that also need a leaf-presence check
         (e.g. ``self._scaler is None`` for a Hybrid model) layer that as a
@@ -140,7 +140,7 @@ class IPredictor(ABC):
         Atomic write-side counterpart to :meth:`_assert_fitted_with_metadata`.
 
         ``fit()`` and ``load()`` overrides call this as the very last step.
-        ``training_metadata is not None`` is the sole fitted-state signal —
+        ``training_metadata is not None`` is the sole fitted-state signal -
         no separate boolean flag exists, so atomicity reduces to "the slot is
         either ``None`` or a complete :class:`TrainingMetadata`". Refusing
         ``None`` keeps walk-forward's deep leakage check honest: a ``None``

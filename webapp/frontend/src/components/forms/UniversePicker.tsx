@@ -24,7 +24,7 @@ interface UniversePickerProps {
  * Dropdown over ``config/universes/*.yaml``. Selecting a name and clicking
  * "Apply" loads the universe YAML and writes its data block back into
  * the form's tickers/start/end/interval fields. The user can edit any of
- * those afterward — universe is a *preset*, not a binding.
+ * those afterward - universe is a *preset*, not a binding.
  */
 export function UniversePicker({ onApply, disabled, className }: UniversePickerProps) {
   const list = useConfigList("universe");
@@ -54,7 +54,7 @@ export function UniversePicker({ onApply, disabled, className }: UniversePickerP
             setName(e.target.value || null);
           }}
         >
-          <option value="">— select to preview —</option>
+          <option value="">- select to preview -</option>
           {list.data?.map((entry) => (
             <option key={entry.name} value={entry.name}>
               {entry.name}
@@ -68,7 +68,7 @@ export function UniversePicker({ onApply, disabled, className }: UniversePickerP
           disabled={disabled || isLoading || !detail.data?.parsed}
           onClick={handleApply}
         >
-          {isLoading ? "Loading…" : "Apply preset"}
+          {isLoading ? "Loading..." : "Apply preset"}
         </Button>
       </div>
       {detail.data?.parse_error && (

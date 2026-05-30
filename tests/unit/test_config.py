@@ -36,7 +36,7 @@ _RISK_FREE = 0.01
 
 def _minimal_config_dict() -> dict[str, Any]:
     """
-    Smallest valid config dict — every required field set, defaults elsewhere.
+    Smallest valid config dict - every required field set, defaults elsewhere.
     """
 
     return {

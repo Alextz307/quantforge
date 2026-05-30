@@ -108,7 +108,7 @@ class TestGarchGridCache:
     def test_strategy_anti_leakage_invariant_holds_with_cache(self) -> None:
         """
         AdaptiveBollinger's TrainingMetadata overlap guard must still
-        fire when the cache is active — the cache is pure memoisation
+        fire when the cache is active - the cache is pure memoisation
         and must not weaken any anti-leakage invariant.
         """
 

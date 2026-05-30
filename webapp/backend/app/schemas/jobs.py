@@ -52,7 +52,7 @@ class ComparePayload(BaseModel):
     server's ``store_root``. The webapp passes each run's existing
     ``config.yaml`` to the CLI's ``--config`` flag in matching order.
     From-scratch compare (no ``--reuse-runs``) is intentionally out of
-    scope here — heavy and rarely interactive.
+    scope here - heavy and rarely interactive.
     """
 
     run_ids: list[str] = Field(min_length=_MIN_COMPARE_RUNS, max_length=_MAX_COMPARE_RUNS)
@@ -83,7 +83,7 @@ class HoldoutPayload(BaseModel):
 
 class StudyPayload(BaseModel):
     """
-    Inputs for ``experiment study run`` (cross-strategy × cross-universe sweep).
+    Inputs for ``experiment study run`` (cross-strategy x cross-universe sweep).
 
     ``spec_name`` resolves to ``config/study/<spec_name>.yaml``; the
     job_service parses it via ``StudySpec.model_validate`` and surfaces a

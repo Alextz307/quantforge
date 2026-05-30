@@ -25,7 +25,7 @@ const ISO_DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 
 export const TICKERS_INPUT_HINT = "Comma- or space-separated, e.g. SPY, QQQ";
 
-// Mirrored from the ExperimentConfig.name backend constraint — imported by
+// Mirrored from the ExperimentConfig.name backend constraint - imported by
 // ExperimentFieldsSection so the input's HTML maxLength matches the server.
 export const NAME_MAX = 64;
 const DEFAULT_SEED = 42;
@@ -46,7 +46,7 @@ export const parseStringList = (input: string): string[] =>
     .map((t) => t.trim())
     .filter((t) => t.length > 0);
 
-// Pure object shape — no cross-field refinement, so consumers can ``.extend()``
+// Pure object shape - no cross-field refinement, so consumers can ``.extend()``
 // it before applying their own ``.refine()`` (Zod's ``ZodEffects`` doesn't
 // support ``.extend``). The Tune form reuses this exact base.
 export const experimentBaseSchema = z.object({

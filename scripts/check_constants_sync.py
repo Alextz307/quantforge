@@ -3,7 +3,7 @@ Guard against Python / C++ numeric-constant drift.
 
 Several scalar constants are mirrored between ``src/core/constants.py`` and
 ``cpp/include/quant/core/types.hpp`` (trading-calendar counts, position
-limits). They have to agree numerically — a silent divergence between the
+limits). They have to agree numerically - a silent divergence between the
 Python annualization factor and the C++ engine's would produce wrong Sharpes
 or volatility numbers in every report without ever raising.
 

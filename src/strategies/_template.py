@@ -4,7 +4,7 @@ Skeleton single-asset strategy. Copy this file (drop the underscore) and fill in
 The leading underscore in the filename is intentional:
 ``src.core.registry.autoload_package`` skips ``_``-prefixed modules so this
 template never registers itself on ``strategy_registry``. Renaming the copy
-to e.g. ``mean_reversion.py`` makes the autoloader import the module — to
+to e.g. ``mean_reversion.py`` makes the autoloader import the module - to
 actually register the class, also uncomment the ``@strategy_registry.register(...)``
 decorator below.
 
@@ -18,10 +18,10 @@ What this skeleton demonstrates:
 
 What this skeleton does NOT demonstrate (look at the listed exemplars):
 
-* Pairs strategies (``is_pairs_strategy = True``) → ``pairs_trading.py``.
+* Pairs strategies (``is_pairs_strategy = True``) -> ``pairs_trading.py``.
 * Multi-feature single-asset (``is_multi_feature_strategy = True`` +
-  ``primary_ticker``) → ``cross_asset_momentum.py``.
-* Composite strategies that own ML leaves → ``momentum_gatekeeper.py``
+  ``primary_ticker``) -> ``cross_asset_momentum.py``.
+* Composite strategies that own ML leaves -> ``momentum_gatekeeper.py``
   (pipeline + classifier), ``return_forecast.py`` /
   ``volatility_targeting.py`` (passthrough bundle).
 
@@ -60,14 +60,14 @@ class _TemplateStrategy(IStrategy):
     def __init__(
         self,
         # Replace these with your strategy's actual hyperparameters. Use
-        # plain Python types (int / float / str / Enum) — Pydantic + YAML
+        # plain Python types (int / float / str / Enum) - Pydantic + YAML
         # will coerce strings into Enum members automatically. The kwarg
         # names listed here MUST match the keys returned by suggest_params.
         window: int = 20,
         threshold: float = 1.0,
         interval: Interval = Interval.DAILY,
     ) -> None:
-        # Validate every numeric/string param at the boundary — catches
+        # Validate every numeric/string param at the boundary - catches
         # mis-typed YAML and bad HPO trials before they corrupt fold state.
         if window < 2:
             raise ValueError(
@@ -87,7 +87,7 @@ class _TemplateStrategy(IStrategy):
         self,
         train_data: pd.DataFrame,
         *,
-        checkpoint_path: Path | None = None,  # noqa: ARG002 — accept for NN-style leaves; ignore here
+        checkpoint_path: Path | None = None,  # noqa: ARG002 - accept for NN-style leaves; ignore here
         **kwargs: object,
     ) -> None:
         """
@@ -99,12 +99,12 @@ class _TemplateStrategy(IStrategy):
         #
         # 1. Run your fitting work here (estimate parameters, fit a scaler,
         #    etc.). Use ONLY columns from train_data. Do NOT touch any data
-        #    after train_data.index[-1] — the backtest engine will re-call
+        #    after train_data.index[-1] - the backtest engine will re-call
         #    generate_signals() on the test window separately.
         #
         # 2. Atomic fitted-state commit. MUST be the last line of train().
         #    _set_fitted_with_metadata refuses None and is the only legal
-        #    mutator of self._training_metadata — never assign that slot
+        #    mutator of self._training_metadata - never assign that slot
         #    directly. The feature_columns tuple should list every column
         #    your strategy READS from generate_signals() data.
         #
@@ -120,7 +120,7 @@ class _TemplateStrategy(IStrategy):
 
     def generate_signals(self, data: pd.DataFrame) -> pd.Series:
         """
-        Return position signals at time t (the engine shifts to t+1 — do NOT shift here).
+        Return position signals at time t (the engine shifts to t+1 - do NOT shift here).
         """
 
         # Read-side guard: raises a descriptive RuntimeError if train() was
@@ -131,7 +131,7 @@ class _TemplateStrategy(IStrategy):
         # Compute your signal series here. Position semantics are your
         # choice (binary 0/1, signed -1/0/+1, continuous size); document
         # them in the class docstring above. Leading bars during warmup
-        # MUST stay NaN — never fillna(0) and never bfill().
+        # MUST stay NaN - never fillna(0) and never bfill().
         raise NotImplementedError(
             "_TemplateStrategy.generate_signals() is a stub; replace this "
             "NotImplementedError with your actual signal computation. The "
@@ -158,7 +158,7 @@ class _TemplateStrategy(IStrategy):
         Declare this strategy's Optuna search space.
 
         The returned dict's KEYS must exactly match this strategy's __init__
-        kwarg names — ``StrategyTuner`` merges this dict into the ctor.
+        kwarg names - ``StrategyTuner`` merges this dict into the ctor.
 
         The Optuna trial parameter NAMES (the strings passed to
         trial.suggest_*) are global identifiers across an Optuna study;

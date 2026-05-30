@@ -271,7 +271,7 @@ class TestLSTMPredictor:
         lstm_features: list[str],
     ) -> None:
         """
-        End-to-end fit → predict on an explicitly-pinned CPU device (portable on CI).
+        End-to-end fit -> predict on an explicitly-pinned CPU device (portable on CI).
         """
 
         torch.manual_seed(TORCH_SEED)

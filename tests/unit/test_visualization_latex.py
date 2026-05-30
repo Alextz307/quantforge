@@ -1,5 +1,5 @@
 """
-Tests for :mod:`src.visualization.latex` — booktabs table builder.
+Tests for :mod:`src.visualization.latex` - booktabs table builder.
 
 Verifies structural LaTeX properties, not source-text patterns (per the
 testing-philosophy rule). A regression here would silently corrupt every
@@ -41,7 +41,7 @@ class TestBuildBooktabsTable:
     def test_contains_booktabs_rules(self) -> None:
         """
         Styled via ``to_latex(..., escape=False)`` which emits toprule /
-        midrule / bottomrule under the hood — sanity check the styling
+        midrule / bottomrule under the hood - sanity check the styling
         actually kicked in."""
 
         out = build_booktabs_table(_sample_df(), caption="x", label="tab:x")

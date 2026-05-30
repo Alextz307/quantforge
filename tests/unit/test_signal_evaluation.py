@@ -3,8 +3,8 @@ Open->open scoring of a deployment's emitted signals.
 
 Pins the realised-return math, the directional hit rule (long / short /
 flat), leverage scaling, cumulative compounding, and the pending states
-(exit-open or entry-open not yet available). All synthetic — no network,
-no calendar — so the scorer is exercised in isolation from the
+(exit-open or entry-open not yet available). All synthetic - no network,
+no calendar - so the scorer is exercised in isolation from the
 open-discipline fetch that feeds it live.
 """
 
@@ -174,7 +174,7 @@ def test_cost_subtracts_turnover_friction() -> None:
 
 
 def test_turnover_uses_previous_signal() -> None:
-    # Long then long again: no leverage change at the second signal → no cost there.
+    # Long then long again: no leverage change at the second signal -> no cost there.
     result = evaluate_signals(
         [_D1, _D2], [_LONG, _LONG], _opens_series(), cost_fraction=_COST_FRACTION
     )

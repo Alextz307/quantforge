@@ -71,9 +71,7 @@ def post_deployment(
             warmup_bars=body.warmup_bars,
         )
     except FileNotFoundError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
-        ) from exc
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
     except DeploymentSourceInvalidError as exc:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
@@ -159,7 +157,7 @@ def get_signal_evaluation(
     user: UserPublic = Depends(get_current_user),
     conn: sqlite3.Connection = Depends(get_db),
 ) -> SignalEvaluationOut:
-    """Score the deployment's emitted signals open→open; ``cost`` sets the net friction tier."""
+    """Score the deployment's emitted signals open->open; ``cost`` sets the net friction tier."""
 
     try:
         return evaluate_signal_log(

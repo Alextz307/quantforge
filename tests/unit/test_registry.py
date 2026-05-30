@@ -48,7 +48,7 @@ class _WithText:
 
 class _StrictWithMode:
     """
-    Mirrors a leaf ctor that itself rejects non-Enum types — used to verify
+    Mirrors a leaf ctor that itself rejects non-Enum types - used to verify
     that bad-string values fall through to the ctor's own error path rather
     than being silently swallowed by the coercion helper.
     """
@@ -241,14 +241,14 @@ class TestPackageAutoDiscovery:
     Importing ``src.strategies`` / ``src.data`` / ``src.features`` populates
     the matching registry. For ``src.strategies`` this is an exact-match check:
     every non-interface module IS a concrete strategy, so the count of modules
-    must equal the registry size — a new strategy file without the
+    must equal the registry size - a new strategy file without the
     ``@strategy_registry.register`` decorator trips this immediately rather
     than surfacing later as a cryptic ``ValidationError`` on config load.
 
     For ``src.data`` / ``src.features`` the match is looser because those
     packages mix concrete-source modules with stateless utilities (cache,
     normalizer, validator). The loose check only asserts that auto-discovery
-    runs at all — which catches an empty ``__init__.py`` regression.
+    runs at all - which catches an empty ``__init__.py`` regression.
     """
 
     def test_strategies_registry_matches_package_contents_exactly(self) -> None:

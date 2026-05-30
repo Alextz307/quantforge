@@ -8,7 +8,7 @@ default-zero). Callers compute the statistical metrics via
 bundles raw + metrics into ``FoldResult`` per fold.
 
 Direct callers of ``run()`` are responsible for their own anti-leakage
-hygiene — the engine is a pure number cruncher and does not inspect
+hygiene - the engine is a pure number cruncher and does not inspect
 ``strategy.training_metadata``. Use ``evaluate_walk_forward`` to get the
 ``validate_no_overlap`` tripwire wired in for free.
 """
@@ -25,7 +25,7 @@ from quant_engine import BacktestResult, SlippageConfig
 
 class IBacktestEngine(ABC):
     """
-    Backtest engine interface — implemented by ``CppBacktestEngine``.
+    Backtest engine interface - implemented by ``CppBacktestEngine``.
     """
 
     @abstractmethod
@@ -50,7 +50,7 @@ class IBacktestEngine(ABC):
         Returns:
             ``BacktestResult`` with ``equity_curve``, ``total_return``,
             and ``trade_count`` populated. Statistical metrics fields
-            (``sharpe_ratio``, ``sortino_ratio``, ...) default-zero —
+            (``sharpe_ratio``, ``sortino_ratio``, ...) default-zero -
             compute via ``MetricsCalculator``.
         """
 
@@ -85,17 +85,17 @@ class IBacktestEngine(ABC):
                 ``bars_b`` and ``signals``.
             bars_b: OHLCV DataFrame for leg B, same shape as ``bars_a``.
             signals: Series aligned with both bar frames carrying leg A's
-                target leverage. NaN → 0 (flat). Leg B's target is
+                target leverage. NaN -> 0 (flat). Leg B's target is
                 ``-hedge_ratio * signals[t]`` (the cointegration short).
             hedge_ratio: Cointegration hedge ratio from
                 ``PairsTradingStrategy.hedge_ratio`` (slope of OLS
-                regression of A on B). Sized at the leg-B notional level —
+                regression of A on B). Sized at the leg-B notional level -
                 leg-A always gets a unit-leverage exposure.
             slippage: Slippage model applied per fill on both legs.
 
         Returns:
             ``BacktestResult`` with combined ``equity_curve``,
             ``total_return``, and ``trade_count`` (one per bar in which
-            either leg traded). Statistical metrics default-zero — compute
+            either leg traded). Statistical metrics default-zero - compute
             via ``MetricsCalculator``.
         """

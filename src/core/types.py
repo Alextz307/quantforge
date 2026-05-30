@@ -25,7 +25,7 @@ from src.core.constants import (
 
 class Interval(StrEnum):
     """
-    Bar timeframe — used for annualization factor computation.
+    Bar timeframe - used for annualization factor computation.
     """
 
     SECOND = "second"

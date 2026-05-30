@@ -50,7 +50,7 @@ public:
     /// reuse the same ``MetricsBuffer`` across calls retain the capacity
     /// across the resize. Returns a non-owning span over the populated slice.
     ///
-    /// Lifetime: the returned span aliases ``buffer.returns`` — it is
+    /// Lifetime: the returned span aliases ``buffer.returns`` - it is
     /// invalidated by any subsequent resize, move, or destruction of
     /// ``buffer``. The allocating overload above moves from this scratch
     /// internally and thus discards any span captured at that call site.

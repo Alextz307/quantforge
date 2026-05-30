@@ -74,7 +74,7 @@ def cointegrated_pair() -> tuple[pd.Series[float], pd.Series[float]]:
 @pytest.fixture
 def independent_pair() -> tuple[pd.Series[float], pd.Series[float]]:
     """
-    Two independent random walks — should NOT be cointegrated.
+    Two independent random walks - should NOT be cointegrated.
     """
 
     a = _random_walk(seed=INDEP_SEED_A)
@@ -158,7 +158,7 @@ class TestFindCointegratedPairs:
 
     def test_multi_column_screening(self) -> None:
         """
-        Screen 4 columns — only the planted pair should be found.
+        Screen 4 columns - only the planted pair should be found.
         """
 
         c = _random_walk(seed=MULTI_INDEP_C_SEED, mu=0.0)

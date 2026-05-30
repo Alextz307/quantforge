@@ -15,7 +15,7 @@ interface ChartPalette {
 }
 
 // Hex values mirror the HSL CSS tokens in src/index.css (--foreground, --border).
-// Baked here because Plotly doesn't read CSS vars — keeps the palette deterministic
+// Baked here because Plotly doesn't read CSS vars - keeps the palette deterministic
 // per theme without a layout-time getComputedStyle call.
 const PALETTES: Record<ResolvedTheme, ChartPalette> = {
   light: { font: "#0a0a0c", grid: "#e2e5ea", zeroLine: "#cbd0d7", axisLine: "#cbd0d7" },

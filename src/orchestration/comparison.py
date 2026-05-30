@@ -4,7 +4,7 @@ Multi-strategy comparison orchestrator.
 Composes multiple :class:`ExperimentConfig` runs into a single
 :class:`StrategyComparisonReport`: ranked per-strategy stats, pairwise Sharpe
 significance, concatenated-equity view. Parallelism is opt-in via
-``n_jobs`` — ``n_jobs=1`` runs in-process (simplest, no pickle pain),
+``n_jobs`` - ``n_jobs=1`` runs in-process (simplest, no pickle pain),
 ``n_jobs>1`` fans out via :class:`ProcessPoolExecutor` so each experiment
 gets a fresh process (fresh GPU / torch state) at the cost of per-worker
 Python startup.
@@ -13,13 +13,13 @@ Execution paths
 ---------------
 We deliberately branch on ``n_jobs`` instead of unifying the two:
 
-* In-process (``n_jobs == 1``): cheapest single-run cost — no worker
+* In-process (``n_jobs == 1``): cheapest single-run cost - no worker
   startup, exceptions surface with full tracebacks, breakpoints work.
   The vast majority of comparisons (3-5 strategies, overnight run)
   use this path.
 * Multi-process (``n_jobs > 1``): :func:`_run_one_experiment` at module
   scope so it pickles cleanly for :class:`ProcessPoolExecutor`. Each
-  worker re-imports the world (~1-3s cold) — acceptable when the
+  worker re-imports the world (~1-3s cold) - acceptable when the
   per-experiment compute is in the minutes.
 
 Fold alignment for pairwise bootstrap
@@ -85,7 +85,7 @@ class _ComparisonInputs:
     Internal bundle: configs + their resolved strategy names.
 
     Two strategies in one comparison with identical names would collide
-    in ``per_strategy_stats`` — we surface that as a :class:`ValueError`
+    in ``per_strategy_stats`` - we surface that as a :class:`ValueError`
     early instead of silently overwriting.
     """
 
@@ -106,7 +106,7 @@ def run_comparison(
     """
     Run every config, aggregate, rank, optionally pairwise-test.
 
-    Returns ``(report, folds_by_strategy)`` — the in-memory
+    Returns ``(report, folds_by_strategy)`` - the in-memory
     :class:`StrategyComparisonReport` plus a per-strategy mapping of fold
     records. The reporter's equity-overlay plot consumes the folds; the
     comparison bundle also stores per-fold data under each strategy's
@@ -115,7 +115,7 @@ def run_comparison(
 
     When ``reused_results`` is supplied (one :class:`ExperimentResult`
     per config, in matching order), the per-strategy walk-forward step
-    is skipped entirely — ranking and pairwise bootstrap run against the
+    is skipped entirely - ranking and pairwise bootstrap run against the
     prior results. Every reused result's ``manifest.data_hash`` must match
     for the bootstrap pairing to be valid. ``configs`` may be omitted
     on the reuse path; strategy names are then read from each result's
@@ -192,7 +192,7 @@ def run_comparison(
 
 def _run_one_experiment(cfg: ExperimentConfig, cmp_dir: Path) -> ExperimentResult:
     """
-    Worker entry point — module-level so ProcessPoolExecutor can pickle it.
+    Worker entry point - module-level so ProcessPoolExecutor can pickle it.
 
     ``write_report=False``: per-strategy reporting is redundant with the
     cross-strategy StrategyComparisonReport and triples the wall clock on
@@ -202,7 +202,7 @@ def _run_one_experiment(cfg: ExperimentConfig, cmp_dir: Path) -> ExperimentResul
     ``store_root=cmp_dir`` routes per-strategy artifacts under
     ``<cmp_dir>/runs/<experiment_id>/`` (the ``runs/`` subdirectory is
     appended inside :meth:`Experiment.run`) so the comparison bundle
-    is self-contained — a user can zip the comparison directory and
+    is self-contained - a user can zip the comparison directory and
     everything travels together.
     """
 
@@ -231,7 +231,7 @@ def _validate_reused_inputs(reused_results: Sequence[ExperimentResult]) -> _Comp
     """
     Build :class:`_ComparisonInputs` directly from reused results.
 
-    Used when ``run_comparison`` is called without ``configs`` — strategy
+    Used when ``run_comparison`` is called without ``configs`` - strategy
     names come from each result's ``manifest.name`` (which was set from
     ``cfg.name`` at the original write time).
     """
@@ -267,7 +267,7 @@ def _run_parallel(
     _logger.info("parallel: spawning %d workers for %d configs", n_jobs, len(configs))
     with ProcessPoolExecutor(max_workers=n_jobs) as pool:
         futures = [pool.submit(_run_one_experiment, cfg, cmp_dir) for cfg in configs]
-        # as_completed would give incremental progress but breaks input→output
+        # as_completed would give incremental progress but breaks input->output
         # ordering; we need ordered results so the caller's strategy_names tuple
         # lines up with the returned ExperimentResults.
         results: list[ExperimentResult] = []
@@ -294,7 +294,7 @@ def _compute_pairwise_bootstrap(
     Compute the upper-triangular pairwise Sharpe-differential matrix.
 
     Raises if fold counts or per-fold curve lengths differ between any
-    two strategies — that's an alignment violation and pairing the
+    two strategies - that's an alignment violation and pairing the
     bootstrap indices would produce meaningless results.
     """
 

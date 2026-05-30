@@ -2,7 +2,7 @@
   "components": {
     "schemas": {
       "ComparePayload": {
-        "description": "Inputs for ``experiment compare`` in ``--reuse-runs`` mode.\n\nEach ``run_ids[i]`` must resolve to a completed run dir under the\nserver's ``store_root``. The webapp passes each run's existing\n``config.yaml`` to the CLI's ``--config`` flag in matching order.\nFrom-scratch compare (no ``--reuse-runs``) is intentionally out of\nscope here \u2014 heavy and rarely interactive.",
+        "description": "Inputs for ``experiment compare`` in ``--reuse-runs`` mode.\n\nEach ``run_ids[i]`` must resolve to a completed run dir under the\nserver's ``store_root``. The webapp passes each run's existing\n``config.yaml`` to the CLI's ``--config`` flag in matching order.\nFrom-scratch compare (no ``--reuse-runs``) is intentionally out of\nscope here - heavy and rarely interactive.",
         "properties": {
           "n_jobs": {
             "default": 1,
@@ -1006,7 +1006,7 @@
         "type": "object"
       },
       "Interval": {
-        "description": "Bar timeframe \u2014 used for annualization factor computation.",
+        "description": "Bar timeframe - used for annualization factor computation.",
         "enum": [
           "second",
           "minute",
@@ -1370,7 +1370,7 @@
         "type": "object"
       },
       "ParamImportanceResponse": {
-        "description": "Per-hyperparameter relative importance for the live HPO monitor.\n\n``importance`` is empty and ``message`` is set when the study has too few\ncompleted trials, the optuna DB is missing, or the importance evaluator\nraises on a degenerate search space \u2014 the endpoint stays 200 so the\nfrontend renders an empty-state card instead of erroring.",
+        "description": "Per-hyperparameter relative importance for the live HPO monitor.\n\n``importance`` is empty and ``message`` is set when the study has too few\ncompleted trials, the optuna DB is missing, or the importance evaluator\nraises on a degenerate search space - the endpoint stays 200 so the\nfrontend renders an empty-state card instead of erroring.",
         "properties": {
           "importance": {
             "additionalProperties": {
@@ -1809,7 +1809,7 @@
         "type": "object"
       },
       "ScoredSignalOut": {
-        "description": "One emitted signal scored open\u2192open against realised session opens.\n\nEntered at ``entry_date``'s open (the first session after ``bar_ts``),\nexited at ``exit_date``'s open (the next session). ``listened_return``\nis the signed, leverage-scaled realised return. The realised fields are\npopulated together iff ``scored`` is true \u2014 a signal stays unscored\nuntil its exit session has opened. ``hit`` is null for a FLAT signal.",
+        "description": "One emitted signal scored open->open against realised session opens.\n\nEntered at ``entry_date``'s open (the first session after ``bar_ts``),\nexited at ``exit_date``'s open (the next session). ``listened_return``\nis the signed, leverage-scaled realised return. The realised fields are\npopulated together iff ``scored`` is true - a signal stays unscored\nuntil its exit session has opened. ``hit`` is null for a FLAT signal.",
         "properties": {
           "asset_return": {
             "anyOf": [
@@ -2120,7 +2120,7 @@
         "type": "string"
       },
       "SlippageScenario": {
-        "description": "Named cost tiers \u2014 keys into ``COST_SCENARIOS`` / ``SLIPPAGE_SCENARIOS``.",
+        "description": "Named cost tiers - keys into ``COST_SCENARIOS`` / ``SLIPPAGE_SCENARIOS``.",
         "enum": [
           "zero",
           "low",
@@ -2392,7 +2392,7 @@
         "type": "string"
       },
       "StudyPayload": {
-        "description": "Inputs for ``experiment study run`` (cross-strategy \u00d7 cross-universe sweep).\n\n``spec_name`` resolves to ``config/study/<spec_name>.yaml``; the\njob_service parses it via ``StudySpec.model_validate`` and surfaces a\n422 with structured ``loc`` on schema errors. ``only_legs`` entries\nare validated against the spec's expanded leg ids in the handler.",
+        "description": "Inputs for ``experiment study run`` (cross-strategy x cross-universe sweep).\n\n``spec_name`` resolves to ``config/study/<spec_name>.yaml``; the\njob_service parses it via ``StudySpec.model_validate`` and surfaces a\n422 with structured ``loc`` on schema errors. ``only_legs`` entries\nare validated against the spec's expanded leg ids in the handler.",
         "properties": {
           "force_rerun": {
             "default": false,
@@ -2496,7 +2496,7 @@
         "type": "object"
       },
       "StudySpecUploadSummary": {
-        "description": "Listing entry \u2014 no YAML body, no validation errors.",
+        "description": "Listing entry - no YAML body, no validation errors.",
         "properties": {
           "created_at": {
             "format": "date-time",
@@ -2532,7 +2532,7 @@
         "type": "object"
       },
       "StudySpecValidateRequest": {
-        "description": "``POST /configs/study_spec/validate`` body \u2014 raw YAML text.\n\nA dedicated wire type keeps the existing ValidateRequest (parsed payload)\nuncoupled from the YAML-text path, which has to handle parse errors before\nPydantic ever sees the body.",
+        "description": "``POST /configs/study_spec/validate`` body - raw YAML text.\n\nA dedicated wire type keeps the existing ValidateRequest (parsed payload)\nuncoupled from the YAML-text path, which has to handle parse errors before\nPydantic ever sees the body.",
         "properties": {
           "yaml": {
             "title": "Yaml",
@@ -2735,7 +2735,7 @@
         "type": "object"
       },
       "UniverseSpecUploadSummary": {
-        "description": "Listing entry \u2014 no YAML body.",
+        "description": "Listing entry - no YAML body.",
         "properties": {
           "created_at": {
             "format": "date-time",
@@ -2771,7 +2771,7 @@
         "type": "object"
       },
       "UniverseSpecValidateRequest": {
-        "description": "``POST /configs/universe_spec/validate`` body \u2014 raw YAML text.",
+        "description": "``POST /configs/universe_spec/validate`` body - raw YAML text.",
         "properties": {
           "yaml": {
             "title": "Yaml",
@@ -4031,7 +4031,7 @@
     },
     "/api/deployments/{deployment_id}/signal-evaluation": {
       "get": {
-        "description": "Score the deployment's emitted signals open\u2192open; ``cost`` sets the net friction tier.",
+        "description": "Score the deployment's emitted signals open->open; ``cost`` sets the net friction tier.",
         "operationId": "get_signal_evaluation_api_deployments__deployment_id__signal_evaluation_get",
         "parameters": [
           {

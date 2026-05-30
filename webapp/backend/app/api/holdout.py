@@ -30,9 +30,7 @@ def get_holdout_evals(
     user: UserPublic = Depends(get_current_user),
     conn: sqlite3.Connection = Depends(get_db),
 ) -> list[HoldoutEvalSummary]:
-    return list_holdout_evals(
-        get_settings().store_root, conn=conn, user=user, all_users=all_users
-    )
+    return list_holdout_evals(get_settings().store_root, conn=conn, user=user, all_users=all_users)
 
 
 @router.get("/{name}", response_model=HoldoutEvalDetail)
@@ -55,9 +53,7 @@ def get_holdout_eval_plot(
     conn: sqlite3.Connection = Depends(get_db),
 ) -> FileResponse:
     try:
-        path = resolve_plot(
-            get_settings().store_root, name, plot_name, conn=conn, user=user
-        )
+        path = resolve_plot(get_settings().store_root, name, plot_name, conn=conn, user=user)
     except (HoldoutEvalNotFoundError, PlotNotFoundError) as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
     return FileResponse(path)

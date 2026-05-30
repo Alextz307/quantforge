@@ -21,11 +21,11 @@ function success(value: string): UseQueryResult<string> {
 describe("QueryRenderer", () => {
   it("renders the loading message while the query is pending", () => {
     render(
-      <QueryRenderer query={pending()} errorTitle="X" loadingMessage="Fetching things…">
+      <QueryRenderer query={pending()} errorTitle="X" loadingMessage="Fetching things...">
         {() => <span>data</span>}
       </QueryRenderer>,
     );
-    expect(screen.getByText("Fetching things…")).toBeInTheDocument();
+    expect(screen.getByText("Fetching things...")).toBeInTheDocument();
     expect(screen.queryByText("data")).not.toBeInTheDocument();
   });
 

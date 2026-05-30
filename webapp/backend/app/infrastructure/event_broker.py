@@ -11,7 +11,7 @@ class EventBroker[V]:
     """
     Per-key pub/sub of ``V``-typed frames.
 
-    Queues are unbounded — a slow consumer can grow its own queue but
+    Queues are unbounded - a slow consumer can grow its own queue but
     never blocks the producer or other consumers. ``None`` is the
     close sentinel (see :meth:`close`).
     """

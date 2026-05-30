@@ -1,9 +1,9 @@
 # `config/study/`
 
 Top-level empirical-study specs. A study spec enumerates every
-(strategy × universe) leg the study orchestrator should evaluate;
-incompatible combinations (e.g. AAPL × PairsTrading) are filtered at
-spec-write time, not at run time.
+(strategy x universe) leg the study orchestrator should evaluate.
+Incompatible combinations (e.g. AAPL x PairsTrading) are filtered when
+the spec is written rather than at run time.
 
 ## Schema
 
@@ -27,11 +27,11 @@ legs:
 
 See `StudySpec` / `StudyLeg` (`src/core/config.py`) for the full set of
 invariants. Path fields are typed `Path` but not checked for existence at
-schema validation time — the orchestrator and the test suite open them.
+schema-validation time. The orchestrator and the test suite open them.
 
 ## Inventory
 
-`main_study.yaml` — five strategies (`AdaptiveBollinger`, `PairsTrading`,
+`main_study.yaml` - five strategies (`AdaptiveBollinger`, `PairsTrading`,
 `MomentumGatekeeper`, `VolatilityTargeting`, `ReturnForecast`) over the
 universes in `config/universes/`, with each strategy's universe list
 filtered for compatibility (e.g. only the IVV/VOO pair for
@@ -48,7 +48,7 @@ for leg in spec.legs:
         ...  # orchestrator composes leg.strategy_config + universes/<name>.yaml
 ```
 
-## Driving the spec — `experiment study`
+## Driving the spec - `experiment study`
 
 ```bash
 # Drive the sweep: tune -> run -> holdout-eval per leg, then per-universe

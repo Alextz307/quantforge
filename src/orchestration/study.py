@@ -113,7 +113,7 @@ class StudyRunResult:
 
 def make_leg_id(strategy: str, universe: str) -> str:
     """
-    Canonical leg identifier — also the directory-name suffix on artifacts.
+    Canonical leg identifier - also the directory-name suffix on artifacts.
     """
 
     return f"{strategy}__{universe}"
@@ -184,7 +184,7 @@ def _resolve_dev_bar_count(cfg: ExperimentConfig) -> int:
 
     Computes ``len(bars_full.loc[bars_full.index < boundary])`` from one
     ``fetch_bars`` call. The upcoming run step calls ``fetch_bars`` again
-    on the same config — yfinance caching keeps this a disk read, not a
+    on the same config - yfinance caching keeps this a disk read, not a
     network round-trip.
     """
 
@@ -231,7 +231,7 @@ def run_leg(
     Returns the updated :class:`LegState`. Steps already in
     ``prior_state.steps_completed`` are skipped (mid-leg resume). Any
     raised exception is captured, logged, and recorded as an ``error``
-    on the returned state — the caller decides whether to stop or
+    on the returned state - the caller decides whether to stop or
     continue with the next leg.
     """
 
@@ -272,7 +272,7 @@ def run_leg(
         if LEG_STEP_RUN not in state.steps_completed:
             if not best_config_path.is_file():
                 raise FileNotFoundError(
-                    f"leg {leg.leg_id}: tune did not produce {best_config_path} — "
+                    f"leg {leg.leg_id}: tune did not produce {best_config_path} - "
                     f"the study likely had zero completed trials. Bump n_trials "
                     f"or fix the failing trial signature."
                 )
@@ -317,7 +317,7 @@ def run_leg(
 
         return replace(state, completed_at=datetime.now(UTC), is_complete=True, error=None)
 
-    except Exception as exc:  # noqa: BLE001 — sweep continues on per-leg failure
+    except Exception as exc:  # noqa: BLE001 - sweep continues on per-leg failure
         tb = "".join(traceback.format_exception_only(type(exc), exc)).strip()
         _logger.error("leg %s: failed (%s)", leg.leg_id, tb)
         return replace(state, completed_at=datetime.now(UTC), is_complete=False, error=tb)
@@ -350,7 +350,7 @@ def run_study(
 
     Resume rule: a leg with ``is_complete=True`` in the loaded
     ``study_state.json`` is skipped unless ``force_rerun=True``. The
-    state's ``spec_hash`` must match the current spec — a mismatch
+    state's ``spec_hash`` must match the current spec - a mismatch
     raises rather than silently running against a mutated spec.
     """
 
@@ -400,7 +400,7 @@ def run_study(
             continue
         prior = state.get_leg(leg.leg_id)
         if prior.is_complete and not force_rerun:
-            _logger.info("leg %s: already complete — skipping", leg.leg_id)
+            _logger.info("leg %s: already complete - skipping", leg.leg_id)
             n_skipped += 1
             continue
         if force_rerun:
@@ -457,7 +457,7 @@ def _run_per_universe_compares(
     Group completed runs by universe; run cross-strategy compare per universe.
 
     Universes covered by a single strategy (e.g. ivv_voo_daily_5y, the
-    only pairs universe) are silently skipped — pairwise ranking against
+    only pairs universe) are silently skipped - pairwise ranking against
     one strategy is undefined.
     """
 
@@ -472,13 +472,13 @@ def _run_per_universe_compares(
     for universe, universe_legs in sorted(by_universe.items()):
         if len(universe_legs) < 2:
             _logger.info(
-                "compare for universe %s: only %d strategy — skipping",
+                "compare for universe %s: only %d strategy - skipping",
                 universe,
                 len(universe_legs),
             )
             continue
         if universe in state.cross_strategy_compares_done and not force_rerun:
-            _logger.info("compare for universe %s: already done — skipping", universe)
+            _logger.info("compare for universe %s: already done - skipping", universe)
             continue
 
         run_dirs = [
@@ -508,7 +508,7 @@ def _run_per_universe_compares(
             )
             state = state.with_compare_done(universe)
             n_done += 1
-        except Exception as exc:  # noqa: BLE001 — continue with remaining universes
+        except Exception as exc:  # noqa: BLE001 - continue with remaining universes
             tb = "".join(traceback.format_exception_only(type(exc), exc)).strip()
             _logger.error("compare for universe %s: failed (%s)", universe, tb)
     return state, n_done

@@ -47,7 +47,7 @@ export function JobsPage() {
           className="text-sm text-primary hover:underline"
           data-testid="jobs-launch-link"
         >
-          Launch new run →
+          Launch new run {"->"}
         </Link>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
@@ -117,16 +117,16 @@ function JobsBody({ rows, status, onStatus, isAdmin, allUsers, onAllUsers }: Job
           {
             header: "Started",
             cellClassName: "font-mono text-xs",
-            render: (j) => (j.started_at ? formatDateTime(j.started_at) : "—"),
+            render: (j) => (j.started_at ? formatDateTime(j.started_at) : "-"),
           },
           {
             header: "Finished",
             cellClassName: "font-mono text-xs",
-            render: (j) => (j.finished_at ? formatDateTime(j.finished_at) : "—"),
+            render: (j) => (j.finished_at ? formatDateTime(j.finished_at) : "-"),
           },
           {
             header: "Artifact",
-            render: (j) => <JobArtifactLink job={j} compact fallback="—" />,
+            render: (j) => <JobArtifactLink job={j} compact fallback="-" />,
           },
           {
             header: "Launched by",

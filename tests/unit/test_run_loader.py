@@ -12,7 +12,7 @@ Behavioural surface:
   the returned instance is fully trained and produces signals
   byte-identical to the source strategy.
 * Missing dir or missing artifact raises :class:`FileNotFoundError`
-  with a pointed message — partial run dirs (mid-crash) must not look
+  with a pointed message - partial run dirs (mid-crash) must not look
   like analysable runs.
 """
 
@@ -141,7 +141,9 @@ def test_load_config_missing_yaml_raises(tmp_path: Path) -> None:
         load_experiment_config_from_run(run_dir)
 
 
-def _materialise_trained_run_dir(tmp_path: Path) -> tuple[Path, AdaptiveBollingerStrategy, pd.DataFrame]:
+def _materialise_trained_run_dir(
+    tmp_path: Path,
+) -> tuple[Path, AdaptiveBollingerStrategy, pd.DataFrame]:
     """
     Train AdaptiveBollinger on synthetic bars; persist a minimal run dir.
 
@@ -221,5 +223,3 @@ def test_resolve_run_dir_absent_returns_flat_path(tmp_path: Path) -> None:
     resolved = resolve_run_dir(tmp_path, _RUN_ID)
     assert resolved == tmp_path / RUNS_SUBDIR / _RUN_ID
     assert not resolved.exists()
-
-

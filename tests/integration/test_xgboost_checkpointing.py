@@ -6,7 +6,7 @@ Two invariants:
 1. With ``checkpoint_path`` set, ``fit()`` writes ``BEST_ITERATION_UBJ``
    whenever the **validation** metric improves; after a clean fit the file
    exists and reloads into a usable XGBoost booster.
-2. A mid-fit interrupt leaves the best-so-far snapshot recoverable — the
+2. A mid-fit interrupt leaves the best-so-far snapshot recoverable - the
    booster on disk is loadable even though the wrapping ``XGBClassifier``
    never finished ``fit()``.
 """
@@ -24,7 +24,7 @@ from src.core.utils import next_bar_direction
 from src.models.xgboost_classifier import DirectionalClassifier
 from tests.conftest import make_synthetic_close_df, seed_globally
 
-# 200 bars × 30 estimators leaves room for several val-metric improvements.
+# 200 bars x 30 estimators leaves room for several val-metric improvements.
 COMPACT_N_ESTIMATORS = 30
 SAVES_BEFORE_INTERRUPT = 1
 # Matches the realised-vol window used by VolatilityTargetingStrategy.
@@ -51,7 +51,7 @@ def xgb_data() -> tuple[pd.DataFrame, pd.Series]:
     return_1d = close.pct_change()
     momentum_5 = close.pct_change(5)
     rolling_vol = return_1d.rolling(VOL_WINDOW).std()
-    # shift(1) gives yesterday's direction — weakly autocorrelated with today's.
+    # shift(1) gives yesterday's direction - weakly autocorrelated with today's.
     direction_lag1 = target.shift(1).reindex(base.index).astype(float)
     features = pd.DataFrame(
         {

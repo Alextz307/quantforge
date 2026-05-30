@@ -5,16 +5,16 @@ Readers anchored on the canonical persistence layout
 (``<run_dir>/manifest.json`` + ``fold_results.jsonl`` + ``config.yaml`` +
 ``strategy_state/``):
 
-* :func:`load_experiment_result` — used by ``experiment compare
+* :func:`load_experiment_result` - used by ``experiment compare
   --reuse-runs`` so the comparison reporter can rank + bootstrap-test
   prior runs without retraining the underlying experiments.
-* :func:`load_experiment_config_from_run` — reads the frozen
+* :func:`load_experiment_config_from_run` - reads the frozen
   ``config.yaml`` back into a typed :class:`ExperimentConfig`.
-* :func:`load_strategy_from_run_dir` — reconstructs the trained
+* :func:`load_strategy_from_run_dir` - reconstructs the trained
   :class:`IStrategy` instance by resolving its registered class via
   ``strategy_registry`` and dispatching to ``cls.load(strategy_state/)``.
   Used by the deployment layer to predict from a previously trained run.
-* :func:`resolve_run_dir` — resolve a run dir by id, matching both the
+* :func:`resolve_run_dir` - resolve a run dir by id, matching both the
   flat ``<store_root>/runs/<id>`` and study-nested
   ``<store_root>/studies/<x>/runs/<id>`` layouts.
 """
@@ -23,7 +23,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import src.strategies  # noqa: F401 — fires @strategy_registry.register decorators
+import src.strategies  # noqa: F401 - fires @strategy_registry.register decorators
 from src.core import json_io
 from src.core.config import ExperimentConfig, load_experiment_config
 from src.core.persistence import (
@@ -64,7 +64,7 @@ def load_experiment_result(run_dir: Path) -> ExperimentResult:
         if not required.is_file():
             raise FileNotFoundError(
                 f"missing artifact {required.name} under {run_dir}; the "
-                f"source run may be incomplete — re-run the experiment "
+                f"source run may be incomplete - re-run the experiment "
                 f"or pass a different path."
             )
     manifest = Manifest.from_dict(json_io.read_dict(manifest_path))
@@ -90,7 +90,7 @@ def load_experiment_config_from_run(run_dir: Path) -> ExperimentConfig:
     if not config_path.is_file():
         raise FileNotFoundError(
             f"missing {EXPERIMENT_CONFIG_YAML} under {run_dir}; the run "
-            f"may be incomplete — re-run the experiment or pass a "
+            f"may be incomplete - re-run the experiment or pass a "
             f"different path."
         )
     return load_experiment_config(config_path)
@@ -129,8 +129,8 @@ def load_strategy_from_run_dir(run_dir: Path) -> IStrategy:
     fully trained: ``generate_signals()`` works immediately and
     ``training_metadata`` is populated from the saved ``metadata.json``.
 
-    The registry is the single source of truth for ``YAML name → class``
-    — no per-strategy switch lives here. Adding a new strategy file
+    The registry is the single source of truth for ``YAML name -> class``
+    - no per-strategy switch lives here. Adding a new strategy file
     under ``src/strategies/`` makes it loadable through this entry
     point automatically.
 
@@ -149,7 +149,7 @@ def load_strategy_from_run_dir(run_dir: Path) -> IStrategy:
     if not state_dir.is_dir():
         raise FileNotFoundError(
             f"strategy state directory not found: {state_dir}; the source "
-            f"run may be incomplete — re-run the experiment or pass a "
+            f"run may be incomplete - re-run the experiment or pass a "
             f"different path."
         )
     cfg = load_experiment_config_from_run(run_dir)

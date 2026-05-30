@@ -28,7 +28,7 @@ const RECONNECT_DELAYS_MS = [250, 500, 1000] as const;
  * terminal-state freeze, and an optional one-shot HTTP backfill for sockets
  * that were already closed at mount time.
  *
- * Frames are NOT retained inside the hook — consumers are responsible for
+ * Frames are NOT retained inside the hook - consumers are responsible for
  * accumulating any derived state in their own ``onFrame`` handler. This
  * keeps storage append-only at the consumer site (no per-frame filter+map
  * over a shadow array) and avoids holding two copies of the data.
@@ -52,7 +52,7 @@ export function useEventStream<TFrame>(opts: UseEventStreamOptions<TFrame>): Eve
   const reconnectTimer = useRef<number | null>(null);
   const ws = useRef<WebSocket | null>(null);
 
-  // Fresh callbacks every render are normal — pin them in refs so the effect
+  // Fresh callbacks every render are normal - pin them in refs so the effect
   // body doesn't tear down the socket whenever a parent re-renders.
   const onFrameRef = useRef(onFrame);
   onFrameRef.current = onFrame;
@@ -80,7 +80,7 @@ export function useEventStream<TFrame>(opts: UseEventStreamOptions<TFrame>): Eve
           const parsed = backfillParseRef.current?.(text) ?? [];
           for (const frame of parsed) onFrameRef.current?.(frame);
         } catch {
-          // abort or network failure — no recovery; backfill is best-effort.
+          // abort or network failure - no recovery; backfill is best-effort.
         }
       })();
       return () => {

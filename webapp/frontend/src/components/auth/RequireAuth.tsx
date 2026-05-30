@@ -26,7 +26,7 @@ export function RequireAuth({ children }: RequireAuthProps) {
 function FullscreenSpinner() {
   return (
     <div className="flex h-screen items-center justify-center">
-      <div className="text-sm text-muted-foreground">Loading…</div>
+      <div className="text-sm text-muted-foreground">Loading...</div>
     </div>
   );
 }

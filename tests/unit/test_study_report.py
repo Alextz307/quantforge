@@ -4,7 +4,7 @@ Unit tests for the study-report consolidator.
 Exercises :func:`consolidate_study` against a synthetic ``<study_dir>/``
 tree built on ``tmp_path``. The tree mirrors the orchestrator's output
 layout (``runs/``, ``holdout_evals/``, ``comparisons/``,
-``study_state.json``) — handcrafting it here avoids running the
+``study_state.json``) - handcrafting it here avoids running the
 orchestrator and keeps these tests in unit-tier latency.
 
 The reporter side (PNG/SVG/.tex emission) is exercised in
@@ -71,7 +71,7 @@ def _write_fake_run(
     Writes ``manifest.json`` and ``fold_results.jsonl`` so
     :func:`load_experiment_result` can reconstruct an
     :class:`ExperimentResult`. Skips ``config.yaml`` and per-fold
-    artifacts — the consolidator doesn't read those.
+    artifacts - the consolidator doesn't read those.
     """
 
     run_dir = runs_dir / run_id
@@ -190,7 +190,7 @@ def _build_study_dir(
     """
     Assemble a full fake study tree on ``tmp_path``.
 
-    ``legs`` is ``(leg_id, strategy, universe, sharpes)`` tuples — sharpes
+    ``legs`` is ``(leg_id, strategy, universe, sharpes)`` tuples - sharpes
     drives the synthesised fold records (one per element). ``incomplete_leg_ids``
     marks legs whose state stays ``is_complete=False``; their run dir is
     NOT written (mirrors a mid-leg failure).
@@ -243,7 +243,7 @@ def _build_study_dir(
 
 def test_consolidate_study_full_tree(tmp_path: Path) -> None:
     """
-    All artifact kinds present → all maps populated.
+    All artifact kinds present -> all maps populated.
     """
 
     legs = [

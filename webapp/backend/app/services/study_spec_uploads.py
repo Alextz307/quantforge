@@ -43,9 +43,7 @@ class StudySpecUploadInvalidError(SpecUploadInvalidError):
         super().__init__("study", errors)
 
 
-def validate_study_spec_text(
-    yaml_text: str, *, config_root: Path
-) -> ValidateResponse:
+def validate_study_spec_text(yaml_text: str, *, config_root: Path) -> ValidateResponse:
     """
     YAML parse + StudySpec pydantic validation + referenced-file existence.
 
@@ -65,9 +63,7 @@ def validate_study_spec_text(
     return ValidateResponse(valid=not path_errors, errors=path_errors)
 
 
-def _check_referenced_paths(
-    spec: StudySpec, config_root: Path
-) -> list[ValidationErrorItem]:
+def _check_referenced_paths(spec: StudySpec, config_root: Path) -> list[ValidationErrorItem]:
     """
     For every leg, verify ``strategy_config``, ``hpo_config``, and each
     universe slug resolve to a file under ``config_root``.
@@ -128,9 +124,7 @@ def list_uploads(
     return _store.list_uploads(conn, user=user, all_users=all_users)
 
 
-def get_upload(
-    conn: sqlite3.Connection, *, user: UserPublic, slug: str
-) -> StudySpecUploadDetail:
+def get_upload(conn: sqlite3.Connection, *, user: UserPublic, slug: str) -> StudySpecUploadDetail:
     return _store.get_upload(conn, user=user, slug=slug)
 
 
@@ -160,9 +154,7 @@ def soft_delete_upload(
     slug: str,
     uploads_root: Path,
 ) -> None:
-    _store.soft_delete_upload(
-        conn, user=user, slug=slug, uploads_root=uploads_root
-    )
+    _store.soft_delete_upload(conn, user=user, slug=slug, uploads_root=uploads_root)
 
 
 __all__ = [

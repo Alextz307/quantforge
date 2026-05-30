@@ -54,7 +54,7 @@ public:
         std::span<const double> cond_vol,
         std::span<double> out) const;
 
-    /// Fully reusable overload — writes signals into ``out`` and reuses the
+    /// Fully reusable overload - writes signals into ``out`` and reuses the
     /// four intermediate band/MA vectors held by ``scratch`` across calls.
     void generate_signals(
         std::span<const double> close,

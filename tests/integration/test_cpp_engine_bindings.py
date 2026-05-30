@@ -111,7 +111,7 @@ class TestSlippageConfig:
 class TestBacktestEngineRun:
     def test_flat_signal_no_trades(self) -> None:
         """
-        All-NaN signals → no fill ever → equity stays at initial_capital.
+        All-NaN signals -> no fill ever -> equity stays at initial_capital.
         """
 
         ts, o, h, lo, c, v = _flat_bars(N_BARS_LONG)
@@ -156,7 +156,7 @@ class TestBacktestEngineRun:
 
     def test_hand_calculated_single_trade(self) -> None:
         """
-        Zero-slip one-way trade on flat prices → equity = initial * (1 - fee).
+        Zero-slip one-way trade on flat prices -> equity = initial * (1 - fee).
         """
 
         ts, o, h, lo, c, v = _flat_bars(N_BARS_MIN)
@@ -293,7 +293,7 @@ class TestBacktestEngineRun:
         n = N_BARS_LONG
         ts = np.arange(n, dtype=np.int64)
         close = (np.cumprod(1.0 + rng.normal(0, RETURN_VOL, n)) * FLAT_PRICE).astype(np.float64)
-        # Tight volume so |qty|/volume matters — otherwise impact decays to 0.
+        # Tight volume so |qty|/volume matters - otherwise impact decays to 0.
         vol = np.full(n, INITIAL_CAPITAL / FLAT_PRICE, dtype=np.float64)
         sig = np.where((np.arange(n) // SIGNAL_FLIP_PERIOD_TIGHT) % 2 == 0, 1.0, -1.0).astype(
             np.float64

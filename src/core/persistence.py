@@ -75,14 +75,14 @@ COMPARISONS_SUBDIR = "comparisons"
 HOLDOUT_EVALS_SUBDIR = "holdout_evals"
 CLI_LOGS_SUBDIR = "cli_logs"
 
-# Live deployment layout — each deployment is a directory under
+# Live deployment layout - each deployment is a directory under
 # ``<store_root>/deployments/<deployment_id>/`` holding the typed manifest
 # (round-trippable provenance) and an append-only signal log.
 DEPLOYMENTS_SUBDIR = "deployments"
 DEPLOYMENT_MANIFEST_JSON = "manifest.json"
 DEPLOYMENT_SIGNALS_JSONL = "signals.jsonl"
 
-# Holdout-eval bundles deliberately skip the typed ``Manifest`` — only
+# Holdout-eval bundles deliberately skip the typed ``Manifest`` - only
 # commands that CREATE an experiment write one (run / tune). Holdout-eval
 # REFERENCES the source run's manifest, and its own provenance lives in
 # this payload (source id, kind, boundary, data hash, slippage, metrics,
@@ -103,7 +103,7 @@ def ensure_model_dir(path: str | Path) -> Path:
     """
     Create ``path`` as an empty directory and return the Path.
 
-    Raises ``FileExistsError`` if ``path`` exists and is non-empty — prevents
+    Raises ``FileExistsError`` if ``path`` exists and is non-empty - prevents
     silent overwrite of an existing save. If ``path`` exists and is empty it is
     reused as-is.
     """
@@ -135,11 +135,11 @@ def frozen_params_to_json(
     Centralises three conversions that every composite's
     ``_ctor_kwargs_as_json()`` would otherwise reinvent:
 
-    * ``tuple`` → ``list`` (JSON has no tuple; ``feature_columns`` is the
+    * ``tuple`` -> ``list`` (JSON has no tuple; ``feature_columns`` is the
       canonical victim).
-    * ``Enum`` / ``StrEnum`` → ``.value`` (so the saved config JSON is human-
+    * ``Enum`` / ``StrEnum`` -> ``.value`` (so the saved config JSON is human-
       readable and the load path can reconstruct via ``EnumClass(value)``).
-    * Fields in ``omit`` are dropped — used for non-persisted preferences
+    * Fields in ``omit`` are dropped - used for non-persisted preferences
       like ``device`` / ``lstm_device`` that re-resolve on load.
 
     Intentionally narrow:
@@ -189,7 +189,7 @@ def read_experiment_manifest(path: str | Path) -> Manifest:
 
     Companion to :func:`write_experiment_manifest`. ``path`` is the run
     directory (not the JSON file itself), mirroring the writer's contract.
-    Raises :class:`FileNotFoundError` if the manifest is missing — partial
+    Raises :class:`FileNotFoundError` if the manifest is missing - partial
     run dirs (mid-crash) shouldn't be silently treated as analysable.
     """
 
@@ -200,7 +200,7 @@ def read_experiment_manifest(path: str | Path) -> Manifest:
     if not manifest_path.is_file():
         raise FileNotFoundError(
             f"manifest not found at {manifest_path}; the source directory "
-            f"may be incomplete — re-run the source experiment or pass a "
+            f"may be incomplete - re-run the source experiment or pass a "
             f"different path."
         )
     return _Manifest.from_dict(json_io.read_dict(manifest_path))
@@ -225,7 +225,7 @@ def assert_save_complete(root: str | Path) -> Path:
 
     Called at the top of every model/strategy ``load()`` before any sibling
     file is read. A missing marker means the source save was interrupted
-    (SIGKILL, OOM, Ctrl+C between the per-file writes) — loading from such
+    (SIGKILL, OOM, Ctrl+C between the per-file writes) - loading from such
     a directory would silently return an inconsistent model (e.g. fresh
     config + stale weights). Raise loudly instead.
     """
@@ -235,7 +235,7 @@ def assert_save_complete(root: str | Path) -> Path:
     if not marker.is_file():
         raise FileNotFoundError(
             f"save at {p} is incomplete: missing {SAVE_COMPLETE_MARKER!r} marker. "
-            f"The producing save() either crashed mid-write or never finished — "
+            f"The producing save() either crashed mid-write or never finished - "
             f"refit and re-save rather than loading a half-written directory."
         )
     return p
@@ -251,8 +251,8 @@ def save_model_skeleton(
     """
     Canonical 5-step save-directory skeleton for every model + strategy.
 
-    Steps: ``ensure_model_dir`` → write ``config.json`` → user-provided
-    weights write → write ``metadata.json`` → write ``.save_complete`` marker.
+    Steps: ``ensure_model_dir`` -> write ``config.json`` -> user-provided
+    weights write -> write ``metadata.json`` -> write ``.save_complete`` marker.
     The caller validates preconditions (fitted, internal handles non-None)
     before invoking; the marker (always the last write) is the load-time
     invariant that every prior step landed on disk.
@@ -272,7 +272,7 @@ def save_standard_scaler(scaler: StandardScaler, path: str | Path) -> None:
 
     Captures the public fitted attributes (``mean_``, ``scale_``, ``var_``,
     ``n_features_in_``, ``n_samples_seen_``). Sklearn's private ``__getstate__``
-    surface has drifted across versions — manual attribute capture is safer.
+    surface has drifted across versions - manual attribute capture is safer.
 
     ``feature_names_in_`` is persisted whenever present (scaler was fit on a
     DataFrame) so post-load ``.transform()`` on a named DataFrame doesn't
@@ -307,7 +307,7 @@ def load_standard_scaler(path: str | Path) -> StandardScaler:
     """
     Reconstruct a ``StandardScaler`` from the JSON emitted by ``save_standard_scaler``.
 
-    The loaded scaler is marked fitted — ``transform()`` works immediately,
+    The loaded scaler is marked fitted - ``transform()`` works immediately,
     ``fit()`` would re-enter sklearn's normal flow. ``feature_names_in_`` is
     restored as the ``dtype=object`` numpy array sklearn expects when
     present in the payload.

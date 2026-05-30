@@ -8,7 +8,7 @@ export type StrategyParamsState = [
 
 /**
  * Resets to the schema's canonical defaults when the strategy changes.
- * Gated on ``schemaData?.qualname`` (string) — not the schema object — so
+ * Gated on ``schemaData?.qualname`` (string) - not the schema object - so
  * background refetches that return the same schema don't nuke user edits.
  */
 export function useStrategyParamsState(

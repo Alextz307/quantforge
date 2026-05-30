@@ -19,7 +19,7 @@ signal at the next session's open. So the return attributable to it is
 
 where ``entry`` is the first session strictly after ``bar_ts`` and
 ``exit`` is the session after ``entry``. These one-session windows tile
-the calendar end-to-end — each owned by exactly one signal — so the
+the calendar end-to-end - each owned by exactly one signal - so the
 per-signal returns compound into the held-equity curve.
 
 A signal is *scored* only once both opens exist in ``opens``; until the
@@ -29,7 +29,7 @@ not-yet-opened session can never contribute an exit price.
 
 Anti-leakage
 ------------
-Frozen signals scored against subsequently-realised opens — no forecast
+Frozen signals scored against subsequently-realised opens - no forecast
 leakage. An open price is fixed at the bell and never revised, so using a
 currently-forming session's open is safe (unlike its close). No
 ``bfill`` / ``fillna``: a FLAT (``0.0``) signal is a no-bet, recorded with
@@ -57,7 +57,7 @@ class ScoredSignal:
 
     ``listened_return`` / ``cumulative_return`` are **gross** (frictionless).
     ``cost`` is the friction of the rebalance that established this signal's
-    position (``|Δleverage| × cost_fraction``); ``net_listened_return`` and
+    position (``|delta leverage| x cost_fraction``); ``net_listened_return`` and
     ``net_cumulative_return`` are gross minus that cost. With
     ``cost_fraction=0`` the net fields equal the gross ones.
     """
@@ -127,12 +127,12 @@ def evaluate_signals(
     order. ``opens`` maps session timestamp -> open price; its index must
     be sorted ascending and span from before the earliest ``bar_ts`` so
     the first session strictly after each ``bar_ts`` resolves. Only
-    opened sessions belong in ``opens`` (open-discipline) — that
+    opened sessions belong in ``opens`` (open-discipline) - that
     membership alone decides whether a signal's exit price exists.
 
     ``cost_fraction`` is the per-unit-turnover friction (slippage +
     commission, as a notional fraction). Each signal pays
-    ``|signal − carried_leverage| × cost_fraction`` to rebalance into its
+    ``|signal - carried_leverage| x cost_fraction`` to rebalance into its
     position at the entry open; net returns subtract that. Costs compound
     with the gross series into a net cumulative curve. ``cost_fraction=0``
     makes net identical to gross.

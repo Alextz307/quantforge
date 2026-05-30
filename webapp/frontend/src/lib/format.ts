@@ -7,17 +7,17 @@ export function formatDate(iso: string): string {
 }
 
 export function formatMetric(value: number | null | undefined, digits = 4): string {
-  if (value == null || !Number.isFinite(value)) return "—";
+  if (value == null || !Number.isFinite(value)) return "-";
   return value.toFixed(digits);
 }
 
 export function formatPercent(value: number, digits = 2): string {
-  if (!Number.isFinite(value)) return "—";
+  if (!Number.isFinite(value)) return "-";
   return `${(value * 100).toFixed(digits)}%`;
 }
 
 export function shortHash(hash: string, prefixLen = 12): string {
-  return hash.length > prefixLen ? `${hash.slice(0, prefixLen)}…` : hash;
+  return hash.length > prefixLen ? `${hash.slice(0, prefixLen)}...` : hash;
 }
 
 export function withCi(mean: number, low: number, high: number, digits = 3): string {

@@ -57,7 +57,7 @@ def hybrid_train_df(synthetic_feature_columns: list[str]) -> pd.DataFrame:
 @pytest.fixture
 def realized_vol_target(hybrid_train_df: pd.DataFrame) -> pd.Series:
     """
-    Synthetic annualized realized vol — rolling std of log returns x sqrt(annualization).
+    Synthetic annualized realized vol - rolling std of log returns x sqrt(annualization).
 
     Leading NaN from the rolling window is preserved; the hybrid drops them
     via ``residuals.dropna()`` during fit.

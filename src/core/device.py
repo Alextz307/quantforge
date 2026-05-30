@@ -35,7 +35,7 @@ def _mps_available() -> bool:
 
 def _require_cuda() -> None:
     """
-    Raise ``RuntimeError`` if CUDA is unavailable — shared by both selectors.
+    Raise ``RuntimeError`` if CUDA is unavailable - shared by both selectors.
     """
 
     if not _cuda_available():
@@ -112,7 +112,7 @@ def select_xgboost_device(preference: Device | None = None) -> str:
     """
     Return the XGBoost device string (``'cuda'`` or ``'cpu'``).
 
-    XGBoost's CUDA support is NVIDIA-only — it has no Apple MPS backend — so
+    XGBoost's CUDA support is NVIDIA-only - it has no Apple MPS backend - so
     MPS is intentionally omitted from the priority order and rejected with a
     clear error if requested explicitly.
 
@@ -137,7 +137,7 @@ def select_xgboost_device(preference: Device | None = None) -> str:
     if preference == Device.MPS:
         raise ValueError(
             "XGBoost has no MPS backend; fix by passing Device.CUDA or Device.CPU "
-            "(MPS is torch-only — XGBoost's GPU path is NVIDIA-only)."
+            "(MPS is torch-only - XGBoost's GPU path is NVIDIA-only)."
         )
     raise ValueError(
         f"XGBoost device preference must be one of {_XGBOOST_ALLOWED}, got "

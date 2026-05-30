@@ -26,7 +26,7 @@ async def tail_hpo_trials(
     """
     Yield ``TrialFrame`` for every line written to ``trials.jsonl``.
 
-    Replays existing lines from byte 0 then live-tails new ones — the WS
+    Replays existing lines from byte 0 then live-tails new ones - the WS
     endpoint can stream both phases through a single async loop. Works
     for any HPO study regardless of who's writing (webapp tune subprocess,
     webapp study orchestrator on a nested leg, or CLI invocation) because

@@ -46,7 +46,7 @@ _DSR_TRIAL_KURTOSIS = 3.0
 
 def _make_report(study_dir: Path) -> ConsolidatedStudyReport:
     """
-    Build a 2-strategy × 2-universe consolidated report.
+    Build a 2-strategy x 2-universe consolidated report.
 
     Includes holdout data on two legs so the full set of conditional
     sections fires under one assertion sweep.
@@ -281,7 +281,7 @@ def test_publish_label_appears_in_tex_caption(tmp_path: Path) -> None:
 
 def test_skips_sections_when_no_input_data(tmp_path: Path) -> None:
     """
-    Sparse report: no holdout / no pairwise → those tables not written.
+    Sparse report: no holdout / no pairwise -> those tables not written.
     """
 
     sparse = ConsolidatedStudyReport(

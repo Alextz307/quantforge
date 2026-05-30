@@ -72,7 +72,7 @@ export function ConfigureStudyPage() {
   );
   const uploadPreview = useStudyUpload(mode === "uploads" && uploadSlug !== "" ? uploadSlug : null);
 
-  // Debounced server validation only fires on the editable ``new`` tab — preview
+  // Debounced server validation only fires on the editable ``new`` tab - preview
   // panes are read-only snapshots of artifacts the backend already accepted, so
   // re-validating them adds latency without informational value.
   useEffect(() => {
@@ -93,7 +93,7 @@ export function ConfigureStudyPage() {
     return () => {
       window.clearTimeout(handle);
     };
-    // intentionally exclude validateSpec — its identity churns and we only
+    // intentionally exclude validateSpec - its identity churns and we only
     // care about responding to text + mode changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, editorYaml]);
@@ -193,7 +193,7 @@ export function ConfigureStudyPage() {
     }
     try {
       await saveUpload.mutateAsync({ slug: newSlug, yaml: editorYaml });
-      // Stay on the page — switch the picker to the saved upload so the user
+      // Stay on the page - switch the picker to the saved upload so the user
       // can verify before launching.
       setMode("uploads");
       setUploadSlug(newSlug);
@@ -227,7 +227,7 @@ export function ConfigureStudyPage() {
       setClientErrors([
         {
           loc: ["yaml"],
-          msg: `File is ${String(file.size)} bytes — exceeds the ${String(MAX_YAML_BYTES)}-byte cap`,
+          msg: `File is ${String(file.size)} bytes - exceeds the ${String(MAX_YAML_BYTES)}-byte cap`,
           type: "value_error",
         },
       ]);
@@ -238,7 +238,7 @@ export function ConfigureStudyPage() {
       const text = typeof reader.result === "string" ? reader.result : "";
       setEditorYaml(text);
       // Pre-fill slug from the filename stem only when empty and the stem is a
-      // valid slug — otherwise leave the user to type one.
+      // valid slug - otherwise leave the user to type one.
       if (newSlug === "") {
         const stem = file.name.replace(/\.ya?ml$/i, "");
         if (SLUG_PATTERN.test(stem)) setNewSlug(stem);
@@ -265,8 +265,8 @@ export function ConfigureStudyPage() {
         <CardDescription>
           Pick a library spec, reuse one of your uploads, or author a new spec inline. The
           orchestrator cross-products legs from{" "}
-          <code className="font-mono">strategy × universe</code> and runs tune → walk-forward →
-          holdout for each.
+          <code className="font-mono">strategy x universe</code> and runs tune {"->"} walk-forward{" "}
+          {"->"} holdout for each.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -381,12 +381,12 @@ export function ConfigureStudyPage() {
                   void onSaveOnly();
                 }}
               >
-                {saveUpload.isPending ? "Saving…" : "Save"}
+                {saveUpload.isPending ? "Saving..." : "Save"}
               </Button>
             )}
             <Button type="submit" disabled={submitDisabled}>
               {submit.isPending || saveUpload.isPending
-                ? "Launching…"
+                ? "Launching..."
                 : mode === "new"
                   ? "Save & launch"
                   : "Launch study"}
@@ -457,7 +457,7 @@ function SpecPicker({ specs, value, onChange }: SpecPickerProps) {
         onChange(e.target.value);
       }}
     >
-      <option value="">— pick a spec —</option>
+      <option value="">- pick a spec -</option>
       {specs.map((s) => (
         <option key={s.name} value={s.name}>
           {s.name}
@@ -490,7 +490,7 @@ function UploadPicker({ uploads, value, onChange }: UploadPickerProps) {
         onChange(e.target.value);
       }}
     >
-      <option value="">— pick an upload —</option>
+      <option value="">- pick an upload -</option>
       {uploads.map((u) => (
         <option key={u.slug} value={u.slug}>
           {u.slug}
@@ -519,7 +519,7 @@ function ReadOnlyEditorWithActions({
       <div className="flex justify-end gap-2">
         {onDelete && (
           <Button type="button" variant="outline" size="sm" onClick={onDelete} disabled={deleting}>
-            {deleting ? "Deleting…" : "Delete"}
+            {deleting ? "Deleting..." : "Delete"}
           </Button>
         )}
         <Button type="button" variant="outline" size="sm" onClick={onEditCopy}>
@@ -537,11 +537,11 @@ interface ValidationStatusProps {
 
 function ValidationStatus({ pending, errors }: ValidationStatusProps) {
   if (pending) {
-    return <p className="text-xs text-muted-foreground">Validating…</p>;
+    return <p className="text-xs text-muted-foreground">Validating...</p>;
   }
   if (errors.length === 0) {
     return (
-      <p className="text-xs text-emerald-700 dark:text-emerald-400">✓ No validation errors.</p>
+      <p className="text-xs text-emerald-700 dark:text-emerald-400">No validation errors.</p>
     );
   }
   return (
@@ -609,7 +609,7 @@ function FlagsAndOnlyLegs({
                 onForceRerun(e.target.checked);
               }}
             />
-            Force rerun — ignore <code className="font-mono">is_complete</code> markers and re-run
+            Force rerun - ignore <code className="font-mono">is_complete</code> markers and re-run
             every leg from scratch
           </label>
           <label className="flex items-center gap-2">

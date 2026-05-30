@@ -89,12 +89,12 @@ class PredictIfStaleResponse(BaseModel):
 
 class ScoredSignalOut(BaseModel):
     """
-    One emitted signal scored open→open against realised session opens.
+    One emitted signal scored open->open against realised session opens.
 
     Entered at ``entry_date``'s open (the first session after ``bar_ts``),
     exited at ``exit_date``'s open (the next session). ``listened_return``
     is the signed, leverage-scaled realised return. The realised fields are
-    populated together iff ``scored`` is true — a signal stays unscored
+    populated together iff ``scored`` is true - a signal stays unscored
     until its exit session has opened. ``hit`` is null for a FLAT signal.
     """
 

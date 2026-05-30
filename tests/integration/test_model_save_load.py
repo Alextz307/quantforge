@@ -284,7 +284,7 @@ class TestDirectionalClassifierSaveLoad:
 class TestCorruptPayloadLoad:
     """
     Loading a model from a corrupted or truncated save directory must raise
-    with a message naming the specific field or file that's wrong — silent
+    with a message naming the specific field or file that's wrong - silent
     partial loads could pass ``_fitted=True`` without valid internal state and
     break late inside ``predict()`` with a much more opaque error.
 
@@ -347,7 +347,7 @@ class TestCorruptPayloadLoad:
 class TestHybridVolatilitySaveLoad:
     """
     Composite round-trip exercises every subdir: ``garch/`` + ``lstm/`` +
-    ``scaler.json``. Bit-identical predict() is the decisive check —
+    ``scaler.json``. Bit-identical predict() is the decisive check -
     divergence anywhere would indicate a leaf or scaler state drift.
     """
 

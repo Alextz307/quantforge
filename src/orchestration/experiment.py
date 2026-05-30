@@ -10,13 +10,13 @@ and an optional feature-pipeline FACTORY. It is produced by
 Why the feature pipeline is a factory, not an instance
 ------------------------------------------------------
 Feature pipelines (e.g. :class:`FeatureEngineeringPipeline`) enforce a
-``fit_once`` guard on their scaler — a second ``fit()`` raises
+``fit_once`` guard on their scaler - a second ``fit()`` raises
 ``LeakageError``. A walk-forward run needs to fit the scaler PER FOLD on
 ``fold.train`` only; fitting once on the full dev region would leak later
 folds' test-window statistics into earlier folds' features. A single
 instance cannot satisfy both constraints. A factory closure captures the
 config-derived kwargs and produces a fresh instance whenever the caller
-asks — one per fold.
+asks - one per fold.
 
 The strategy stays as an instance because each ``IStrategy.train()``
 implementation is contracted to reset its own fit state from scratch.
@@ -65,7 +65,7 @@ from src.orchestration.types import ExperimentResult, FoldRecord
 from src.strategies.interface import IStrategy
 
 # ``StrategyReporter`` is lazy-imported inside ``run()`` when ``write_report``
-# is True — matplotlib's cold-import tree (~4s incl. pyplot + PIL + numpy
+# is True - matplotlib's cold-import tree (~4s incl. pyplot + PIL + numpy
 # cascades) is substantial and `--no-report` runs (e.g. HPO trials where the
 # tuner drives reporting at the study level) shouldn't pay it. The lazy
 # import mirrors ``seed_all``'s lazy torch import for the same reason.
@@ -73,7 +73,7 @@ from src.strategies.interface import IStrategy
 _module_logger = get_logger(__name__)
 
 _DEFAULT_STORE_ROOT = Path("experiment_results")
-_EXPERIMENT_ID_SUFFIX_BYTES = 4  # → 8 hex chars, 2^32 combos; low collision risk
+_EXPERIMENT_ID_SUFFIX_BYTES = 4  # -> 8 hex chars, 2^32 combos; low collision risk
 
 
 def _make_experiment_id(strategy_name: str, created_at: datetime, git_sha: str) -> str:
@@ -81,7 +81,7 @@ def _make_experiment_id(strategy_name: str, created_at: datetime, git_sha: str) 
     Compose a unique experiment id: ``{utc_ts}_{strategy}_{sha}_{rand}``.
 
     Random suffix (hex-encoded cryptographic bytes) disambiguates two
-    invocations in the same second + same strategy + same sha — matters for
+    invocations in the same second + same strategy + same sha - matters for
     HPO parallelism and ``experiment compare`` subprocess fan-out.
     """
 
@@ -104,12 +104,12 @@ def fetch_bars(
       canonical OHLCV columns.
     * **pairs** (2 tickers, ``is_pairs_strategy=True``): inner-join +
       ``_a`` / ``_b`` suffix; consumed by ``PairsTradingStrategy``.
-    * **multi-feature** (N≥1 tickers, ``is_multi_feature_strategy=True``):
+    * **multi-feature** (N>=1 tickers, ``is_multi_feature_strategy=True``):
       inner-join + ``_<TICKER>`` suffix; consumed by single-asset traded
       strategies that use the other tickers as feature inputs only.
 
     Strategy-driven dispatch keeps the pairs vs. multi-feature distinction
-    at N=2 unambiguous — the strategy class is the source of truth, not a
+    at N=2 unambiguous - the strategy class is the source of truth, not a
     bool flag the caller has to remember to pass.
     """
 
@@ -127,8 +127,8 @@ def fetch_bars(
     raise ValueError(
         f"ExperimentConfig.data.tickers supports 1 ticker (single-asset) or 2 "
         f"tickers (pairs) for non-multi-feature strategies; got {len(tickers)}: "
-        f"{tickers}. Fix by trimming data.tickers, or — if the strategy reads "
-        f"a wide multi-ticker frame — by setting "
+        f"{tickers}. Fix by trimming data.tickers, or - if the strategy reads "
+        f"a wide multi-ticker frame - by setting "
         f"is_multi_feature_strategy=True on the strategy class so the caller "
         f"routes through the multi-feature fetch path."
     )
@@ -172,7 +172,7 @@ def _fetch_multi_bars(
 
     Same inner-join rationale as ``_fetch_pair_bars`` (NaN poisoning on the
     engine's bar-validity check rules out outer / left / right joins). The
-    suffix is the literal ticker name — strategies read e.g. ``close_SPY``
+    suffix is the literal ticker name - strategies read e.g. ``close_SPY``
     directly, which is more readable than ``_a / _b`` once N exceeds two.
     """
 
@@ -199,7 +199,7 @@ def compute_data_hash(strategy: IStrategy, bars: pd.DataFrame, tickers: Sequence
     """
     Dispatch to the correct fingerprint helper based on strategy shape.
 
-    Single source of truth for "which fingerprint applies" — call sites in
+    Single source of truth for "which fingerprint applies" - call sites in
     ``Experiment.run`` and ``holdout_eval`` route through this so a future
     fourth shape only adds one branch here, not three.
     """
@@ -213,7 +213,7 @@ def compute_data_hash(strategy: IStrategy, bars: pd.DataFrame, tickers: Sequence
 
 def _slice_dev(bars: pd.DataFrame, boundary: pd.Timestamp | None) -> pd.DataFrame:
     """
-    Return the dev region — everything strictly before ``boundary``.
+    Return the dev region - everything strictly before ``boundary``.
 
     ``boundary`` is the first bar OF the holdout (see
     ``resolve_holdout_boundary``). ``None`` disables the reservation.
@@ -250,7 +250,7 @@ class Experiment:
     """
     A fully-wired walk-forward experiment.
 
-    Prefer constructing via :func:`build_experiment` — direct instantiation
+    Prefer constructing via :func:`build_experiment` - direct instantiation
     is intentional for tests that want to inject mocks per component.
     """
 
@@ -270,13 +270,13 @@ class Experiment:
         1. Seed numpy/torch/random deterministically from ``config.seed``.
         2. Fetch bars via the wired ``IDataSource`` (with cache).
         3. Resolve the holdout boundary per the config's ``validation`` block.
-        4. Slice dev (bars strictly before the boundary) — the walk-forward
+        4. Slice dev (bars strictly before the boundary) - the walk-forward
            splitter sees dev only. The holdout region is reserved for the
            post-thesis OOS evaluation and is NEVER touched here.
         5. Compute ``data_hash = fingerprint_bars(bars_full)`` so future
            holdout-eval commands can refuse on vendor drift.
         6. Create ``store_root/runs/<experiment_id>/`` and write the frozen
-           ``config.yaml`` + ``manifest.json`` BEFORE any compute — so a
+           ``config.yaml`` + ``manifest.json`` BEFORE any compute - so a
            mid-run crash still leaves a record of what was attempted.
         7. Run walk-forward (deep metadata check wired in per-fold via
            ``evaluate_walk_forward``) and convert each ``FoldResult`` into a
@@ -289,12 +289,12 @@ class Experiment:
         Persistence notes
         -----------------
         ``strategy_state/`` holds the strategy state produced by the LAST
-        fold's ``train()`` call — not a canonical "final model". Holdout
+        fold's ``train()`` call - not a canonical "final model". Holdout
         eval / HPO materialisation deliberately re-train fresh from
         ``best_config.yaml`` on the full dev region; the saved state here
         is a convenience artifact for post-hoc inspection. A strategy whose
         ``save()`` isn't implemented raises
-        ``NotImplementedError`` from inside the save call — caught here and
+        ``NotImplementedError`` from inside the save call - caught here and
         downgraded to a warning so the rest of the artifact tree still
         lands on disk.
         """
@@ -341,9 +341,7 @@ class Experiment:
         with attach_run_log_file(run_dir):
             write_frozen_yaml(run_dir / EXPERIMENT_CONFIG_YAML, self.config)
             write_experiment_manifest(run_dir, manifest)
-            logger = get_logger(
-                __name__, experiment_id=experiment_id, strategy=self.strategy.name
-            )
+            logger = get_logger(__name__, experiment_id=experiment_id, strategy=self.strategy.name)
             logger.info(
                 "fetched %d bars, dev=%d, holdout_start=%s",
                 len(bars_full),
@@ -401,7 +399,7 @@ def _maybe_save_strategy(strategy: IStrategy, path: Path) -> None:
 
     Strategies without a ``save()`` override (and tests' ad-hoc strategies)
     shouldn't block the rest of the artifact tree from landing.
-    The full strategy state is never the user's only handle — fold_results
+    The full strategy state is never the user's only handle - fold_results
     + config are enough to reproduce via ``experiment run``.
     """
 
@@ -409,7 +407,7 @@ def _maybe_save_strategy(strategy: IStrategy, path: Path) -> None:
         strategy.save(path)
     except NotImplementedError:
         _module_logger.warning(
-            "%s.save() not implemented — skipping strategy_state/ artifact.",
+            "%s.save() not implemented - skipping strategy_state/ artifact.",
             type(strategy).__name__,
         )
     except RuntimeError as e:

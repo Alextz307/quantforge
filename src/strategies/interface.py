@@ -27,7 +27,7 @@ class IStrategy(ABC):
 
     The train/generate split enforces that signal generation
     never accesses data that wasn't available at signal time.
-    The engine will shift signals by 1 day automatically —
+    The engine will shift signals by 1 day automatically -
     strategies must NOT shift themselves.
     """
 
@@ -53,7 +53,7 @@ class IStrategy(ABC):
         Generate position signals for the given data.
 
         Returns a Series of position values. The engine shifts these
-        by 1 bar automatically — do NOT shift inside strategy logic.
+        by 1 bar automatically - do NOT shift inside strategy logic.
         """
 
     @property
@@ -77,7 +77,7 @@ class IStrategy(ABC):
     """Extra bars beyond :attr:`required_warmup_bars` to let recursive leaves converge.
 
     Pure rolling-window strategies (signals depend only on a bounded prefix of
-    bars once each indicator has warmed up) keep the default ``0`` — their
+    bars once each indicator has warmed up) keep the default ``0`` - their
     last-row signal is byte-identical for any input window longer than
     ``required_warmup_bars``. Strategies with GARCH or ARMA leaves carry
     recursive state whose forward iteration must converge out of the fitted
@@ -94,7 +94,7 @@ class IStrategy(ABC):
     The walk-forward dispatcher reads this to decide whether to call
     ``engine.run`` (single-leg) or ``engine.run_pairs`` (two-leg, requires
     ``hedge_ratio`` + a wide-format bar frame). Mutually exclusive with
-    :attr:`is_multi_feature_strategy` — the validator rejects classes that
+    :attr:`is_multi_feature_strategy` - the validator rejects classes that
     set both to ``True``.
     """
 
@@ -106,7 +106,7 @@ class IStrategy(ABC):
     frame whose columns follow the ``<ohlcv>_<TICKER>`` suffix convention
     (e.g. ``close_SPY``, ``close_QQQ``). The walk-forward dispatcher slices
     the primary asset's OHLCV out of the wide frame before calling
-    ``engine.run`` — companion tickers never enter the engine's books.
+    ``engine.run`` - companion tickers never enter the engine's books.
     Mutually exclusive with :attr:`is_pairs_strategy`.
     """
 
@@ -155,7 +155,7 @@ class IStrategy(ABC):
         Optuna search space for this strategy's ctor kwargs.
 
         Every strategy declares the joint feature / model / strategy
-        hyperparameters it wants tuned — leaf knobs that pass through to
+        hyperparameters it wants tuned - leaf knobs that pass through to
         wrapped models (e.g. ``arma_p_max`` on ReturnForecast) are
         flattened here, not resolved via a separate leaf ``suggest_params``
         call. The ``StrategyTuner`` merges the returned dict into
@@ -174,12 +174,12 @@ class IStrategy(ABC):
         """
         Return ``self.training_metadata`` narrowed to non-None, raising otherwise.
 
-        Canonical read-side guard for fitted state — every method that
+        Canonical read-side guard for fitted state - every method that
         requires a completed ``train()`` (``generate_signals``, ``save``,
         ``hedge_ratio``) calls this.
 
         ``caller`` defaults to the calling frame's function name (via
-        ``sys._getframe`` — CPython + PyPy supported, ~1µs lookup paid
+        ``sys._getframe`` - CPython + PyPy supported, ~1us lookup paid
         only on the error path). Pass it explicitly if the helper is
         invoked from an inner closure or a wrapper whose name is not
         what you want surfaced in tracebacks.
@@ -204,7 +204,7 @@ class IStrategy(ABC):
         ``get_all_training_metadata`` return a ``None`` slot and the deep
         check would silently short-circuit.
 
-        ``training_metadata is not None`` is the sole fitted-state signal —
+        ``training_metadata is not None`` is the sole fitted-state signal -
         no separate boolean flag exists, so atomicity reduces to "the slot is
         either ``None`` or a complete :class:`TrainingMetadata`".
         """
@@ -253,7 +253,7 @@ class IStrategy(ABC):
         and is non-empty.
 
         The base implementation raises ``NotImplementedError`` so concrete
-        strategies must override explicitly — a silent no-op would let tests
+        strategies must override explicitly - a silent no-op would let tests
         pass without actually persisting anything.
         """
 

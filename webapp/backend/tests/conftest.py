@@ -167,7 +167,7 @@ def make_viewer_user(
     Hoisted from the per-file ``_viewer`` helper that the five
     artifact-service test modules used to define. Service tests that
     don't seed any jobs rows treat artifacts as ownerless / shared, so
-    the helper's identity rarely matters — pass an alternate ``username``
+    the helper's identity rarely matters - pass an alternate ``username``
     only when the test explicitly needs a second user.
     """
 
@@ -200,12 +200,8 @@ def _isolated_job_paths(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iter
 
     monkeypatch.setenv("WEBAPP_JOB_TEMP_DIR", str(tmp_path / "jobs"))
     monkeypatch.setenv("WEBAPP_STORE_ROOT", str(tmp_path / "experiment_results"))
-    monkeypatch.setenv(
-        "WEBAPP_STUDY_SPEC_UPLOADS_DIR", str(tmp_path / "study_specs")
-    )
-    monkeypatch.setenv(
-        "WEBAPP_UNIVERSE_SPEC_UPLOADS_DIR", str(tmp_path / "universe_specs")
-    )
+    monkeypatch.setenv("WEBAPP_STUDY_SPEC_UPLOADS_DIR", str(tmp_path / "study_specs"))
+    monkeypatch.setenv("WEBAPP_UNIVERSE_SPEC_UPLOADS_DIR", str(tmp_path / "universe_specs"))
     get_settings.cache_clear()
     yield
     get_settings.cache_clear()

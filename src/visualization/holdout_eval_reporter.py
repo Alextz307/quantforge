@@ -4,16 +4,16 @@ Reporter for one-shot holdout-eval bundles.
 Consumes a :class:`HoldoutEvalResult` and emits two artifacts under the
 holdout-eval out_dir:
 
-* ``tables/holdout_metrics.tex`` — booktabs LaTeX, two-column "metric ·
+* ``tables/holdout_metrics.tex`` - booktabs LaTeX, two-column "metric |
   value" layout. Single-row metric set covers Sharpe / Sortino / Calmar
-  / MaxDD / Total return / Win rate / Trades — the same scalars the
+  / MaxDD / Total return / Win rate / Trades - the same scalars the
   per-fold ``StrategyReporter`` table emits, just collapsed to one window.
-* ``plots/holdout_equity.png/svg`` — equity curve over the holdout window
+* ``plots/holdout_equity.png/svg`` - equity curve over the holdout window
   with the dev/holdout boundary annotated. Normalised to 1.0 at holdout
   start so the y-axis tells the OOS story (return vs. baseline) rather
   than the absolute capital level.
 
-Output goes alongside the ``holdout_eval.json`` payload — the holdout-eval
+Output goes alongside the ``holdout_eval.json`` payload - the holdout-eval
 orchestration module writes the JSON, this reporter writes everything else.
 """
 
@@ -74,11 +74,11 @@ class HoldoutEvalReporter:
 
         if publish_label is not None:
             slug = validate_publish_label(publish_label)
-            caption = f"Holdout-eval metrics — {slug} (boundary {result.holdout_start.isoformat()})"
+            caption = f"Holdout-eval metrics - {slug} (boundary {result.holdout_start.isoformat()})"
             label = f"tab:holdout_{slug}"
         else:
             caption = (
-                f"Holdout-eval metrics — source {result.source_kind}: "
+                f"Holdout-eval metrics - source {result.source_kind}: "
                 f"{result.source_id} (boundary {result.holdout_start.isoformat()})"
             )
             label = f"tab:holdout_{result.out_name}"
@@ -98,7 +98,7 @@ class HoldoutEvalReporter:
         Plot the holdout equity curve normalised to 1.0 at holdout start.
 
         Skips plotting (with a warning) if the equity series is empty or
-        starts at a non-finite / non-positive value — same defence the
+        starts at a non-finite / non-positive value - same defence the
         per-fold reporter uses (NaN propagates through matplotlib silently
         and a non-positive base inverts the visual narrative).
         """
@@ -107,7 +107,7 @@ class HoldoutEvalReporter:
         normalised = normalise_to_unit_base(result.equity_curve)
         if normalised is None:
             _logger.warning(
-                "holdout-eval %s: equity_curve[0]=%s is non-finite or non-positive — "
+                "holdout-eval %s: equity_curve[0]=%s is non-finite or non-positive - "
                 "rendering empty equity plot",
                 result.out_name,
                 result.equity_curve[0] if result.equity_curve else "empty",
@@ -117,7 +117,7 @@ class HoldoutEvalReporter:
             ax.axhline(1.0, color="black", linewidth=0.5, alpha=0.5)
         ax.set_xlabel(f"bar index in holdout (boundary {result.holdout_start.date()})")
         ax.set_ylabel("equity (normalised to holdout start)")
-        ax.set_title(f"holdout equity — {result.source_kind}: {result.source_id}")
+        ax.set_title(f"holdout equity - {result.source_kind}: {result.source_id}")
         ax.grid(True, which="both", alpha=0.3)
         fig.tight_layout()
         save_png_and_svg(fig, out_path)
@@ -127,7 +127,7 @@ class HoldoutEvalReporter:
 
 def _build_metrics_df(result: HoldoutEvalResult) -> pd.DataFrame:
     """
-    Two-column "metric · value" frame.
+    Two-column "metric | value" frame.
 
     A horizontal one-row layout would crowd the LaTeX page (8 columns at
     .3f); the two-column form reads top-to-bottom and fits inside a

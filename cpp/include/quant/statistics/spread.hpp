@@ -7,7 +7,7 @@ namespace quant::statistics {
 
 /// Frozen output of a cointegration test. ``hedge_ratio`` is the OLS slope
 /// of ``a`` regressed on ``b``; ``spread_mean`` / ``spread_std`` are the
-/// training-window spread moments (retained for provenance — the rolling
+/// training-window spread moments (retained for provenance - the rolling
 /// z-score recomputes them on the inference window).
 struct CointegrationParams {
     double hedge_ratio;
@@ -38,7 +38,7 @@ public:
     ///
     /// NaN semantics: the underlying Welford accumulator is poisoned by
     /// any NaN in ``spread``. Once a NaN enters the window, every
-    /// subsequent output is NaN — unlike pandas' ``rolling(w).std()``
+    /// subsequent output is NaN - unlike pandas' ``rolling(w).std()``
     /// which recovers when the NaN slides out. Callers whose spread may
     /// contain NaN must pre-clean it.
     [[nodiscard]] static std::vector<double> compute_zscore(

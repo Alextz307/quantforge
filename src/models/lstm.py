@@ -199,7 +199,7 @@ class LSTMPredictor(IPredictor):
         # kernel speedup, so we skip the wrap there. Autograd writes
         # gradients back to ``self._model``'s parameters either way, so
         # predict() / save / load read the trained weights through the
-        # original module — the wrapper isn't needed past fit().
+        # original module - the wrapper isn't needed past fit().
         use_amp = self._amp and self._device.type == "cuda"
         if self._device.type == "cuda":
             train_module = cast(nn.Module, torch.compile(self._model, mode="reduce-overhead"))
@@ -337,7 +337,7 @@ class LSTMPredictor(IPredictor):
         n_windows = len(data) - self._lookback
 
         if n_windows > 0:
-            # Batch every lookback window into one forward pass — avoids
+            # Batch every lookback window into one forward pass - avoids
             # Python-per-bar overhead. The unfold view is non-contiguous, so
             # call .contiguous() explicitly to make the unavoidable copy
             # visible (nn.LSTM would do it implicitly otherwise).
@@ -384,7 +384,7 @@ class LSTMPredictor(IPredictor):
         """
         Persist LSTM config + torch state_dict to ``path``.
 
-        Device is NOT persisted — it is re-resolved against the current runtime
+        Device is NOT persisted - it is re-resolved against the current runtime
         via ``select_device()`` on load. ``torch.save`` writes CPU tensors to
         guarantee portability across CUDA / MPS / CPU.
         """

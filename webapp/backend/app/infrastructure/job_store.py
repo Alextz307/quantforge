@@ -1,5 +1,5 @@
 """
-SQLite CRUD for the jobs table; FSM ``queued → running → {completed, failed, cancelled}``.
+SQLite CRUD for the jobs table; FSM ``queued -> running -> {completed, failed, cancelled}``.
 """
 
 from __future__ import annotations
@@ -92,8 +92,8 @@ def list_jobs(conn: sqlite3.Connection, *, user_id: int | None = None) -> list[J
     List jobs newest-first by ``started_at``. ``user_id=None`` returns every job (admin view).
 
     Ordering: ``started_at DESC NULLS FIRST, id DESC``. Queued jobs (no
-    ``started_at``) surface at the top — they're the freshest activity even
-    though the subprocess hasn't spawned — and ``id`` breaks ties for stable
+    ``started_at``) surface at the top - they're the freshest activity even
+    though the subprocess hasn't spawned - and ``id`` breaks ties for stable
     pagination across the polling refetch.
     """
 

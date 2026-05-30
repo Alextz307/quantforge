@@ -9,9 +9,9 @@ runs the backtest.
 | Symbol | Role |
 | --- | --- |
 | `IStrategy` | Abstract base. Required: `train`, `generate_signals`, `name`, `required_warmup_bars`, `suggest_params`. Default: `save`/`load` (raise), `hedge_ratio` (raise unless overridden), `get_all_training_metadata`, `_assert_fitted_with_metadata` (read-side guard), `_set_fitted_with_metadata` (atomic write-side commit). |
-| `IStrategy.is_pairs_strategy` | `ClassVar[bool]` — `True` only on pairs strategies. The walk-forward dispatcher branches on this to call `engine.run` vs `engine.run_pairs`. |
-| `IStrategy.is_multi_feature_strategy` | `ClassVar[bool]` — `True` for single-asset traded strategies that read N feature tickers from a wide `<ohlcv>_<TICKER>` frame. Mutually exclusive with `is_pairs_strategy`; the dispatcher slices the primary asset's OHLCV before calling `engine.run`. |
-| `IStrategy.primary_ticker` | Property — the asset a multi-feature strategy trades; default raises (override required). |
+| `IStrategy.is_pairs_strategy` | `ClassVar[bool]` - `True` only on pairs strategies. The walk-forward dispatcher branches on this to call `engine.run` vs `engine.run_pairs`. |
+| `IStrategy.is_multi_feature_strategy` | `ClassVar[bool]` - `True` for single-asset traded strategies that read N feature tickers from a wide `<ohlcv>_<TICKER>` frame. Mutually exclusive with `is_pairs_strategy`; the dispatcher slices the primary asset's OHLCV before calling `engine.run`. |
+| `IStrategy.primary_ticker` | Property - the asset a multi-feature strategy trades; default raises (override required). |
 | `AdaptiveBollingerStrategy` | Mean-reversion Bollinger bands with GARCH-scaled widths + SMA trend filter. |
 | `PairsTradingStrategy` | Cointegration (Engle-Granger) + rolling z-score on the spread. The only `is_pairs_strategy = True` member. |
 | `MomentumGatekeeperStrategy` | Long-only momentum gated by a 200-MA trend filter and an XGBoost `DirectionalClassifier`. |
@@ -20,7 +20,7 @@ runs the backtest.
 | `VolatilityTargetingStrategy` | Position size = `target_vol / forecast_vol` from a `HybridVolatilityModel` (GARCH + LSTM residual correction). |
 
 All six register themselves at import time on `strategy_registry`
-(name → class) for config-driven instantiation.
+(name -> class) for config-driven instantiation.
 
 ## Layout
 
@@ -37,8 +37,8 @@ All six register themselves at import time on `strategy_registry`
 ## Patterns
 
 - **Capability flag dispatch.** Pairs strategies set
-  `is_pairs_strategy: ClassVar[bool] = True` on the class — no string
-  check by name anywhere. `build_experiment` and `walk_forward` read
+  `is_pairs_strategy: ClassVar[bool] = True` on the class, with no
+  string check by name. `build_experiment` and `walk_forward` read
   the flag to decide between single-leg and two-leg paths.
 - **Composite passthrough bundle.** When a strategy owns a leaf with a
   fit-once scaler and >5 ctor kwargs, the leaf is rebuilt at the top
@@ -49,8 +49,8 @@ All six register themselves at import time on `strategy_registry`
 - **`training_metadata` is the transactional commit.** `train()` and
   `load()` end with `self._set_fitted_with_metadata(metadata)`; that
   helper is the only legal mutator of the slot, refuses ``None``, and is
-  the single fitted-state signal — there is no separate boolean flag, so
-  `training_metadata is not None` IS "fitted." Read-side guards call
+  the single fitted-state signal; there is no separate boolean flag, so
+  `training_metadata is not None` means "fitted." Read-side guards call
   `self._assert_fitted_with_metadata()` (the caller name is auto-derived
   from the calling frame); composites layer leaf-presence checks
   (`_classifier is None`, `_cpp_coint is None`) as separate statements.
@@ -58,9 +58,9 @@ All six register themselves at import time on `strategy_registry`
   positions to `t+1`. Strategies that compute `next_bar_direction`-style
   targets must drop the trailing row, never `fillna(0)` it.
 - **`suggest_params` is static.** Each strategy declares its own
-  Optuna search space — leaf hyperparameters that pass through to a
+  Optuna search space; leaf hyperparameters that pass through to a
   wrapped model (e.g. `arma_p_max` on `ReturnForecast`) are flattened
-  into the strategy's space, not resolved separately.
+  into the strategy's space rather than resolved separately.
 
 ## Adding a new strategy
 
@@ -74,10 +74,10 @@ All six register themselves at import time on `strategy_registry`
    | Pairs (two-leg) | `is_pairs_strategy = True` | not used | `engine.run_pairs` | `pairs_trading.py` |
    | Multi-feature single-asset | `is_multi_feature_strategy = True` | required override | `engine.run` after `slice_primary_ohlcv` | `cross_asset_momentum.py` |
 
-   The two flags are mutually exclusive — `_validate_strategy_data_shape`
+   The two flags are mutually exclusive; `_validate_strategy_data_shape`
    in `src/orchestration/builder.py` rejects a class that sets both.
 
-2. **Copy `_template.py` → `<your_strategy>.py`** in this directory and
+2. **Copy `_template.py` -> `<your_strategy>.py`** in this directory and
    drop the leading underscore. The autoloader skips `_`-prefixed
    modules on purpose, so the template never registers itself. Renaming
    makes the autoloader import the module; to actually register the
@@ -99,7 +99,7 @@ All six register themselves at import time on `strategy_registry`
 
 5. **Add `config/strategies/<name>.yaml`** with the default ctor kwargs,
    plus a corresponding HPO YAML if the strategy will be tuned. The
-   YAML schema is enforced by Pydantic — string values for `Interval`
+   YAML schema is enforced by Pydantic - string values for `Interval`
    and `Device` fields are auto-coerced to the matching `StrEnum`.
 
 6. **Add `tests/unit/test_<your_strategy>.py`.** Minimum coverage:
@@ -118,7 +118,7 @@ or surfaces only at backtest time, far from the bug.
   is the *only* legal mutator of `_training_metadata`. It refuses
   `None` and must be the last line of `train()` and `load()`. Never
   assign `self._training_metadata = ...` directly. There is no separate
-  `_fitted` boolean — `training_metadata is not None` IS "fitted".
+  `_fitted` boolean; `training_metadata is not None` means "fitted".
 - **Read-side guard.** Every method that requires a completed `train()`
   (`generate_signals`, `save`, `hedge_ratio`) starts with
   `self._assert_fitted_with_metadata()`. The helper auto-derives the
@@ -131,7 +131,7 @@ or surfaces only at backtest time, far from the bug.
   inside `generate_signals`. Strategies that compute targets like
   `(close[t+1] > close[t])` must drop the trailing row, never
   `fillna(0)` it.
-- **`suggest_params` keys ↔ ctor kwargs.** The dict returned by
+- **`suggest_params` keys <-> ctor kwargs.** The dict returned by
   `suggest_params` has its KEYS consumed as ctor kwargs by
   `StrategyTuner`; mismatched keys surface as `TypeError` at trial-build
   time. The Optuna parameter NAMES (the strings passed to
@@ -147,13 +147,13 @@ or surfaces only at backtest time, far from the bug.
   `**asdict(self._params)`, and drift-guard with
   `assert_params_match_constructor(_LeafParams, LeafClass)`. Exemplars:
   `_HybridReturnParams`, `_HybridVolParams`, `_MomentumConfig`. For
-  ≤5 passthrough kwargs, plain `self._x` attributes are simpler.
+  <=5 passthrough kwargs, plain `self._x` attributes are simpler.
 - **Autoload skip rules.** `autoload_package` (in
   `src/core/registry.py`) imports every module in this package EXCEPT
   ones whose name starts with `_` (templates, helpers) and the literal
   `interface` (the ABC). Spelling a strategy module name with a leading
-  underscore silently produces "strategy not found" at YAML-load time —
-  rename to drop the underscore.
+  underscore produces "strategy not found" at YAML-load time; rename to
+  drop the underscore.
 
 ## Templates and exemplars
 

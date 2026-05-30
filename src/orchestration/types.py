@@ -31,7 +31,7 @@ class FoldRecord:
     Per-fold metrics snapshot, JSON-serializable.
 
     Run-wide context (slippage scenario, seed, git sha) lives on
-    :class:`ExperimentResult.manifest`, not here — a fold record carries
+    :class:`ExperimentResult.manifest`, not here - a fold record carries
     only what differs across folds.
     """
 
@@ -207,7 +207,7 @@ class StrategyComparisonReport:
     """
     Aggregate output of :func:`run_comparison`.
 
-    Value object — not persisted whole. The comparison reporter writes
+    Value object - not persisted whole. The comparison reporter writes
     ``ranking.tex`` from ``ranking``, ``pairwise_significance.tex`` from
     ``pairwise``, and a JSON manifest from the scalar identity fields;
     ``per_strategy_stats`` is embedded in the JSON manifest as a

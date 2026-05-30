@@ -148,9 +148,7 @@ def stubbed_fetcher(
     def _stub_probe(_ticker: str, _interval: Interval) -> pd.Timestamp:
         return latest_bar_ts
 
-    monkeypatch.setattr(
-        "src.orchestration.deployment.resolve_fetcher", _stub_resolve_fetcher
-    )
+    monkeypatch.setattr("src.orchestration.deployment.resolve_fetcher", _stub_resolve_fetcher)
     monkeypatch.setattr(
         "webapp.backend.app.services.deployment_service._probe_latest_bar_ts",
         _stub_probe,
@@ -211,9 +209,7 @@ def test_create_minimal_payload(authed_client: TestClient, trained_store: Path) 
     assert payload["owner_username"] == TEST_USERNAME
 
 
-def test_create_with_custom_name_and_warmup(
-    authed_client: TestClient, trained_store: Path
-) -> None:
+def test_create_with_custom_name_and_warmup(authed_client: TestClient, trained_store: Path) -> None:
     response = authed_client.post(
         DEPLOYMENTS_PATH,
         json={
@@ -230,9 +226,7 @@ def test_create_with_custom_name_and_warmup(
     assert payload["warmup_bars"] == 120
 
 
-def test_create_writes_manifest_to_disk(
-    authed_client: TestClient, trained_store: Path
-) -> None:
+def test_create_writes_manifest_to_disk(authed_client: TestClient, trained_store: Path) -> None:
     response = authed_client.post(
         DEPLOYMENTS_PATH,
         json={"source_kind": "run", "source_id": _RUN_ID},
@@ -244,9 +238,7 @@ def test_create_writes_manifest_to_disk(
     assert (dep_dir / DEPLOYMENT_SIGNALS_JSONL).is_file()
 
 
-def test_create_rejects_unknown_source(
-    authed_client: TestClient, trained_store: Path
-) -> None:
+def test_create_rejects_unknown_source(authed_client: TestClient, trained_store: Path) -> None:
     response = authed_client.post(
         DEPLOYMENTS_PATH,
         json={"source_kind": "run", "source_id": "absent_run"},
@@ -254,9 +246,7 @@ def test_create_rejects_unknown_source(
     assert response.status_code == HTTPStatus.NOT_FOUND
 
 
-def test_create_rejects_pairs_source(
-    authed_client: TestClient, trained_store: Path
-) -> None:
+def test_create_rejects_pairs_source(authed_client: TestClient, trained_store: Path) -> None:
     _materialise_pairs_run(trained_store)
     response = authed_client.post(
         DEPLOYMENTS_PATH,
@@ -291,9 +281,7 @@ def test_rename(authed_client: TestClient, trained_store: Path) -> None:
         DEPLOYMENTS_PATH, json={"source_kind": "run", "source_id": _RUN_ID}
     ).json()
 
-    renamed = authed_client.patch(
-        f"{DEPLOYMENTS_PATH}/{created['id']}", json={"name": "renamed"}
-    )
+    renamed = authed_client.patch(f"{DEPLOYMENTS_PATH}/{created['id']}", json={"name": "renamed"})
     assert renamed.status_code == HTTPStatus.OK
     assert renamed.json()["name"] == "renamed"
 
@@ -301,9 +289,7 @@ def test_rename(authed_client: TestClient, trained_store: Path) -> None:
     assert refetched["name"] == "renamed"
 
 
-def test_delete_removes_row_and_dir(
-    authed_client: TestClient, trained_store: Path
-) -> None:
+def test_delete_removes_row_and_dir(authed_client: TestClient, trained_store: Path) -> None:
     created = authed_client.post(
         DEPLOYMENTS_PATH, json={"source_kind": "run", "source_id": _RUN_ID}
     ).json()
@@ -314,7 +300,8 @@ def test_delete_removes_row_and_dir(
     response = authed_client.delete(f"{DEPLOYMENTS_PATH}/{deployment_id}")
     assert response.status_code == HTTPStatus.NO_CONTENT
     assert not dep_dir.exists()
-    assert authed_client.get(f"{DEPLOYMENTS_PATH}/{deployment_id}").status_code == HTTPStatus.NOT_FOUND
+    after_delete = authed_client.get(f"{DEPLOYMENTS_PATH}/{deployment_id}")
+    assert after_delete.status_code == HTTPStatus.NOT_FOUND
 
 
 # ---------------------------------------------------------------------------
@@ -351,9 +338,7 @@ def test_other_user_cannot_see_deployment(
 # ---------------------------------------------------------------------------
 
 
-def test_signals_empty_on_fresh_deployment(
-    authed_client: TestClient, trained_store: Path
-) -> None:
+def test_signals_empty_on_fresh_deployment(authed_client: TestClient, trained_store: Path) -> None:
     created = authed_client.post(
         DEPLOYMENTS_PATH, json={"source_kind": "run", "source_id": _RUN_ID}
     ).json()
@@ -447,7 +432,7 @@ def test_detail_surfaces_latest_signal_after_predict(
     detail = authed_client.get(f"{DEPLOYMENTS_PATH}/{deployment_id}").json()
     assert detail["latest_signal"] is not None
     assert "bar_ts" in detail["latest_signal"]
-    # signal_date is the session the signal is *for* — strictly after the bar it was computed from
+    # signal_date is the session the signal is *for* - strictly after the bar it was computed from
     assert detail["latest_signal"]["signal_date"] > detail["latest_signal"]["bar_ts"]
 
 
@@ -503,10 +488,10 @@ def test_signal_evaluation_scores_emitted_signal(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """
-    A predicted signal is scored open→open once two later session opens exist.
+    A predicted signal is scored open->open once two later session opens exist.
 
     ``_fetch_opens`` is stubbed (no yfinance) with two sessions strictly
-    after the signal's ``bar_ts`` so the open→open window closes; the
+    after the signal's ``bar_ts`` so the open->open window closes; the
     realised return must equal ``signal * asset_return``.
     """
 
@@ -514,17 +499,13 @@ def test_signal_evaluation_scores_emitted_signal(
         DEPLOYMENTS_PATH, json={"source_kind": "run", "source_id": _RUN_ID}
     ).json()
     deployment_id = created["id"]
-    predicted = authed_client.post(
-        f"{DEPLOYMENTS_PATH}/{deployment_id}/predict-if-stale"
-    ).json()
+    predicted = authed_client.post(f"{DEPLOYMENTS_PATH}/{deployment_id}/predict-if-stale").json()
     signal_value = predicted["signal"]["signal"]
     bar_ts = pd.Timestamp(predicted["signal"]["bar_ts"])
 
     opens = pd.Series(
         [_EVAL_ENTRY_OPEN, _EVAL_EXIT_OPEN],
-        index=pd.DatetimeIndex(
-            [bar_ts + pd.Timedelta(days=1), bar_ts + pd.Timedelta(days=2)]
-        ),
+        index=pd.DatetimeIndex([bar_ts + pd.Timedelta(days=1), bar_ts + pd.Timedelta(days=2)]),
     )
 
     def _stub_fetch_opens(_ticker: str, _interval: Interval, _signals: object) -> pd.Series:
@@ -544,10 +525,8 @@ def test_signal_evaluation_scores_emitted_signal(
     row = payload["rows"][0]
     assert row["scored"] is True
     assert row["asset_return"] == pytest.approx(_EVAL_ASSET_RETURN, abs=_EVAL_TOL)
-    assert row["listened_return"] == pytest.approx(
-        signal_value * _EVAL_ASSET_RETURN, abs=_EVAL_TOL
-    )
-    # default tier (normal) charges |Δleverage| × cost_fraction; first signal carries from flat.
+    assert row["listened_return"] == pytest.approx(signal_value * _EVAL_ASSET_RETURN, abs=_EVAL_TOL)
+    # normal tier charges |delta leverage| x cost_fraction; first signal carries from flat.
     assert row["cost"] == pytest.approx(abs(signal_value) * _NORMAL_COST_FRACTION, abs=_EVAL_TOL)
     assert row["net_listened_return"] == pytest.approx(
         row["listened_return"] - row["cost"], abs=_EVAL_TOL
@@ -564,15 +543,11 @@ def test_signal_evaluation_zero_cost_tier_matches_gross(
         DEPLOYMENTS_PATH, json={"source_kind": "run", "source_id": _RUN_ID}
     ).json()
     deployment_id = created["id"]
-    predicted = authed_client.post(
-        f"{DEPLOYMENTS_PATH}/{deployment_id}/predict-if-stale"
-    ).json()
+    predicted = authed_client.post(f"{DEPLOYMENTS_PATH}/{deployment_id}/predict-if-stale").json()
     bar_ts = pd.Timestamp(predicted["signal"]["bar_ts"])
     opens = pd.Series(
         [_EVAL_ENTRY_OPEN, _EVAL_EXIT_OPEN],
-        index=pd.DatetimeIndex(
-            [bar_ts + pd.Timedelta(days=1), bar_ts + pd.Timedelta(days=2)]
-        ),
+        index=pd.DatetimeIndex([bar_ts + pd.Timedelta(days=1), bar_ts + pd.Timedelta(days=2)]),
     )
 
     def _stub_fetch_opens(_ticker: str, _interval: Interval, _signals: object) -> pd.Series:
@@ -583,9 +558,7 @@ def test_signal_evaluation_zero_cost_tier_matches_gross(
         _stub_fetch_opens,
     )
 
-    response = authed_client.get(
-        f"{DEPLOYMENTS_PATH}/{deployment_id}/signal-evaluation?cost=zero"
-    )
+    response = authed_client.get(f"{DEPLOYMENTS_PATH}/{deployment_id}/signal-evaluation?cost=zero")
     assert response.status_code == HTTPStatus.OK, response.text
     payload = response.json()
     assert payload["cost_scenario"] == "zero"
@@ -595,5 +568,3 @@ def test_signal_evaluation_zero_cost_tier_matches_gross(
     assert payload["net_cumulative_return"] == pytest.approx(
         payload["cumulative_return"], abs=_EVAL_TOL
     )
-
-

@@ -1,5 +1,5 @@
 """
-Tests for :func:`fingerprint_bars` — deterministic OHLCV content hash.
+Tests for :func:`fingerprint_bars` - deterministic OHLCV content hash.
 """
 
 from __future__ import annotations

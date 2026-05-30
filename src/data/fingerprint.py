@@ -9,7 +9,7 @@ the canonical OHLCV columns.
 Why not ``df.to_parquet`` + hash, or ``pd.util.hash_pandas_object``?
 
 * ``to_parquet`` mixes in pandas/version metadata that drifts with minor
-  releases — a no-op upgrade would invalidate every cached hash.
+  releases - a no-op upgrade would invalidate every cached hash.
 * ``hash_pandas_object`` deliberately salts its output across pandas
   minor versions (its docstring flags this); the salt makes collisions
   rare but invalidates round-trip use across environments.
@@ -86,7 +86,7 @@ def fingerprint_multi_bars(df: pd.DataFrame, tickers: Sequence[str]) -> str:
 
     Expects ``<ohlcv>_<TICKER>`` columns produced by the multi-feature
     fetch path (e.g. ``close_SPY``, ``open_QQQ``). Tickers are sorted
-    before hashing so the digest is invariant to input ticker ORDER —
+    before hashing so the digest is invariant to input ticker ORDER -
     the same set of tickers always produces the same hash regardless of
     whether the caller passed ``[SPY, QQQ]`` or ``[QQQ, SPY]``.
     """

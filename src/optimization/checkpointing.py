@@ -4,12 +4,12 @@ Per-trial callback writing ``trials.jsonl`` + ``best_config.yaml``.
 Optuna calls the registered callback after every trial finishes (complete,
 pruned, or failed). We:
 
-1. Append a line to ``trials.jsonl`` — append-only so a ``tail -f`` on a
+1. Append a line to ``trials.jsonl`` - append-only so a ``tail -f`` on a
    running study shows progress; JSON object per line so downstream
    analysis can stream-parse.
 2. Refresh ``best_config.yaml`` if the trial is COMPLETE and is the new
    study best. The YAML is a fully-materialised :class:`ExperimentConfig`
-   — a user can drop it straight into ``experiment run --config`` for a
+   - a user can drop it straight into ``experiment run --config`` for a
    final re-train on the full dev region, or feed it into a holdout-eval
    pipeline.
 
@@ -95,7 +95,7 @@ class TrialCallback:
         Write ``best_config.yaml`` = base config + best trial's sampled kwargs.
 
         Uses :class:`optuna.trial.FixedTrial` to replay the strategy's
-        ``suggest_params`` with the stored Optuna-namespaced params —
+        ``suggest_params`` with the stored Optuna-namespaced params -
         that's the only way to go from the Optuna-internal name space
         (``"retf_arma_p_max"``) back to ctor-kwarg space
         (``"arma_p_max"``). The filter inside ``sample_trial_params``

@@ -7,7 +7,7 @@ on CUDA), so a passing existing suite already proves
 ``torch.compile`` doesn't break correctness on that backend. These
 tests add the new contract surface that's specific to Batch 8.0f:
 
-* ``amp=False`` is the default — thesis runs preserve FP32 numerics
+* ``amp=False`` is the default - thesis runs preserve FP32 numerics
   unless explicitly opted in.
 * The ``amp`` flag round-trips through save/load.
 * A fit + predict cycle produces finite predictions on a tiny synthetic
@@ -15,7 +15,7 @@ tests add the new contract surface that's specific to Batch 8.0f:
   fails on this model shape).
 
 No CUDA-only AMP test ships here. AMP only meaningfully quantises on
-CUDA, and the runner doesn't carry one — exercising it would either
+CUDA, and the runner doesn't carry one - exercising it would either
 silently no-op (giving false confidence) or skip (adding no signal).
 """
 
@@ -67,7 +67,7 @@ def _build(amp: bool = False) -> LSTMPredictor:
 
 def test_amp_default_is_false() -> None:
     """
-    No-arg ctor → ``amp`` is False; thesis runs land on FP32 by default.
+    No-arg ctor -> ``amp`` is False; thesis runs land on FP32 by default.
     """
 
     p = LSTMPredictor(feature_columns=["close"])

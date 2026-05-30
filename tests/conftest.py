@@ -209,7 +209,7 @@ def make_synthetic_close_df(
     """
     Create a DataFrame with realistic close prices and volume.
 
-    Not a fixture — call directly with parameters. Uses random-walk
+    Not a fixture - call directly with parameters. Uses random-walk
     returns with ``SYNTH_RETURN_MEAN`` mean and ``SYNTH_RETURN_STD``
     daily volatility.
     """
@@ -280,9 +280,9 @@ def make_mini_experiment_fixture(
     Write the canonical synthetic OHLCV CSV + AdaptiveBollinger YAML for CLI smoke tests.
 
     Returns the YAML path. The CSV lives at ``<tmp_path>/csv_data/MINI.csv``
-    and is regenerated per call (no caching — pytest's ``tmp_path`` is
+    and is regenerated per call (no caching - pytest's ``tmp_path`` is
     already per-test). Every CLI smoke test (``run``, ``holdout-eval``,
-    future ``compare`` / ``study``) needs the same skeleton — only
+    future ``compare`` / ``study``) needs the same skeleton - only
     ``holdout_pct`` and ``name`` typically vary, so the helper takes both
     as kwargs and otherwise pins to a known-fast AdaptiveBollinger config
     (``garch_p_max=garch_q_max=1`` so the AIC grid finishes in seconds).
@@ -359,11 +359,11 @@ def make_pair_mini_experiment_fixture(
     Sibling to :func:`make_mini_experiment_fixture` for the pairs CLI smoke.
     Construction:
 
-    * Leg A is :func:`make_synthetic_ohlcv_df` (its own fixed seed → reproducible
+    * Leg A is :func:`make_synthetic_ohlcv_df` (its own fixed seed -> reproducible
       random-walk close).
     * Leg B has ``close_b = alpha + beta * close_a + N(0, sigma)`` with iid
-      Gaussian noise. The pair is cointegrated by construction — Engle-Granger
-      passes for any reasonable training window — so the strategy's
+      Gaussian noise. The pair is cointegrated by construction - Engle-Granger
+      passes for any reasonable training window - so the strategy's
       ``train()`` does not raise ``"pair not cointegrated"`` on small folds.
     * Both legs share the same business-day index (the orchestrator's pair
       fetch path inner-joins on timestamps; identical indices avoid silent
@@ -467,7 +467,7 @@ def make_multi_feature_mini_experiment_fixture(
     inner-join doesn't drop any bars on synthetic data.
 
     ``strategy_name`` MUST already be registered on ``strategy_registry``
-    when ``build_experiment`` runs — caller's responsibility (typically by
+    when ``build_experiment`` runs - caller's responsibility (typically by
     importing the module that contains ``@strategy_registry.register(...)``).
     The helper writes the YAML; it does not import strategies.
     """
@@ -533,7 +533,7 @@ def assert_params_match_constructor(
     Assert a dataclass mirrors a class's constructor kwargs.
 
     Used to detect drift between an internal params dataclass and the
-    constructor it shadows — mypy can't enforce this when the dataclass
+    constructor it shadows - mypy can't enforce this when the dataclass
     is spread via ``**asdict(...)``.
     """
 
@@ -558,7 +558,7 @@ def make_declining_close_df(
     Monotone-declining close series for bearish-regime tests.
 
     Every bar sits below its own SMA(50) / SMA(100), guaranteeing
-    ``close > trend_ma`` is False throughout — useful for asserting
+    ``close > trend_ma`` is False throughout - useful for asserting
     that trend filters suppress long entries in strict bearish windows.
     """
 
@@ -625,7 +625,7 @@ def make_pair_close_df(
     Create a DataFrame with two cointegrated close-price series (close_a, close_b).
 
     ``close_b`` is constructed as ``close_a * scale + stationary_noise``. The
-    resulting spread ``close_a - (1/scale) * close_b`` is stationary — a
+    resulting spread ``close_a - (1/scale) * close_b`` is stationary - a
     cointegrated pair that passes the Engle-Granger ADF test.
     """
 
@@ -642,7 +642,7 @@ def make_daily_df(n_rows: int, start: str = DAILY_DEFAULT_START_DATE) -> pd.Data
     """
     Create a simple DataFrame with DatetimeIndex for testing.
 
-    Not a fixture — call directly with parameters. For minimal test DataFrames
+    Not a fixture - call directly with parameters. For minimal test DataFrames
     that only need 'close' and 'volume' columns.
     """
 
@@ -790,7 +790,7 @@ def comparison_curve_seed(name: str, fold_index: int) -> int:
     Stable, process-independent seed for a (strategy, fold) pair.
 
     Avoids ``hash((name, i))`` whose value is randomised per Python process
-    when ``PYTHONHASHSEED`` is not pinned — that randomness would let two
+    when ``PYTHONHASHSEED`` is not pinned - that randomness would let two
     test invocations see different equity curves and re-flake otherwise.
 
     Layout: a 16-bit name anchor (positional sum of ``ord(char)``) packed
@@ -813,7 +813,7 @@ def make_stub_aggregate_stats(
     Build a stub :class:`AggregateStats` from a scalar Sharpe.
 
     Used by tuner / CLI tests that monkeypatch ``aggregate_folds`` and only
-    care about the objective-driving sharpe/sortino/calmar fields — every
+    care about the objective-driving sharpe/sortino/calmar fields - every
     other numeric field mirrors ``sharpe`` so the dict emitted by
     ``to_dict()`` is a well-formed superset regardless of which objective
     the test happens to select. ``n_folds`` defaults to 1 for the tuner

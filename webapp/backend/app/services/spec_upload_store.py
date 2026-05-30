@@ -5,22 +5,22 @@ A ``SpecUploadStore`` instance binds a single upload kind (e.g. study,
 universe) to its table name, library subdir, DTO classes, exception
 classes, and YAML validator. Both ``study_spec_uploads`` and
 ``universe_spec_uploads`` reduce to a thin spec-specific validator plus
-a store binding — the duplicated row-mapping, list/get/save/soft-delete
+a store binding - the duplicated row-mapping, list/get/save/soft-delete
 SQL, on-disk YAML write, and tombstone-reuse logic all live here.
 
 The CRUD shape:
 
-* **List** — non-deleted rows, scoped to the caller (admins can pass
+* **List** - non-deleted rows, scoped to the caller (admins can pass
   ``all_users=True`` to see every active row).
-* **Get** — one row by slug; non-admins can only read their own.
-* **Save** — validate, write disk, then commit DB. On an existing row
+* **Get** - one row by slug; non-admins can only read their own.
+* **Save** - validate, write disk, then commit DB. On an existing row
   (active or tombstoned) the same UPDATE clears ``deleted_at`` and bumps
   ``updated_at``; the partial unique index treats tombstones as absent
   so a single UPDATE handles both edit-active and reactivate-tombstoned.
-* **Soft delete** — set ``deleted_at`` and ``unlink(missing_ok=True)``.
+* **Soft delete** - set ``deleted_at`` and ``unlink(missing_ok=True)``.
 
 A user-uploaded slug must not shadow a library spec under
-``<config_root>/<library_subdir>/<slug>.yaml`` — the collision check
+``<config_root>/<library_subdir>/<slug>.yaml`` - the collision check
 fires before validation so the resolver can rely on uploads never
 shadowing library entries. ``LibrarySlugCollisionError`` carries the
 resolved library path so routers don't hardcode subdir strings.
@@ -33,7 +33,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Generic, Protocol, TypeAlias, TypeVar, cast
+from typing import Protocol, cast
 
 import yaml
 from pydantic import BaseModel, ValidationError
@@ -100,10 +100,7 @@ class InvalidErrorFactory(Protocol):
     def __call__(self, errors: list[ValidationErrorItem]) -> SpecUploadInvalidError: ...
 
 
-SummaryT = TypeVar("SummaryT", bound=BaseModel)
-DetailT = TypeVar("DetailT", bound=BaseModel)
-
-ValidatorFn: TypeAlias = Callable[[str, Path], ValidateResponse]
+type ValidatorFn = Callable[[str, Path], ValidateResponse]
 
 
 def _now_iso() -> str:
@@ -118,7 +115,7 @@ def find_upload_path(uploads_root: Path, user_id: int, slug: str) -> Path | None
     """
     Return the on-disk YAML path for an upload if the file exists, else None.
 
-    Pure filesystem lookup — does not touch the DB. Used by job handlers
+    Pure filesystem lookup - does not touch the DB. Used by job handlers
     on the spawn path where the row has already been verified by a prior
     validate() call.
     """
@@ -142,14 +139,10 @@ def parse_yaml_mapping(
         parsed = yaml.safe_load(yaml_text)
     except yaml.YAMLError as exc:
         return None, [
-            ValidationErrorItem(
-                loc=["yaml"], msg=f"YAML parse error: {exc}", type="value_error"
-            )
+            ValidationErrorItem(loc=["yaml"], msg=f"YAML parse error: {exc}", type="value_error")
         ]
     if parsed is None:
-        return None, [
-            ValidationErrorItem(loc=["yaml"], msg="empty YAML", type="value_error")
-        ]
+        return None, [ValidationErrorItem(loc=["yaml"], msg="empty YAML", type="value_error")]
     if not isinstance(parsed, dict):
         return None, [
             ValidationErrorItem(
@@ -175,16 +168,14 @@ def validate_against_pydantic(
         model_cls.model_validate(parsed)
     except ValidationError as exc:
         return [
-            ValidationErrorItem(
-                loc=[str(p) for p in err["loc"]], msg=err["msg"], type=err["type"]
-            )
+            ValidationErrorItem(loc=[str(p) for p in err["loc"]], msg=err["msg"], type=err["type"])
             for err in exc.errors()
         ]
     return []
 
 
 @dataclass(frozen=True)
-class SpecUploadStore(Generic[SummaryT, DetailT]):
+class SpecUploadStore[SummaryT: BaseModel, DetailT: BaseModel]:
     """
     Per-kind CRUD over a ``*_spec_uploads`` table.
 
@@ -252,20 +243,15 @@ class SpecUploadStore(Generic[SummaryT, DetailT]):
         if all_users and user.role is not Role.ADMIN:
             raise PermissionError("only admins can list all users' uploads")
         if all_users:
-            rows = conn.execute(
-                self._summary_select() + " ORDER BY u.updated_at DESC"
-            ).fetchall()
+            rows = conn.execute(self._summary_select() + " ORDER BY u.updated_at DESC").fetchall()
         else:
             rows = conn.execute(
-                self._summary_select()
-                + " AND u.user_id = ? ORDER BY u.updated_at DESC",
+                self._summary_select() + " AND u.user_id = ? ORDER BY u.updated_at DESC",
                 (user.id,),
             ).fetchall()
         return [self._row_to_summary(r) for r in rows]
 
-    def get_upload(
-        self, conn: sqlite3.Connection, *, user: UserPublic, slug: str
-    ) -> DetailT:
+    def get_upload(self, conn: sqlite3.Connection, *, user: UserPublic, slug: str) -> DetailT:
         if user.role is Role.ADMIN:
             row = conn.execute(
                 self._detail_select() + " AND u.slug = ? LIMIT 1", (slug,)

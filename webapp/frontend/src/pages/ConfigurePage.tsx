@@ -103,7 +103,7 @@ export function ConfigurePage() {
 
           <div className="flex justify-end gap-2">
             <Button type="submit" disabled={isSubmitting || submit.isPending}>
-              {submit.isPending ? "Launching…" : "Launch run"}
+              {submit.isPending ? "Launching..." : "Launch run"}
             </Button>
           </div>
         </form>

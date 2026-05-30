@@ -17,7 +17,7 @@ interface StrategyParamsEditorProps {
  * Per-strategy params editor. Renders a typed input per simple ``ParamKind``
  * (int/float/str/bool/enum) and a JSON-editor textarea for ``complex``
  * params (lists, Optional, Path, etc.). Server-side validation via
- * /api/configs/validate is the source of truth — this component only
+ * /api/configs/validate is the source of truth - this component only
  * sanitises into a shape Pydantic can parse.
  */
 export function StrategyParamsEditor({
@@ -73,7 +73,7 @@ function ParamField({ param, value, onChange, errorMsg, disabled }: ParamFieldPr
         <span className="font-mono text-xs">{param.name}</span>
         <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
           {param.kind}
-          {param.required ? " · required" : ""}
+          {param.required ? " | required" : ""}
         </span>
       </Label>
       <ParamInput id={id} param={param} value={value} onChange={onChange} disabled={disabled} />
@@ -255,15 +255,15 @@ function asScalarInputValue(value: unknown): number | string {
 function describeDefault(param: StrategyParam): string {
   const def = param.default;
   if (def === null || def === undefined) {
-    return param.required ? "required" : "default: —";
+    return param.required ? "required" : "default: -";
   }
   return `default: ${formatPrimitive(def)}`;
 }
 
 function emptyOptionLabel(param: StrategyParam): string {
-  if (param.required) return "— select —";
-  if (param.nullable) return "— none —";
-  return "— use default —";
+  if (param.required) return "- select -";
+  if (param.nullable) return "- none -";
+  return "- use default -";
 }
 
 function strListPlaceholder(paramName: string): string {

@@ -23,7 +23,7 @@ class ParquetSource(LocalFileSource):
     Data source for local Parquet files.
 
     Parquet preserves dtypes on disk, so unlike :class:`CSVSource` there is
-    no string-date parsing fallback or NaT post-check — the index either
+    no string-date parsing fallback or NaT post-check - the index either
     round-trips as ``DatetimeIndex`` or the file was written wrong.
     """
 

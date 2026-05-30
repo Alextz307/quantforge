@@ -21,7 +21,7 @@ from src.engine.scenarios import (
     commission_fraction_for,
 )
 
-# (slippage_bps, commission_bps) per tier — the contract.
+# (slippage_bps, commission_bps) per tier - the contract.
 _EXPECTED: dict[SlippageScenario, tuple[float, float]] = {
     SlippageScenario.ZERO: (0.0, 0.0),
     SlippageScenario.LOW: (1.0, 1.0),
@@ -44,9 +44,7 @@ def test_tier_values(scenario: SlippageScenario, expected: tuple[float, float]) 
     assert cost.slippage.volume_impact_coeff == pytest.approx(0.0)
     assert commission_bps_for(scenario) == pytest.approx(commission_bps)
     # zero slippage uses the dedicated NoSlippage model; the rest are Fixed
-    expected_model = (
-        SlippageModel.NoSlippage if slippage_bps == 0.0 else SlippageModel.Fixed
-    )
+    expected_model = SlippageModel.NoSlippage if slippage_bps == 0.0 else SlippageModel.Fixed
     assert cost.slippage.model == expected_model
 
 

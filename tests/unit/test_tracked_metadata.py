@@ -3,7 +3,7 @@ Tests for :class:`TrackedMetadata` and :func:`collect_metadata`.
 
 These two primitives power the deep leakage check wired into
 ``evaluate_walk_forward``. They are tiny, but the ``None``-passthrough
-contract is load-bearing — a regression here would silently let missing-fit
+contract is load-bearing - a regression here would silently let missing-fit
 incidents escape the deep-check WARN log.
 """
 

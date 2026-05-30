@@ -94,7 +94,7 @@ describe("StrategyParamsEditor", () => {
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ window: 42 }));
   });
 
-  it("labels the empty option per param: required → 'select', nullable → 'none', else 'use default'", () => {
+  it("labels the empty option per param: required -> 'select', nullable -> 'none', else 'use default'", () => {
     render(<StrategyParamsEditor schema={SCHEMA} values={{}} onChange={() => undefined} />);
     const intervalSelect = screen.getByRole("combobox", { name: /interval/i });
     expect(intervalSelect.querySelector('option[value=""]')).toHaveTextContent(/use default/i);

@@ -64,7 +64,7 @@ def _coerce_enum_kwargs(cls: type, kwargs: dict[str, object]) -> dict[str, objec
     """
     Coerce string kwargs to Enum members when the ctor annotation expects them.
 
-    The registry is the YAML/dict→ctor boundary: ``ComponentConfig.params``
+    The registry is the YAML/dict->ctor boundary: ``ComponentConfig.params``
     is dict-typed, so Enum coercion lives here rather than in leaf ctors.
     """
 
@@ -124,7 +124,7 @@ class ComponentRegistry[T]:
 
     def list_all(self) -> list[str]:
         """
-        List all registered component names — including test stubs.
+        List all registered component names - including test stubs.
 
         Use ``list_public()`` for the production-facing surface.
         """
@@ -138,7 +138,7 @@ class ComponentRegistry[T]:
         Test fixtures register stubs (``_MultiFeatureTestStub``,
         ``_BothFlagsStub``) into the same global registries that production
         loads. The ``_`` prefix is the project-wide convention for
-        "internal / not user-visible" — webapp APIs and any other
+        "internal / not user-visible" - webapp APIs and any other
         production-facing introspector should use this method so a stub
         never leaks into a list, dropdown, or external response.
         """
@@ -186,7 +186,7 @@ def autoload_package(
 
     Fires each module's ``@..._registry.register`` decorator side-effects so
     registry-populating packages (``src.strategies`` / ``src.data`` /
-    ``src.features``) can keep their ``__init__.py`` to a single call —
+    ``src.features``) can keep their ``__init__.py`` to a single call -
     dropping a new file in the package auto-registers its component.
 
     ``skip`` excludes module names that live alongside concrete components

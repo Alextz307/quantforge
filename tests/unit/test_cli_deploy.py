@@ -3,7 +3,7 @@ Smoke tests for the ``scripts/deploy.py`` click CLI.
 
 Exercises the create / list / show / signals / predict subcommand glue.
 The predict path uses a monkeypatched stub fetcher so the test stays
-offline — the predict op itself is covered by
+offline - the predict op itself is covered by
 ``test_deployment_predict.py``.
 """
 
@@ -131,9 +131,7 @@ def test_predict_via_cli(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Non
             del ticker, start, end, interval
             return bars.iloc[: cursor["last"] + 1]
 
-    monkeypatch.setattr(
-        "src.orchestration.deployment.resolve_fetcher", lambda _: _Stub()
-    )
+    monkeypatch.setattr("src.orchestration.deployment.resolve_fetcher", lambda _: _Stub())
 
     runner = CliRunner()
     create = runner.invoke(
@@ -176,8 +174,6 @@ def test_list_empty_store(tmp_path: Path) -> None:
 
 def test_show_missing_deployment(tmp_path: Path) -> None:
     runner = CliRunner()
-    result = runner.invoke(
-        cli, ["show", "nope", "--store", str(tmp_path / "store")]
-    )
+    result = runner.invoke(cli, ["show", "nope", "--store", str(tmp_path / "store")])
     assert result.exit_code != 0
     assert "not found" in result.output.lower()

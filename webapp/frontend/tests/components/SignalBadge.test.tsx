@@ -8,7 +8,7 @@ describe("SignalBadge", () => {
     const badge = screen.getByTestId("signal-badge");
     expect(badge).toHaveAttribute("data-signal-state", "long");
     expect(badge).toHaveTextContent("LONG");
-    expect(badge).not.toHaveTextContent("×");
+    expect(badge).not.toHaveTextContent("x");
   });
 
   it("renders a bare SHORT pill for a directional negative signal", () => {
@@ -22,14 +22,14 @@ describe("SignalBadge", () => {
     render(<SignalBadge signal={1.3853} kind="leverage" />);
     const badge = screen.getByTestId("signal-badge");
     expect(badge).toHaveAttribute("data-signal-state", "long");
-    expect(badge).toHaveTextContent("LONG · 1.39×");
+    expect(badge).toHaveTextContent("LONG | 1.39x");
   });
 
   it("shows the leverage multiplier for a leverage-kind short signal", () => {
     render(<SignalBadge signal={-0.85} kind="leverage" />);
     const badge = screen.getByTestId("signal-badge");
     expect(badge).toHaveAttribute("data-signal-state", "short");
-    expect(badge).toHaveTextContent("SHORT · 0.85×");
+    expect(badge).toHaveTextContent("SHORT | 0.85x");
   });
 
   it("renders a FLAT pill for a zero signal", () => {

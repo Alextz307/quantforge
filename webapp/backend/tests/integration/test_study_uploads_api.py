@@ -48,9 +48,7 @@ def _valid_yaml(config_root: Path) -> str:
             "legs": [
                 {
                     "strategy": "AdaptiveBollinger",
-                    "strategy_config": str(
-                        config_root / "strategies" / "adaptive_bollinger.yaml"
-                    ),
+                    "strategy_config": str(config_root / "strategies" / "adaptive_bollinger.yaml"),
                     "hpo_config": str(config_root / "hpo" / "adaptive_bollinger.yaml"),
                     "universes": ["spy_daily_5y"],
                 }
@@ -81,9 +79,7 @@ def test_schema_carries_descriptions(authed_client: TestClient) -> None:
     assert "registered" in leg["strategy"]["description"].lower()
 
 
-def test_validate_happy_path(
-    authed_client: TestClient, study_config_root: Path
-) -> None:
+def test_validate_happy_path(authed_client: TestClient, study_config_root: Path) -> None:
     response = authed_client.post(VALIDATE_PATH, json={"yaml": _valid_yaml(study_config_root)})
     assert response.status_code == HTTPStatus.OK
     body = response.json()
@@ -98,12 +94,8 @@ def test_validate_yaml_parse_error(authed_client: TestClient) -> None:
     assert body["errors"][0]["loc"] == ["yaml"]
 
 
-def test_validate_unknown_universe(
-    authed_client: TestClient, study_config_root: Path
-) -> None:
-    yaml_text = _valid_yaml(study_config_root).replace(
-        "spy_daily_5y", "ghost_universe"
-    )
+def test_validate_unknown_universe(authed_client: TestClient, study_config_root: Path) -> None:
+    yaml_text = _valid_yaml(study_config_root).replace("spy_daily_5y", "ghost_universe")
     response = authed_client.post(VALIDATE_PATH, json={"yaml": yaml_text})
     assert response.status_code == HTTPStatus.OK
     body = response.json()
@@ -119,9 +111,7 @@ def test_create_list_get_delete_roundtrip(
     """
 
     yaml_text = _valid_yaml(study_config_root)
-    create = authed_jobs_client.post(
-        UPLOADS_PATH, json={"slug": "my_study", "yaml": yaml_text}
-    )
+    create = authed_jobs_client.post(UPLOADS_PATH, json={"slug": "my_study", "yaml": yaml_text})
     assert create.status_code == HTTPStatus.CREATED
     body = create.json()
     assert body["slug"] == "my_study"
@@ -154,9 +144,7 @@ def test_create_rejects_library_collision(
 def test_create_returns_422_on_invalid_yaml(
     authed_jobs_client: TestClient, study_config_root: Path
 ) -> None:
-    response = authed_jobs_client.post(
-        UPLOADS_PATH, json={"slug": "broken", "yaml": "name: [bad"}
-    )
+    response = authed_jobs_client.post(UPLOADS_PATH, json={"slug": "broken", "yaml": "name: [bad"})
     assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
     detail = response.json()["detail"]
     assert isinstance(detail, list)

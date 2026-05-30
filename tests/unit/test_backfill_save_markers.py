@@ -3,7 +3,7 @@ Tests for the ``.save_complete`` marker backfill migration.
 
 Reproduces the legacy condition (a complete save tree with the markers
 stripped, as models persisted before the marker existed look on disk) and
-asserts the backfill re-certifies and re-marks them so they load again — and
+asserts the backfill re-certifies and re-marks them so they load again - and
 that a genuinely corrupt save is left untouched.
 """
 

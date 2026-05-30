@@ -19,7 +19,7 @@ export function HomePage() {
         <p className="text-muted-foreground">
           Thesis-grade C++/Python quantitative trading framework with strict anti-leakage
           guarantees, walk-forward validation, and typed temporal contracts. The webapp is a single
-          front door over the experiment lifecycle — configure runs, watch jobs land, drill through
+          front door over the experiment lifecycle - configure runs, watch jobs land, drill through
           artifacts.
         </p>
       </header>
@@ -40,19 +40,19 @@ export function HomePage() {
           to={ROUTES.runs}
           icon={LayoutDashboard}
           title="Runs"
-          description="Single-experiment walk-forward results — manifest, fold metrics, equity curves."
+          description="Single-experiment walk-forward results - manifest, fold metrics, equity curves."
         />
         <NavCard
           to={ROUTES.studies}
           icon={ListChecks}
           title="Studies"
-          description="Cross-strategy × cross-universe sweeps. Live leg grid; consolidated reports."
+          description="Cross-strategy x cross-universe sweeps. Live leg grid; consolidated reports."
         />
         <NavCard
           to={ROUTES.hpo}
           icon={Beaker}
           title="HPO"
-          description="Optuna study browser — live trial stream, convergence, hyperparameter importance."
+          description="Optuna study browser - live trial stream, convergence, hyperparameter importance."
         />
         <NavCard
           to={ROUTES.comparisons}
@@ -64,13 +64,13 @@ export function HomePage() {
           to={ROUTES.holdout}
           icon={Target}
           title="Holdout"
-          description="Refit on full dev, evaluate once on the reserved holdout — honest OOS metrics."
+          description="Refit on full dev, evaluate once on the reserved holdout - honest OOS metrics."
         />
         <NavCard
           to={ROUTES.deployments}
           icon={Radio}
           title="Deployments"
-          description="Live inference over a frozen run — today's signal for the next session, append-only log."
+          description="Live inference over a frozen run - today's signal for the next session, append-only log."
         />
       </section>
     </div>

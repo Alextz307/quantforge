@@ -2,12 +2,12 @@
 End-to-end smoke for the multi-feature single-asset dispatch path.
 
 Runs in-process via ``Experiment.run()`` rather than the CLI subprocess
-used by the pairs / single-asset smokes — there is no production
+used by the pairs / single-asset smokes - there is no production
 multi-feature strategy yet, so the test relies on
 ``MultiFeatureTestStub`` registered by ``tests/_strategy_stubs.py``.
 
 Opt-in via ``RUN_EXP_SMOKE=1`` matches the run / pairs / holdout-eval
-smokes — the full ``Experiment.run`` writes a half-megabyte artifact tree
+smokes - the full ``Experiment.run`` writes a half-megabyte artifact tree
 even on tiny synthetic input.
 """
 
@@ -45,7 +45,7 @@ pytestmark = pytest.mark.skipif(
 
 def test_multi_feature_run_produces_full_artifact_tree(tmp_path: Path) -> None:
     """
-    Happy path: multi-feature run → wide-format hash + sliced engine PnL on disk.
+    Happy path: multi-feature run -> wide-format hash + sliced engine PnL on disk.
     """
 
     config_path = make_multi_feature_mini_experiment_fixture(
@@ -70,7 +70,7 @@ def test_multi_feature_run_produces_full_artifact_tree(tmp_path: Path) -> None:
     assert persisted_cfg.data.tickers == [_PRIMARY, *_FEATURE_TICKERS]
 
     # The manifest's data_hash must match what ``fingerprint_multi_bars``
-    # produces on a fresh refetch — guards against silent regression where
+    # produces on a fresh refetch - guards against silent regression where
     # the orchestrator picks the single-leg or pairs fingerprint helper for
     # an N-ticker frame.
     manifest = read_experiment_manifest(run_dir)

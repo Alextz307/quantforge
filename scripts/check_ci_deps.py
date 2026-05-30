@@ -7,7 +7,7 @@ Two checks:
    ``python-test`` job's ``pip install`` line of ``.github/workflows/ci.yml``.
 2. Every type-stub dev dependency (``types-*`` or ``*-stubs``) declared in
    ``pyproject.toml`` ``[project.optional-dependencies] dev`` appears in the
-   ``lint-and-typecheck`` job's ``pip install`` line — otherwise mypy strict
+   ``lint-and-typecheck`` job's ``pip install`` line - otherwise mypy strict
    fails in CI with "Library stubs not installed for ...".
 
 The webapp + webapp-frontend jobs intentionally use ``pip install -e
@@ -18,7 +18,7 @@ extras and the base ``[project] dependencies``.
 Run locally with ``python scripts/check_ci_deps.py``; also wired into CI so a
 forgotten dep update fails the same PR that introduced it.
 
-Stdlib-only — intentionally avoids PyYAML so it runs in the lint job before the
+Stdlib-only - intentionally avoids PyYAML so it runs in the lint job before the
 project's own deps are installed.
 """
 
@@ -35,7 +35,7 @@ CI_YAML = REPO_ROOT / ".github" / "workflows" / "ci.yml"
 
 _PACKAGE_NAME_RE = re.compile(r"^[A-Za-z0-9_.\-]+")
 # Greedy from the `python-test:` heading to the first `run: pip install` line
-# that follows it — the job has exactly one such step.
+# that follows it - the job has exactly one such step.
 _PYTHON_TEST_INSTALL_RE = re.compile(
     r"^\s*python-test:.*?run: pip install (?P<pkgs>[^\n]+)$",
     re.DOTALL | re.MULTILINE,

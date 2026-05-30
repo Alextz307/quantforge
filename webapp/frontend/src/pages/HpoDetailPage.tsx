@@ -28,7 +28,7 @@ function IdentityCard({ study }: { study: HpoDetail }) {
         <MetadataField label="Total trials" value={study.n_trials} />
         <MetadataField label="Completed" value={study.n_complete} />
         <MetadataField label="Best value" value={formatMetric(study.best_value)} />
-        <MetadataField label="Best trial #" value={study.best_trial_number ?? "—"} />
+        <MetadataField label="Best trial #" value={study.best_trial_number ?? "-"} />
       </CardContent>
     </Card>
   );
@@ -46,7 +46,7 @@ export function HpoDetailPage() {
     <QueryRenderer
       query={studyQuery}
       errorTitle="Failed to load HPO study"
-      loadingMessage="Loading HPO study…"
+      loadingMessage="Loading HPO study..."
     >
       {(study) => (
         <div className="flex flex-col gap-4">
@@ -74,7 +74,7 @@ export function HpoDetailPage() {
               <QueryRenderer
                 query={trialsQuery}
                 errorTitle="Failed to load trials"
-                loadingMessage="Loading trials…"
+                loadingMessage="Loading trials..."
               >
                 {(trials) => <HpoConvergenceChart trials={trials} direction={study.direction} />}
               </QueryRenderer>
@@ -89,7 +89,7 @@ export function HpoDetailPage() {
               <QueryRenderer
                 query={importanceQuery}
                 errorTitle="Failed to load importance"
-                loadingMessage="Loading importance…"
+                loadingMessage="Loading importance..."
               >
                 {(response) => <HpoParamImportanceChart response={response} />}
               </QueryRenderer>
@@ -104,7 +104,7 @@ export function HpoDetailPage() {
               <QueryRenderer
                 query={trialsQuery}
                 errorTitle="Failed to load trials"
-                loadingMessage="Loading trials…"
+                loadingMessage="Loading trials..."
               >
                 {(trials) => (
                   <TrialTable trials={trials} bestTrialNumber={study.best_trial_number} />

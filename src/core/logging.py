@@ -1,5 +1,5 @@
 """
-Contextual logger wrapper — prefixes every message with caller-bound context.
+Contextual logger wrapper - prefixes every message with caller-bound context.
 
 Pure stdlib, no structlog / loguru. ``get_logger(name, **context)`` returns a
 :class:`logging.LoggerAdapter` whose ``process()`` prepends the bound key/value
@@ -7,7 +7,7 @@ pairs to every emitted message:
 
     logger = get_logger(__name__, experiment_id="abc", strategy_name="Strat")
     logger.info("fold 2/5 complete")
-    # → INFO src.orchestration.experiment:
+    # -> INFO src.orchestration.experiment:
     #     [experiment_id=abc strategy_name=Strat] fold 2/5 complete
 
 This approach lets the root logging format string stay simple (no custom
@@ -37,7 +37,7 @@ class _ContextAdapter(logging.LoggerAdapter):  # type: ignore[type-arg]
     LoggerAdapter that formats bound context as ``[k1=v1 k2=v2] <msg>``.
 
     ``self.extra`` is the context dict passed to :func:`get_logger`.
-    ``process()`` runs on every log call — we keep it allocation-light by
+    ``process()`` runs on every log call - we keep it allocation-light by
     using ``" ".join`` over a generator rather than materialising an
     intermediate list.
     """
@@ -59,7 +59,7 @@ def get_logger(name: str, **context: object) -> logging.LoggerAdapter:  # type: 
     Return a context-bound logger.
 
     ``name`` is the standard ``logging.getLogger(name)`` handle; ``context``
-    becomes a persistent prefix on every message. Empty context is legal —
+    becomes a persistent prefix on every message. Empty context is legal -
     the adapter degrades to a zero-cost passthrough in ``process()``.
 
     Return-type ``type-arg`` ignore matches the reason on ``_ContextAdapter``:
@@ -81,7 +81,7 @@ def _tee_root_to_file(log_path: Path) -> Iterator[Path]:
     Shared body of :func:`attach_cli_log_file` and
     :func:`attach_run_log_file`. Single source of truth for the handler
     mode (``"a"``), encoding (``utf-8``), and formatter
-    (:data:`CLI_LOG_FORMAT`) — divergence between the two public
+    (:data:`CLI_LOG_FORMAT`) - divergence between the two public
     helpers is a drift bug.
     """
 
@@ -110,7 +110,7 @@ def attach_cli_log_file(root_dir: Path, command_name: str) -> Iterator[Path]:
     :data:`~src.core.persistence.CLI_LOGS_SUBDIR` so the file always
     lands at ``<root_dir>/cli_logs/<command>_<UTC_ts>_<pid>.log``.
 
-    Filename is ``{command_name}_{YYYYMMDD_HHMMSS}_{pid}.log`` — the
+    Filename is ``{command_name}_{YYYYMMDD_HHMMSS}_{pid}.log`` - the
     timestamp + pid suffix lets multiple concurrent invocations land
     in the same directory without colliding.
 
@@ -139,7 +139,7 @@ def attach_run_log_file(run_dir: Path) -> Iterator[Path]:
 
     Companion to :func:`attach_cli_log_file`: that helper captures the
     parent CLI's orchestration stream; this one isolates a single
-    ``Experiment.run()`` so each strategy×universe leg has its own
+    ``Experiment.run()`` so each strategyxuniverse leg has its own
     end-to-end log next to its ``config.yaml`` / ``manifest.json`` /
     ``metrics.json``. Under ``ProcessPoolExecutor`` fan-out (comparison /
     study) every worker process has an independent root logger, so the
@@ -148,7 +148,7 @@ def attach_run_log_file(run_dir: Path) -> Iterator[Path]:
     The handler is removed unconditionally on exit; safe to call inside
     pytest captures and from sequential in-process callers, where the
     same record will also reach the parent CLI log (that duplication is
-    deliberate — the CLI log stays the master record).
+    deliberate - the CLI log stays the master record).
 
     Not re-entrant: a nested ``Experiment.run()`` call in the same
     process would tee both legs' output to each other's ``run.log``.
@@ -179,7 +179,7 @@ def log_stage(
 
     Designed for stage-level pipeline work (GARCH fit, LSTM fit, ARMA
     fit) where the user wants per-stage progress in the persisted log
-    file. Avoid for sub-second hot-loop work — the two extra log
+    file. Avoid for sub-second hot-loop work - the two extra log
     records per call dwarf the work itself.
     """
 

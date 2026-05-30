@@ -49,9 +49,7 @@ def get_studies(
     user: UserPublic = Depends(get_current_user),
     conn: sqlite3.Connection = Depends(get_db),
 ) -> list[StudySummary]:
-    return list_studies(
-        get_settings().store_root, conn=conn, user=user, all_users=all_users
-    )
+    return list_studies(get_settings().store_root, conn=conn, user=user, all_users=all_users)
 
 
 @router.get("/{name}", response_model=StudyDetail)
@@ -141,7 +139,7 @@ async def stream_study(websocket: WebSocket, name: str) -> None:
     """
     Push ``StudyDetail`` frames on every ``study_state.json`` mtime bump.
 
-    Per-connection mtime polling (1.0s tick) — no shared broker. Both
+    Per-connection mtime polling (1.0s tick) - no shared broker. Both
     webapp-launched and CLI-launched studies surface; the watcher cares
     about disk state, not whose process is writing.
     """

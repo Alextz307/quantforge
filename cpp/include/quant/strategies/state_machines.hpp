@@ -12,8 +12,8 @@ namespace quant::strategies {
 ///
 /// Entry (flat): long when `close > trend_ma` && `close < lower`;
 ///                short when `close < trend_ma` && `close > upper`.
-/// Exit (long):  `close >= mid` → flat.
-/// Exit (short): `close <= mid` → flat.
+/// Exit (long):  `close >= mid` -> flat.
+/// Exit (short): `close <= mid` -> flat.
 [[nodiscard]] std::vector<double> run_mean_reversion_state_machine(
     std::span<const double> close,
     std::span<const double> mid,

@@ -67,6 +67,6 @@ def test_set_fitted_with_metadata_rejects_none() -> None:
     s = _BareStrategy()
     with pytest.raises(ValueError, match="non-None TrainingMetadata"):
         s._set_fitted_with_metadata(None)  # type: ignore[arg-type]
-    # The defensive raise must leave the slot untouched — a partial state would
+    # The defensive raise must leave the slot untouched - a partial state would
     # let a downstream reader see a fitted-looking object with no metadata.
     assert s.training_metadata is None

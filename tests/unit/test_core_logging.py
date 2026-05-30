@@ -1,5 +1,5 @@
 """
-Tests for :func:`src.core.logging.get_logger` — context-bound logger.
+Tests for :func:`src.core.logging.get_logger` - context-bound logger.
 """
 
 from __future__ import annotations

@@ -98,7 +98,7 @@ inline void rolling_mean_std(
 }
 
 /// Sliding-window rolling standard deviation using Welford's online algorithm.
-/// Numerically stable — avoids catastrophic cancellation from sum-of-squares formulas.
+/// Numerically stable - avoids catastrophic cancellation from sum-of-squares formulas.
 /// @param ddof Degrees of freedom (1 = sample std, 0 = population std). Default 1 to match pandas.
 /// First (window - 1) values are NaN.
 [[nodiscard]] inline std::vector<double> rolling_std(
@@ -116,7 +116,7 @@ inline void rolling_mean_std(
 
     const double denom = static_cast<double>(window - ddof);
 
-    // Welford's online algorithm — m2 is sum of squared deviations from the running mean.
+    // Welford's online algorithm - m2 is sum of squared deviations from the running mean.
     double mean = 0.0;
     double m2 = 0.0;
     for (int i = 0; i < window; ++i) {

@@ -16,7 +16,7 @@ currently flatten yfinance's column multi-index, so the normalizer rejects
 the raw frame. Doing it once at write time keeps the on-disk file in the
 canonical OHLCV schema, which is what :class:`ParquetSource` reads back.
 
-``auto_adjust=True`` is intentional — adjusted closes already fold splits
+``auto_adjust=True`` is intentional - adjusted closes already fold splits
 and dividends into the price series, so downstream return / strategy math
 matches what a long-only buy-and-hold backtest would produce.
 """
@@ -60,7 +60,7 @@ def main() -> int:
     df.to_parquet(FIXTURE_PATH)
     print(
         f"wrote {FIXTURE_PATH.relative_to(REPO_ROOT)} "
-        f"({len(df)} bars, {df.index.min().date()} → {df.index.max().date()})"
+        f"({len(df)} bars, {df.index.min().date()} -> {df.index.max().date()})"
     )
     return 0
 

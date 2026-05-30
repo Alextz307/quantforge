@@ -120,7 +120,7 @@ class YFinanceSource(IDataSource):
 
     def available_tickers(self) -> list[str]:
         """
-        YFinance supports any ticker — return empty list.
+        YFinance supports any ticker - return empty list.
         """
 
         return []

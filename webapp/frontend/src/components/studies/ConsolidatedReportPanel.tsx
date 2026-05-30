@@ -10,7 +10,7 @@ import { formatDateTime, shortHash } from "@/lib/format";
 
 interface ConsolidatedReportPanelProps {
   dto: StudyConsolidatedDTO;
-  // The study's directory name — used to build artifact URLs. Distinct from
+  // The study's directory name - used to build artifact URLs. Distinct from
   // ``dto.study_name``, which is the logical spec name from the manifest and
   // does not necessarily match the route segment.
   studyDirName: string;

@@ -1,5 +1,5 @@
 """
-Walk-forward orchestrator: strategy → engine → metrics, per fold.
+Walk-forward orchestrator: strategy -> engine -> metrics, per fold.
 
 The runtime leakage tripwire lives here, not inside the engine. Each
 fold:
@@ -10,7 +10,7 @@ fold:
 3. Deep metadata check: iterate ``strategy.get_all_training_metadata()``
    and call ``validate_no_overlap(fold.test)`` on every non-None entry.
    Composite strategies expose both their own metadata and each wrapped
-   model's — a drift inside the composite surfaces here, not silently.
+   model's - a drift inside the composite surfaces here, not silently.
 4. ``signals = strategy.generate_signals(test_frame)``
 5. ``raw = engine.run(fold.test, signals, slippage)``
 6. ``metrics = MetricsCalculator.compute(raw.equity_curve, ...)``
@@ -96,7 +96,7 @@ def slice_primary_ohlcv(bars: pd.DataFrame, primary_ticker: str) -> pd.DataFrame
 
     Maps ``<ohlcv>_<primary_ticker>`` columns back to their canonical OHLCV
     names so the engine sees a regular single-asset frame. Companion-ticker
-    columns are dropped — they were only there to feed the strategy's signal
+    columns are dropped - they were only there to feed the strategy's signal
     computation, never the engine.
     """
 
@@ -116,7 +116,7 @@ def dispatch_primary_ohlcv(strategy: IStrategy, bars: pd.DataFrame) -> pd.DataFr
     """
     Return the canonical single-asset OHLCV slice for a strategy's universe.
 
-    Three-way capability dispatch — leg A for pairs, the primary-ticker
+    Three-way capability dispatch - leg A for pairs, the primary-ticker
     slice for multi-feature, the bars themselves for single-asset. Used by
     code that needs to evaluate something universe-level rather than
     strategy-level on a frame (most notably the buy-and-hold reference
@@ -142,7 +142,7 @@ def dispatch_engine_run(
     """
     Route ``engine.run`` / ``engine.run_pairs`` based on strategy shape.
 
-    Single source of truth for the three-way capability-flag dispatch — the
+    Single source of truth for the three-way capability-flag dispatch - the
     walk-forward loop and the holdout-eval one-shot share this so a future
     fourth shape only adds one branch here, not two.
     """
@@ -162,14 +162,14 @@ def validate_deep_metadata(
     Run the leakage invariant across every tracked metadata exposed by
     the strategy (composite leaves included).
 
-    Enforces ``train_end < test_data.index[0]`` on every entry — catches
+    Enforces ``train_end < test_data.index[0]`` on every entry - catches
     the canonical lookahead-leakage path: a leaf (or the strategy itself)
     that trained through the fold's test window would have seen the
     future it's now being evaluated on.
 
     A ``LeakageError`` is re-raised with the strategy class name + origin
     prefixed so the failing component is obvious. A ``None`` metadata
-    entry means the component never completed ``fit()`` — logged at WARN
+    entry means the component never completed ``fit()`` - logged at WARN
     level and skipped, so the remaining tracked entries still provide
     partial coverage rather than swallowing the whole check.
     """
@@ -182,7 +182,7 @@ def validate_deep_metadata(
         meta = tracked.metadata
         if meta is None:
             logger.warning(
-                "%s.%s has no training metadata — skipping leakage check for this component",
+                "%s.%s has no training metadata - skipping leakage check for this component",
                 strategy_cls,
                 tracked.origin,
             )
@@ -200,7 +200,7 @@ def validate_deep_metadata(
     if not saw_any:
         raise RuntimeError(
             f"{strategy_cls}.get_all_training_metadata() returned no populated "
-            "metadata — at least one component must have completed fit(); "
+            "metadata - at least one component must have completed fit(); "
             "fix by calling strategy.train() before walk-forward evaluation."
         )
 
@@ -219,7 +219,7 @@ def evaluate_walk_forward(
     checkpoint_root: Path | None = None,
 ) -> list[FoldResult]:
     """
-    Run train → leakage check → signals → engine → metrics, per fold.
+    Run train -> leakage check -> signals -> engine -> metrics, per fold.
 
     Args:
         strategy: A trained-from-scratch ``IStrategy`` instance. The

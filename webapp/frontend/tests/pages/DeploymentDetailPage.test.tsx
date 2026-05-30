@@ -56,8 +56,8 @@ describe("DeploymentDetailPage", () => {
   it("distinguishes scored, holding, and pending signals in the history", async () => {
     renderDetail();
     const table = await screen.findByTestId("signal-history-table");
-    // scored row → outcome; holding row → live; pending row → not entered.
-    expect(within(table).getByText("✓ win")).toBeInTheDocument();
+    // scored row -> outcome; holding row -> live; pending row -> not entered.
+    expect(within(table).getByText("win")).toBeInTheDocument();
     expect(within(table).getByText("holding")).toBeInTheDocument();
     expect(within(table).getByText("pending")).toBeInTheDocument();
     // the holding row surfaces its entry-open price even with no score yet

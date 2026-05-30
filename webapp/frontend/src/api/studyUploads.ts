@@ -16,7 +16,7 @@ export type StudySpecUploadCreate = components["schemas"]["StudySpecUploadCreate
 export type StudySpecValidateRequest = components["schemas"]["StudySpecValidateRequest"];
 
 const LIST_STALE_TIME = 30_000;
-// JSON Schema is generated from frozen Pydantic models — never changes within
+// JSON Schema is generated from frozen Pydantic models - never changes within
 // a server build, so we lean on a generous staleTime + gcTime to make hovers
 // and per-keystroke validation cheap.
 const SCHEMA_STALE_TIME = Number.POSITIVE_INFINITY;
@@ -86,8 +86,8 @@ function deriveSaveUploadFieldErrors(
   error: unknown,
   status: number,
 ): { fieldErrors: readonly ValidationErrorItem[]; isLibraryCollision: boolean } {
-  // FastAPI 422 → detail is ValidationErrorItem[]. 409 → string detail (slug
-  // collision). Anything else → flatten the message into a single slug-anchored
+  // FastAPI 422 -> detail is ValidationErrorItem[]. 409 -> string detail (slug
+  // collision). Anything else -> flatten the message into a single slug-anchored
   // entry so <ServerErrorList> still has something to render.
   const detail = (error as { detail?: unknown } | undefined)?.detail;
   if (status === 422 && Array.isArray(detail)) {

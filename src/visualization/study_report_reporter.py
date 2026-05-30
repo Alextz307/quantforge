@@ -2,9 +2,9 @@
 Render a :class:`ConsolidatedStudyReport` to disk.
 
 Produces the cross-leg artifact tree required by the empirical-study
-writeup (master ranking, holdout-vs-dev scatter, strategy × universe
+writeup (master ranking, holdout-vs-dev scatter, strategy x universe
 heatmap, etc.). Output goes directly under the study directory the
-consolidator was pointed at — alongside the existing ``runs/`` /
+consolidator was pointed at - alongside the existing ``runs/`` /
 ``holdout_evals/`` / ``comparisons/`` per-leg trees the orchestrator
 wrote, NOT into a nested subdirectory. Callers commit only the
 consolidated subset (``manifest.json``, ``tables/``, ``plots/``); the
@@ -13,7 +13,7 @@ per-leg ephemera remain gitignored.
 This reporter is the visualization-layer counterpart to
 :mod:`src.orchestration.study_report`. It does not load anything from
 disk other than the per-leg PNG/SVG copies for equity overlays and
-holdout equity curves — every scalar already lives on the in-memory
+holdout equity curves - every scalar already lives on the in-memory
 :class:`ConsolidatedStudyReport`.
 """
 
@@ -134,7 +134,7 @@ class StudyReportReporter:
         self, ranking_df: pd.DataFrame, tables_dir: Path, *, slug: str
     ) -> None:
         if ranking_df.empty:
-            _logger.info("no completed legs — skipping master_ranking")
+            _logger.info("no completed legs - skipping master_ranking")
             return
 
         df = ranking_df.sort_values("sharpe_mean", ascending=False).reset_index(drop=True)
@@ -142,7 +142,7 @@ class StudyReportReporter:
             df,
             tables_dir,
             stem=_MASTER_RANKING_FILENAME,
-            caption=f"Master ranking across all (strategy, universe) legs — {slug}",
+            caption=f"Master ranking across all (strategy, universe) legs - {slug}",
             label=f"tab:master_ranking_{slug}",
         )
 
@@ -158,7 +158,7 @@ class StudyReportReporter:
             df,
             tables_dir,
             stem=_PER_UNIVERSE_RANKING_FILENAME,
-            caption=f"Per-universe ranking, sorted by Sharpe within each universe — {slug}",
+            caption=f"Per-universe ranking, sorted by Sharpe within each universe - {slug}",
             label=f"tab:per_universe_ranking_{slug}",
         )
 
@@ -166,7 +166,7 @@ class StudyReportReporter:
         self, report: ConsolidatedStudyReport, tables_dir: Path, *, slug: str
     ) -> None:
         if not report.per_leg_holdout:
-            _logger.info("no holdout-eval bundles on any leg — skipping holdout_results")
+            _logger.info("no holdout-eval bundles on any leg - skipping holdout_results")
             return
         df = _build_holdout_df(report.per_leg_holdout, report.per_leg_aggregate)
         if df.empty:
@@ -176,7 +176,7 @@ class StudyReportReporter:
             df,
             tables_dir,
             stem=_HOLDOUT_RESULTS_FILENAME,
-            caption=f"Honest out-of-sample (holdout) vs. dev metrics, per leg — {slug}",
+            caption=f"Honest out-of-sample (holdout) vs. dev metrics, per leg - {slug}",
             label=f"tab:holdout_results_{slug}",
         )
 
@@ -184,7 +184,7 @@ class StudyReportReporter:
         self, report: ConsolidatedStudyReport, tables_dir: Path, *, slug: str
     ) -> None:
         """
-        Write the σ_min floor-saturation table for legs that emit the diagnostic.
+        Write the sigma_min floor-saturation table for legs that emit the diagnostic.
 
         Only VolatilityTargeting legs populate ``per_leg_floor_bind``; when
         the map is empty the section is skipped without emitting an empty
@@ -193,7 +193,7 @@ class StudyReportReporter:
 
         if not report.per_leg_floor_bind:
             _logger.info(
-                "no leg emitted floor_bind_fraction — skipping floor_bind_by_leg "
+                "no leg emitted floor_bind_fraction - skipping floor_bind_by_leg "
                 "(non-VolatilityTargeting sweep)"
             )
             return
@@ -207,7 +207,7 @@ class StudyReportReporter:
             stem=_FLOOR_BIND_FILENAME,
             caption=(
                 f"VolatilityTargeting $\\sigma_{{\\min}}$ floor-saturation fractions "
-                f"per leg — {slug}"
+                f"per leg - {slug}"
             ),
             label=f"tab:floor_bind_{slug}",
         )
@@ -223,7 +223,7 @@ class StudyReportReporter:
     ) -> None:
         if not report.per_universe_pairwise:
             _logger.info(
-                "no pairwise comparisons on disk — skipping pairwise_significance "
+                "no pairwise comparisons on disk - skipping pairwise_significance "
                 "(every universe was single-strategy or `--skip-compares` was set)"
             )
             return
@@ -240,7 +240,7 @@ class StudyReportReporter:
                 per_universe_dir / f"{universe}.tex",
                 caption=(
                     f"Pairwise Sharpe differential, 95\\% bootstrap CI "
-                    f"(row $-$ col) — universe {universe}, study {slug}"
+                    f"(row $-$ col) - universe {universe}, study {slug}"
                 ),
                 label=f"tab:pairwise_{slug}_{universe}",
             )
@@ -266,10 +266,10 @@ class StudyReportReporter:
             row_labels=strategies,
             col_labels=universes,
             out_path=plots_dir / _STRATEGY_X_UNIVERSE_HEATMAP_FILENAME,
-            title="strategy × universe (mean Sharpe)",
+            title="strategy x universe (mean Sharpe)",
             xlabel="universe",
             ylabel="strategy",
-            placeholder_log_label="strategy × universe",
+            placeholder_log_label="strategy x universe",
         )
 
     def _plot_holdout_dev_scatter(self, report: ConsolidatedStudyReport, plots_dir: Path) -> None:
@@ -298,7 +298,7 @@ class StudyReportReporter:
             xs, ys = by_strategy[strategy]
             ax.scatter(xs, ys, label=strategy, color=cmap(idx % 10), s=40, alpha=0.8)
 
-        # y=x reference: dev=holdout. Anchor to actual data extents — the
+        # y=x reference: dev=holdout. Anchor to actual data extents - the
         # matplotlib auto-limit is unset before the first scatter call and
         # legitimately includes 0.0 once data lands, so deriving from the
         # plotted xs/ys avoids clobbering a real lower bound.
@@ -320,7 +320,7 @@ class StudyReportReporter:
         ax.axvline(0.0, color="grey", linewidth=0.3, alpha=0.5)
         ax.set_xlabel("dev mean Sharpe (walk-forward)")
         ax.set_ylabel("holdout Sharpe (single OOS window)")
-        ax.set_title("dev vs. holdout Sharpe — points below dashed line = overfit gap")
+        ax.set_title("dev vs. holdout Sharpe - points below dashed line = overfit gap")
         ax.legend(loc="best", fontsize="small")
         ax.grid(True, which="both", alpha=0.3)
         fig.tight_layout()
@@ -505,7 +505,7 @@ def _build_floor_bind_df(
     per_leg_floor_bind: Mapping[tuple[str, str], FloorBindStats],
 ) -> pd.DataFrame:
     """
-    Long-form floor-saturation table — one row per leg with stats.
+    Long-form floor-saturation table - one row per leg with stats.
     """
 
     rows: list[dict[str, object]] = []
@@ -527,7 +527,7 @@ def _copy_per_leg_artifact(src_png: Path, dst_png: Path, *, missing_label: str) 
     """
     Copy a PNG (and sibling SVG when present) from a per-leg artifact tree.
 
-    Skips with an info log when ``src_png`` does not exist — single-strategy
+    Skips with an info log when ``src_png`` does not exist - single-strategy
     universes have no equity overlay; older runs may lack the SVG twin.
     """
 
@@ -535,14 +535,14 @@ def _copy_per_leg_artifact(src_png: Path, dst_png: Path, *, missing_label: str) 
         dst_png.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(src_png, dst_png)
     except FileNotFoundError:
-        _logger.info("source artifact missing at %s — skipping copy", missing_label)
+        _logger.info("source artifact missing at %s - skipping copy", missing_label)
         return
     src_svg = src_png.with_suffix(".svg")
     dst_svg = dst_png.with_suffix(".svg")
     try:
         shutil.copyfile(src_svg, dst_svg)
     except FileNotFoundError:
-        _logger.info("source SVG missing at %s — copied PNG only", src_svg)
+        _logger.info("source SVG missing at %s - copied PNG only", src_svg)
 
 
 def _build_manifest_dict(report: ConsolidatedStudyReport, *, slug: str) -> dict[str, object]:

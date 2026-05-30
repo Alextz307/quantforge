@@ -30,9 +30,7 @@ def get_comparisons(
     user: UserPublic = Depends(get_current_user),
     conn: sqlite3.Connection = Depends(get_db),
 ) -> list[ComparisonSummary]:
-    return list_comparisons(
-        get_settings().store_root, conn=conn, user=user, all_users=all_users
-    )
+    return list_comparisons(get_settings().store_root, conn=conn, user=user, all_users=all_users)
 
 
 @router.get("/{name}", response_model=ComparisonDetail)
@@ -55,9 +53,7 @@ def get_comparison_plot(
     conn: sqlite3.Connection = Depends(get_db),
 ) -> FileResponse:
     try:
-        path = resolve_plot(
-            get_settings().store_root, name, plot_name, conn=conn, user=user
-        )
+        path = resolve_plot(get_settings().store_root, name, plot_name, conn=conn, user=user)
     except (ComparisonNotFoundError, PlotNotFoundError) as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
     return FileResponse(path)

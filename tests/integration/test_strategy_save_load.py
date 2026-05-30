@@ -321,7 +321,7 @@ def test_save_config_keys_match_ctor_signature(
     """
     Fails loudly when a new ctor kwarg lands without a corresponding
     persisted-config key (or vice versa). Device preferences are the only
-    intentional exclusion — they're re-resolved on load, not persisted."""
+    intentional exclusion - they're re-resolved on load, not persisted."""
 
     instance = factory()
     config_keys = set(instance._ctor_kwargs_as_json())  # type: ignore[attr-defined]

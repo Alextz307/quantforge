@@ -75,7 +75,7 @@ class TemporalTripleSplit:
     Provides anti-leakage guarantees across three temporal regions:
     - train: Model fitting and walk-forward development
     - validation: Hyperparameter tuning, overfitting checks, model comparison
-    - holdout: Final evaluation ONLY — never touched during development
+    - holdout: Final evaluation ONLY - never touched during development
     """
 
     train: pd.DataFrame
@@ -183,13 +183,13 @@ class TrackedMetadata:
     """
     A single ``TrainingMetadata`` tagged with the component that produced it.
 
-    Composite strategies own wrapped models (GARCH, LSTM, XGBoost, ARMA) — each
+    Composite strategies own wrapped models (GARCH, LSTM, XGBoost, ARMA) - each
     has its own ``_training_metadata``. When a fold's leakage tripwire fires,
     the caller needs to know WHICH component drifted, not just "list index 2 of
     4". The ``origin`` string ("strategy" / "garch" / "lstm" / ...) carries
     that information from the composite's ``get_all_training_metadata()`` down
     to the error message. ``metadata`` is ``None`` when a component never
-    completed ``fit()`` — downstream iteration logs a warning and skips.
+    completed ``fit()`` - downstream iteration logs a warning and skips.
     """
 
     origin: str
@@ -327,7 +327,7 @@ def _first_bar_after_gap_days(dates: pd.DatetimeIndex, train_end: int, gap_days:
 
     ``gap_days=0`` returns the first bar of the next distinct date;
     ``gap_days=k`` skips ``k`` distinct dates of embargo. Trading days are the
-    distinct normalized dates observed — holiday gaps are handled naturally.
+    distinct normalized dates observed - holiday gaps are handled naturally.
     """
 
     if train_end < 1:
@@ -595,7 +595,7 @@ def resolve_holdout_boundary(
     The first timestamp of the holdout region, or ``None`` if neither knob
     requests a reservation. Runners slicing with this boundary should use
     ``df[df.index < boundary]`` for ``dev`` and ``df[df.index >= boundary]``
-    for ``holdout`` — the returned timestamp is the first bar OF holdout,
+    for ``holdout`` - the returned timestamp is the first bar OF holdout,
     not the last bar of dev.
 
     Raises
@@ -611,7 +611,7 @@ def resolve_holdout_boundary(
         timestamp was presumably written into a manifest on a prior run; its
         absence means the fetched data drifted (vendor adjustment, missing
         bar, holiday reclassification). Refusing here prevents a silent shift
-        of the split boundary across runs — the exact leakage path ValidationConfig
+        of the split boundary across runs - the exact leakage path ValidationConfig
         tripwire #2 defends against.
     """
 
@@ -632,7 +632,7 @@ def resolve_holdout_boundary(
             raise LeakageError(
                 f"pinned holdout_start {ts} is not present in the fetched data "
                 f"[{df.index[0]} .. {df.index[-1]}]; data may have drifted since "
-                f"the boundary was recorded. Refusing to resolve — a silent shift "
+                f"the boundary was recorded. Refusing to resolve - a silent shift "
                 f"would move bars across the dev/holdout line."
             )
         return ts

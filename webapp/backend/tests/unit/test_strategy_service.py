@@ -45,7 +45,7 @@ def test_adaptive_bollinger_classification() -> None:
 def test_str_list_annotations_classify_as_str_list() -> None:
     """
     ``list[str]`` / ``tuple[str, ...]`` / ``Sequence[str]`` render as a
-    comma-or-space separated text input — far better UX than hand-writing JSON."""
+    comma-or-space separated text input - far better UX than hand-writing JSON."""
 
     schema = describe_strategy("ReturnForecast")
     by_name = {p.name: p for p in schema.params}
@@ -109,7 +109,7 @@ def test_xgboost_strategies_drop_mps_from_device_choices(
 ) -> None:
     """
     XGBoost-backed strategies (``uses_xgboost = True``) must not offer
-    ``mps`` even on Apple Silicon — XGBoost's GPU path is NVIDIA-only,
+    ``mps`` even on Apple Silicon - XGBoost's GPU path is NVIDIA-only,
     so picking MPS would raise ``ValueError`` at runtime."""
 
     monkeypatch.setattr("torch.cuda.is_available", lambda: False)

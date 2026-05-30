@@ -52,9 +52,17 @@ from webapp.backend.app.services.study_spec_uploads import (
 )
 from webapp.backend.app.services.universe_spec_uploads import (
     get_upload as get_universe_upload,
+)
+from webapp.backend.app.services.universe_spec_uploads import (
     list_uploads as list_universe_uploads,
+)
+from webapp.backend.app.services.universe_spec_uploads import (
     save_upload as save_universe_upload,
+)
+from webapp.backend.app.services.universe_spec_uploads import (
     soft_delete_upload as soft_delete_universe_upload,
+)
+from webapp.backend.app.services.universe_spec_uploads import (
     validate_universe_spec_text,
 )
 
@@ -67,7 +75,7 @@ router = APIRouter(
 
 class StudySpecValidateRequest(BaseModel):
     """
-    ``POST /configs/study_spec/validate`` body — raw YAML text.
+    ``POST /configs/study_spec/validate`` body - raw YAML text.
 
     A dedicated wire type keeps the existing ValidateRequest (parsed payload)
     uncoupled from the YAML-text path, which has to handle parse errors before
@@ -79,7 +87,7 @@ class StudySpecValidateRequest(BaseModel):
 
 class UniverseSpecValidateRequest(BaseModel):
     """
-    ``POST /configs/universe_spec/validate`` body — raw YAML text.
+    ``POST /configs/universe_spec/validate`` body - raw YAML text.
     """
 
     yaml: str

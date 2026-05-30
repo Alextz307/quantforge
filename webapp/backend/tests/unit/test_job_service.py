@@ -159,7 +159,7 @@ def test_submit_does_not_inject_features_for_self_contained_strategies(
 ) -> None:
     """
     ``AdaptiveBollinger`` / ``MomentumGatekeeper`` engineer features
-    internally — no top-level ``features:`` block needed, none injected."""
+    internally - no top-level ``features:`` block needed, none injected."""
 
     user = _user(db_conn, "alice")
     manager = _stub_manager()
@@ -736,7 +736,7 @@ def test_submit_holdout_rejects_hpo_without_best_config(
     db_conn: sqlite3.Connection, tmp_path: Path
 ) -> None:
     """
-    HPO study with no completed trials → no ``best_config.yaml`` → rejected.
+    HPO study with no completed trials -> no ``best_config.yaml`` -> rejected.
     """
 
     user = _user(db_conn, "alice")
@@ -769,10 +769,10 @@ def test_submit_holdout_rejects_hpo_whose_best_config_reserves_no_holdout(
     db_conn: sqlite3.Connection, tmp_path: Path
 ) -> None:
     """
-    Best_config exists but ``validation.holdout_pct=0`` → 422 with structured loc.
+    Best_config exists but ``validation.holdout_pct=0`` -> 422 with structured loc.
 
     Mirrors the CLI's manifest-level guard but fires at the API boundary so the
-    user doesn't pay a "submit → wait → fail" round trip.
+    user doesn't pay a "submit -> wait -> fail" round trip.
     """
 
     user = _user(db_conn, "alice")

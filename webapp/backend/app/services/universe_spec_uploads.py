@@ -3,7 +3,7 @@ User-authored universe-spec uploads: validate, persist, soft-delete.
 
 The CRUD shape is owned by :class:`SpecUploadStore` in
 :mod:`spec_upload_store`; this module supplies the universe-specific
-validator (a Pydantic check against :class:`UniverseProfile` — universe
+validator (a Pydantic check against :class:`UniverseProfile` - universe
 specs are self-contained so there are no referenced-file checks) and
 the public free-function API.
 """
@@ -63,16 +63,14 @@ def _store_validator(yaml_text: str, _config_root: Path) -> ValidateResponse:
     return validate_universe_spec_text(yaml_text)
 
 
-_store: SpecUploadStore[UniverseSpecUploadSummary, UniverseSpecUploadDetail] = (
-    SpecUploadStore(
-        table_name="universe_spec_uploads",
-        library_subdir="universes",
-        summary_cls=UniverseSpecUploadSummary,
-        detail_cls=UniverseSpecUploadDetail,
-        not_found_error=UniverseSpecUploadNotFoundError,
-        invalid_error=UniverseSpecUploadInvalidError,
-        validator=_store_validator,
-    )
+_store: SpecUploadStore[UniverseSpecUploadSummary, UniverseSpecUploadDetail] = SpecUploadStore(
+    table_name="universe_spec_uploads",
+    library_subdir="universes",
+    summary_cls=UniverseSpecUploadSummary,
+    detail_cls=UniverseSpecUploadDetail,
+    not_found_error=UniverseSpecUploadNotFoundError,
+    invalid_error=UniverseSpecUploadInvalidError,
+    validator=_store_validator,
 )
 
 
@@ -114,9 +112,7 @@ def soft_delete_upload(
     slug: str,
     uploads_root: Path,
 ) -> None:
-    _store.soft_delete_upload(
-        conn, user=user, slug=slug, uploads_root=uploads_root
-    )
+    _store.soft_delete_upload(conn, user=user, slug=slug, uploads_root=uploads_root)
 
 
 __all__ = [

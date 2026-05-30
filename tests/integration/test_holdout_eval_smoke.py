@@ -69,7 +69,7 @@ def _invoke_run(config_path: Path, store: Path) -> Path:
 
 def test_holdout_eval_produces_full_artifact_tree(tmp_path: Path) -> None:
     """
-    End-to-end happy path: dev run → holdout-eval → bundle on disk.
+    End-to-end happy path: dev run -> holdout-eval -> bundle on disk.
     """
 
     config_path = _write_fixture(tmp_path)
@@ -154,7 +154,7 @@ def test_holdout_eval_refuses_when_data_hash_drifts(tmp_path: Path) -> None:
 
 def test_holdout_eval_refuses_when_source_has_no_holdout(tmp_path: Path) -> None:
     """
-    A dev run with holdout_pct=0 has manifest.holdout_start=None — the eval must refuse.
+    A dev run with holdout_pct=0 has manifest.holdout_start=None - the eval must refuse.
     """
 
     config_path = _write_fixture(tmp_path)

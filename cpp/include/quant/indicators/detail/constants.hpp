@@ -6,7 +6,7 @@
 
 namespace quant::detail {
 
-// sqrt(kTradingDaysPerYear) — not constexpr until C++26, so use inline const.
+// sqrt(kTradingDaysPerYear) - not constexpr until C++26, so use inline const.
 inline const double kSqrt252 =
     std::sqrt(static_cast<double>(kTradingDaysPerYear));
 

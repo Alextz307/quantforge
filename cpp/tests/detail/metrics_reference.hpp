@@ -1,6 +1,6 @@
 #pragma once
 
-// Independent reference composition of the per-metric helpers — gives the
+// Independent reference composition of the per-metric helpers - gives the
 // parity tests a fixed point to compare MetricsCalculator::compute
 // against.
 

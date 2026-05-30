@@ -1,5 +1,5 @@
 """
-Tests for :func:`build_experiment` — config → wired :class:`Experiment`.
+Tests for :func:`build_experiment` - config -> wired :class:`Experiment`.
 """
 
 from __future__ import annotations
@@ -30,7 +30,7 @@ _GAP = 3
 _WINDOW = 25
 _K = 1.8
 _RSI_PERIOD = 11
-# A k value the AdaptiveBollinger ctor rejects (k must be > 0) — used to prove
+# A k value the AdaptiveBollinger ctor rejects (k must be > 0) - used to prove
 # that ctor params flow through the registry end-to-end rather than being
 # silently dropped.
 _INVALID_K = -1.0
@@ -114,7 +114,7 @@ class TestBuildExperiment:
         exp = build_experiment(cfg)
 
         assert isinstance(exp.slippage, SlippageConfig)
-        # default tier is NORMAL → 2 bp slippage
+        # default tier is NORMAL -> 2 bp slippage
         assert exp.slippage.base_bps == pytest.approx(2.0)
 
     def test_no_features_by_default(self) -> None:

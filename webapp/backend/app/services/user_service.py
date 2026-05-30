@@ -1,5 +1,5 @@
 """
-User CRUD — never surfaces password hashes outside this module.
+User CRUD - never surfaces password hashes outside this module.
 """
 
 from __future__ import annotations
@@ -97,16 +97,14 @@ def create_user(
             auto_created_at=auto_created_at,
         )
     conn.commit()
-    return UserPublic(
-        id=user_id, username=username, role=role, auto_created_at=auto_created_at
-    )
+    return UserPublic(id=user_id, username=username, role=role, auto_created_at=auto_created_at)
 
 
 def upsert_user(
     conn: sqlite3.Connection, *, username: str, password: str, role: Role
 ) -> UserPublic:
     """
-    Create-or-overwrite — used by the bootstrap CLI.
+    Create-or-overwrite - used by the bootstrap CLI.
     """
 
     existing = conn.execute("SELECT id FROM users WHERE username = ?", (username,)).fetchone()
@@ -132,16 +130,14 @@ def upsert_user(
 
 def list_users(conn: sqlite3.Connection) -> list[UserPublic]:
     rows = conn.execute(
-        "SELECT id, username, role, auto_created_at FROM users "
-        "WHERE deleted_at IS NULL ORDER BY id"
+        "SELECT id, username, role, auto_created_at FROM users WHERE deleted_at IS NULL ORDER BY id"
     ).fetchall()
     return [_row_to_public(row) for row in rows]
 
 
 def get_user(conn: sqlite3.Connection, user_id: int) -> UserPublic | None:
     row = conn.execute(
-        "SELECT id, username, role, auto_created_at FROM users "
-        "WHERE id = ? AND deleted_at IS NULL",
+        "SELECT id, username, role, auto_created_at FROM users WHERE id = ? AND deleted_at IS NULL",
         (user_id,),
     ).fetchone()
     return _row_to_public(row) if row else None

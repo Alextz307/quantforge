@@ -19,7 +19,7 @@ from src.core.temporal import (
 )
 from tests.conftest import make_daily_df
 
-# Hourly bars starting at midnight → every date has exactly 24 bars, which
+# Hourly bars starting at midnight -> every date has exactly 24 bars, which
 # keeps the snap arithmetic trivial to verify by hand.
 HOURLY_FREQ = "h"
 HOURLY_START = "2020-01-01 00:00"
@@ -71,7 +71,7 @@ class TestSnapToDayIntraday:
             train_last = s.train.index[-1]
             test_first = s.test.index[0]
             assert train_last.date() != test_first.date(), (
-                f"Fold {s.fold_index}: train ended {train_last}, test started {test_first} — "
+                f"Fold {s.fold_index}: train ended {train_last}, test started {test_first} - "
                 "snap_to_day must force a day change across the boundary."
             )
 
@@ -94,7 +94,7 @@ class TestSnapToDayIntraday:
 
 class TestSnapHelpers:
     """
-    Direct tests for the snap helpers — isolates day-based arithmetic
+    Direct tests for the snap helpers - isolates day-based arithmetic
     from the full WalkForwardValidator.split() geometric budget."""
 
     def test_gap_counts_distinct_dates_not_bars(self, helper_dates: pd.DatetimeIndex) -> None:
@@ -185,7 +185,7 @@ class TestSnapToDayErrors:
 
     def test_last_fold_test_window_overrun_raises(self) -> None:
         """
-        Snap pushes the last fold's test window past end-of-frame — must
+        Snap pushes the last fold's test window past end-of-frame - must
         raise rather than silently truncate."""
 
         df = _make_hourly_close_df(n_rows=4 * HOURLY_BARS_PER_DAY)

@@ -14,7 +14,7 @@ from src.core.fs import atomic_write_path
 
 class DataCache:
     """
-    Local Parquet cache — no re-downloading on subsequent runs.
+    Local Parquet cache - no re-downloading on subsequent runs.
     """
 
     def __init__(self, cache_dir: Path | None = None) -> None:
@@ -55,7 +55,7 @@ class DataCache:
 
         Parallel HPO trials race on the same cache key. Writing directly
         to the final path lets a reader observe a half-written parquet
-        between the writer's truncate and close — the symptom is a frame
+        between the writer's truncate and close - the symptom is a frame
         with duplicated columns that breaks downstream Series ops.
         ``atomic_write_path`` stages to a per-(pid,tid) tmp file, then
         ``os.replace`` to commit.

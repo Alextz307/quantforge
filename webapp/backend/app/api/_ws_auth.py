@@ -11,7 +11,7 @@ from webapp.backend.app.infrastructure.db import open_db
 from webapp.backend.app.schemas.users import UserPublic
 from webapp.backend.app.services.user_service import get_user
 
-# Custom close codes use the application range (4000–4999). They mirror the
+# Custom close codes use the application range (4000-4999). They mirror the
 # corresponding HTTP status semantics so client error handling stays uniform
 # whether a request reached the HTTP or the WS layer.
 WS_CLOSE_UNAUTHORIZED = 4401

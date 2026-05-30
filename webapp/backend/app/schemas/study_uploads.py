@@ -26,7 +26,7 @@ class StudySpecUploadCreate(BaseModel):
 
 class StudySpecUploadSummary(BaseModel):
     """
-    Listing entry — no YAML body, no validation errors.
+    Listing entry - no YAML body, no validation errors.
     """
 
     slug: str

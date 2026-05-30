@@ -81,7 +81,7 @@ def _make_strategy(**overrides: object) -> CrossAssetMomentumStrategy:
 
 class _FakeClassifier:
     """
-    Duck-typed classifier returning a constant probability — bypasses XGBoost fit.
+    Duck-typed classifier returning a constant probability - bypasses XGBoost fit.
     """
 
     def __init__(self, proba: float) -> None:
@@ -99,7 +99,7 @@ def _strategy_with_fake_classifier(
     Build a fitted strategy whose classifier is a constant-proba fake.
 
     Skips the real XGBoost fit by setting the classifier and fitted-state
-    directly — the threshold tests only exercise ``generate_signals`` and
+    directly - the threshold tests only exercise ``generate_signals`` and
     don't care about booster weights.
     """
 
@@ -243,7 +243,7 @@ class TestSuggestParams:
 
     def test_lags_and_feature_tickers_not_tuned(self) -> None:
         """
-        Lag schedule + ticker basket stay fixed at YAML level — see docstring.
+        Lag schedule + ticker basket stay fixed at YAML level - see docstring.
         """
 
         import optuna
@@ -288,7 +288,7 @@ class TestSaveLoad:
         self, wide_df: pd.DataFrame, tmp_path: Path
     ) -> None:
         """
-        Save → delete the marker → load must refuse rather than return a
+        Save -> delete the marker -> load must refuse rather than return a
         partial model. Simulates a save() that crashed before the final
         marker write.
         """

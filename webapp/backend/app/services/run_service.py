@@ -13,8 +13,8 @@ from pathlib import Path
 
 import yaml
 
-# Use the libyaml-backed CSafeLoader when available — PyYAML's pure-Python
-# loader is ~10× slower and dominates the list-endpoint cold pass over a
+# Use the libyaml-backed CSafeLoader when available - PyYAML's pure-Python
+# loader is ~10x slower and dominates the list-endpoint cold pass over a
 # few thousand runs. Falls back transparently on installs without libyaml.
 try:
     from yaml import CSafeLoader as _SafeLoader
@@ -125,7 +125,7 @@ def _summarize_all(root: Path) -> list[RunSummary]:
     """
     All summaries, unsorted. Sort is the caller's job.
 
-    Per-run summarization runs in a thread pool — the work is dominated by
+    Per-run summarization runs in a thread pool - the work is dominated by
     blocking file reads (manifest + metrics + config), which release the GIL,
     so threading gives a near-linear speedup on the cold pass over thousands
     of runs.
@@ -140,7 +140,7 @@ def _summarize_all(root: Path) -> list[RunSummary]:
 def _safe_summarize(run_dir: Path, root: Path) -> RunSummary | None:
     try:
         return _cached_summarize(run_dir, root)
-    except Exception as exc:  # noqa: BLE001 — one bad run must not 500 the whole listing
+    except Exception as exc:  # noqa: BLE001 - one bad run must not 500 the whole listing
         logger.warning("skipping unreadable run at %s: %s", run_dir, exc)
         return None
 
@@ -202,7 +202,7 @@ def list_runs_page(
     """
     Paginated + sorted + filtered run listing.
 
-    The full run set is scanned and summarised before slicing — there is no
+    The full run set is scanned and summarised before slicing - there is no
     cheaper way today since per-run metadata lives in two files per directory.
     Filters and sort happen in-memory over the summary list; ``limit``/``offset``
     pick the page that is returned to the client.
@@ -276,7 +276,7 @@ def get_run(
     """
     Read the full detail payload for one run.
 
-    Plot generation is NOT triggered here — it's deferred to ``resolve_plot``,
+    Plot generation is NOT triggered here - it's deferred to ``resolve_plot``,
     which renders lazily on the first plot fetch. The detail page returns
     immediately; the matplotlib startup + render cost only pays itself when
     the user actually clicks a plot link.
@@ -415,7 +415,7 @@ def _read_config_summary(run_dir: Path) -> tuple[str, list[str], str]:
 
     try:
         with (run_dir / EXPERIMENT_CONFIG_YAML).open(encoding="utf-8") as f:
-            raw = yaml.load(f, Loader=_SafeLoader)  # noqa: S506 — _SafeLoader is the safe loader
+            raw = yaml.load(f, Loader=_SafeLoader)  # noqa: S506 - _SafeLoader is the safe loader
         return (
             str(raw["strategy"]["name"]),
             [str(t) for t in raw["data"]["tickers"]],

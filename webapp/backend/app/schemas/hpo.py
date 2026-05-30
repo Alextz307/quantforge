@@ -89,7 +89,7 @@ class ParamImportanceResponse(BaseModel):
 
     ``importance`` is empty and ``message`` is set when the study has too few
     completed trials, the optuna DB is missing, or the importance evaluator
-    raises on a degenerate search space — the endpoint stays 200 so the
+    raises on a degenerate search space - the endpoint stays 200 so the
     frontend renders an empty-state card instead of erroring.
     """
 

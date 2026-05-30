@@ -13,7 +13,7 @@ namespace quant::strategies {
 ///
 /// Fuses ``SpreadCalculator::compute_spread`` + ``compute_zscore`` +
 /// ``run_pairs_state_machine`` into a single C++ call. The fit-time work
-/// (Engle-Granger cointegration test → ``CointegrationParams``) stays in
+/// (Engle-Granger cointegration test -> ``CointegrationParams``) stays in
 /// Python; this class owns only the inference-path rule logic.
 class PairsTradingStrategy final : public IStrategy {
 public:
@@ -27,7 +27,7 @@ public:
     /// Caller-owned scratch buffers for the fused-generate path. Reusing the
     /// same ``Buffer`` across calls amortizes the two N-element allocations
     /// that the spread + rolling-z-score composition would otherwise incur
-    /// per call — meaningful under HPO sweeps or walk-forward folds.
+    /// per call - meaningful under HPO sweeps or walk-forward folds.
     struct Buffer {
         std::vector<double> spread;
         std::vector<double> zscore;
@@ -53,7 +53,7 @@ public:
         const statistics::CointegrationParams& coint,
         std::span<double> out) const;
 
-    /// Fully reusable overload — writes signals into ``out`` and reuses the
+    /// Fully reusable overload - writes signals into ``out`` and reuses the
     /// two intermediate vectors held by ``scratch`` across calls.
     void generate_signals(
         std::span<const double> prices_a,

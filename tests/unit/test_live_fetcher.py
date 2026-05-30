@@ -4,7 +4,7 @@ Behaviour of :class:`LiveBarFetcher` implementations + the dispatcher.
 The daily fetcher is a thin wrapper around :class:`YFinanceSource`;
 this test pins the interval guard + the dispatcher's
 ``NotImplementedError`` on cadences that have no shipped implementation.
-A network-dependent end-to-end fetch is out of scope here — the
+A network-dependent end-to-end fetch is out of scope here - the
 integration test exercises the full path via a stub fetcher.
 """
 
@@ -48,9 +48,7 @@ def _two_bar_frame(dates: tuple[str, str]) -> pd.DataFrame:
 
 
 def _two_bar_open_frame(dates: tuple[str, str]) -> pd.DataFrame:
-    return pd.DataFrame(
-        {"open": [_THU_OPEN, _FRI_OPEN]}, index=pd.DatetimeIndex(list(dates))
-    )
+    return pd.DataFrame({"open": [_THU_OPEN, _FRI_OPEN]}, index=pd.DatetimeIndex(list(dates)))
 
 
 class _ExclusiveEndSource(YFinanceSource):
@@ -116,7 +114,7 @@ def test_daily_fetcher_rejects_non_daily() -> None:
 def test_drop_unclosed_last_session_drops_forming_bar() -> None:
     """
     During Friday's open session the still-forming Friday bar is dropped, so
-    the latest complete bar is Thursday — the bar acted on at Friday's open.
+    the latest complete bar is Thursday - the bar acted on at Friday's open.
     """
 
     bars = _two_bar_frame((_THURSDAY, _FRIDAY))
@@ -128,7 +126,7 @@ def test_drop_unclosed_last_session_drops_forming_bar() -> None:
 
 def test_drop_unclosed_last_session_keeps_closed_bar() -> None:
     """
-    After Friday's close the Friday bar is final and survives — it becomes
+    After Friday's close the Friday bar is final and survives - it becomes
     the bar the next signal (for Monday's open) is computed from.
     """
 
@@ -141,7 +139,7 @@ def test_drop_unclosed_last_session_keeps_closed_bar() -> None:
 
 def test_drop_unclosed_last_session_keeps_past_session_over_weekend() -> None:
     """
-    Loaded on Saturday, Friday's session has long closed — nothing is dropped.
+    Loaded on Saturday, Friday's session has long closed - nothing is dropped.
     """
 
     bars = _two_bar_frame((_THURSDAY, _FRIDAY))
@@ -158,7 +156,7 @@ def test_drop_unclosed_last_session_empty_frame_is_noop() -> None:
 def test_opens_of_opened_sessions_keeps_forming_open() -> None:
     """
     During Friday's open session evaluation keeps the still-forming Friday
-    open — opposite of generation, which drops that bar. The open is fixed
+    open - opposite of generation, which drops that bar. The open is fixed
     at the bell, so it is a valid exit price for the prior signal.
     """
 
@@ -173,7 +171,7 @@ def test_opens_of_opened_sessions_keeps_forming_open() -> None:
 def test_opens_of_opened_sessions_excludes_unopened_session() -> None:
     """
     Pre-market on Friday the Friday session has not opened, so its open is
-    not yet a usable price — only Thursday's open survives.
+    not yet a usable price - only Thursday's open survives.
     """
 
     bars = _two_bar_open_frame((_THURSDAY, _FRIDAY))
@@ -217,16 +215,14 @@ def test_fetch_session_opens_rejects_non_daily() -> None:
 def test_daily_fetcher_keeps_bar_dated_on_end() -> None:
     """
     The vendor's ``end`` is exclusive of its date, so a naive ``end=as_of``
-    drops the bar dated today — the most recent bar live inference needs. The
+    drops the bar dated today - the most recent bar live inference needs. The
     daily fetcher must compensate; here the Friday bar dated exactly on ``end``
     survives instead of being silently chopped to Thursday.
     """
 
     source = _ExclusiveEndSource(_two_bar_frame((_PAST_THU, _PAST_FRI)))
     fetcher = DailyLiveBarFetcher(source=source)
-    bars = fetcher.fetch(
-        "SPY", datetime(2019, 12, 1), datetime(2020, 1, 3), Interval.DAILY
-    )
+    bars = fetcher.fetch("SPY", datetime(2019, 12, 1), datetime(2020, 1, 3), Interval.DAILY)
 
     assert bars.index[-1] == pd.Timestamp(_PAST_FRI)
 

@@ -1,20 +1,17 @@
-# Standalone CrossAssetMomentum experiment — full HPO from scratch, no
-# pretrained leaf. Methodology adapted from Rapach, Strauss, Tu, Zhou (2019)
+# CrossAssetMomentum experiment - full HPO from scratch. Methodology
+# adapted from Rapach, Strauss, Tu, Zhou (2019)
 # "Industry return predictability: A machine learning approach"
 # (Journal of Financial Economics 135(2)): predict the primary asset's
 # next-bar direction from lagged returns of cross-asset peers, trade on
-# the directional gate. We swap LASSO → XGBoost (Krauss, Do, Huck 2017,
-# EJOR 259) and operate on user-configured ``lags × feature_tickers``.
+# the directional gate. We swap LASSO -> XGBoost (Krauss, Do, Huck 2017,
+# EJOR 259) and operate on user-configured ``lags x feature_tickers``.
 #
-# The strategy reads the wide multi-ticker frame directly — the
+# The strategy reads the wide multi-ticker frame directly - the
 # orchestrator does NOT instantiate a feature pipeline (no top-level
 # ``features:`` block). All feature engineering is inline.
 #
 # Runnable today:
 #   python -m scripts.experiment run --config config/strategies/cross_asset_momentum.yaml
-#
-# For the pretrained-leaf workflow (frozen XGBoost classifier), see the
-# sibling ``cross_asset_momentum_pretrained.yaml`` instead.
 
 name: spy_cross_asset_momentum
 seed: 42

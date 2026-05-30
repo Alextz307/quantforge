@@ -3,23 +3,23 @@ Pairwise-strategy significance tests.
 
 Three families of test, each appropriate to a different workload:
 
-* **Stationary bootstrap** (Politis & Romano, 1994) — autocorrelation-aware
+* **Stationary bootstrap** (Politis & Romano, 1994) - autocorrelation-aware
   percentile bootstrap on daily return series. Used for:
 
-  - :func:`bootstrap_sharpe_ci` — 95% CI on a single strategy's Sharpe ratio.
-  - :func:`paired_bootstrap_sharpe_differential` — 95% CI on the Sharpe
+  - :func:`bootstrap_sharpe_ci` - 95% CI on a single strategy's Sharpe ratio.
+  - :func:`paired_bootstrap_sharpe_differential` - 95% CI on the Sharpe
     differential between two aligned strategies; a CI that excludes zero
     indicates a significant difference. This is the fallback for
     non-forecaster strategies (Bollinger, Pairs, Momentum) where the
     Diebold-Mariano framing does not apply.
 
 * **Diebold-Mariano** (1995, with Harvey-Leybourne-Newbold 1997
-  small-sample correction) — parametric test on aligned point forecasts
+  small-sample correction) - parametric test on aligned point forecasts
   plus realised values. Used by :func:`diebold_mariano_test` for
   forecaster strategies (ARMA / LSTM / hybrids) that expose predicted
   returns or variances.
 
-* **Deflated Sharpe ratio** (Bailey & López de Prado, 2014) —
+* **Deflated Sharpe ratio** (Bailey & López de Prado, 2014) -
   multiple-testing-adjusted significance for an HPO study's best Sharpe.
   Used by :func:`deflated_sharpe_ratio` after a tuning run completes;
   inputs are the per-trial Sharpes from the Optuna study (no per-trial
@@ -28,7 +28,7 @@ Three families of test, each appropriate to a different workload:
 Block-size default
 ------------------
 Both bootstrap functions default ``block_size`` to
-``max(1, round(2 * sqrt(n)))`` — a widely used heuristic that gives a
+``max(1, round(2 * sqrt(n)))`` - a widely used heuristic that gives a
 sensible effective block length for autocorrelated series in the
 hundreds-to-thousands-of-bars range. Users who know their data's
 autocorrelation structure can pass an explicit block size; the
@@ -61,7 +61,7 @@ _FloatArray = npt.NDArray[np.float64]
 _IntArray = npt.NDArray[np.int64]
 
 # Fixed seed for bootstrap determinism when no RNG is passed. Different
-# from the aggregator's seed so a joint invocation (aggregate → bootstrap)
+# from the aggregator's seed so a joint invocation (aggregate -> bootstrap)
 # does not share a draw sequence by accident.
 _DEFAULT_RNG_SEED = 17
 
@@ -109,7 +109,7 @@ class BootstrapCI:
 
     def excludes(self, value: float) -> bool:
         """
-        ``True`` if ``value`` falls outside ``[lower, upper]`` — common
+        ``True`` if ``value`` falls outside ``[lower, upper]`` - common
         significance check for a differential CI against zero.
         """
 
@@ -148,7 +148,7 @@ class DeflatedSharpe:
 
     Quantifies how much of an HPO study's best Sharpe is plausibly
     chance, given that the search tried many configurations. The
-    deflated value is a probability in ``[0, 1]`` — values close to
+    deflated value is a probability in ``[0, 1]`` - values close to
     ``1`` indicate the best Sharpe is unlikely to be a multiple-testing
     artefact; values near ``0.5`` indicate it is consistent with noise.
 
@@ -207,7 +207,7 @@ class DMResult:
     (``d = L(e_a) - L(e_b)``): :attr:`DMDirection.B` if ``mean(d) > 0``
     (b's loss is smaller, so b forecasts better), :attr:`DMDirection.A`
     if ``mean(d) < 0``, :attr:`DMDirection.TIE` on an exact zero.
-    Significance is up to the caller — compare ``p_value`` against the
+    Significance is up to the caller - compare ``p_value`` against the
     desired alpha.
     """
 
@@ -230,7 +230,7 @@ def bootstrap_sharpe_ci(
     Stationary-bootstrap 95% CI for the Sharpe ratio of ``returns``.
 
     ``returns`` is a 1-D array of periodic (per-bar) returns; annualisation
-    is deliberately NOT applied here — feed pre-annualised returns if
+    is deliberately NOT applied here - feed pre-annualised returns if
     the CI should be in annualised Sharpe units. The bootstrap resamples
     the raw series, so whatever scale goes in, the CI is in the same
     scale out.
@@ -278,8 +278,8 @@ def paired_bootstrap_sharpe_differential(
     """
     Stationary-bootstrap 95% CI on ``sharpe(a) - sharpe(b)``.
 
-    The two return series must be aligned in time — same bars, same
-    length — so a single set of bootstrap indices can be applied to both,
+    The two return series must be aligned in time - same bars, same
+    length - so a single set of bootstrap indices can be applied to both,
     preserving the per-bar pairing that makes this a paired (not
     independent) test. The CI is on the Sharpe DIFFERENTIAL; it excludes
     zero when the two strategies' Sharpe ratios differ significantly.
@@ -341,7 +341,7 @@ def diebold_mariano_test(
 
     The HLN small-sample correction scales the raw DM statistic by
     ``sqrt((n + 1 - 2h + h(h-1)/n) / n)`` and reads the p-value off a
-    Student-t with ``n-1`` dof — both standard for empirical forecasting
+    Student-t with ``n-1`` dof - both standard for empirical forecasting
     work where ``n`` is in the hundreds. Degenerate case: identical
     forecasts (``L(e_a) == L(e_b)`` everywhere) produce zero long-run
     variance; we return ``statistic=0, p_value=1.0, direction="tie"``
@@ -413,33 +413,33 @@ def deflated_sharpe_ratio(
     The deflated Sharpe asks: given that an HPO search tried N
     candidate configurations and selected the best one, how much of
     the observed peak Sharpe is plausibly genuine vs. selection bias?
-    Returns a probability — values near ``1`` are evidence of a real
+    Returns a probability - values near ``1`` are evidence of a real
     signal, values near ``0.5`` are indistinguishable from noise.
 
     Inputs:
         trial_sharpes: per-trial Sharpe ratios from the completed
             Optuna study. The maximum across trials is the observed
-            (selected) Sharpe. Length must be ≥ 2.
+            (selected) Sharpe. Length must be >= 2.
         sample_length: number of return observations the selected
             strategy was evaluated on (typically ``n_dev_bars``).
-            Must be ≥ 2.
+            Must be >= 2.
 
     Formula (BLP eq. 9, post-hoc trial-based form):
 
-    ``E[max{Sh_n}] ≈ sqrt(V[Sh]) * ((1-γ)*Z⁻¹(1-1/N) + γ*Z⁻¹(1-1/(N·e)))``
-    where γ is Euler-Mascheroni and ``Z⁻¹`` is the standard-normal quantile.
+    ``E[max{Sh_n}] ~= sqrt(V[Sh]) * ((1-gamma)*Z^-1(1-1/N) + gamma*Z^-1(1-1/(N*e)))``
+    where gamma is Euler-Mascheroni and ``Z^-1`` is the standard-normal quantile.
 
-    ``ψ(Sh*) = (Sh* - E[max{Sh_n}]) * sqrt(T-1) /
-                sqrt(1 - γ̂₃·Sh* + ((γ̂₄ - 1)/4)·Sh*²)``
+    ``psi(Sh*) = (Sh* - E[max{Sh_n}]) * sqrt(T-1) /
+                sqrt(1 - gamma_hat_3*Sh* + ((gamma_hat_4 - 1)/4)*Sh*^2)``
 
-    ``DSR = Φ(ψ)`` — standard-normal CDF of the test statistic.
+    ``DSR = Phi(psi)`` - standard-normal CDF of the test statistic.
 
     Degenerate cases:
         - Single trial (``N=1``): ``E[max] = 0`` (no selection); DSR
           collapses to the plain Sharpe's one-sided p-value.
         - Zero trial variance: ``E[max] = 0``; DSR computes as if
           there were no multiple-testing penalty.
-        - Denominator ≤ 0 (extreme negative skew × large Sharpe):
+        - Denominator <= 0 (extreme negative skew x large Sharpe):
           DSR = 0.5 (treat as undefined / non-significant).
     """
 
@@ -505,8 +505,8 @@ def _expected_max_sharpe(*, n_trials: int, trial_variance: float) -> float:
     """
     Expected maximum of ``n_trials`` iid normal Sharpes (BLP 2014 appendix).
 
-    ``E[max] ≈ sqrt(V) * ((1-γ)·Z⁻¹(1 - 1/N) + γ·Z⁻¹(1 - 1/(N·e)))``
-    where ``γ`` is Euler-Mascheroni and ``Z⁻¹`` is the standard-normal
+    ``E[max] ~= sqrt(V) * ((1-gamma)*Z^-1(1 - 1/N) + gamma*Z^-1(1 - 1/(N*e)))``
+    where ``gamma`` is Euler-Mascheroni and ``Z^-1`` is the standard-normal
     quantile function. Collapses to ``0`` for ``N=1`` (no selection) or
     ``trial_variance == 0`` (flat trial distribution).
     """
@@ -578,7 +578,7 @@ def _sharpe(returns: _FloatArray) -> float:
     Unannualised Sharpe: ``mean / std_ddof1``, zero when std vanishes.
 
     Zero-std short-circuits to ``0.0`` instead of raising or returning
-    ``inf`` — a flat-return resample produces an ill-defined Sharpe and
+    ``inf`` - a flat-return resample produces an ill-defined Sharpe and
     ``0.0`` is the only value that lets the bootstrap distribution
     remain finite. The aggregate CI still correctly widens when many
     resamples hit this branch.

@@ -1,5 +1,5 @@
 """
-C++ quantitative engine (backtesting, metrics) — Python bindings
+C++ quantitative engine (backtesting, metrics) - Python bindings
 """
 
 from __future__ import annotations

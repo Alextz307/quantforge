@@ -1,10 +1,10 @@
 """
 Strategy ranking across :class:`AggregateStats` bundles.
 
-Takes a ``{strategy_name → AggregateStats}`` mapping and produces a tidy
+Takes a ``{strategy_name -> AggregateStats}`` mapping and produces a tidy
 ``pd.DataFrame`` sorted by a chosen primary metric, with deterministic
 tie-breaking. The DataFrame is the direct input to the comparison
-reporter's LaTeX table builder — columns + dtypes are stable across
+reporter's LaTeX table builder - columns + dtypes are stable across
 invocations so the LaTeX output is diffable.
 """
 
@@ -53,14 +53,14 @@ def rank_strategies(
     """
     Rank strategies by the chosen metric, break ties deterministically.
 
-    Sort order: primary metric descending → secondary metric descending →
+    Sort order: primary metric descending -> secondary metric descending ->
     strategy name ascending (the final alphabetical step makes the ranking
     bit-stable across invocations even when two strategies tie on every
     numeric axis, which is rare but legal).
 
     Returns a tidy DataFrame with columns listed in :data:`_DISPLAY_COLUMNS`.
     ``rank`` is 1-indexed and reflects the sort order above (no "dense" or
-    "min" rank handling — ties are broken, so each row gets a unique rank).
+    "min" rank handling - ties are broken, so each row gets a unique rank).
     """
 
     if not per_strategy_stats:
@@ -82,7 +82,7 @@ def rank_strategies(
     df = df.sort_values(
         by=[primary_col, secondary_col, "name"],
         ascending=[False, False, True],
-        kind="mergesort",  # stable — guarantees deterministic tie-break at the third key
+        kind="mergesort",  # stable - guarantees deterministic tie-break at the third key
     ).reset_index(drop=True)
     df.insert(0, "rank", range(1, len(df) + 1))
     return df[list(_DISPLAY_COLUMNS)]

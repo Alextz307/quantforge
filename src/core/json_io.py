@@ -4,7 +4,7 @@ Pure JSON read/write + typed field-extraction helpers.
 Intentionally free of domain imports (sklearn, torch, our own
 ``TrainingMetadata`` etc.): this module is a generic namespace usable
 anywhere the codebase reads or writes JSON. ``pandas`` is imported lazily
-inside the two timestamp helpers — slim CI subprocesses (e.g. the OpenAPI
+inside the two timestamp helpers - slim CI subprocesses (e.g. the OpenAPI
 snapshot dumper) can call :func:`write` / :func:`read_dict` /
 :func:`diff_against_snapshot` without dragging pandas into their env.
 Import as a namespace:
@@ -43,7 +43,7 @@ def write(path: str | Path, obj: object) -> None:
     Write ``obj`` as UTF-8 JSON at ``path`` with sorted keys and 2-space indent.
 
     Accepts ``object`` rather than a narrow union to match ``json.dump``'s own
-    duck-typed contract — callers pass arbitrarily-nested dict/list/scalar
+    duck-typed contract - callers pass arbitrarily-nested dict/list/scalar
     payloads and invariance on ``dict[str, X]`` would otherwise force casts at
     every call site.
     """
@@ -108,7 +108,7 @@ def read_jsonl(path: str | Path) -> list[dict[str, object]]:
     Load a JSON-lines file (one JSON object per non-blank line).
 
     Middle-line decode failures + non-object lines raise :class:`ValueError`
-    with the offending 1-based line number — real corruption surfaces
+    with the offending 1-based line number - real corruption surfaces
     actionably instead of late-binding deep in caller code. A SINGLE
     malformed trailing record is tolerated and logged at WARN: the
     :func:`append_jsonl` producers used by streaming writers (HPO trial
@@ -144,7 +144,7 @@ def read_jsonl(path: str | Path) -> list[dict[str, object]]:
             commit(prev_lineno, prev_line)
         except json.JSONDecodeError:
             _logger.warning(
-                "JSONL at %s line %d failed to parse — treating as crash-truncated "
+                "JSONL at %s line %d failed to parse - treating as crash-truncated "
                 "trailing record from an append_jsonl producer and dropping it",
                 path,
                 prev_lineno,
@@ -220,7 +220,7 @@ def get_bool(d: dict[str, object], key: str) -> bool:
     Pull ``key`` out of ``d`` and require a ``bool``.
 
     Rejects ``int`` explicitly even though ``True``/``False`` are int
-    subclasses — JSON ``true``/``false`` round-trip to Python ``bool``,
+    subclasses - JSON ``true``/``false`` round-trip to Python ``bool``,
     and an int leaking in means someone hand-edited the file.
     """
 
@@ -249,7 +249,7 @@ def _get_list(d: dict[str, object], key: str) -> list[object]:
     """
     Module-private: pull ``key`` and require a ``list``. Callers should use
     a typed variant (``get_int_list``, ``get_float_list``, ``get_str_list``)
-    — untyped element access leaves mypy unhappy."""
+    - untyped element access leaves mypy unhappy."""
 
     if key not in d:
         raise KeyError(f"missing required JSON field {key!r}")

@@ -204,7 +204,7 @@ function HoldoutBody({
           {
             header: "Source",
             cellClassName: "font-mono text-xs",
-            render: (r) => `${sourceKindLabel(r.source_kind)} · ${r.source_id}`,
+            render: (r) => `${sourceKindLabel(r.source_kind)} | ${r.source_id}`,
           },
           {
             header: "Sharpe",

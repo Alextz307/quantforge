@@ -31,7 +31,7 @@ class WarmupInsufficientError(ValueError):
     """
     Raised when an input window is shorter than the model's lookback requirement.
 
-    Covers three concrete failure modes that share the same shape — the
+    Covers three concrete failure modes that share the same shape - the
     caller passed fewer rows than the model needs to produce a valid
     output:
 

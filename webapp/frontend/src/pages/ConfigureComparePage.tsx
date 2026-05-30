@@ -20,7 +20,7 @@ const PICKER_PAGE_LIMIT = 200;
 const DEFAULT_N_JOBS = 1;
 const MAX_N_JOBS = 8;
 // Mirror the backend slug pattern so the form rejects bad input before the
-// 422 round-trip (still defense-in-depth — the backend re-checks).
+// 422 round-trip (still defense-in-depth - the backend re-checks).
 const SLUG_PATTERN = /^[A-Za-z0-9_\-:]+$/;
 
 type SignificanceTest = "bootstrap" | "none";
@@ -130,7 +130,7 @@ export function ConfigureComparePage() {
       <CardHeader>
         <CardTitle>Configure comparison</CardTitle>
         <CardDescription>
-          Rank 2–8 completed runs head-to-head. Each run's frozen config is reused — no walk-forward
+          Rank 2-8 completed runs head-to-head. Each run's frozen config is reused - no walk-forward
           re-execution.
         </CardDescription>
       </CardHeader>
@@ -249,7 +249,7 @@ export function ConfigureComparePage() {
 
           <div className="flex justify-end gap-2">
             <Button type="submit" disabled={submit.isPending}>
-              {submit.isPending ? "Launching…" : "Launch comparison"}
+              {submit.isPending ? "Launching..." : "Launch comparison"}
             </Button>
           </div>
         </form>

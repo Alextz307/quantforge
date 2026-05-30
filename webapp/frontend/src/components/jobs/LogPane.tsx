@@ -20,7 +20,7 @@ export function LogPane({
   const previousLength = useRef(0);
 
   useEffect(() => {
-    // Auto-scroll only when new lines arrive — preserves the user's
+    // Auto-scroll only when new lines arrive - preserves the user's
     // scroll position if they've manually scrolled up to read history.
     if (lines.length > previousLength.current) {
       const el = scrollRef.current;

@@ -330,9 +330,7 @@ def test_submit_study_resolves_user_upload_when_present(
             "legs": [
                 {
                     "strategy": _STRATEGY,
-                    "strategy_config": str(
-                        config_root / "strategies" / "adaptive_bollinger.yaml"
-                    ),
+                    "strategy_config": str(config_root / "strategies" / "adaptive_bollinger.yaml"),
                     "hpo_config": str(config_root / "hpo" / "adaptive_bollinger.yaml"),
                     "universes": [_UNIVERSE],
                 }
@@ -373,7 +371,7 @@ def test_submit_study_falls_back_to_library_when_no_upload(
     db_conn: sqlite3.Connection, tmp_path: Path
 ) -> None:
     """
-    No matching upload for caller → resolver uses ``config/study/<slug>.yaml``.
+    No matching upload for caller -> resolver uses ``config/study/<slug>.yaml``.
     """
 
     user = _user(db_conn, "alice")

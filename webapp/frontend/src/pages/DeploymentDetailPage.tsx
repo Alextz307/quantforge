@@ -36,7 +36,7 @@ export function DeploymentDetailPage() {
       <QueryRenderer
         query={query}
         errorTitle="Failed to load deployment"
-        loadingMessage="Loading deployment…"
+        loadingMessage="Loading deployment..."
       >
         {(deployment) => <DeploymentBody deployment={deployment} />}
       </QueryRenderer>
@@ -78,8 +78,8 @@ function DeploymentBody({ deployment }: { deployment: DeploymentDetail }) {
           </div>
           {kind === "leverage" && (
             <p className="text-xs text-muted-foreground">
-              Position-size multiplier (× notional exposure), not a fixed long/short — e.g. 1.39× =
-              139% long, 0× = flat.
+              Position-size multiplier (x notional exposure), not a fixed long/short - e.g. 1.39x =
+              139% long, 0x = flat.
             </p>
           )}
           {predict.isError && (
@@ -100,7 +100,7 @@ function DeploymentBody({ deployment }: { deployment: DeploymentDetail }) {
           <QueryRenderer
             query={evaluationQuery}
             errorTitle="Failed to load signal evaluation"
-            loadingMessage="Scoring signals…"
+            loadingMessage="Scoring signals..."
           >
             {(evaluation) => <SignalPerformanceBody evaluation={evaluation} />}
           </QueryRenderer>
@@ -137,7 +137,7 @@ function Stat({ label, value }: { label: string; value: string }) {
 }
 
 function pctOrDash(value: number | null): string {
-  return value === null ? "—" : formatPercent(value);
+  return value === null ? "-" : formatPercent(value);
 }
 
 const COST_TIERS: readonly { value: CostScenario; label: string }[] = [
@@ -185,7 +185,7 @@ function SignalPerformanceBody({ evaluation }: { evaluation: SignalEvaluationOut
   if (evaluation.n_scored === 0) {
     return (
       <p className="text-sm text-muted-foreground">
-        No signals scored yet — a signal is scored open→open once its next session opens.
+        No signals scored yet - a signal is scored open-to-open once its next session opens.
       </p>
     );
   }
@@ -208,7 +208,7 @@ function SignalPerformanceBody({ evaluation }: { evaluation: SignalEvaluationOut
         ]}
         height={260}
         xLabel="Scored signal"
-        yLabel="Cumulative (×)"
+        yLabel="Cumulative (x)"
       />
     </div>
   );
@@ -285,11 +285,11 @@ function DeploymentHeader({ deployment }: { deployment: DeploymentDetail }) {
       </div>
       {rename.isError && <p className="text-sm text-destructive">{rename.error.message}</p>}
       <p className="text-sm text-muted-foreground">
-        {deployment.ticker} · {deployment.strategy_name} · {deployment.interval} · trained through{" "}
+        {deployment.ticker} | {deployment.strategy_name} | {deployment.interval} | trained through{" "}
         {formatDate(deployment.train_end)}
       </p>
       <p className="text-xs text-muted-foreground">
-        Source: {sourceKindLabel(deployment.source_kind)} · {deployment.source_id}
+        Source: {sourceKindLabel(deployment.source_kind)} | {deployment.source_id}
       </p>
     </div>
   );
@@ -297,7 +297,7 @@ function DeploymentHeader({ deployment }: { deployment: DeploymentDetail }) {
 
 function ReturnCell({ value }: { value: number | null | undefined }) {
   if (value === null || value === undefined || !Number.isFinite(value)) {
-    return <span className="text-muted-foreground">—</span>;
+    return <span className="text-muted-foreground">-</span>;
   }
   const tone =
     value > 0
@@ -309,25 +309,25 @@ function ReturnCell({ value }: { value: number | null | undefined }) {
 }
 
 // A signal moves through three lifecycle states as sessions open:
-//   pending  — its entry session hasn't opened, nothing to act on yet.
-//   holding  — entered at the open; position is live, exit (hence score) pending.
-//   scored   — exit session opened, realised return + hit are known.
+//   pending  - its entry session hasn't opened, nothing to act on yet.
+//   holding  - entered at the open; position is live, exit (hence score) pending.
+//   scored   - exit session opened, realised return + hit are known.
 function StatusCell({ score }: { score: ScoredSignalOut | undefined }) {
   if (score?.scored) {
     if (score.hit === null) {
       return <span className="text-muted-foreground">flat</span>;
     }
     return score.hit ? (
-      <span className="text-emerald-600 dark:text-emerald-400">✓ win</span>
+      <span className="text-emerald-600 dark:text-emerald-400">win</span>
     ) : (
-      <span className="text-rose-600 dark:text-rose-400">✗ loss</span>
+      <span className="text-rose-600 dark:text-rose-400">loss</span>
     );
   }
   if (score?.entry_open != null) {
     return (
       <span
         className="text-amber-600 dark:text-amber-400"
-        title="Entered at the open — held now; score lands at the next session's open."
+        title="Entered at the open - held now; score lands at the next session's open."
       >
         holding
       </span>
@@ -336,7 +336,7 @@ function StatusCell({ score }: { score: ScoredSignalOut | undefined }) {
   return (
     <span
       className="text-muted-foreground"
-      title="Not entered yet — enters at this signal's date open."
+      title="Not entered yet - enters at this signal's date open."
     >
       pending
     </span>

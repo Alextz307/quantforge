@@ -42,7 +42,7 @@ def test_resolve_errors_on_non_tty_for_missing_user(
     db_conn: sqlite3.Connection,
 ) -> None:
     """
-    Without a TTY we must NOT prompt — raise pointing at scripts/create_user.
+    Without a TTY we must NOT prompt - raise pointing at scripts/create_user.
     """
 
     with patch("scripts._attribution.stdin_is_tty", return_value=False):
@@ -67,9 +67,7 @@ def test_resolve_auto_creates_user_when_tty(
         ),
     ):
         user_id = resolve_or_create_attributing_user(db_conn, "newcomer")
-    row = db_conn.execute(
-        "SELECT id, role FROM users WHERE username = ?", ("newcomer",)
-    ).fetchone()
+    row = db_conn.execute("SELECT id, role FROM users WHERE username = ?", ("newcomer",)).fetchone()
     assert row is not None
     assert int(row["id"]) == user_id
     assert str(row["role"]) == Role.USER.value
@@ -131,15 +129,9 @@ def test_attribute_artifact_is_idempotent(db_conn: sqlite3.Connection) -> None:
     alex_id = _seed(db_conn, "alex")
     bob_id = _seed(db_conn, "bob")
 
-    attribute_artifact(
-        db_conn, user_id=alex_id, kind=JobKind.RUN, experiment_id=_EID
-    )
-    attribute_artifact(
-        db_conn, user_id=bob_id, kind=JobKind.RUN, experiment_id=_EID
-    )
+    attribute_artifact(db_conn, user_id=alex_id, kind=JobKind.RUN, experiment_id=_EID)
+    attribute_artifact(db_conn, user_id=bob_id, kind=JobKind.RUN, experiment_id=_EID)
 
-    rows = db_conn.execute(
-        "SELECT user_id FROM jobs WHERE experiment_id = ?", (_EID,)
-    ).fetchall()
+    rows = db_conn.execute("SELECT user_id FROM jobs WHERE experiment_id = ?", (_EID,)).fetchall()
     assert len(rows) == 1
     assert int(rows[0]["user_id"]) == alex_id

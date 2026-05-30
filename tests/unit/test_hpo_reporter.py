@@ -1,8 +1,8 @@
 """
-HPOReporter tests — verify artifacts are produced under the expected paths.
+HPOReporter tests - verify artifacts are produced under the expected paths.
 
 Uses real Optuna studies (they're cheap to create). The plots/tables
-themselves aren't parsed — file-existence + non-trivial size is the
+themselves aren't parsed - file-existence + non-trivial size is the
 contract, matching the convention in :mod:`test_strategy_reporter`.
 """
 

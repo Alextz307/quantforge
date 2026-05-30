@@ -105,7 +105,7 @@ def build_compare_command(
     ``experiment compare`` invocation in ``--reuse-runs`` mode.
 
     ``config_paths`` and ``reuse_run_dirs`` must be the same length and in
-    matching order — the CLI pairs them positionally.
+    matching order - the CLI pairs them positionally.
     """
 
     cmd: list[str] = [
@@ -175,7 +175,7 @@ def build_study_command(
     store_root: Path,
 ) -> tuple[str, ...]:
     """
-    ``experiment study run`` invocation; drives the cross-strategy × cross-universe sweep.
+    ``experiment study run`` invocation; drives the cross-strategy x cross-universe sweep.
     """
     cmd: list[str] = [
         sys.executable,

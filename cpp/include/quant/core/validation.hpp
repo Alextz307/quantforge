@@ -7,7 +7,7 @@
 namespace quant::detail {
 
 /// Shared precondition for out-param overloads across indicators, metrics,
-/// spread primitives, strategies, and state machines — a single source of
+/// spread primitives, strategies, and state machines - a single source of
 /// truth so the error message stays consistent regardless of which kernel
 /// caught the mismatch.
 inline void check_out_size(

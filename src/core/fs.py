@@ -22,7 +22,7 @@ def ensure_parent_dir(path: str | Path) -> Path:
     Create ``path``'s parent directory tree if missing and return ``Path(path)``.
 
     Idempotent (no-op when the parent already exists). Used by every file-
-    writer that can't assume the target's parent was pre-created — experiment
+    writer that can't assume the target's parent was pre-created - experiment
     reports, HPO plots, JSON manifests, LaTeX tables.
 
     Returns the resolved ``Path`` for chaining:
@@ -44,7 +44,7 @@ def atomic_write_path(target: str | Path) -> Iterator[Path]:
     Stages writes to ``<stem>.tmp.<pid>.<tid><suffix>`` next to ``target``
     so concurrent writers from the same process tree don't collide on the
     staging file. On clean exit, ``os.replace(tmp, target)`` makes the new
-    content visible atomically (POSIX guarantee; Windows ≥3.3). On
+    content visible atomically (POSIX guarantee; Windows >=3.3). On
     exception, the tmp file is removed best-effort and the exception
     re-raises so callers see the original failure.
 
@@ -56,7 +56,7 @@ def atomic_write_path(target: str | Path) -> Iterator[Path]:
             df.to_parquet(tmp)
 
     ``BaseException`` is caught (not just ``Exception``) so cleanup also
-    fires on ``KeyboardInterrupt`` during a long write — important for
+    fires on ``KeyboardInterrupt`` during a long write - important for
     multi-day HPO runs where the user may Ctrl+C mid-trial.
     """
 

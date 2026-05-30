@@ -187,7 +187,7 @@ TEST(BufferReuseOverloads, MetricsBufferResizesAcrossCalls) {
     auto view_big = quant::MetricsCalculator::equity_to_returns(eq_big, buf);
     EXPECT_EQ(view_big.size(), eq_big.size() - 1);
     // Second call should have reused the same storage via resize (no span
-    // invalidation is guaranteed across calls — callers snapshot view_small
+    // invalidation is guaranteed across calls - callers snapshot view_small
     // before re-entering).
     EXPECT_EQ(buf.returns.size(), eq_big.size() - 1);
 }
@@ -229,7 +229,7 @@ TEST(BufferReuseOverloads, BacktestResultReusedAcrossScenarios) {
 }
 
 TEST(BufferReuseOverloads, BacktestResultPreservesEquityCurveStorage) {
-    // Assert pointer identity across calls of equal size — capacity ≥ N
+    // Assert pointer identity across calls of equal size - capacity >= N
     // alone would pass even if the impl fully reallocated the vector, which
     // would defeat the amortization contract of the out-param overload.
     const auto bars = make_bars();

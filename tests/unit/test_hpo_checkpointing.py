@@ -51,8 +51,8 @@ def _run_study_with_callback(tmp_path: Path, values: list[float]) -> optuna.Stud
     Drive a study that asks AdaptiveBollinger's search space and
     returns caller-specified values per trial.
 
-    Realistic enough that ``sample_trial_params`` — which the best-config
-    refresh replays via :class:`FixedTrial` — sees the same parameter
+    Realistic enough that ``sample_trial_params`` - which the best-config
+    refresh replays via :class:`FixedTrial` - sees the same parameter
     surface it would see in a live tuner.
     """
 
@@ -210,7 +210,7 @@ class TestEndToEndPruning:
 class TestBestValueCache:
     """
     Incremental best tracking avoids scanning ``study.best_trial`` on
-    every non-improving COMPLETE trial (would otherwise be O(n²) for a
+    every non-improving COMPLETE trial (would otherwise be O(n^2) for a
     study whose best improves often).
     """
 
@@ -227,7 +227,7 @@ class TestBestValueCache:
     def test_non_improving_trial_skips_study_best_trial_scan(self, tmp_path: Path) -> None:
         """
         After a best is seen, a worse COMPLETE trial must short-circuit
-        without touching ``study.best_trial`` — we detect this by patching
+        without touching ``study.best_trial`` - we detect this by patching
         the study with a ``best_trial`` that raises if accessed.
         """
 
@@ -257,7 +257,7 @@ def _run_study_with_callback_from(
 ) -> optuna.Study:
     """
     Variant of ``_run_study_with_callback`` that takes a pre-built
-    callback — needed by tracker tests that read callback state after.
+    callback - needed by tracker tests that read callback state after.
     """
 
     from src.optimization.sampling import sample_trial_params

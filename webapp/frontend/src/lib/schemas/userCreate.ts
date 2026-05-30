@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { ROLES } from "@/api/users";
 
-// Mirrored from webapp/backend/app/schemas/users.py — kept in sync via the
+// Mirrored from webapp/backend/app/schemas/users.py - kept in sync via the
 // check_webapp_schema_mirror.py drift guard. Forms below import these to
 // set HTML maxLength so the input stops accepting keystrokes at the limit.
 export const USER_USERNAME_MAX = 64;

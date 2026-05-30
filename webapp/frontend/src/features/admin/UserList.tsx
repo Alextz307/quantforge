@@ -136,7 +136,7 @@ export function UserList() {
           </label>
         </CardHeader>
         <CardContent className="space-y-4">
-          {usersQuery.isLoading && <p className="text-sm text-muted-foreground">Loading…</p>}
+          {usersQuery.isLoading && <p className="text-sm text-muted-foreground">Loading...</p>}
           {usersQuery.isError && (
             <Alert variant="destructive">
               <AlertDescription>{usersQuery.error.message}</AlertDescription>
@@ -164,7 +164,7 @@ export function UserList() {
                     <td className="py-2">{user.role}</td>
                     <td className="py-2 font-mono text-xs">
                       {user.auto_created_at ?? (
-                        <span className="text-muted-foreground italic">—</span>
+                        <span className="text-muted-foreground italic">-</span>
                       )}
                     </td>
                     <td className="py-2 text-right">
@@ -186,7 +186,7 @@ export function UserList() {
                   <tr>
                     <td colSpan={4} className="py-3 text-sm text-muted-foreground">
                       {showAutoCreatedOnly
-                        ? "No auto-created accounts — nothing to clean up."
+                        ? "No auto-created accounts - nothing to clean up."
                         : "No users."}
                     </td>
                   </tr>

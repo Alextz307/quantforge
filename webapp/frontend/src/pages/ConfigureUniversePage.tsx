@@ -70,7 +70,7 @@ export function ConfigureUniversePage() {
     return () => {
       window.clearTimeout(handle);
     };
-    // intentionally exclude validateSpec — its identity churns and we only
+    // intentionally exclude validateSpec - its identity churns and we only
     // care about responding to text + mode changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, editorYaml]);
@@ -125,7 +125,7 @@ export function ConfigureUniversePage() {
       setClientErrors([
         {
           loc: ["yaml"],
-          msg: `File is ${String(file.size)} bytes — exceeds the ${String(MAX_YAML_BYTES)}-byte cap`,
+          msg: `File is ${String(file.size)} bytes - exceeds the ${String(MAX_YAML_BYTES)}-byte cap`,
           type: "value_error",
         },
       ]);
@@ -159,7 +159,7 @@ export function ConfigureUniversePage() {
         <CardTitle>Configure universe</CardTitle>
         <CardDescription>
           Manage reusable universe specs. A universe pins{" "}
-          <code className="font-mono">data.source × tickers × interval × date window</code> so study
+          <code className="font-mono">data.source x tickers x interval x date window</code> so study
           legs can reference it by slug.
         </CardDescription>
       </CardHeader>
@@ -261,7 +261,7 @@ export function ConfigureUniversePage() {
           {mode === "new" && (
             <div className="flex justify-end gap-2">
               <Button type="submit" disabled={saveDisabled} data-testid="universe-save">
-                {saveUpload.isPending ? "Saving…" : "Save upload"}
+                {saveUpload.isPending ? "Saving..." : "Save upload"}
               </Button>
             </div>
           )}
@@ -330,7 +330,7 @@ function UploadPicker({ uploads, value, onChange }: UploadPickerProps) {
       }}
       data-testid="universe-upload-picker"
     >
-      <option value="">Select an upload…</option>
+      <option value="">Select an upload...</option>
       {uploads.map((u) => (
         <option key={u.slug} value={u.slug}>
           {u.slug}

@@ -194,11 +194,11 @@ def get_param_importance(
     import optuna
 
     try:
-        # Optuna's own study_name is the basename — the SQLite row stores it
+        # Optuna's own study_name is the basename - the SQLite row stores it
         # that way regardless of where the dir lives on disk.
         study = optuna.load_study(study_name=study_dir.name, storage=storage_url_for(study_dir))
         importances = optuna.importance.get_param_importances(study)
-    except Exception as exc:  # noqa: BLE001 — Optuna raises Value/Runtime/KeyError variously
+    except Exception as exc:  # noqa: BLE001 - Optuna raises Value/Runtime/KeyError variously
         return ParamImportanceResponse(importance={}, message=f"Importance unavailable: {exc}")
     return ParamImportanceResponse(importance={k: float(v) for k, v in importances.items()})
 
@@ -237,7 +237,7 @@ def _top_level_basename(wire_id: str) -> str | None:
     Top-level HPO studies (``hpo/<basename>``) persist their basename as
     ``jobs.experiment_id`` at submission time, so the basename is also
     the ownership join key. Nested studies (``studies/<x>/hpo/<basename>``)
-    are produced by STUDY jobs and have no per-leg TUNE row — callers
+    are produced by STUDY jobs and have no per-leg TUNE row - callers
     treat ``None`` as "ownerless, inherit the parent study's visibility".
     """
 
@@ -313,7 +313,7 @@ def best_config_reserves_holdout(study_dir: Path) -> bool:
     ``holdout_pct > 0`` or pins ``holdout_start``; the two are mutually
     exclusive per :class:`ValidationConfig` and either is sufficient.
 
-    Returns ``False`` on missing/malformed ``best_config.yaml`` — callers
+    Returns ``False`` on missing/malformed ``best_config.yaml`` - callers
     should already have confirmed file existence before treating a
     ``True`` as "yes, this is a launchable holdout source".
     """

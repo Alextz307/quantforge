@@ -134,8 +134,8 @@ TEST(RSITest, ConstantPricesGive50) {
 TEST(RSITest, KnownReferenceValue) {
     // Hand-computed RSI(3) for prices [10, 11, 12, 11, 13, 14, 12, 15]
     // Deltas: +1, +1, -1, +2, +1, -2, +3
-    // Seed: avg_gain = 0.6667, avg_loss = 0.3333 → RSI[3] = 66.667
-    // RSI[4]: avg_gain=1.1111, avg_loss=0.2222 → RS=5.0, RSI=83.333
+    // Seed: avg_gain = 0.6667, avg_loss = 0.3333 -> RSI[3] = 66.667
+    // RSI[4]: avg_gain=1.1111, avg_loss=0.2222 -> RS=5.0, RSI=83.333
     std::vector<double> prices = {10, 11, 12, 11, 13, 14, 12, 15};
     RSI rsi(kRSIPeriod3);
     auto result = rsi.compute(prices);

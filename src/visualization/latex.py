@@ -3,7 +3,7 @@ LaTeX table builder shared by strategy / HPO reporters.
 
 ``build_booktabs_table`` is the single call site between pandas DataFrames
 and a booktabs-styled LaTeX ``tabular`` environment. Every reporter writes
-``.tex`` files by calling through here — keeps caption/label conventions
+``.tex`` files by calling through here - keeps caption/label conventions
 uniform and lets a future style tweak (e.g. swap to ``tabularx``) land in
 one file instead of five.
 """
@@ -31,7 +31,7 @@ def validate_publish_label(slug: str) -> str:
     """
     Return ``slug`` unchanged when valid; raise :class:`ValueError` otherwise.
 
-    Used by every reporter that accepts a ``publish_label`` override —
+    Used by every reporter that accepts a ``publish_label`` override -
     one regex, one error message, no per-reporter drift.
     """
 

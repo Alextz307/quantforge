@@ -19,7 +19,7 @@ Access rules:
 * Admin sees all (regardless of owner).
 * Non-owner sees only ownerless artifacts.
 
-The helpers raise ``ArtifactAccessDeniedError`` on a denied access — the
+The helpers raise ``ArtifactAccessDeniedError`` on a denied access - the
 router maps that to ``HTTPException(404)`` so we don't leak the existence
 of someone else's artifact.
 """
@@ -28,14 +28,11 @@ from __future__ import annotations
 
 import sqlite3
 from collections.abc import Callable, Iterator
-from typing import TypeVar
 
 from pydantic import BaseModel
 
 from webapp.backend.app.core.types import Role
 from webapp.backend.app.schemas.users import UserPublic
-
-SummaryT = TypeVar("SummaryT", bound=BaseModel)
 
 # Conservative cap on the IN-clause arity. SQLite's
 # ``SQLITE_LIMIT_VARIABLE_NUMBER`` was 999 in pre-3.32 builds and 32766
@@ -64,9 +61,7 @@ class ArtifactAccessDeniedError(LookupError):
     """
 
 
-def resolve_artifact_owner(
-    conn: sqlite3.Connection, *, experiment_id: str
-) -> int | None:
+def resolve_artifact_owner(conn: sqlite3.Connection, *, experiment_id: str) -> int | None:
     """
     Return the user_id that launched ``experiment_id``, or ``None`` if unknown.
 
@@ -94,7 +89,7 @@ def check_artifact_access(
     Single-artifact contract: this issues one SQL query per call. Detail
     endpoints (one artifact per request) are the intended caller. **Batch
     reads** (an endpoint returning many artifact details at once) MUST
-    pre-filter via :func:`filter_visible_experiment_ids` instead — calling
+    pre-filter via :func:`filter_visible_experiment_ids` instead - calling
     this in a loop is an N+1 trap.
     """
 
@@ -131,9 +126,7 @@ def filter_visible_experiment_ids(
             f"WHERE experiment_id IN ({_in_placeholders(len(chunk))})",
             chunk,
         ).fetchall()
-        owner_by_id.update(
-            {str(row["experiment_id"]): int(row["user_id"]) for row in rows}
-        )
+        owner_by_id.update({str(row["experiment_id"]): int(row["user_id"]) for row in rows})
     visible: set[str] = set()
     for eid in experiment_ids:
         owner = owner_by_id.get(eid)
@@ -148,7 +141,7 @@ def resolve_owner_usernames(
     """
     Look up ``launched_by_username`` for each experiment id with a webapp job.
 
-    Returns ``{experiment_id: username}`` — keys are present only for
+    Returns ``{experiment_id: username}`` - keys are present only for
     artifacts with a matching jobs row. Caller treats missing keys as
     "ownerless / unknown" and renders accordingly.
 
@@ -167,13 +160,11 @@ def resolve_owner_usernames(
             f"WHERE j.experiment_id IN ({_in_placeholders(len(chunk))})",
             chunk,
         ).fetchall()
-        result.update(
-            {str(row["experiment_id"]): str(row["username"]) for row in rows}
-        )
+        result.update({str(row["experiment_id"]): str(row["username"]) for row in rows})
     return result
 
 
-def scope_and_stamp_summaries(
+def scope_and_stamp_summaries[SummaryT: BaseModel](
     summaries: list[SummaryT],
     *,
     key_fn: Callable[[SummaryT], str | None],
@@ -192,7 +183,7 @@ def scope_and_stamp_summaries(
     lookup key, or ``None`` for summaries that are inherently ownerless
     (e.g. nested HPO studies under ``studies/<x>/hpo/...`` inherit their
     parent study's visibility and have no per-leg jobs row). ``None``
-    entries always appear in the result, unstamped — the frontend's
+    entries always appear in the result, unstamped - the frontend's
     ``"system"`` fallback handles the display.
 
     The caller is responsible for the final sort; this helper preserves

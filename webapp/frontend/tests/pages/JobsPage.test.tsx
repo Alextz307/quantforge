@@ -14,7 +14,7 @@ describe("JobsPage", () => {
     const statuses = pills.map((p) => p.dataset.status);
     expect(statuses).toEqual(expect.arrayContaining(["running", "completed", "failed"]));
 
-    const runLink = screen.getByRole("link", { name: /view →/i });
+    const runLink = screen.getByRole("link", { name: /view ->/i });
     expect(runLink).toHaveAttribute("href", `/runs/${JOB_COMPLETED.experiment_id ?? ""}`);
     expect(screen.getByTestId("jobs-launch-link")).toHaveAttribute("href", "/configure");
   });

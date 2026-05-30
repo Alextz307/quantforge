@@ -1,5 +1,5 @@
 """
-Tests for the Pydantic ↔ zod schema-mirror drift guard.
+Tests for the Pydantic <-> zod schema-mirror drift guard.
 """
 
 from __future__ import annotations

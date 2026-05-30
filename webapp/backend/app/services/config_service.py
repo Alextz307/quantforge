@@ -46,7 +46,7 @@ _KIND_TO_MODEL: dict[ConfigKind, type[BaseModel] | None] = {
     ConfigKind.STRATEGY: None,
 }
 
-# `config/` directory names are not 1:1 with kind values — some are
+# `config/` directory names are not 1:1 with kind values - some are
 # plural, some not, and "experiment" has no top-level dir (experiment
 # configs are deep-merged from strategy + universe at runtime). Listing
 # under a missing dir returns [] rather than 404.
@@ -87,7 +87,7 @@ def get_universe_spec_schema() -> dict[str, object]:
     """
     Return the JSON Schema for :class:`UniverseProfile`.
 
-    Counterpart to :func:`get_study_spec_schema` — drives the universe-
+    Counterpart to :func:`get_study_spec_schema` - drives the universe-
     upload editor's autocomplete + hover docs from the same Pydantic
     source of truth the framework uses at load time.
     """
@@ -138,13 +138,13 @@ def validate(kind: ConfigKind, payload: dict[str, object]) -> ValidateResponse:
     Validate ``payload`` against the Pydantic model bound to ``kind``.
 
     For loose-bodied kinds (strategy) the response is always
-    ``valid=True`` — there is no Pydantic counterpart and the deeper
+    ``valid=True`` - there is no Pydantic counterpart and the deeper
     coercion happens when the CLI actually instantiates the component.
 
     For ``ConfigKind.EXPERIMENT``, after Pydantic accepts the payload we
     also walk the strategy ctor's required params (via the same
     ``describe_strategy`` introspection that drives the form schema) and
-    surface any missing ones — Pydantic treats ``strategy.params`` as a
+    surface any missing ones - Pydantic treats ``strategy.params`` as a
     generic mapping, so a missing ctor kwarg would otherwise only blow
     up at strategy-build time as a TypeError after the subprocess spawn.
     """

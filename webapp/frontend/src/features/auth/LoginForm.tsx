@@ -87,7 +87,7 @@ export function LoginForm() {
         </CardContent>
         <CardFooter>
           <Button type="submit" className="w-full" disabled={isSubmitting || login.isPending}>
-            {login.isPending ? "Signing in…" : "Sign in"}
+            {login.isPending ? "Signing in..." : "Sign in"}
           </Button>
         </CardFooter>
       </form>

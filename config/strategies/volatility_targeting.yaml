@@ -1,5 +1,5 @@
-# Standalone VolatilityTargeting experiment — full HPO from scratch, no
-# pretrained leaf. The strategy needs OHLC for the Garman-Klass realized-
+# VolatilityTargeting experiment - full HPO from scratch. The strategy
+# needs OHLC for the Garman-Klass realized-
 # volatility target AND the engineered features for the LSTM residual,
 # so the top-level ``features:`` block uses ``keep_ohlc: true`` to
 # augment (rather than replace) the OHLCV columns.
@@ -20,7 +20,7 @@ data:
 # Standard pipeline emits {return_1d, return_5d, return_21d, vol_20,
 # ma_ratio, rsi_14, macd, macd_signal, macd_hist}. ``keep_ohlc: true``
 # concatenates raw OHLCV (un-scaled) so the strategy's Garman-Klass
-# realized-vol target — which needs high/low/open/close — still resolves.
+# realized-vol target - which needs high/low/open/close - still resolves.
 features:
   name: standard
   params:

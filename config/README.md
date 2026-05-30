@@ -2,8 +2,8 @@
 
 Validated Pydantic YAML configs that drive every CLI under
 `scripts/experiment.py`. Each top-level YAML maps 1:1 to a Pydantic
-model in `src/core/`; `extra='forbid'` is enforced everywhere so silent
-typos in user YAML fail at load time, not mid-run.
+model in `src/core/`, and every model sets `extra='forbid'` so a typo
+in user YAML fails at load time instead of mid-run.
 
 ## Layout
 
@@ -12,15 +12,15 @@ typos in user YAML fail at load time, not mid-run.
 | `strategies/` | One YAML per strategy `experiment run` configuration. | `load_experiment_config(path)` |
 | `hpo/` | One per-strategy HPO study spec consumed by `experiment tune`. | `load_hpo_config(path)` |
 | `universes/` | Reusable `UniverseProfile` files (`data:` + `validation:` blocks). Deep-merged onto a strategy YAML by the study orchestrator. See `universes/README.md`. | `load_universe_profile(path)` |
-| `study/` | Top-level study specs enumerating every (strategy × universe) leg the empirical sweep evaluates. See `study/README.md`. | `load_study_spec(path)` |
+| `study/` | Top-level study specs enumerating every (strategy x universe) leg the empirical sweep evaluates. See `study/README.md`. | `load_study_spec(path)` |
 | `example.yaml` | Reference `ExperimentConfig` with every field documented inline. Copy-and-edit for new runs. | `load_experiment_config` |
 
 ## Top-level YAMLs (`strategies/`)
 
-Six YAML files across five registered strategies:
+Six YAML files, one per registered strategy:
 
 - `adaptive_bollinger.yaml`
-- `pairs_trading.yaml` — two-ticker (`tickers: [IVV, VOO]`); no
+- `pairs_trading.yaml` - two-ticker (`tickers: [IVV, VOO]`); no
   `features:` block (pairs strategies operate on raw price columns).
 - `cross_asset_momentum.yaml`
 - `momentum_gatekeeper.yaml`
@@ -56,7 +56,6 @@ config/
         volatility_targeting.yaml
     hpo/
         adaptive_bollinger.yaml
-        cross_asset_momentum.yaml
         momentum_gatekeeper.yaml
         pairs_trading.yaml
         return_forecast.yaml
@@ -105,9 +104,9 @@ python -m scripts.experiment run \
 Every CLI subcommand that loads a config (`run`, `tune`, `compare`)
 accepts repeated `--override key.path=value` flags. The
 value is parsed with `yaml.safe_load` so the surface matches the YAML
-files (e.g. `[QQQ]` → list, `false` → bool, `2024-01-01` → date).
-Intermediate keys must already exist in the loaded YAML — typos like
-`--override dat.tickers=[QQQ]` raise instead of silently no-op'ing. This
+files (e.g. `[QQQ]` -> list, `false` -> bool, `2024-01-01` -> date).
+Intermediate keys must already exist in the loaded YAML, so a typo like
+`--override dat.tickers=[QQQ]` raises instead of being ignored. This
 mechanism lets a caller compose an offline parquet data block from the
 canonical `config/strategies/*.yaml` files without keeping
 source-specific duplicates.

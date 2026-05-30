@@ -5,7 +5,7 @@ when a strategy reports ``training_metadata`` that overlaps the test fold.
 Defense-in-depth: ``WalkForwardValidator`` already yields non-overlapping
 TemporalSplits, but a buggy strategy could legitimately train on more
 data than ``fold.train`` (e.g., look up an external panel during fit).
-The tripwire catches that *behavior* via ``training_metadata`` —
+The tripwire catches that *behavior* via ``training_metadata`` -
 strategies don't lie about the fact that they trained, they just have
 to be honest about *which window* they trained on.
 """
@@ -36,7 +36,7 @@ NORMAL_SCENARIO = SLIPPAGE_SCENARIOS[SlippageScenario.NORMAL]
 class _LyingStrategy(IStrategy):
     """
     Reports a ``TrainingMetadata`` covering the full panel, not just
-    ``fold.train`` — simulates a buggy strategy that touched out-of-fold
+    ``fold.train`` - simulates a buggy strategy that touched out-of-fold
     data during ``train()``.
     """
 
@@ -106,7 +106,7 @@ def test_orchestrator_raises_when_training_metadata_missing() -> None:
     """
     Contract enforcement: train() must populate training_metadata.
 
-    The deep metadata check surfaces this as "no populated metadata" — a
+    The deep metadata check surfaces this as "no populated metadata" - a
     component that never completed fit() produces a ``None`` entry in the
     tracked-metadata list; if every entry is ``None`` the check raises.
     """

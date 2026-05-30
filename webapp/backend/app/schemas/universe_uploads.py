@@ -25,7 +25,7 @@ class UniverseSpecUploadCreate(BaseModel):
 
 class UniverseSpecUploadSummary(BaseModel):
     """
-    Listing entry — no YAML body.
+    Listing entry - no YAML body.
     """
 
     slug: str

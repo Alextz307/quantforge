@@ -64,7 +64,7 @@ class _FactoryRecorder:
 
 class _PassThroughStrategy(IStrategy):
     """
-    Strategy that emits zero signals — tests the wiring, not the logic.
+    Strategy that emits zero signals - tests the wiring, not the logic.
     """
 
     def train(self, train_data: pd.DataFrame, **kwargs: object) -> None:

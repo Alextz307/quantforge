@@ -1,7 +1,7 @@
 """
-End-to-end deployment lifecycle: train → save → deploy → predict → recall.
+End-to-end deployment lifecycle: train -> save -> deploy -> predict -> recall.
 
-Validates the framework primitive without yfinance — the stub fetcher
+Validates the framework primitive without yfinance - the stub fetcher
 returns slices of the synthetic frame the source strategy was *not*
 trained on, so the predict path exercises the same code that runs in
 production (load registry-driven strategy, run warmup window through
@@ -47,7 +47,7 @@ _LIFECYCLE_DEPLOYMENT_ID = "lifecycle_deployment"
 
 class _SyntheticFetcher:
     """
-    Slice the master frame up to a controlled cursor — no vendor calls.
+    Slice the master frame up to a controlled cursor - no vendor calls.
     """
 
     def __init__(self, bars: pd.DataFrame, cursor: dict[str, int]) -> None:
@@ -67,7 +67,7 @@ class _SyntheticFetcher:
 
 def test_full_lifecycle(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """
-    Train, save, deploy, predict twice — and verify on-disk state.
+    Train, save, deploy, predict twice - and verify on-disk state.
     """
 
     from src.core.config import load_experiment_config, write_frozen_yaml
@@ -133,9 +133,5 @@ def test_full_lifecycle(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None
     assert {r.bar_ts for r in logged} == {first_as_of, second_as_of}
 
     log_path = dep_dir / DEPLOYMENT_SIGNALS_JSONL
-    lines = [
-        line
-        for line in log_path.read_text(encoding="utf-8").splitlines()
-        if line.strip()
-    ]
+    lines = [line for line in log_path.read_text(encoding="utf-8").splitlines() if line.strip()]
     assert len(lines) == 2

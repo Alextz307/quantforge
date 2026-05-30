@@ -8,7 +8,7 @@ so a rerun can skip completed work.
 
 Why a separate state file (not Manifest):
 
-* Manifest is per-run, frozen, and conceptually immutable — adding an
+* Manifest is per-run, frozen, and conceptually immutable - adding an
   ``is_complete`` field there would muddle that contract.
 * A leg has multiple sub-steps (tune, run, holdout_eval); we need
   fine-grained state to resume mid-leg if a later step fails.
@@ -64,7 +64,7 @@ class LegState:
     Per-leg progress record.
 
     ``is_complete`` is stored explicitly (not derived from
-    ``steps_completed``) because the expected step set varies per leg —
+    ``steps_completed``) because the expected step set varies per leg -
     a universe with ``holdout_pct=0`` legitimately skips ``holdout_eval``
     yet is still "complete". The orchestrator owns that decision.
 
@@ -205,7 +205,7 @@ class StudyState:
 
 def compute_spec_hash(spec_path: Path) -> str:
     """
-    SHA-256 of the spec YAML bytes — pins which spec the state belongs to.
+    SHA-256 of the spec YAML bytes - pins which spec the state belongs to.
     """
 
     return hashlib.sha256(spec_path.read_bytes()).hexdigest()
@@ -215,7 +215,7 @@ def write_study_state(path: Path, state: StudyState) -> None:
     """
     Atomically persist ``state`` at ``path``.
 
-    A crash mid-write leaves the prior valid file intact — the orchestrator
+    A crash mid-write leaves the prior valid file intact - the orchestrator
     may take days to complete and routinely survives Ctrl+C between legs.
     """
 

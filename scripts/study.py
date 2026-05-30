@@ -111,7 +111,7 @@ def run_cmd(
             f"(store_root={store_root}, force_rerun={force_rerun}, "
             f"only_legs={list(only_legs) or 'all'}, "
             f"skip_compares={skip_compares}, skip_holdout_eval={skip_holdout_eval}) "
-            f"→ log: {log_path}"
+            f"-> log: {log_path}"
         )
         try:
             result = run_study(
@@ -142,7 +142,7 @@ def run_cmd(
 
         if result.n_legs_failed > 0:
             raise click.ClickException(
-                f"{result.n_legs_failed} leg(s) failed — inspect study_state.json "
+                f"{result.n_legs_failed} leg(s) failed - inspect study_state.json "
                 f"under {result.study_dir} for per-leg error messages, then rerun "
                 f"the same command to retry."
             )
@@ -174,12 +174,12 @@ def report_cmd(study_dir: Path, publish_label: str | None) -> None:
     Reads ``runs/``, ``holdout_evals/``, and ``comparisons/`` under
     ``--study-dir``; writes ``<study-dir>/{manifest.json,tables/,plots/}``
     with cross-leg rankings, heatmaps, and per-universe equity / holdout
-    plot copies. Read-only with respect to the per-leg tree — safe to
+    plot copies. Read-only with respect to the per-leg tree - safe to
     rerun.
     """
 
     with attach_cli_log_file(study_dir, "study_report") as log_path:
-        click.echo(f"consolidating study at {study_dir} → log: {log_path}")
+        click.echo(f"consolidating study at {study_dir} -> log: {log_path}")
         try:
             report = consolidate_study(study_dir)
         except (FileNotFoundError, ValueError) as e:

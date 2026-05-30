@@ -176,8 +176,8 @@ def _materialise_run_dir(run_dir: Path, name: str, *, data_hash: str | None = No
     """
     Persist a stub :class:`ExperimentResult` to disk in the canonical layout.
 
-    Mirrors what :meth:`Experiment.run` writes — manifest.json and
-    fold_results.jsonl — so the loader has real on-disk artifacts to
+    Mirrors what :meth:`Experiment.run` writes - manifest.json and
+    fold_results.jsonl - so the loader has real on-disk artifacts to
     rebuild from. ``data_hash`` defaults to the conftest stub hash;
     pass an alternate value to exercise the cross-run alignment guard.
     """

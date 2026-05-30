@@ -11,7 +11,7 @@ Subcommands:
 * ``show``     Print the typed manifest for a single deployment.
 * ``signals``  Print the deployment's signal log (most-recent first).
 
-A deployment is pinned to one trained run — training a fresher model is
+A deployment is pinned to one trained run - training a fresher model is
 a separate concern. Use ``quant experiment run`` and then create a new
 deployment pointing at the resulting run.
 """
@@ -76,7 +76,10 @@ _STORE_OPTION = click.option(
     "--from-hpo",
     "from_hpo",
     default=None,
-    help="Study name of a completed HPO study under <store>/hpo/. The best trial's strategy is deployed.",
+    help=(
+        "Study name of a completed HPO study under <store>/hpo/. "
+        "The best trial's strategy is deployed."
+    ),
 )
 @click.option(
     "--name",
@@ -119,9 +122,7 @@ def create_cmd(
         source_id = from_hpo
 
     with attach_cli_log_file(store_root, "deploy_create") as log_path:
-        click.echo(
-            f"creating deployment from {source_kind}={source_id!r} → log: {log_path}"
-        )
+        click.echo(f"creating deployment from {source_kind}={source_id!r} -> log: {log_path}")
         try:
             deployment = create_deployment(
                 source_kind=source_kind,
@@ -156,9 +157,7 @@ def predict_cmd(deployment_id: str, as_of: str | None, store_root: Path) -> None
     resolved_as_of = pd.Timestamp(as_of, tz="UTC") if as_of is not None else None
 
     with attach_cli_log_file(store_root, "deploy_predict") as log_path:
-        click.echo(
-            f"predict deployment={deployment_id!r} → log: {log_path}", err=True
-        )
+        click.echo(f"predict deployment={deployment_id!r} -> log: {log_path}", err=True)
         try:
             row = predict(
                 deployment_id=deployment_id,

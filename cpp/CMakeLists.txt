@@ -5,26 +5,26 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-# ── Release optimizations ──
+# -- Release optimizations --
 set(CMAKE_CXX_FLAGS_RELEASE "-O3 -DNDEBUG -march=native -flto")
 
-# ── Debug with sanitizers ──
+# -- Debug with sanitizers --
 set(CMAKE_CXX_FLAGS_DEBUG "-g -O0 -fsanitize=address,undefined -fno-omit-frame-pointer")
 
-# ── Profile-Guided Optimization (PGO) support ──
+# -- Profile-Guided Optimization (PGO) support --
 if(CMAKE_BUILD_TYPE STREQUAL "PGO_INSTRUMENT")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fprofile-instr-generate")
 elseif(CMAKE_BUILD_TYPE STREQUAL "PGO_OPTIMIZE")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fprofile-instr-use=default.profdata")
 endif()
 
-# ── Compiler warnings as errors ──
+# -- Compiler warnings as errors --
 add_compile_options(-Wall -Wextra -Wpedantic -Werror -Wshadow -Wnon-virtual-dtor)
 
-# ── Include paths ──
+# -- Include paths --
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
 
-# ── Dependencies via FetchContent ──
+# -- Dependencies via FetchContent --
 include(FetchContent)
 
 # Google Test
@@ -43,7 +43,7 @@ FetchContent_Declare(
 
 FetchContent_MakeAvailable(googletest pybind11)
 
-# ── Core static library ──
+# -- Core static library --
 add_library(quant_core STATIC
     src/core/types.cpp
     src/indicators/rsi.cpp
@@ -65,7 +65,7 @@ target_include_directories(quant_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include
 # objects in shared modules with R_X86_64_PC32 relocation errors).
 set_target_properties(quant_core PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
-# ── pybind11 module ──
+# -- pybind11 module --
 # Exposes BacktestEngine / MetricsCalculator / SlippageConfig (+ a `hello`
 # smoke hook) as the `quant_engine` Python module. Installed into the
 # `quant_engine` package so `import quant_engine` picks it up via
@@ -74,6 +74,6 @@ pybind11_add_module(quant_engine bindings/python_module.cpp)
 target_link_libraries(quant_engine PRIVATE quant_core)
 install(TARGETS quant_engine LIBRARY DESTINATION quant_engine)
 
-# ── Tests ──
+# -- Tests --
 enable_testing()
 add_subdirectory(tests)

@@ -12,7 +12,7 @@ const NEW_USERNAME = "newbie";
 const NEW_PASSWORD = "abcdefgh";
 
 describe("UserList", () => {
-  // Delete now goes through ``window.confirm`` — auto-accept so the existing
+  // Delete now goes through ``window.confirm`` - auto-accept so the existing
   // tests still exercise the request flow. The added confirmation-cancel test
   // overrides this per-case.
   beforeEach(() => {

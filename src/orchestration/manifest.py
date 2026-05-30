@@ -9,18 +9,18 @@ after hours of HPO compute.
 
 Rationale for each field:
 
-* ``experiment_id``    — opaque dir name consumers index by.
-* ``name``             — human-readable label lifted from the config.
-* ``created_at``       — UTC timestamp of the run start.
-* ``git_sha``          — short SHA for reproducibility; best-effort
+* ``experiment_id``    - opaque dir name consumers index by.
+* ``name``             - human-readable label lifted from the config.
+* ``created_at``       - UTC timestamp of the run start.
+* ``git_sha``          - short SHA for reproducibility; best-effort
                          (``"unknown"`` if the run happens outside git).
-* ``seed``             — int seeded into numpy / torch / random at run
+* ``seed``             - int seeded into numpy / torch / random at run
                          start; required to reproduce walk-forward output.
-* ``data_hash``        — ``fingerprint_bars(df)`` output; catches vendor
+* ``data_hash``        - ``fingerprint_bars(df)`` output; catches vendor
                          drift between runs.
-* ``holdout_start``    — absolute pinned boundary timestamp (ISO string in
+* ``holdout_start``    - absolute pinned boundary timestamp (ISO string in
                          JSON). ``None`` when no holdout was reserved.
-* ``slippage_scenario``— the ``SlippageScenario`` enum value used, so
+* ``slippage_scenario``- the ``SlippageScenario`` enum value used, so
                          downstream consumers know which friction model
                          produced the equity curve.
 """

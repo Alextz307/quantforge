@@ -1,5 +1,5 @@
 """
-Tests for :class:`StrategyReporter` — per-experiment artifact bundle.
+Tests for :class:`StrategyReporter` - per-experiment artifact bundle.
 """
 
 from __future__ import annotations
@@ -87,7 +87,7 @@ class TestGenerateFullReport:
 class TestNormaliseCurve:
     """
     Pure-logic tests for the ``normalise_to_unit_base`` helper. No matplotlib,
-    no disk I/O — cheap to run and focused on the predicate that decides
+    no disk I/O - cheap to run and focused on the predicate that decides
     which folds get plotted vs logged+skipped.
     """
 
@@ -101,7 +101,7 @@ class TestNormaliseCurve:
     def test_non_finite_or_non_positive_base_returns_none(self, bad_base: float) -> None:
         """
         Every class of degenerate first-value that the integration path
-        defensively rejects: NaN (zero-trade fold), ±inf (overflow), zero
+        defensively rejects: NaN (zero-trade fold), +/-inf (overflow), zero
         (catastrophic exit at bar 0), negative (debt-at-start)."""
 
         assert normalise_to_unit_base((bad_base, 100.0, 200.0)) is None
@@ -109,10 +109,10 @@ class TestNormaliseCurve:
 
 class TestDegenerateFoldsAreSkippedIntegration:
     """
-    Integration test for the defensive path — verifies the equity plot
+    Integration test for the defensive path - verifies the equity plot
     method logs and skips without crashing when fed a degenerate fold.
     Pure predicate logic is covered by ``TestNormaliseCurve`` above; this
-    test exercises the plotting-side wiring (one fold good, one bad →
+    test exercises the plotting-side wiring (one fold good, one bad ->
     plot still renders).
     """
 

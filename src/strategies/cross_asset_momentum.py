@@ -4,10 +4,10 @@ Cross-asset momentum strategy: XGBoost on lagged returns of feature tickers.
 Methodology adapted from Rapach, Strauss, Tu, and Zhou (2019), "Industry return
 predictability: A machine learning approach", *Journal of Financial Economics*
 135(2). The paper uses LASSO over lagged cross-industry returns to predict each
-industry's next-month return; we retain the cross-asset-lagged-returns → ML
-predictor → directional-trade pipeline but substitute gradient-boosted trees
+industry's next-month return; we retain the cross-asset-lagged-returns -> ML
+predictor -> directional-trade pipeline but substitute gradient-boosted trees
 (Krauss, Do, and Huck 2017, *European Journal of Operational Research* 259) for
-the linear predictor and operate on user-configured ``lags`` × ``feature_tickers``
+the linear predictor and operate on user-configured ``lags`` x ``feature_tickers``
 rather than the paper's fixed 1-month horizon over 30 industries.
 """
 
@@ -60,7 +60,7 @@ class _CrossAssetMomentumConfig:
 
     ``feature_tickers`` and ``lags`` are tuples (not lists) so ``frozen=True``
     actually guarantees immutability. Field names MUST mirror the ctor param
-    names — :func:`tests.conftest.assert_params_match_constructor` drift-guards
+    names - :func:`tests.conftest.assert_params_match_constructor` drift-guards
     this.
     """
 
@@ -80,7 +80,7 @@ class _CrossAssetMomentumConfig:
 
 def _derive_feature_columns(feature_tickers: Sequence[str], lags: Sequence[int]) -> list[str]:
     """
-    Compute the deterministic feature-column names for ``(tickers × lags)``.
+    Compute the deterministic feature-column names for ``(tickers x lags)``.
 
     Single source of truth so ctor validation and ``train`` feature-frame
     construction cannot drift. Order: outer loop over tickers (input
@@ -190,7 +190,7 @@ class CrossAssetMomentumStrategy(IStrategy):
         Compute lagged log-return features for every (ticker, lag) pair.
 
         Resulting columns follow the deterministic order of
-        :func:`_derive_feature_columns`. Leading rows are NaN (warmup) — the
+        :func:`_derive_feature_columns`. Leading rows are NaN (warmup) - the
         caller drops them before training and ignores them at inference.
         """
 
@@ -284,7 +284,7 @@ class CrossAssetMomentumStrategy(IStrategy):
         """
         Snapshot of this strategy's constructor kwargs as JSON-ready values.
 
-        Delegates tuple→list + Enum→value conversions to
+        Delegates tuple->list + Enum->value conversions to
         ``frozen_params_to_json``; ``device`` is dropped (re-resolved on load
         via ``select_xgboost_device()`` inside ``DirectionalClassifier``).
         """
@@ -348,7 +348,7 @@ class CrossAssetMomentumStrategy(IStrategy):
         """
         Optuna search space for CrossAssetMomentum hyperparameters.
 
-        ``feature_tickers`` and ``lags`` stay fixed at YAML level — tuning the
+        ``feature_tickers`` and ``lags`` stay fixed at YAML level - tuning the
         lag schedule per trial would change the classifier's input dimension,
         producing cross-trial Sharpe comparisons that aren't apples-to-apples.
         """

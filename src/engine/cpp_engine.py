@@ -46,7 +46,7 @@ def _validate_inputs(bars: pd.DataFrame, signals: pd.Series) -> None:
         raise ValueError(
             "signals index must equal bars index; fix by reindexing the "
             "signal series to bars.index (a strategy that emits NaN at warmup "
-            "still keeps the same index — drop or fill, never reshape)."
+            "still keeps the same index - drop or fill, never reshape)."
         )
 
 
@@ -86,10 +86,10 @@ def _bars_to_arrays(
 
 class CppBacktestEngine(IBacktestEngine):
     """
-    Thin pandas → numpy → ``quant_engine.BacktestEngine`` adapter.
+    Thin pandas -> numpy -> ``quant_engine.BacktestEngine`` adapter.
 
     The underlying ``BacktestEngine`` is injected so the adapter never
-    duplicates the binding's defaults — pass ``BacktestEngine(...)`` to
+    duplicates the binding's defaults - pass ``BacktestEngine(...)`` to
     customize, or omit for the binding's defaults.
     """
 

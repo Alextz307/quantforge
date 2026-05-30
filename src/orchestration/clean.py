@@ -45,7 +45,7 @@ class CleanCandidate:
     """
     One directory the cleaner would (or would not) delete.
 
-    ``size_bytes`` is the recursive on-disk size — used to print a tally
+    ``size_bytes`` is the recursive on-disk size - used to print a tally
     in the dry-run output so the user can spot oversized leftover study
     runs at a glance. ``tracked_files`` is the list of git-tracked paths
     found under this directory; non-empty means the dir is refused.
@@ -63,7 +63,7 @@ class CleanCandidate:
 @dataclass(frozen=True)
 class CleanPlan:
     """
-    Outcome of :func:`plan_clean` — every candidate plus the kept set.
+    Outcome of :func:`plan_clean` - every candidate plus the kept set.
     """
 
     store_root: Path
@@ -202,7 +202,7 @@ def _git_tracked_by_child(store_root: Path, *, git_root: Path) -> dict[str, tupl
     Map every immediate-child directory name to its git-tracked files.
 
     Returns an empty dict when ``git_root`` isn't a git repository or
-    ``store_root`` lives outside it — both cases mean "safe to delete".
+    ``store_root`` lives outside it - both cases mean "safe to delete".
     Implemented as a single ``git ls-files`` call against ``store_root``
     so a dirty results store with N child dirs costs one subprocess
     instead of N.
@@ -241,7 +241,7 @@ def _dir_size_bytes(directory: Path) -> int:
     Recursive sum of file sizes under ``directory`` (best-effort).
 
     Symlinks aren't followed (``rglob`` already obeys this); broken
-    symlinks and permission errors are skipped silently — a wrong size
+    symlinks and permission errors are skipped silently - a wrong size
     in the dry-run output is preferable to crashing the planner.
     """
 

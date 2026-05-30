@@ -5,7 +5,7 @@
 #       --config config/strategies/pairs_trading.yaml \
 #       --hpo-config config/hpo/pairs_trading.yaml
 #
-# n_jobs=1 — pairs trials are CPU-light (~0.7s each, ~21s total for 30 trials);
+# n_jobs=1 - pairs trials are CPU-light (~0.7s each, ~21s total for 30 trials);
 # parallelism gives no speedup and joblib's process pool has been observed to
 # deadlock between the Optuna SQLite store and the parquet cache writes.
 

@@ -1,5 +1,5 @@
 """
-Unit tests for src/core/json_io.py — generic JSON read/write + typed
+Unit tests for src/core/json_io.py - generic JSON read/write + typed
 field-extraction helpers. This module has no business-logic dependencies;
 these tests only exercise the IO + narrowing contract.
 """
@@ -222,7 +222,7 @@ class TestGetScalars:
         assert json_io.get_bool(self.SAMPLE, "a_bool") is True
 
     def test_get_bool_rejects_int(self) -> None:
-        # bool is an int subclass but the helper must still reject ints —
+        # bool is an int subclass but the helper must still reject ints -
         # otherwise an integer-typed JSON value silently coerces to True.
         with pytest.raises(ValueError, match="must be a bool"):
             json_io.get_bool(self.SAMPLE, "an_int")

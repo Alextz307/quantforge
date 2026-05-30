@@ -39,7 +39,7 @@ def compute_and_write_dsr(
     Compute the deflated Sharpe for ``study`` and persist it to disk.
 
     Returns ``(DeflatedSharpe | None, path)``. ``None`` indicates the
-    study had zero completed trials with non-None objective values — the
+    study had zero completed trials with non-None objective values - the
     deflation is undefined and the JSON is not written. Callers should
     treat that case as "DSR unavailable" rather than a failure.
 
@@ -61,14 +61,14 @@ def compute_and_write_dsr(
     ]
     if not trial_sharpes:
         _logger.warning(
-            "study '%s' has no completed trials with non-None values — skipping DSR",
+            "study '%s' has no completed trials with non-None values - skipping DSR",
             study.study_name,
         )
         return None, out_path
 
     if n_dev_bars < 2:
         _logger.warning(
-            "study '%s' dev region has %d bars (<2) — skipping DSR",
+            "study '%s' dev region has %d bars (<2) - skipping DSR",
             study.study_name,
             n_dev_bars,
         )

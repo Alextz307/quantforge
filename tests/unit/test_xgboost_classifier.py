@@ -175,7 +175,7 @@ class TestDirectionalClassifier:
         self, xgb_data: tuple[pd.DataFrame, pd.Series], xgb_features: list[str]
     ) -> None:
         """
-        End-to-end fit → predict with device='cpu' pinned (portable on CI).
+        End-to-end fit -> predict with device='cpu' pinned (portable on CI).
         """
 
         features, target = xgb_data

@@ -41,7 +41,7 @@ export function HoldoutDetailPage() {
     <QueryRenderer
       query={query}
       errorTitle="Failed to load holdout evaluation"
-      loadingMessage="Loading holdout evaluation…"
+      loadingMessage="Loading holdout evaluation..."
     >
       {(holdout) => (
         <div className="flex flex-col gap-4">

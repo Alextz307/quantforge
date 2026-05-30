@@ -47,7 +47,7 @@ describe("StudySpecFormatHelp", () => {
     renderWithProviders(<StudySpecFormatHelp onInsertLeg={() => undefined} />);
 
     // The schema-derived path appears in both the table and the description
-    // list — getAllByText asserts that both rendered.
+    // list - getAllByText asserts that both rendered.
     expect((await screen.findAllByText("legs[*].strategy")).length).toBeGreaterThanOrEqual(2);
     expect(screen.getByText(/Slug for artifacts/i)).toBeInTheDocument();
     expect(screen.getByText(/Registered strategy name/i)).toBeInTheDocument();

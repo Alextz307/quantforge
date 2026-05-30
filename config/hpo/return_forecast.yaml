@@ -1,4 +1,4 @@
-# HPO study config for ReturnForecast (standalone — no pretrained leaf).
+# HPO study config for ReturnForecast.
 #
 # Pair with config/strategies/return_forecast.yaml:
 #   python -m scripts.experiment tune \

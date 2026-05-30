@@ -9,7 +9,7 @@ sort / filter requests instant without making freshly written artifacts
 invisible for long.
 
 Each cache entry carries both the path tuple and a ``{dir.name: dir}``
-id-index so callers needing O(1) name→path lookup (e.g. ``find_run_dir``
+id-index so callers needing O(1) name->path lookup (e.g. ``find_run_dir``
 on the run-detail hot path) share the same snapshot as the listing.
 """
 
@@ -46,7 +46,7 @@ def cached_artifact_index(
 
 def warm_index(root: Path, kind: str, name: str, path: Path) -> None:
     """
-    Insert ``name → path`` into the cached id-index without bumping the TTL.
+    Insert ``name -> path`` into the cached id-index without bumping the TTL.
 
     Used when a single artifact is resolved out-of-band (glob fallback for
     items written after the last snapshot) so successive lookups in the

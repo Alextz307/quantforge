@@ -1,5 +1,5 @@
 """
-End-to-end roundtrip: AdaptiveBollinger train → signals → C++ engine → metrics.
+End-to-end roundtrip: AdaptiveBollinger train -> signals -> C++ engine -> metrics.
 
 Verifies the CppBacktestEngine adapter plays nicely with an existing strategy.
 Strategy correctness is owned by ``tests/integration/test_adaptive_bollinger.py``;
@@ -7,7 +7,7 @@ engine correctness by ``cpp/tests/test_backtest_engine.cpp``. This test only
 asserts the seam holds: shapes line up, metrics are finite, no NaN propagation.
 
 The trained strategy and its generated signals are cached at
-module scope — fitting a GARCH grid (p_max=q_max=5) on 500 bars is the
+module scope - fitting a GARCH grid (p_max=q_max=5) on 500 bars is the
 slow step, and both tests in this file consume the same fit.
 """
 
@@ -30,7 +30,7 @@ BOLLINGER_WINDOW = 20
 BOLLINGER_K = 2.0
 TREND_WINDOW = 100
 ANNUALIZATION_DAILY = Interval.DAILY.annualization_factor()
-# Large finite bound — Sharpe on synthetic random walks rarely exceeds ±5.
+# Large finite bound - Sharpe on synthetic random walks rarely exceeds +/-5.
 SHARPE_PLAUSIBLE_BOUND = 10.0
 EQUITY_TIE_TOL = 1e-9
 
@@ -83,7 +83,7 @@ def test_run_scenarios_orders_results(
     )
 
     assert len(scenarios) == len(SlippageScenario)
-    # Higher slippage → strictly non-better terminal equity (lower or equal,
+    # Higher slippage -> strictly non-better terminal equity (lower or equal,
     # equal only when no trades fire across the higher-slippage delta).
     for prev, curr in zip(scenarios[:-1], scenarios[1:], strict=True):
         assert curr.equity_curve[-1] <= prev.equity_curve[-1] + EQUITY_TIE_TOL

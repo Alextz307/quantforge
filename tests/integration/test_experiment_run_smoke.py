@@ -1,7 +1,7 @@
 """
 End-to-end CLI smoke test for ``python -m scripts.experiment run``.
 
-Runs the full CLI stack against a tiny synthetic CSV fixture — exercises
+Runs the full CLI stack against a tiny synthetic CSV fixture - exercises
 the same code path the user invokes at the shell, modulo ``sys.argv``
 plumbing. Opt-in (``RUN_EXP_SMOKE=1``) because even at 100 bars the GARCH
 AIC grid search takes a few seconds.

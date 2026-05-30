@@ -38,7 +38,7 @@ using ContigI64 = py::array_t<int64_t, py::array::c_style | py::array::forcecast
 // The capsule holds the sole shared_ptr ref, keeping the vector alive for the
 // numpy array's lifetime; the shared_ptr releases when the capsule destructs.
 // Destructor touches no Python state, so no GIL acquire is needed.
-// Must be called with the GIL held — constructs a py::capsule (Python object).
+// Must be called with the GIL held - constructs a py::capsule (Python object).
 [[nodiscard]] py::array_t<double> wrap_vector_zero_copy(
     std::shared_ptr<std::vector<double>> vec) {
     double* data_ptr = vec->data();
@@ -134,7 +134,7 @@ marshal_bars_and_signals(
 
 }  // namespace
 
-// Shared kwarg prefix for `run` / `run_scenarios` — the six OHLCV numpy arrays
+// Shared kwarg prefix for `run` / `run_scenarios` - the six OHLCV numpy arrays
 // plus the signal array. The "pass six arrays" bridge convention avoids
 // structured-array fragility. A macro is the only way to share a pack of
 // `py::arg(...)` expansions across `.def()` calls.
@@ -159,7 +159,7 @@ marshal_bars_and_signals(
     py::arg("open"), py::arg("high"), py::arg("low"), py::arg("close")
 
 PYBIND11_MODULE(quant_engine, m) {
-    m.doc() = "C++ quantitative engine (backtesting, metrics) — Python bindings";
+    m.doc() = "C++ quantitative engine (backtesting, metrics) - Python bindings";
 
     m.def("hello", []() { return std::string("ok"); },
           "Smoke-test hook confirming the compiled C++ extension is loadable.");
@@ -578,7 +578,7 @@ PYBIND11_MODULE(quant_engine, m) {
         py::arg("stop_loss_zscore"),
         "Run the pairs-trading state machine; returns a position series.");
 
-    // spread_mean / spread_std are training-time provenance only — the
+    // spread_mean / spread_std are training-time provenance only - the
     // rolling z-score recomputes them on the inference window. Defaulted
     // so callers who only care about the hedge ratio can omit them.
     py::class_<quant::statistics::CointegrationParams>(m, "CointegrationParams")

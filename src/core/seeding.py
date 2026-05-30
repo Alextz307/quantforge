@@ -2,7 +2,7 @@
 Single-knob reproducibility seeding for numpy + random + torch.
 
 Shared by the experiment runner and the standalone-training dispatcher
-so both paths seed identically. Torch is imported lazily — callers that
+so both paths seed identically. Torch is imported lazily - callers that
 only need config validation shouldn't pay its ~4 s cold-import cost.
 """
 

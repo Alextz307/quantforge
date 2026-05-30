@@ -32,9 +32,7 @@ NEWER_TS = datetime(2026, 3, 1, 12, 0, 0, tzinfo=UTC)
 OLDER_TS = datetime(2026, 1, 1, 12, 0, 0, tzinfo=UTC)
 
 
-def test_list_runs_sorts_newest_first(
-    tmp_path: Path, db_conn: sqlite3.Connection
-) -> None:
+def test_list_runs_sorts_newest_first(tmp_path: Path, db_conn: sqlite3.Connection) -> None:
     root = tmp_path / "experiment_results"
     runs = root / "flat_store" / "runs"
     make_synthetic_run(runs, experiment_id=OLDER_ID, created_at=OLDER_TS)
@@ -63,9 +61,7 @@ def test_list_runs_populates_strategy_and_universe_from_config(
     assert summary.store == "studies/main/runs"
 
 
-def test_list_runs_skips_runs_missing_config(
-    tmp_path: Path, db_conn: sqlite3.Connection
-) -> None:
+def test_list_runs_skips_runs_missing_config(tmp_path: Path, db_conn: sqlite3.Connection) -> None:
     root = tmp_path / "experiment_results"
     make_synthetic_run(root / "flat_store" / "runs", experiment_id=NEWER_ID)
     make_synthetic_run(root / "flat_store" / "runs", experiment_id=OLDER_ID, write_config=False)
@@ -75,9 +71,7 @@ def test_list_runs_skips_runs_missing_config(
     assert [s.experiment_id for s in summaries] == [NEWER_ID]
 
 
-def test_list_runs_tolerates_missing_metrics(
-    tmp_path: Path, db_conn: sqlite3.Connection
-) -> None:
+def test_list_runs_tolerates_missing_metrics(tmp_path: Path, db_conn: sqlite3.Connection) -> None:
     root = tmp_path / "experiment_results"
     make_synthetic_run(root / "flat_store" / "runs", experiment_id=NEWER_ID, write_metrics=False)
 
@@ -87,9 +81,7 @@ def test_list_runs_tolerates_missing_metrics(
     assert summary.calmar_mean is None
 
 
-def test_get_run_returns_full_detail(
-    tmp_path: Path, db_conn: sqlite3.Connection
-) -> None:
+def test_get_run_returns_full_detail(tmp_path: Path, db_conn: sqlite3.Connection) -> None:
     root = tmp_path / "experiment_results"
     make_synthetic_run(
         root / "flat_store" / "runs",
@@ -151,9 +143,7 @@ def test_resolve_plot_lazy_renders_when_missing(
     assert path.stat().st_mtime_ns == mtime_before, "second call should not re-render"
 
 
-def test_get_run_raises_for_unknown_id(
-    tmp_path: Path, db_conn: sqlite3.Connection
-) -> None:
+def test_get_run_raises_for_unknown_id(tmp_path: Path, db_conn: sqlite3.Connection) -> None:
     root = tmp_path / "experiment_results"
     make_synthetic_run(root / "flat_store" / "runs", experiment_id=NEWER_ID)
 
@@ -161,9 +151,7 @@ def test_get_run_raises_for_unknown_id(
         get_run(root, "missing_id", conn=db_conn, user=make_viewer_user(db_conn))
 
 
-def test_get_folds_returns_one_row_per_fold(
-    tmp_path: Path, db_conn: sqlite3.Connection
-) -> None:
+def test_get_folds_returns_one_row_per_fold(tmp_path: Path, db_conn: sqlite3.Connection) -> None:
     root = tmp_path / "experiment_results"
     make_synthetic_run(
         root / "flat_store" / "runs", experiment_id=NEWER_ID, n_folds=EXPECTED_FOLD_COUNT
@@ -182,17 +170,13 @@ def test_resolve_plot_returns_path_for_existing_file(
     root = tmp_path / "experiment_results"
     make_synthetic_run(root / "flat_store" / "runs", experiment_id=NEWER_ID)
 
-    path = resolve_plot(
-        root, NEWER_ID, PLOT_FILENAME, conn=db_conn, user=make_viewer_user(db_conn)
-    )
+    path = resolve_plot(root, NEWER_ID, PLOT_FILENAME, conn=db_conn, user=make_viewer_user(db_conn))
 
     assert path.is_file()
     assert path.read_bytes() == PLOT_BYTES
 
 
-def test_resolve_plot_rejects_traversal(
-    tmp_path: Path, db_conn: sqlite3.Connection
-) -> None:
+def test_resolve_plot_rejects_traversal(tmp_path: Path, db_conn: sqlite3.Connection) -> None:
     root = tmp_path / "experiment_results"
     make_synthetic_run(root / "flat_store" / "runs", experiment_id=NEWER_ID)
 
@@ -206,9 +190,7 @@ def test_resolve_plot_rejects_traversal(
         )
 
 
-def test_resolve_plot_raises_for_missing_file(
-    tmp_path: Path, db_conn: sqlite3.Connection
-) -> None:
+def test_resolve_plot_raises_for_missing_file(tmp_path: Path, db_conn: sqlite3.Connection) -> None:
     root = tmp_path / "experiment_results"
     make_synthetic_run(root / "flat_store" / "runs", experiment_id=NEWER_ID)
 

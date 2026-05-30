@@ -1,7 +1,7 @@
 """
 Tests for the CI/pyproject dependency drift guard.
 
-Long YAML/TOML fixture lines mirror real CI shapes verbatim — wrapping them
+Long YAML/TOML fixture lines mirror real CI shapes verbatim - wrapping them
 breaks the regex anchoring the guard relies on.
 """
 # ruff: noqa: E501
@@ -18,7 +18,7 @@ CI_YAML = REPO_ROOT / ".github" / "workflows" / "ci.yml"
 
 guard = load_script_module(GUARD_SCRIPT, "check_ci_deps")
 
-# Synthetic YAML mirrors the real workflow's `python-test:` → `run: pip install …`
+# Synthetic YAML mirrors the real workflow's `python-test:` -> `run: pip install ...`
 # shape; inlined here so the test doesn't track the live dep list.
 _FAKE_CI_YAML = """\
 name: CI

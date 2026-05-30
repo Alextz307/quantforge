@@ -184,8 +184,8 @@ def run_cmd(
             raise click.ClickException(f"failed to build experiment: {e}") from e
 
         click.echo(
-            f"running experiment '{cfg.name}' ({cfg.strategy.name} × {cfg.data.tickers[0]}) "
-            f"→ log: {log_path}"
+            f"running experiment '{cfg.name}' ({cfg.strategy.name} x {cfg.data.tickers[0]}) "
+            f"-> log: {log_path}"
         )
         try:
             result = experiment.run(
@@ -269,7 +269,7 @@ def run_cmd(
     help=(
         "Dotted-path override applied to the experiment config (e.g. "
         "data.tickers=[QQQ]). Value parsed as YAML; intermediate keys "
-        "must exist. Repeatable. Does not modify the HPO config — use "
+        "must exist. Repeatable. Does not modify the HPO config - use "
         "--trials / --n-jobs for that."
     ),
 )
@@ -294,7 +294,7 @@ def tune_cmd(
     Run an Optuna study over an ExperimentConfig's hyperparameter space.
 
     The study is persisted to a SQLite file under
-    ``<store_root>/hpo/<study_name>/optuna_study.db`` — re-running with
+    ``<store_root>/hpo/<study_name>/optuna_study.db`` - re-running with
     the same ``--config`` + ``--hpo-config`` resumes from the last
     completed trial (Optuna's semantics: ``n_trials`` is the number of
     NEW trials to run each invocation, not a cap on total trials).
@@ -327,7 +327,7 @@ def tune_cmd(
 
         click.echo(
             f"tuning '{experiment_cfg.strategy.name}' on study '{hpo_cfg.study_name}' "
-            f"for {hpo_cfg.n_trials} trial(s) (n_jobs={hpo_cfg.n_jobs}) → log: {log_path}"
+            f"for {hpo_cfg.n_trials} trial(s) (n_jobs={hpo_cfg.n_jobs}) -> log: {log_path}"
         )
         try:
             study = tuner.run(progress=progress)
@@ -479,7 +479,7 @@ def compare_cmd(
         click.echo(
             f"comparing {len(configs)} strategies under '{out_name}' "
             f"(n_jobs={n_jobs}, significance={sig.value}, "
-            f"reuse={'yes' if reused_results is not None else 'no'}) → log: {log_path}"
+            f"reuse={'yes' if reused_results is not None else 'no'}) -> log: {log_path}"
         )
         try:
             report, folds_by_strategy = run_comparison(
@@ -589,7 +589,7 @@ def holdout_eval_cmd(
     username: str | None,
 ) -> None:
     """
-    Refit on full dev, evaluate once on the reserved holdout — honest OOS.
+    Refit on full dev, evaluate once on the reserved holdout - honest OOS.
 
     The source's manifest.json is the source of truth for the dev/holdout
     boundary timestamp and the data fingerprint; the command refuses on
@@ -612,7 +612,7 @@ def holdout_eval_cmd(
         resolved_out_name = out_name if out_name is not None else source.source_id
         click.echo(
             f"holdout-eval: source={source.kind} '{source.source_id}' "
-            f"-> out_name='{resolved_out_name}' → log: {log_path}"
+            f"-> out_name='{resolved_out_name}' -> log: {log_path}"
         )
         try:
             result, out_dir = run_holdout_eval(

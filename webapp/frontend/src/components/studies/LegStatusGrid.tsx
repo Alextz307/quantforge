@@ -91,7 +91,7 @@ export function LegStatusGrid({ legs }: { legs: readonly LegStateRow[] }) {
                     {leg ? (
                       <StatusPill leg={leg} />
                     ) : (
-                      <span className="text-muted-foreground">—</span>
+                      <span className="text-muted-foreground">-</span>
                     )}
                   </td>
                 );

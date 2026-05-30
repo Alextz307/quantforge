@@ -10,7 +10,7 @@ Subcommands:
 * ``users delete <username>``        Soft-delete a user. Refuses without
                                      ``--yes`` outside a TTY.
 
-The ``auto_created_at`` column on ``users`` is the marker — set only by
+The ``auto_created_at`` column on ``users`` is the marker - set only by
 :func:`scripts._attribution.resolve_or_create_attributing_user`, never by
 ``scripts.create_user`` or any webapp flow. Pre-existing rows from before
 the column landed stay ``NULL`` (no false positives in the cleanup view).
@@ -61,7 +61,7 @@ def _query_users(conn: sqlite3.Connection, *, auto_created_only: bool) -> list[_
 
 
 def _format_row(row: _UserRow) -> str:
-    auto = row.auto_created_at or "—"
+    auto = row.auto_created_at or "-"
     return f"  {row.id:>4}  {row.username:<24}  {row.role.value:<6}  {row.created_at:<32}  {auto}"
 
 
@@ -114,7 +114,7 @@ def delete_cmd(username: str, yes: bool) -> None:
 
     The user can no longer log in and disappears from list views, but
     artifacts they own (via ``jobs.user_id``) keep their attribution
-    intact — the username on those artifacts will simply no longer
+    intact - the username on those artifacts will simply no longer
     resolve to a current account in subsequent ``resolve_owner_usernames``
     lookups, which the frontend renders as the ``"system"`` fallback.
     """

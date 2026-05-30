@@ -7,15 +7,15 @@ Each tier bundles a per-fill **slippage** profile with a per-turnover
     tier      slippage   commission
     zero        0 bp        0 bp     friction-free upper bound
     low         1 bp        1 bp
-    normal      2 bp        2 bp     default — realistic liquid-ETF retail cost
+    normal      2 bp        2 bp     default - realistic liquid-ETF retail cost
     high        5 bp        5 bp     adverse / stress
 
 Slippage moves the fill price adversely by ``base_bps``; commission is
-charged on ``|Δnotional|`` traded at each rebalance (the engine's
+charged on ``|delta notional|`` traded at each rebalance (the engine's
 ``transaction_fee_rate`` = ``commission_bps / BPS_PER_UNIT``).
 
 Values live in Python (not the C++ engine) so they recalibrate without a
-recompile — and so the deployment signal-evaluation scorecard reuses the
+recompile - and so the deployment signal-evaluation scorecard reuses the
 exact same tiers as the backtest, from this single source of truth.
 """
 
@@ -31,7 +31,7 @@ BPS_PER_UNIT = 10000.0
 
 class SlippageScenario(StrEnum):
     """
-    Named cost tiers — keys into ``COST_SCENARIOS`` / ``SLIPPAGE_SCENARIOS``.
+    Named cost tiers - keys into ``COST_SCENARIOS`` / ``SLIPPAGE_SCENARIOS``.
     """
 
     ZERO = "zero"
@@ -45,7 +45,7 @@ class CostScenario:
     """
     One cost tier: per-fill slippage plus per-turnover commission.
 
-    ``commission_bps`` is charged on ``|Δnotional|`` at each rebalance;
+    ``commission_bps`` is charged on ``|delta notional|`` at each rebalance;
     ``slippage`` moves the fill price adversely by its ``base_bps``.
     """
 
@@ -73,7 +73,7 @@ SLIPPAGE_SCENARIOS: dict[SlippageScenario, SlippageConfig] = {
 
 def commission_bps_for(scenario: SlippageScenario) -> float:
     """
-    Commission in basis points (on ``|Δnotional|``) for a cost tier.
+    Commission in basis points (on ``|delta notional|``) for a cost tier.
     """
 
     return COST_SCENARIOS[scenario].commission_bps
@@ -81,7 +81,7 @@ def commission_bps_for(scenario: SlippageScenario) -> float:
 
 def commission_fraction_for(scenario: SlippageScenario) -> float:
     """
-    Commission as a notional fraction — the engine's ``transaction_fee_rate``.
+    Commission as a notional fraction - the engine's ``transaction_fee_rate``.
     """
 
     return COST_SCENARIOS[scenario].commission_bps / BPS_PER_UNIT
@@ -92,7 +92,7 @@ def total_cost_fraction_for(scenario: SlippageScenario) -> float:
     Round-turn friction (slippage + commission) as a notional fraction.
 
     The per-unit-turnover cost the signal-evaluation scorecard charges on
-    ``|Δleverage|`` at each rebalance — slippage moves the fill and
+    ``|delta leverage|`` at each rebalance - slippage moves the fill and
     commission is paid on the traded notional, bundled into one fraction so
     the scorecard's net figures share the engine's cost tiers exactly.
     """

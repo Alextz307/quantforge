@@ -22,7 +22,7 @@ export function ManifestPanel({ run }: { run: RunDetail }) {
         <MetadataField label="Cost tier" value={run.slippage_scenario} />
         <MetadataField
           label="Holdout start"
-          value={run.holdout_start ? formatDateTime(run.holdout_start) : "—"}
+          value={run.holdout_start ? formatDateTime(run.holdout_start) : "-"}
         />
       </CardContent>
     </Card>

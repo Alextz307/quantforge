@@ -2,7 +2,7 @@
 Factory mapping :class:`SamplerKind` to Optuna ``BaseSampler`` instances.
 
 Every sampler is instantiated with an explicit seed so reruns with the
-same ``HPOConfig.seed`` reproduce bit-for-bit — required for thesis
+same ``HPOConfig.seed`` reproduce bit-for-bit - required for thesis
 defensibility. CMA-ES requires numerical parameters; when a study has
 categorical dimensions (e.g. ``lstm_loss_fn``, ``arma_ic``) Optuna
 automatically falls through to an independent sampler for the

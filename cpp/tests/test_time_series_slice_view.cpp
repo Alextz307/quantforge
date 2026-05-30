@@ -49,7 +49,7 @@ TEST(TimeSeriesSliceView, MatchesSliceElementValues) {
 }
 
 TEST(TimeSeriesSliceView, OffBoundaryQueryWidensToSampledIndices) {
-    // Query timestamps that fall *between* samples — lower_bound (>=) and
+    // Query timestamps that fall *between* samples - lower_bound (>=) and
     // upper_bound (>) must still land on indices 20..60 (same as the
     // exact-boundary case) to preserve closed-interval semantics.
     const auto ts = make_ts(100);

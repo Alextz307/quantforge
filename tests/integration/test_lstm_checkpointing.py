@@ -7,7 +7,7 @@ Two invariants:
    validation loss improves; after a clean fit the file exists and its
    tensors match the model's restored best-state.
 2. A mid-fit interrupt leaves the best-so-far snapshot recoverable via
-   ``torch.load`` — the file is intact even though the in-memory model is
+   ``torch.load`` - the file is intact even though the in-memory model is
    half-mutated.
 """
 
@@ -110,7 +110,7 @@ def test_checkpoint_survives_mid_fit_interrupt(
     The first two best-state writes land on disk. The third call raises
     ``KeyboardInterrupt`` from inside ``fit()``, simulating a Ctrl+C between
     epochs. After unwinding the exception we verify the on-disk checkpoint
-    is loadable and shape-compatible with the model — i.e. the most recent
+    is loadable and shape-compatible with the model - i.e. the most recent
     successful write was atomic from the consumer's point of view.
     """
 
@@ -139,7 +139,7 @@ def test_checkpoint_survives_mid_fit_interrupt(
     assert ckpt_file.exists()
     saved = torch.load(ckpt_file, weights_only=True)
     # Build a fresh predictor + train one epoch to materialise a state_dict
-    # we can compare keys against — interrupted ``p`` has a model object
+    # we can compare keys against - interrupted ``p`` has a model object
     # whose state_dict is partially mutated.
     fresh = _build_predictor(features, epochs=1)
     seed_globally()

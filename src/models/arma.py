@@ -44,7 +44,7 @@ class _StatsmodelsARMAAdapter:
     the rest of the predictor can treat ``self._model`` as a single surface.
     ``predict_in_sample()`` returns the statsmodels fitted values as a plain
     numpy array; ``predict(n_periods)`` returns the numpy array of
-    out-of-sample forecasts — both match the shapes ``ARMAPredictor.predict``
+    out-of-sample forecasts - both match the shapes ``ARMAPredictor.predict``
     expected from the original pmdarima path.
 
     Public attributes (``order``, ``trend``, ``endog``, ``params``) are the
@@ -83,7 +83,7 @@ class ARMAPredictor(IPredictor):
     ARMA predictor with automatic order selection via AIC.
 
     Uses pmdarima's auto_arima with d=0 (returns are stationary).
-    One-step-ahead forecasting uses fixed parameters — no re-estimation.
+    One-step-ahead forecasting uses fixed parameters - no re-estimation.
     """
 
     def __init__(
@@ -185,10 +185,10 @@ class ARMAPredictor(IPredictor):
         Does NOT re-estimate parameters.
 
         Args:
-            data: DataFrame with 'close' column and DatetimeIndex — used for
+            data: DataFrame with 'close' column and DatetimeIndex - used for
                 output index alignment.
             returns: Optional pre-computed log returns (dropna'd). Its index
-                must be a subset of ``data.index`` — typically
+                must be a subset of ``data.index`` - typically
                 ``data.index[1:]`` when derived from the same frame, though
                 composites may pass a sub-range. Skips the internal
                 ``compute_log_returns(data["close"])`` derivation when
@@ -253,7 +253,7 @@ class ARMAPredictor(IPredictor):
         Persist fitted ARMA params + training endog to ``path``.
 
         The training endog is persisted because statsmodels needs it to
-        reconstruct the filter state on load — without it, ``predict_in_sample``
+        reconstruct the filter state on load - without it, ``predict_in_sample``
         cannot recover the fitted values. It's written as a numpy ``.npy`` file
         (binary, pickle-free for float arrays) rather than JSON to keep the
         on-disk size manageable on large training windows.
@@ -293,7 +293,7 @@ class ARMAPredictor(IPredictor):
         """
         Reconstruct a fitted ARMAPredictor from ``path``.
 
-        The loaded ``_model`` is a ``_StatsmodelsARMAAdapter`` — same shape
+        The loaded ``_model`` is a ``_StatsmodelsARMAAdapter`` - same shape
         as the post-fit path.
         """
 
