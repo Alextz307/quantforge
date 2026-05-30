@@ -26,7 +26,7 @@ from src.core.temporal import (
     collect_metadata,
 )
 from src.core.types import Device, InformationCriterion, Interval, LossFunction
-from src.core.utils import compute_log_returns
+from src.core.utils import compute_log_returns, directional_accuracy
 from src.models.hybrid_return import HybridReturnModel
 from src.strategies.interface import RECURSIVE_LEAF_CONVERGENCE_MARGIN_BARS, IStrategy
 
@@ -293,6 +293,29 @@ class ReturnForecastStrategy(IStrategy):
             )
             + self._hybrid_return.get_all_training_metadata()
         )
+
+    def feature_columns(self) -> tuple[str, ...]:
+        return self._hybrid_params.feature_columns
+
+    def feature_importance_frame(self, data: pd.DataFrame) -> pd.DataFrame | None:
+        """
+        Identity: the hybrid reads its feature columns straight from ``data``.
+        """
+
+        return data
+
+    def feature_importance_score(self, frame: pd.DataFrame) -> float | None:
+        """
+        Directional hit-rate of the forecast return vs the realised next bar.
+
+        The forecast is the ARMA conditional mean (from ``close``, invariant to
+        feature permutation) plus the LSTM residual (the only term the features
+        feed), so permutation importances here are compressed toward zero - see
+        the residual-dominance caveat in the feature-importance module docstring.
+        """
+
+        forecast = self._hybrid_return.predict(frame)
+        return directional_accuracy(forecast, frame["close"])
 
     @staticmethod
     def suggest_params(trial: optuna.trial.BaseTrial) -> dict[str, object]:

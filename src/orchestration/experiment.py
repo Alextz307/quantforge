@@ -33,6 +33,7 @@ from pathlib import Path
 import pandas as pd
 
 from quant_engine import SlippageConfig
+from src.analysis.feature_importance import build_importance_artifact
 from src.analysis.metrics_aggregator import aggregate_folds
 from src.core import json_io
 from src.core.config import ExperimentConfig, write_frozen_yaml
@@ -43,6 +44,7 @@ from src.core.persistence import (
     EXPERIMENT_CONFIG_YAML,
     EXPERIMENT_METRICS_JSON,
     EXPERIMENT_STRATEGY_SUBDIR,
+    FEATURE_IMPORTANCE_JSON,
     FOLD_RESULTS_JSONL,
     RUNS_SUBDIR,
     ensure_model_dir,
@@ -243,6 +245,7 @@ class RunOptions:
     progress: bool = False
     checkpoint: bool = False
     publish_label: str | None = None
+    compute_feature_importance: bool = False
 
 
 @dataclass(frozen=True)
@@ -361,11 +364,22 @@ class Experiment:
                 feature_pipeline_factory=self.feature_pipeline_factory,
                 progress=opts.progress,
                 checkpoint_root=checkpoint_root,
+                compute_feature_importance=opts.compute_feature_importance,
             )
             folds = tuple(FoldRecord.from_fold_result(fr) for fr in fold_results)
 
             json_io.write_jsonl(run_dir / FOLD_RESULTS_JSONL, (f.to_dict() for f in folds))
             json_io.write(run_dir / EXPERIMENT_METRICS_JSON, aggregate_folds(folds).to_dict())
+
+            fold_importances = [
+                fr.feature_importance for fr in fold_results if fr.feature_importance is not None
+            ]
+            if fold_importances:
+                json_io.write(
+                    run_dir / FEATURE_IMPORTANCE_JSON,
+                    build_importance_artifact(fold_importances),
+                )
+
             _maybe_save_strategy(self.strategy, run_dir / EXPERIMENT_STRATEGY_SUBDIR)
 
             result = ExperimentResult(

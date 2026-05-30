@@ -121,6 +121,16 @@ def cli(log_level: str) -> None:
     ),
 )
 @click.option(
+    "--feature-importance/--no-feature-importance",
+    "feature_importance",
+    default=False,
+    help=(
+        "Compute out-of-sample feature importance per fold (permutation + "
+        "XGBoost gain) and write feature_importance.json under the run dir. "
+        "Off by default; the study turns it on for its final per-leg runs."
+    ),
+)
+@click.option(
     "--override",
     "overrides",
     multiple=True,
@@ -160,6 +170,7 @@ def run_cmd(
     write_report: bool,
     progress: bool,
     checkpoint: bool,
+    feature_importance: bool,
     overrides: tuple[str, ...],
     publish_label: str | None,
     username: str | None,
@@ -195,6 +206,7 @@ def run_cmd(
                     progress=progress,
                     checkpoint=checkpoint,
                     publish_label=publish_label,
+                    compute_feature_importance=feature_importance,
                 )
             )
         except LeakageError as e:

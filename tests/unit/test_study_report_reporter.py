@@ -17,6 +17,7 @@ import pandas as pd
 import pytest
 
 from src.analysis.baselines import BaselineResult
+from src.analysis.feature_importance import AggregatedImportance, ImportanceMethod
 from src.analysis.significance import BootstrapCI, DeflatedSharpe
 from src.orchestration.study_report import (
     ConsolidatedStudyReport,
@@ -42,6 +43,32 @@ _DSR_SAMPLE_LENGTH = 1000
 _DSR_TRIAL_VARIANCE = 0.05
 _DSR_TRIAL_SKEW = 0.0
 _DSR_TRIAL_KURTOSIS = 3.0
+
+_IMPORTANCE_FEATURE_STRONG = "rsi_14"
+_IMPORTANCE_FEATURE_WEAK = "roc_63"
+_IMPORTANCE_STRONG_VALUE = 0.18
+_IMPORTANCE_WEAK_VALUE = 0.02
+_IMPORTANCE_STD = 0.01
+_IMPORTANCE_N_FOLDS = 4
+
+
+def _importance(strong: float, weak: float) -> tuple[AggregatedImportance, ...]:
+    return (
+        AggregatedImportance(
+            feature=_IMPORTANCE_FEATURE_STRONG,
+            importance=strong,
+            std=_IMPORTANCE_STD,
+            n_folds=_IMPORTANCE_N_FOLDS,
+            method=ImportanceMethod.PERMUTATION,
+        ),
+        AggregatedImportance(
+            feature=_IMPORTANCE_FEATURE_WEAK,
+            importance=weak,
+            std=_IMPORTANCE_STD,
+            n_folds=_IMPORTANCE_N_FOLDS,
+            method=ImportanceMethod.PERMUTATION,
+        ),
+    )
 
 
 def _make_report(study_dir: Path) -> ConsolidatedStudyReport:
@@ -79,6 +106,11 @@ def _make_report(study_dir: Path) -> ConsolidatedStudyReport:
         },
         per_leg_floor_bind={
             ("StratA", "uni1"): FloorBindStats(mean=0.12, max=0.20, min=0.05, n_folds=4),
+        },
+        per_leg_feature_importance={
+            ("StratA", "uni1"): _importance(_IMPORTANCE_STRONG_VALUE, _IMPORTANCE_WEAK_VALUE),
+            ("StratA", "uni2"): _importance(_IMPORTANCE_STRONG_VALUE, _IMPORTANCE_WEAK_VALUE),
+            ("StratB", "uni1"): _importance(_IMPORTANCE_WEAK_VALUE, _IMPORTANCE_STRONG_VALUE),
         },
         per_universe_pairwise={
             "uni1": (
@@ -174,9 +206,15 @@ def test_generate_full_report_writes_full_tree(tmp_path: Path) -> None:
     for stem in (
         "strategy_x_universe_heatmap",
         "holdout_dev_scatter",
+        "feature_importance_heatmap",
     ):
         assert (plots / f"{stem}.png").is_file(), stem
         assert (plots / f"{stem}.svg").is_file(), stem
+
+    fi_dir = plots / "feature_importance"
+    assert (fi_dir / "StratA.png").is_file()
+    assert (fi_dir / "StratA.svg").is_file()
+    assert (fi_dir / "StratB.png").is_file()
 
 
 def test_master_ranking_sorts_by_sharpe_desc(tmp_path: Path) -> None:
@@ -294,6 +332,7 @@ def test_skips_sections_when_no_input_data(tmp_path: Path) -> None:
         per_leg_holdout={},
         per_leg_dsr={},
         per_leg_floor_bind={},
+        per_leg_feature_importance={},
         per_universe_pairwise={},
         incomplete_leg_ids=(),
     )
@@ -303,6 +342,9 @@ def test_skips_sections_when_no_input_data(tmp_path: Path) -> None:
     assert (tables / "master_ranking.tex").is_file()
     assert not (tables / "holdout_results.tex").exists()
     assert not (tables / "pairwise_significance.csv").exists()
+    plots = tmp_path / PLOTS_SUBDIR
+    assert not (plots / "feature_importance_heatmap.png").exists()
+    assert not (plots / "feature_importance").exists()
 
 
 def test_copies_per_universe_equity_overlay_when_source_exists(tmp_path: Path) -> None:

@@ -29,7 +29,7 @@ from src.core.temporal import (
     collect_metadata,
 )
 from src.core.types import Device, Interval, LossFunction
-from src.core.utils import annualized_garman_klass
+from src.core.utils import annualized_garman_klass, negative_qlike
 from src.models.hybrid_volatility import HybridVolatilityModel
 from src.strategies.interface import RECURSIVE_LEAF_CONVERGENCE_MARGIN_BARS, IStrategy
 
@@ -343,6 +343,35 @@ class VolatilityTargetingStrategy(IStrategy):
             )
             + self._hybrid_vol.get_all_training_metadata()
         )
+
+    def feature_columns(self) -> tuple[str, ...]:
+        return self._hybrid_params.feature_columns
+
+    def feature_importance_frame(self, data: pd.DataFrame) -> pd.DataFrame | None:
+        """
+        Identity: the hybrid reads features + OHLC straight from ``data``.
+
+        OHLC must survive so the QLIKE realised proxy (Garman-Klass) can be
+        recomputed; permutation never touches OHLC, only engineered features.
+        """
+
+        return data
+
+    def feature_importance_score(self, frame: pd.DataFrame) -> float | None:
+        """
+        Negative QLIKE of the variance forecast vs the realised Garman-Klass proxy.
+
+        The forecast is the GARCH conditional variance (from ``close``,
+        invariant to feature permutation) plus the LSTM residual, then clipped
+        at ``min_vol``, so permutation importances here are compressed toward
+        zero - see the residual-dominance caveat in the feature-importance
+        module docstring. ``track_floor_bind=False`` keeps these repeated
+        scoring predicts from overwriting the fold's real floor-bind diagnostic.
+        """
+
+        forecast_vol = self._hybrid_vol.predict(frame, track_floor_bind=False)
+        realised_vol = self._compute_realized_vol(frame)
+        return negative_qlike(forecast_vol, realised_vol)
 
     def get_fold_diagnostics(self) -> Mapping[str, float]:
         """

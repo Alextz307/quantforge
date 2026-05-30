@@ -34,6 +34,7 @@ from types import MappingProxyType
 import pandas as pd
 
 from src.analysis.baselines import BaselineResult
+from src.analysis.feature_importance import AggregatedImportance, read_aggregated_importance
 from src.analysis.metrics_aggregator import AggregateStats, aggregate_folds
 from src.analysis.significance import BootstrapCI, DeflatedSharpe
 from src.core import json_io
@@ -41,6 +42,7 @@ from src.core.logging import get_logger
 from src.core.persistence import (
     COMPARISONS_SUBDIR,
     DSR_JSON_FILENAME,
+    FEATURE_IMPORTANCE_JSON,
     HOLDOUT_EVAL_JSON,
     HOLDOUT_EVALS_SUBDIR,
     HPO_SUBDIR,
@@ -199,6 +201,7 @@ class ConsolidatedStudyReport:
     per_leg_holdout: Mapping[tuple[str, str], HoldoutSnapshot]
     per_leg_dsr: Mapping[tuple[str, str], DeflatedSharpe]
     per_leg_floor_bind: Mapping[tuple[str, str], FloorBindStats]
+    per_leg_feature_importance: Mapping[tuple[str, str], tuple[AggregatedImportance, ...]]
     per_universe_pairwise: Mapping[str, tuple[PairwiseSignificance, ...]]
     incomplete_leg_ids: tuple[str, ...]
 
@@ -214,6 +217,11 @@ class ConsolidatedStudyReport:
         object.__setattr__(self, "per_leg_dsr", MappingProxyType(dict(self.per_leg_dsr)))
         object.__setattr__(
             self, "per_leg_floor_bind", MappingProxyType(dict(self.per_leg_floor_bind))
+        )
+        object.__setattr__(
+            self,
+            "per_leg_feature_importance",
+            MappingProxyType(dict(self.per_leg_feature_importance)),
         )
         object.__setattr__(
             self, "per_universe_pairwise", MappingProxyType(dict(self.per_universe_pairwise))
@@ -267,6 +275,7 @@ def consolidate_study(study_dir: Path) -> ConsolidatedStudyReport:
     per_leg_holdout: dict[tuple[str, str], HoldoutSnapshot] = {}
     per_leg_dsr: dict[tuple[str, str], DeflatedSharpe] = {}
     per_leg_floor_bind: dict[tuple[str, str], FloorBindStats] = {}
+    per_leg_feature_importance: dict[tuple[str, str], tuple[AggregatedImportance, ...]] = {}
     incomplete: list[str] = []
 
     for leg in state.legs:
@@ -298,6 +307,20 @@ def consolidate_study(study_dir: Path) -> ConsolidatedStudyReport:
         except FileNotFoundError:
             pass
 
+        importance_path = run_dir / FEATURE_IMPORTANCE_JSON
+        try:
+            per_leg_feature_importance[key] = read_aggregated_importance(
+                json_io.read_dict(importance_path)
+            )
+        except FileNotFoundError:
+            pass
+        except (ValueError, KeyError) as exc:
+            _logger.warning(
+                "skipping malformed feature-importance artifact at %s: %s",
+                importance_path,
+                exc,
+            )
+
     per_universe_pairwise: dict[str, tuple[PairwiseSignificance, ...]] = {}
     for universe in sorted({u for (_, u) in per_leg_aggregate}):
         pairwise = _try_read_comparison_pairwise(study_dir, universe)
@@ -321,6 +344,7 @@ def consolidate_study(study_dir: Path) -> ConsolidatedStudyReport:
         per_leg_holdout=per_leg_holdout,
         per_leg_dsr=per_leg_dsr,
         per_leg_floor_bind=per_leg_floor_bind,
+        per_leg_feature_importance=per_leg_feature_importance,
         per_universe_pairwise=per_universe_pairwise,
         incomplete_leg_ids=tuple(incomplete),
     )

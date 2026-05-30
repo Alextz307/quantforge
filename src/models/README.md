@@ -15,7 +15,7 @@ native-format persistence.
 | `GARCHPredictor` (`"garch"`) | GARCH(p,q) volatility predictor; AIC/BIC order selection; params frozen after `fit`. |
 | `ARMAPredictor` (`"arma"`) | ARMA(p,q) return predictor; `pmdarima.auto_arima` order selection; one-step-ahead `predict`. |
 | `LSTMPredictor` (`"lstm"`) | torch LSTM with early stopping + best-state checkpointing (`best_state.pt`). The training module is wrapped in `torch.compile(mode="reduce-overhead")` for kernel reordering; the `amp: bool = False` ctor kwarg opts into mixed-precision (CUDA-only; MPS / CPU no-op even when `True`). |
-| `DirectionalClassifier` (`"xgboost_directional"`) | XGBoost binary classifier (price-direction); early stopping + best-iteration checkpointing (`best_iteration.ubj`). |
+| `DirectionalClassifier` (`"xgboost_directional"`) | XGBoost binary classifier (price-direction); early stopping + best-iteration checkpointing (`best_iteration.ubj`). `feature_gain()` exposes per-column native gain (0.0-filled for unsplit features) for the feature-importance subsystem. |
 | `HybridVolatilityModel` (`"hybrid_volatility"`) | GARCH conditional variance + LSTM residual correction. Owns both leaves; rebuilt fresh per `fit`. |
 | `HybridReturnModel` (`"hybrid_return"`) | ARMA conditional mean + LSTM residual correction. Same composition pattern. |
 | `CointegrationTester` + `CointegrationResult` | `engle_granger(series_a, series_b, p_value_threshold)` static helper. |

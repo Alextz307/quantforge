@@ -4,6 +4,7 @@ Momentum strategy gated by a long-horizon trend filter and a classifier.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar, Self
@@ -31,7 +32,11 @@ from src.core.temporal import (
     collect_metadata,
 )
 from src.core.types import Device, Interval
-from src.core.utils import align_features_for_directional_target, validate_open_unit_interval
+from src.core.utils import (
+    align_features_for_directional_target,
+    directional_accuracy,
+    validate_open_unit_interval,
+)
 from src.features.pipeline import FeatureEngineeringPipeline
 from src.models.xgboost_classifier import DirectionalClassifier
 from src.strategies.interface import IStrategy
@@ -40,6 +45,10 @@ if TYPE_CHECKING:
     import optuna
 
 logger = get_logger(__name__)
+
+# Scoring-only P(up) cutoff; deliberately separate from the tuned trading-gate
+# ``prob_threshold`` so feature skill is measured at the neutral midpoint.
+_UP_DIRECTION_PROB_THRESHOLD: float = 0.5
 
 
 @dataclass(frozen=True)
@@ -370,6 +379,40 @@ class MomentumGatekeeperStrategy(IStrategy):
             ("strategy", self.training_metadata),
             ("classifier", classifier_meta),
         )
+
+    def feature_columns(self) -> tuple[str, ...]:
+        return tuple(self._resolved_feature_columns)
+
+    def feature_importance_frame(self, data: pd.DataFrame) -> pd.DataFrame | None:
+        """
+        Materialise the scaled feature matrix + a raw ``close`` column.
+
+        The classifier consumes the pipeline-transformed features (not raw
+        OHLCV), so importance has to permute THOSE columns; raw ``close`` is
+        carried alongside for the realised-direction target and is never a
+        feature column.
+        """
+
+        if self._classifier is None or not self._resolved_feature_columns:
+            return None
+        frame = self._pipeline.transform(data)[self._resolved_feature_columns].copy()
+        frame["close"] = data["close"]
+        return frame
+
+    def feature_importance_score(self, frame: pd.DataFrame) -> float | None:
+        """
+        Directional hit-rate of P(up) vs the realised next-bar move.
+        """
+
+        if self._classifier is None:
+            return None
+        prob_up = self._classifier.predict_proba(frame)
+        return directional_accuracy(prob_up, frame["close"], threshold=_UP_DIRECTION_PROB_THRESHOLD)
+
+    def feature_gain(self) -> Mapping[str, float] | None:
+        if self._classifier is None:
+            return None
+        return self._classifier.feature_gain()
 
     @staticmethod
     def suggest_params(trial: optuna.trial.BaseTrial) -> dict[str, object]:

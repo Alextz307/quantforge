@@ -231,12 +231,19 @@ class HybridVolatilityModel(IPredictor):
             )
         )
 
-    def predict(self, data: pd.DataFrame) -> pd.Series:
+    def predict(self, data: pd.DataFrame, *, track_floor_bind: bool = True) -> pd.Series:
         """
         Produce hybrid volatility forecasts aligned with ``data.index``.
 
         First ``lstm_lookback`` rows inherit NaN from the LSTM component.
         Output is clipped to ``min_vol``.
+
+        ``track_floor_bind`` records this call's sigma_min saturation rate into
+        ``last_floor_bind_fraction`` (the per-fold diagnostic
+        ``VolatilityTargetingStrategy.get_fold_diagnostics`` reports). The
+        feature-importance driver re-scores the model many times on column-
+        permuted frames and passes ``False`` so those scoring calls leave the
+        fold's real (generate_signals) diagnostic untouched.
         """
 
         self._assert_fitted_with_metadata()
@@ -256,11 +263,12 @@ class HybridVolatilityModel(IPredictor):
         # Clip floor: vol is non-negative by definition; a large negative LSTM
         # residual can drive `garch_vol + residual` below zero on noisy data.
         unclipped = garch_vol + lstm_residual
-        # `NaN < x` is False, so the comparison already excludes NaN bars from
-        # the numerator; divide by the non-NaN count to get the bind fraction.
-        n_valid = int(unclipped.notna().sum())
-        below_floor_count = int((unclipped < self._params.min_vol).sum())
-        self._last_floor_bind_fraction = below_floor_count / n_valid if n_valid > 0 else 0.0
+        if track_floor_bind:
+            # `NaN < x` is False, so the comparison already excludes NaN bars from
+            # the numerator; divide by the non-NaN count to get the bind fraction.
+            n_valid = int(unclipped.notna().sum())
+            below_floor_count = int((unclipped < self._params.min_vol).sum())
+            self._last_floor_bind_fraction = below_floor_count / n_valid if n_valid > 0 else 0.0
         final_vol = unclipped.clip(lower=self._params.min_vol)
         final_vol.name = "hybrid_vol"
         return final_vol

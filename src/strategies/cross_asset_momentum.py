@@ -13,7 +13,7 @@ rather than the paper's fixed 1-month horizon over 30 industries.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar, Self
@@ -38,7 +38,11 @@ from src.core.temporal import (
     collect_metadata,
 )
 from src.core.types import Device, Interval
-from src.core.utils import align_features_for_directional_target, compute_log_returns
+from src.core.utils import (
+    align_features_for_directional_target,
+    compute_log_returns,
+    directional_accuracy,
+)
 from src.models.xgboost_classifier import DirectionalClassifier
 from src.strategies.interface import IStrategy
 
@@ -51,6 +55,10 @@ _THRESHOLD_LOWER_BOUND = 0.5
 _THRESHOLD_UPPER_BOUND = 1.0
 
 _LOG_RETURN_WARMUP = 1
+
+# Scoring-only P(up) cutoff; deliberately separate from the tuned trading-gate
+# ``direction_threshold`` so feature skill is measured at the neutral midpoint.
+_UP_DIRECTION_PROB_THRESHOLD: float = 0.5
 
 
 @dataclass(frozen=True)
@@ -342,6 +350,39 @@ class CrossAssetMomentumStrategy(IStrategy):
             ("strategy", self.training_metadata),
             ("classifier", classifier_meta),
         )
+
+    def feature_columns(self) -> tuple[str, ...]:
+        return tuple(self._feature_columns)
+
+    def feature_importance_frame(self, data: pd.DataFrame) -> pd.DataFrame | None:
+        """
+        Build the lagged cross-asset return matrix + the primary's raw ``close``.
+
+        The classifier consumes the derived lag features (not the raw wide
+        frame), so importance permutes those; the primary ticker's raw close
+        is carried alongside for the realised-direction target.
+        """
+
+        if self._classifier is None:
+            return None
+        frame = self._build_feature_frame(data)
+        frame["close"] = data[f"close_{self._params.primary_ticker}"]
+        return frame
+
+    def feature_importance_score(self, frame: pd.DataFrame) -> float | None:
+        """
+        Directional hit-rate of P(up) vs the primary's realised next-bar move.
+        """
+
+        if self._classifier is None:
+            return None
+        prob_up = self._classifier.predict_proba(frame)
+        return directional_accuracy(prob_up, frame["close"], threshold=_UP_DIRECTION_PROB_THRESHOLD)
+
+    def feature_gain(self) -> Mapping[str, float] | None:
+        if self._classifier is None:
+            return None
+        return self._classifier.feature_gain()
 
     @staticmethod
     def suggest_params(trial: optuna.trial.BaseTrial) -> dict[str, object]:

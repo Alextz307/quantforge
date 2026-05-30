@@ -45,7 +45,7 @@ device selection, and small JSON / FS helpers.
 | `seeding.py` | `seed_all` (lazy torch import). |
 | `json_io.py` | Typed JSON read / write helpers (no pickle). |
 | `fs.py` | Atomic write / mkdir helpers. |
-| `utils.py` | `validate_open_unit_interval`, `compute_log_returns`, `next_bar_direction`, `annualized_garman_klass`. |
+| `utils.py` | `validate_open_unit_interval`, `compute_log_returns`, `next_bar_direction`, `annualized_garman_klass`, `directional_accuracy`, `negative_qlike` (higher-is-better scoring primitives for feature importance). |
 | `contracts.py` | `assert_*` runtime contract helpers. |
 
 ## Anti-leakage primitives

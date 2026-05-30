@@ -26,6 +26,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from types import MappingProxyType
 
+import numpy as np
 import pandas as pd
 
 from quant_engine import (
@@ -34,7 +35,13 @@ from quant_engine import (
     PerformanceMetrics,
     SlippageConfig,
 )
-from src.core.constants import OHLCV_COLUMNS, PAIRS_LEG_SUFFIXES
+from src.analysis.feature_importance import FoldImportance, compute_fold_importance
+from src.core.constants import (
+    FEATURE_IMPORTANCE_N_REPEATS,
+    FEATURE_IMPORTANCE_RNG_SEED,
+    OHLCV_COLUMNS,
+    PAIRS_LEG_SUFFIXES,
+)
 from src.core.exceptions import LeakageError
 from src.core.logging import get_logger
 from src.core.persistence import FOLD_DIR_PREFIX
@@ -64,6 +71,7 @@ class FoldResult:
     backtest: BacktestResult
     metrics: PerformanceMetrics
     strategy_diagnostics: Mapping[str, float] = field(default_factory=lambda: _EMPTY_DIAGNOSTICS)
+    feature_importance: FoldImportance | None = None
 
 
 _LEG_A_RENAME: dict[str, str] = {f"{c}{PAIRS_LEG_SUFFIXES[0]}": c for c in OHLCV_COLUMNS}
@@ -217,6 +225,7 @@ def evaluate_walk_forward(
     feature_pipeline_factory: Callable[[], IFeaturePipeline] | None = None,
     progress: bool = False,
     checkpoint_root: Path | None = None,
+    compute_feature_importance: bool = False,
 ) -> list[FoldResult]:
     """
     Run train -> leakage check -> signals -> engine -> metrics, per fold.
@@ -246,6 +255,11 @@ def evaluate_walk_forward(
             wrapped LSTM / XGBoost leaf can dump best-so-far weights
             mid-fit. ``None`` disables mid-fit checkpointing entirely
             (the strategy's ``train()`` call is unaffected).
+        compute_feature_importance: When ``True``, compute out-of-sample
+            feature importance per fold on the frozen model, using the
+            OOS test frame ONLY. Off by default so HPO trials stay fast;
+            the final reporting run turns it on. Rule-based strategies
+            (no feature columns) are skipped automatically.
 
     Returns:
         One ``FoldResult`` per validator fold, in fold order.
@@ -301,6 +315,17 @@ def evaluate_walk_forward(
 
         signals = strategy.generate_signals(test_frame)
         diagnostics = MappingProxyType(dict(strategy.get_fold_diagnostics()))
+
+        fold_importance: FoldImportance | None = None
+        if compute_feature_importance:
+            fold_importance = compute_fold_importance(
+                strategy,
+                test_frame,
+                fold.fold_index,
+                n_repeats=FEATURE_IMPORTANCE_N_REPEATS,
+                rng=np.random.default_rng(FEATURE_IMPORTANCE_RNG_SEED + fold.fold_index),
+            )
+
         raw = dispatch_engine_run(engine, strategy, fold.test, signals, slippage)
         metrics = MetricsCalculator.compute(
             raw.equity_curve,
@@ -324,6 +349,7 @@ def evaluate_walk_forward(
                 backtest=raw,
                 metrics=metrics,
                 strategy_diagnostics=diagnostics,
+                feature_importance=fold_importance,
             )
         )
 

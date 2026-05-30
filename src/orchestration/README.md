@@ -9,7 +9,7 @@ multiple runs into cross-strategy comparison reports.
 | Entry point | Role |
 | --- | --- |
 | `build_experiment(cfg)` | `ExperimentConfig` -> wired `Experiment` (resolves data source, strategy, validator, engine, slippage, optional feature-pipeline factory). |
-| `Experiment.run(options)` | Execute walk-forward; write `config.yaml`, `manifest.json`, `fold_results.jsonl`, `metrics.json`, `strategy_state/`, `run.log` (root-logger tee for the duration of the run), optional report. |
+| `Experiment.run(options)` | Execute walk-forward; write `config.yaml`, `manifest.json`, `fold_results.jsonl`, `metrics.json`, `strategy_state/`, `run.log` (root-logger tee for the duration of the run), optional report. `RunOptions.compute_feature_importance` (off by default; on for the study's final per-leg runs) additionally writes `feature_importance.json` for feature-consuming strategies. |
 | `run_comparison(configs, ..., reused_results=...)` | Run N strategies on aligned data, rank them, pairwise-bootstrap Sharpe differentials. With `reused_results=` set, the per-strategy walk-forward step is skipped and prior fold artifacts feed the rest of the pipeline; `configs=` may be omitted on the reuse path and strategy names are read from each result's `manifest.name`. |
 | `load_experiment_result(run_dir)` / `load_experiment_config_from_run(run_dir)` / `resolve_run_dir(store, id)` | Reconstruct an `ExperimentResult` (or its frozen `ExperimentConfig`) from a persisted run directory; powers `compare --reuse-runs`. `resolve_run_dir` resolves a run by id under both the flat `runs/<id>` and study-nested `studies/<x>/runs/<id>` layouts (flat-first, recursive fallback), so a deployment can point at a study-internal run. |
 | `load_strategy_from_run_dir(run_dir)` | Registry-driven loader: returns a fully-trained `IStrategy` instance whose `generate_signals` works immediately. Used by the deployment layer. |
@@ -36,7 +36,7 @@ multiple runs into cross-strategy comparison reports.
 | `holdout_eval.py` | `run_holdout_eval` (one-shot honest-OOS) + `resolve_source` (CLI source-pair resolver). Writes a `holdout_eval.json` payload with the `is_holdout_eval: true` marker - does NOT write a `Manifest` (post-hoc evaluation, not a new experiment). |
 | `study.py` | Empirical-study orchestrator: leg expansion, universe-profile composition, per-universe cross-strategy compare. |
 | `study_state.py` | `LegState` + `StudyState` resume dataclasses; atomic write via `os.replace`; spec-hash guard refuses to resume against a mutated spec. |
-| `study_report.py` | `consolidate_study(study_dir)` walker + `ConsolidatedStudyReport` / `HoldoutSnapshot` value types - collapses per-leg artifacts into a cross-leg view consumed by `StudyReportReporter`. |
+| `study_report.py` | `consolidate_study(study_dir)` walker + `ConsolidatedStudyReport` / `HoldoutSnapshot` value types - collapses per-leg artifacts (metrics, holdout, DSR, floor-bind, feature-importance) into a cross-leg view consumed by `StudyReportReporter`. |
 | `clean.py` | `plan_clean` / `apply_clean` / `format_plan` - tidy ephemeral `experiment_results/` subdirs with a `--keep` preserve set and a `git ls-files` refusal on tracked content. |
 | `git_info.py` | `read_git_sha()` - best-effort short SHA, `"unknown"` outside git. |
 | `types.py` | `ExperimentResult`, `FoldRecord`, `StrategyComparisonReport`, `PairwiseSignificance` (round-trips via `to_dict` / `from_dict`). |

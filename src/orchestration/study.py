@@ -284,6 +284,7 @@ def run_leg(
                     store_root=study_dir,
                     write_report=True,
                     publish_label=f"study:{leg.leg_id}",
+                    compute_feature_importance=True,
                 )
             )
             run_experiment_id = result.experiment_id

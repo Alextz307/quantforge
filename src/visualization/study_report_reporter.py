@@ -20,6 +20,7 @@ holdout equity curves - every scalar already lives on the in-memory
 from __future__ import annotations
 
 import shutil
+from collections import defaultdict
 from collections.abc import Mapping
 from pathlib import Path
 
@@ -27,6 +28,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
+from src.analysis.feature_importance import AggregatedImportance, ImportanceMethod
 from src.analysis.metrics_aggregator import AggregateStats
 from src.analysis.significance import DeflatedSharpe
 from src.core import json_io
@@ -68,9 +70,11 @@ _PAIRWISE_PER_UNIVERSE_SUBDIR = "pairwise_significance"
 
 _STRATEGY_X_UNIVERSE_HEATMAP_FILENAME = "strategy_x_universe_heatmap.png"
 _HOLDOUT_DEV_SCATTER_FILENAME = "holdout_dev_scatter.png"
+_FEATURE_IMPORTANCE_HEATMAP_FILENAME = "feature_importance_heatmap.png"
 
 _EQUITY_OVERLAYS_SUBDIR = "per_universe_equity_overlays"
 _HOLDOUT_EQUITY_CURVES_SUBDIR = "holdout_equity_curves"
+_FEATURE_IMPORTANCE_BARS_SUBDIR = "feature_importance"
 
 
 class StudyReportReporter:
@@ -125,6 +129,7 @@ class StudyReportReporter:
 
         self._plot_strategy_x_universe_heatmap(report, plots_dir)
         self._plot_holdout_dev_scatter(report, plots_dir)
+        self._plot_feature_importance(report, plots_dir)
         self._copy_equity_overlays(report, plots_dir)
         self._copy_holdout_equity_curves(report, plots_dir)
 
@@ -327,6 +332,68 @@ class StudyReportReporter:
         save_png_and_svg(fig, out_path)
         plt.close(fig)
 
+    def _plot_feature_importance(self, report: ConsolidatedStudyReport, plots_dir: Path) -> None:
+        """
+        Per-strategy permutation-importance bars + a feature x strategy heatmap.
+
+        Uses permutation importance (the model-agnostic method shared by every
+        feature-consuming strategy) averaged across each strategy's universes.
+        Skipped entirely when no leg emitted a feature-importance artifact
+        (rule-based-only sweeps, or importance disabled on the run).
+        """
+
+        if not report.per_leg_feature_importance:
+            _logger.info(
+                "no feature-importance artifacts on any leg - skipping feature-importance plots"
+            )
+            return
+        per_strategy = _permutation_means_by_strategy(report.per_leg_feature_importance)
+        per_strategy = {s: means for s, means in per_strategy.items() if means}
+        if not per_strategy:
+            return
+
+        bars_dir = plots_dir / _FEATURE_IMPORTANCE_BARS_SUBDIR
+        bars_dir.mkdir(parents=True, exist_ok=True)
+        for strategy in sorted(per_strategy):
+            ordered = sorted(per_strategy[strategy].items(), key=lambda kv: kv[1], reverse=True)
+            names = [feature for feature, _ in ordered]
+            values = [value for _, value in ordered]
+            fig, ax = plt.subplots(figsize=(FIGURE_WIDTH_IN, FIGURE_HEIGHT_IN), dpi=FIGURE_DPI)
+            try:
+                ax.barh(range(len(names)), values, color="tab:blue")
+                # A bar left of 0 marks a feature whose permutation improved the
+                # score (it hurt), not merely the least important one.
+                ax.axvline(0.0, color="0.4", linewidth=0.8)
+                ax.set_yticks(range(len(names)))
+                ax.set_yticklabels(names)
+                ax.invert_yaxis()
+                ax.set_xlabel("permutation importance (mean OOS score drop)")
+                ax.set_title(f"feature importance - {strategy}")
+                ax.grid(True, axis="x", alpha=0.3)
+                fig.tight_layout()
+                save_png_and_svg(fig, bars_dir / f"{strategy}.png")
+            finally:
+                plt.close(fig)
+
+        strategies = sorted(per_strategy)
+        features = sorted({feature for means in per_strategy.values() for feature in means})
+        matrix = np.full((len(features), len(strategies)), np.nan, dtype=np.float64)
+        for j, strategy in enumerate(strategies):
+            for i, feature in enumerate(features):
+                value = per_strategy[strategy].get(feature)
+                if value is not None:
+                    matrix[i, j] = value
+        render_value_heatmap(
+            matrix,
+            row_labels=features,
+            col_labels=strategies,
+            out_path=plots_dir / _FEATURE_IMPORTANCE_HEATMAP_FILENAME,
+            title="feature x strategy (mean permutation importance)",
+            xlabel="strategy",
+            ylabel="feature",
+            placeholder_log_label="feature x strategy importance",
+        )
+
     def _copy_equity_overlays(self, report: ConsolidatedStudyReport, plots_dir: Path) -> None:
         dest_dir = plots_dir / _EQUITY_OVERLAYS_SUBDIR
         for universe in report.universes:
@@ -415,6 +482,31 @@ def _build_ranking_df(
             }
         )
     return pd.DataFrame(rows)
+
+
+def _permutation_means_by_strategy(
+    per_leg: Mapping[tuple[str, str], tuple[AggregatedImportance, ...]],
+) -> dict[str, dict[str, float]]:
+    """
+    Collapse per-leg importance to ``strategy -> {feature -> mean permutation importance}``.
+
+    Averages the permutation-method importance of each feature across that
+    strategy's universes (gain entries are ignored - the cross-strategy view
+    uses the one method every feature-consuming strategy shares). NaN values
+    (a leg that could not score the feature) are dropped before averaging so
+    one failed leg cannot poison a feature's cross-universe mean; a feature
+    that is NaN on every universe is omitted entirely rather than shown blank.
+    """
+
+    accumulated: dict[str, dict[str, list[float]]] = defaultdict(lambda: defaultdict(list))
+    for (strategy, _universe), aggs in per_leg.items():
+        for agg in aggs:
+            if agg.method is ImportanceMethod.PERMUTATION and not np.isnan(agg.importance):
+                accumulated[strategy][agg.feature].append(agg.importance)
+    return {
+        strategy: {feature: float(np.mean(values)) for feature, values in features.items()}
+        for strategy, features in accumulated.items()
+    }
 
 
 def _build_holdout_df(
@@ -569,6 +661,7 @@ def _build_manifest_dict(report: ConsolidatedStudyReport, *, slug: str) -> dict[
         "n_legs_with_holdout": len(report.per_leg_holdout),
         "n_legs_with_dsr": len(report.per_leg_dsr),
         "n_legs_with_floor_bind": len(report.per_leg_floor_bind),
+        "n_legs_with_feature_importance": len(report.per_leg_feature_importance),
         "n_universes_with_pairwise": len(report.per_universe_pairwise),
     }
 

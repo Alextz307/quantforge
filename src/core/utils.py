@@ -98,3 +98,74 @@ def align_features_for_directional_target(
     features_aligned = features.loc[target.index]
     valid_mask = features_aligned.notna().all(axis=1)
     return features_aligned.loc[valid_mask], target.loc[valid_mask]
+
+
+def directional_accuracy(
+    prediction: pd.Series[float],
+    close: pd.Series[float],
+    *,
+    threshold: float = 0.0,
+) -> float:
+    """
+    Hit-rate of a directional forecast against the realised next-bar move.
+
+    ``prediction`` is the model's continuous output at bar ``t`` (a forecast
+    return, or an up-probability); a value above ``threshold`` is read as
+    "up". It is aligned against ``next_bar_direction(close)`` and masked to
+    rows where both are present BEFORE the threshold is applied - so warmup
+    rows (NaN prediction) are dropped rather than silently coerced to
+    "down", and the final bar (no ``t+1`` close, hence NaN realised) never
+    contributes. The realised target is derived only from ``close``, so it
+    is invariant to permuting any engineered feature. Returns ``nan`` when no
+    bar survives alignment.
+
+    ``threshold`` is ``0.0`` for signed-return forecasts and ``0.5`` for
+    probability forecasts. ``prediction`` must be indexed within ``close``'s
+    index (it may be a subset - warmup rows legitimately drop out); a stray
+    label raises rather than letting the index-aligned join silently discard a
+    mismatched forecast as NaN.
+    """
+
+    stray_labels = prediction.index.difference(close.index)
+    if len(stray_labels) > 0:
+        raise ValueError(
+            f"directional_accuracy: prediction carries {len(stray_labels)} index "
+            f"label(s) absent from close (e.g. {stray_labels[0]!r}); align the "
+            f"forecast to the close series so no row is silently dropped."
+        )
+    realised = next_bar_direction(close)
+    aligned = pd.DataFrame({"prediction": prediction, "realised": realised}).dropna()
+    if aligned.empty:
+        return float("nan")
+    predicted_up = (aligned["prediction"] > threshold).astype(int)
+    return float((predicted_up == aligned["realised"]).mean())
+
+
+def negative_qlike(
+    forecast_vol: pd.Series[float],
+    realised_vol: pd.Series[float],
+) -> float:
+    """
+    Negative mean QLIKE of a volatility forecast (higher is better).
+
+    Both inputs are annualized volatilities (standard deviations); they are
+    squared to variances and scored with the QLIKE loss
+    ``log(sigma2_hat) + sigma2_realised / sigma2_hat`` (Patton, 2011), which
+    is robust to the noisy realised proxy and consistent under an imperfect
+    variance estimator. The sign is flipped so a smaller forecast error
+    yields a larger score, matching the higher-is-better convention of the
+    permutation-importance driver. Inputs are aligned on their shared index
+    and masked to rows where both are present and the forecast is strictly
+    positive (QLIKE is undefined at ``sigma2_hat = 0``). Both series are
+    contemporaneous at bar ``t`` and use only bars ``<= t``. Returns ``nan``
+    when no bar survives.
+    """
+
+    aligned = pd.DataFrame({"forecast": forecast_vol, "realised": realised_vol}).dropna()
+    aligned = aligned[aligned["forecast"] > 0.0]
+    if aligned.empty:
+        return float("nan")
+    var_hat = aligned["forecast"] ** 2
+    var_realised = aligned["realised"] ** 2
+    qlike = np.log(var_hat) + var_realised / var_hat
+    return float(-qlike.mean())

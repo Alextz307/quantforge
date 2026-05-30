@@ -243,6 +243,67 @@ class IStrategy(ABC):
 
         return MappingProxyType({})
 
+    def feature_columns(self) -> tuple[str, ...]:
+        """
+        Engineered feature columns this strategy's model consumes.
+
+        Default empty: rule-based strategies (Bollinger, Pairs) consume no
+        engineered features, so the feature-importance subsystem skips them.
+        Feature-consuming strategies override to return the deterministic
+        column names their leaf model was trained on - the set the permutation
+        driver shuffles one column at a time. None of these names may be
+        ``close`` (the permutation must leave the realised-target basis intact).
+        """
+
+        return ()
+
+    def feature_importance_frame(self, data: pd.DataFrame) -> pd.DataFrame | None:
+        """
+        Build the frame the importance driver permutes and scores.
+
+        Must contain every column in :meth:`feature_columns` plus a raw
+        ``close`` column (the basis for the realised target). Two shapes:
+
+        * Strategies whose model already reads engineered columns straight
+          from the input frame (the ARMA/GARCH hybrids) return ``data``
+          unchanged - the features and raw OHLC are already present.
+        * Strategies that compute features internally from raw OHLCV (the
+          classifier strategies) materialise their feature matrix here and
+          attach a raw ``close`` column, so the driver can shuffle the
+          engineered columns the model actually consumes.
+
+        Default ``None``: the strategy is skipped by the importance subsystem.
+        """
+
+        return None
+
+    def feature_importance_score(self, frame: pd.DataFrame) -> float | None:
+        """
+        Higher-is-better score of the model's predictions on ``frame``.
+
+        ``frame`` is a (possibly column-permuted) frame from
+        :meth:`feature_importance_frame`. Out-of-sample permutation importance
+        re-scores it with one feature column shuffled and attributes the score
+        drop to that feature. The score MUST reflect what the model predicts
+        (directional hit-rate for return / probability models; negative QLIKE
+        for the volatility forecaster) and derive its realised target only
+        from ``frame['close']`` (never a feature column), so it stays invariant
+        to feature permutation. Default ``None``: the strategy is skipped.
+        """
+
+        return None
+
+    def feature_gain(self) -> Mapping[str, float] | None:
+        """
+        Native booster gain per feature column, for tree-model strategies only.
+
+        Default ``None``: non-tree strategies (hybrids, rule-based) have no
+        gain map. XGBoost-backed strategies override to return one entry per
+        feature column (zero-filled for features the booster never split on).
+        """
+
+        return None
+
     def save(self, path: str | Path) -> None:
         """
         Persist the trained strategy to a directory at ``path``.

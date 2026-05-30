@@ -39,7 +39,7 @@ pyproject, Python vs. C++ constants).
 
 | Command | Output | Notes |
 | --- | --- | --- |
-| `run --config <yaml>` | `experiment_results/runs/<experiment_id>/` | Walk-forward -> `manifest.json` + `fold_results.jsonl` + `metrics.json` + optional `strategy_state/`. |
+| `run --config <yaml> [--feature-importance]` | `experiment_results/runs/<experiment_id>/` | Walk-forward -> `manifest.json` + `fold_results.jsonl` + `metrics.json` + optional `strategy_state/`. `--feature-importance` adds OOS per-fold feature importance (permutation + XGBoost gain) as `feature_importance.json` for feature-consuming strategies. |
 | `tune --config <exp.yaml> --hpo-config <hpo.yaml>` | `experiment_results/hpo/<study>/` | Optuna study via `StrategyTuner`; resumable. |
 | `compare --config <yaml> ... --out <name> [--reuse-runs <dirs>]` | `experiment_results/comparisons/<out>/` | N strategies on aligned data, ranked + pairwise-bootstrapped. With `--reuse-runs <a,b,...>` (one path per `--config` in matching order) the per-strategy walk-forward step is skipped and prior fold artifacts feed ranking + bootstrap. |
 | `holdout-eval --run-dir <path> \| --hpo-best <path>` | `experiment_results/holdout_evals/<out>/` | Refit on full dev, evaluate once on the reserved holdout - the honest one-shot OOS number. Sources are mutually exclusive; manifest cross-checks `holdout_start` + `data_hash` before fitting. |

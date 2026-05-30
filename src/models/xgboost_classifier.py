@@ -262,6 +262,35 @@ class DirectionalClassifier(IClassifier):
         preds = self._model.predict(data[self._feature_columns])
         return pd.Series(preds, index=data.index, name="direction")
 
+    def feature_gain(self) -> dict[str, float]:
+        """
+        Native XGBoost gain importance per training feature column.
+
+        Reads the fitted booster's ``gain`` score - the average loss
+        reduction each feature delivered across the splits that used it.
+        Features the booster never split on are absent from the raw score
+        map; they are filled with ``0.0`` so the returned dict always has
+        exactly one entry per training feature column (a stable schema for
+        the importance artifact). Reads the booster only - no private leaf
+        state is exposed to a wrapping composite.
+        """
+
+        self._assert_fitted_with_metadata()
+        if self._model is None:
+            raise RuntimeError(
+                "DirectionalClassifier.feature_gain() invoked with no booster "
+                "wired; fix by re-running classifier.fit(train_data, target)."
+            )
+
+        raw = self._model.get_booster().get_score(importance_type="gain")
+        gain: dict[str, float] = {}
+        for column in self._feature_columns:
+            value = raw.get(column, 0.0)
+            # `gain` importance is always scalar; the stub's union also admits
+            # list-valued importances (weight/cover variants), so narrow.
+            gain[column] = float(value[0]) if isinstance(value, list) else float(value)
+        return gain
+
     def save(self, path: str | Path) -> None:
         """
         Persist classifier config + booster to ``path``.
