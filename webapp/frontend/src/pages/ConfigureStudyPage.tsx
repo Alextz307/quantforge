@@ -150,6 +150,7 @@ export function ConfigureStudyPage() {
         skip_compares: skipCompares,
         skip_holdout_eval: skipHoldoutEval,
       },
+      feature_importance: false,
     });
     navigate(jobDetailPath(job.id));
   };

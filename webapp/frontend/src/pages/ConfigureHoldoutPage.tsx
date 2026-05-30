@@ -99,6 +99,7 @@ export function ConfigureHoldoutPage() {
           write_report: writeReport,
           publish_label: publishLabel === "" ? null : publishLabel,
         },
+        feature_importance: false,
       });
       navigate(jobDetailPath(job.id));
     } catch (err) {

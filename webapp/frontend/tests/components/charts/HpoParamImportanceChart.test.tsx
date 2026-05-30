@@ -1,6 +1,7 @@
 import { screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { HpoParamImportanceChart } from "@/components/charts/HpoParamImportanceChart";
+import { buildHpoImportanceRows } from "@/components/charts/hpoImportanceRows";
 import type { ParamImportanceResponse } from "@/api/hpo";
 import { renderWithProviders } from "../../util/render";
 
@@ -18,6 +19,17 @@ const EMPTY_NO_MESSAGE: ParamImportanceResponse = {
   importance: {},
   message: null,
 };
+
+describe("buildHpoImportanceRows", () => {
+  it("pairs each name with its own value in ascending order", () => {
+    const rows = buildHpoImportanceRows({ window: 0.7, k: 0.3 });
+
+    expect(rows).toEqual([
+      { name: "k", value: 0.3 },
+      { name: "window", value: 0.7 },
+    ]);
+  });
+});
 
 describe("HpoParamImportanceChart", () => {
   it("renders the chart wrapper with the param count", () => {

@@ -17,6 +17,7 @@ export const queryKeys = {
   runsPage: (params: RunsPageParams & { allUsers: boolean }) => ["runs", "page", params] as const,
   run: (id: string) => ["runs", id] as const,
   runFolds: (id: string) => ["runs", id, "folds"] as const,
+  runFeatureImportance: (id: string) => ["runs", id, "feature-importance"] as const,
   comparisons: ["comparisons"] as const,
   comparisonsList: (allUsers: boolean) => ["comparisons", { allUsers }] as const,
   comparison: (name: string) => ["comparisons", name] as const,

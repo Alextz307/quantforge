@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import type { Data, Layout } from "plotly.js";
 import { Plot, useThemedLayout } from "@/components/charts/plot";
+import { buildHpoImportanceRows } from "@/components/charts/hpoImportanceRows";
 import type { ParamImportanceResponse } from "@/api/hpo";
 
 export interface HpoParamImportanceChartProps {
@@ -8,19 +9,8 @@ export interface HpoParamImportanceChartProps {
   height?: number;
 }
 
-interface ImportanceRow {
-  name: string;
-  value: number;
-}
-
-function sortDescending(importance: Record<string, number>): ImportanceRow[] {
-  return Object.entries(importance)
-    .map(([name, value]) => ({ name, value }))
-    .sort((a, b) => b.value - a.value);
-}
-
 export function HpoParamImportanceChart({ response, height = 320 }: HpoParamImportanceChartProps) {
-  const rows = useMemo(() => sortDescending(response.importance), [response.importance]);
+  const rows = useMemo(() => buildHpoImportanceRows(response.importance), [response.importance]);
 
   const plotData = useMemo<Data[]>(
     () => [
@@ -28,9 +18,7 @@ export function HpoParamImportanceChart({ response, height = 320 }: HpoParamImpo
         type: "bar",
         orientation: "h",
         x: rows.map((r) => r.value),
-        // Plotly draws categorical y bottom-up, so reverse so the highest
-        // importance sits at the top of the chart.
-        y: rows.map((r) => r.name).reverse(),
+        y: rows.map((r) => r.name),
         marker: { color: "#3b82f6" },
         hovertemplate: "%{y}: %{x:.3f}<extra></extra>",
       },

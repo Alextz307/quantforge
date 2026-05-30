@@ -486,3 +486,14 @@ def test_score_nan_serializes_as_null_and_round_trips() -> None:
     restored = FeatureImportance.from_dict(payload)
     assert math.isnan(restored.importance)
     assert math.isnan(restored.std)
+
+
+def test_score_inf_serializes_as_null() -> None:
+    fi = FeatureImportance(_SIGNAL_COL, float("inf"), float("-inf"), ImportanceMethod.PERMUTATION)
+    payload = fi.to_dict()
+    assert payload["importance"] is None
+    assert payload["std"] is None
+    assert "Infinity" not in json.dumps(payload)
+    restored = FeatureImportance.from_dict(payload)
+    assert math.isnan(restored.importance)
+    assert math.isnan(restored.std)

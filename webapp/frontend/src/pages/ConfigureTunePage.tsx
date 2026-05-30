@@ -88,6 +88,7 @@ export function ConfigureTunePage() {
         config_payload: experimentPayload,
         hpo_payload: hpoPayload,
         overrides: [],
+        feature_importance: false,
       });
       navigate(jobDetailPath(job.id));
     } catch (err) {

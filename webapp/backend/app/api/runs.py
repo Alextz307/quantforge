@@ -13,6 +13,7 @@ from fastapi.responses import FileResponse
 from webapp.backend.app.core.deps import get_current_user, get_db
 from webapp.backend.app.core.settings import get_settings
 from webapp.backend.app.schemas.runs import (
+    FeatureImportanceResponse,
     FoldRow,
     RunDetail,
     RunSortBy,
@@ -23,6 +24,7 @@ from webapp.backend.app.schemas.users import UserPublic
 from webapp.backend.app.services.run_service import (
     PlotNotFoundError,
     RunNotFoundError,
+    get_feature_importance,
     get_folds,
     get_run,
     list_runs_page,
@@ -80,6 +82,20 @@ def get_run_folds(
 ) -> list[FoldRow]:
     try:
         return get_folds(get_settings().store_root, experiment_id, conn=conn, user=user)
+    except RunNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+
+
+@router.get("/{experiment_id}/feature-importance", response_model=FeatureImportanceResponse)
+def get_run_feature_importance(
+    experiment_id: str,
+    user: UserPublic = Depends(get_current_user),
+    conn: sqlite3.Connection = Depends(get_db),
+) -> FeatureImportanceResponse:
+    try:
+        return get_feature_importance(
+            get_settings().store_root, experiment_id, conn=conn, user=user
+        )
     except RunNotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
 

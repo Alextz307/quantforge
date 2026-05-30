@@ -9,14 +9,33 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 
+from src.analysis.feature_importance import (
+    FeatureImportance,
+    FoldImportance,
+    ImportanceMethod,
+    build_importance_artifact,
+)
+from src.core import json_io
+from src.core.persistence import FEATURE_IMPORTANCE_JSON
 from webapp.backend.tests.conftest import PLOT_BYTES, PLOT_FILENAME
 
 FLAT_ID = "20260101_120000_AdaptiveBollinger_abc1234_deadbeef"
 STUDY_ID = "20260201_090000_PairsTrading_def5678_cafebabe"
 EXPECTED_RUN_COUNT = 2
 DEFAULT_FOLD_COUNT = 3
+EXPECTED_IMPORTANCE_ENTRY_COUNT = 2
 
 RUNS_PATH = "/api/runs"
+
+_IMPORTANCE_FOLDS = (
+    FoldImportance(
+        fold_index=0,
+        scores=(
+            FeatureImportance("rsi_14", 0.40, 0.0, ImportanceMethod.PERMUTATION),
+            FeatureImportance("vol_20", 0.10, 0.0, ImportanceMethod.PERMUTATION),
+        ),
+    ),
+)
 
 
 def test_list_runs_requires_auth(webapp_store: Path, client: TestClient) -> None:
@@ -106,3 +125,43 @@ def test_get_run_plot_404_for_missing_plot(webapp_store: Path, authed_client: Te
     response = authed_client.get(f"{RUNS_PATH}/{FLAT_ID}/plots/does_not_exist.png")
 
     assert response.status_code == HTTPStatus.NOT_FOUND
+
+
+def test_get_run_feature_importance_returns_entries(
+    webapp_store: Path, authed_client: TestClient
+) -> None:
+    run_dir = webapp_store / "flat_store" / "runs" / FLAT_ID
+    json_io.write(run_dir / FEATURE_IMPORTANCE_JSON, build_importance_artifact(_IMPORTANCE_FOLDS))
+
+    response = authed_client.get(f"{RUNS_PATH}/{FLAT_ID}/feature-importance")
+
+    assert response.status_code == HTTPStatus.OK
+    payload = response.json()
+    assert len(payload["entries"]) == EXPECTED_IMPORTANCE_ENTRY_COUNT
+    assert payload["message"] is None
+    assert {e["method"] for e in payload["entries"]} == {ImportanceMethod.PERMUTATION.value}
+
+
+def test_get_run_feature_importance_empty_when_absent(
+    webapp_store: Path, authed_client: TestClient
+) -> None:
+    response = authed_client.get(f"{RUNS_PATH}/{STUDY_ID}/feature-importance")
+
+    assert response.status_code == HTTPStatus.OK
+    payload = response.json()
+    assert payload["entries"] == []
+    assert payload["message"] is not None
+
+
+def test_get_run_feature_importance_404_for_unknown(
+    webapp_store: Path, authed_client: TestClient
+) -> None:
+    response = authed_client.get(f"{RUNS_PATH}/missing_id/feature-importance")
+
+    assert response.status_code == HTTPStatus.NOT_FOUND
+
+
+def test_get_run_feature_importance_requires_auth(webapp_store: Path, client: TestClient) -> None:
+    response = client.get(f"{RUNS_PATH}/{FLAT_ID}/feature-importance")
+
+    assert response.status_code == HTTPStatus.UNAUTHORIZED

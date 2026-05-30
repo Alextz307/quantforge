@@ -83,15 +83,14 @@ class ImportanceMethod(StrEnum):
 
 def _score_to_json(value: float) -> float | None:
     """
-    Map a score field to a JSON-safe value: ``null`` for NaN, the float otherwise.
+    Map a score field to a JSON-safe value: ``null`` for non-finite, the float otherwise.
 
-    JSON has no NaN literal - ``json.dump`` would emit the bare token ``NaN``,
-    which strict (non-Python) parsers such as the webapp frontend reject. A
-    NaN importance only arises on a degenerate fold the driver could not score;
-    encoding it as ``null`` keeps ``feature_importance.json`` spec-valid.
+    ``json.dump`` (default ``allow_nan=True``) would emit the bare ``NaN`` /
+    ``Infinity`` tokens, which strict non-Python parsers (the webapp frontend)
+    reject; encoding non-finite as ``null`` keeps ``feature_importance.json`` valid.
     """
 
-    return None if math.isnan(value) else value
+    return None if not math.isfinite(value) else value
 
 
 def _score_from_json(payload: dict[str, object], key: str) -> float:

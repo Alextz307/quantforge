@@ -35,6 +35,14 @@ describe("RunDetailPage", () => {
     expect(plotLink).toHaveAttribute("href", `/api/runs/${RUN_SPY.experiment_id}/plots/equity.png`);
   });
 
+  it("renders the feature-importance empty card for a rule-based run", async () => {
+    renderWithProviders(<Tree />, { initialEntries: [runDetailPath(RUN_SPY.experiment_id)] });
+
+    expect(await screen.findByTestId("feature-importance-empty")).toHaveTextContent(
+      /not computed/i,
+    );
+  });
+
   it("shows the 'Run holdout eval' CTA when the manifest has a holdout boundary", async () => {
     renderWithProviders(<Tree />, { initialEntries: [runDetailPath(RUN_SPY.experiment_id)] });
     const cta = await screen.findByTestId("run-detail-holdout-cta");

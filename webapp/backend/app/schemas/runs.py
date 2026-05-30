@@ -9,6 +9,7 @@ from enum import StrEnum
 
 from pydantic import BaseModel
 
+from src.analysis.feature_importance import ImportanceMethod
 from src.engine.scenarios import SlippageScenario
 
 
@@ -99,3 +100,31 @@ class RunsPage(BaseModel):
     total: int
     limit: int
     offset: int
+
+
+class FeatureImportanceEntry(BaseModel):
+    """
+    One feature's cross-fold aggregated importance under one method.
+
+    ``importance`` and ``std`` are ``None`` when the aggregate is non-finite
+    (a degenerate fold the driver could not score).
+    """
+
+    feature: str
+    importance: float | None
+    std: float | None
+    n_folds: int
+    method: ImportanceMethod
+
+
+class FeatureImportanceResponse(BaseModel):
+    """
+    Cross-fold feature importance for `/api/runs/{experiment_id}/feature-importance`.
+
+    ``entries`` is empty and ``message`` is set for the common "no artifact"
+    cases (importance not requested for the run, a rule-based strategy that
+    emits none, or a pre-importance run) so the endpoint stays 200.
+    """
+
+    entries: list[FeatureImportanceEntry]
+    message: str | None = None

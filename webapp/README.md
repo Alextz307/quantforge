@@ -33,7 +33,8 @@ Admin (role=admin):
 
 Read-only artifact API (auth-gated, all `GET`):
 - `/api/strategies`, `/api/strategies/{name}/schema`, `/api/models` - registry introspection + per-strategy ctor schema for the Configure form.
-- `/api/runs`, `/api/runs/{id}`, `/api/runs/{id}/folds`, `/api/runs/{id}/plots/{plot_name}` - persisted runs.
+- `/api/runs`, `/api/runs/{id}`, `/api/runs/{id}/folds`, `/api/runs/{id}/feature-importance`, `/api/runs/{id}/plots/{plot_name}` - persisted runs.
+- `/api/runs/{id}/feature-importance` - cross-fold out-of-sample feature importance for feature-consuming strategies: permutation (mean score drop +/- across-fold std) plus XGBoost native gain where available. Returns `{entries, message}` with `entries=[]` plus a `message` (still 200) when the run carries no artifact - importance is opt-in per run, off during HPO trials, and never emitted by rule-based strategies. Non-finite aggregates serialize as `null`.
 - `/api/comparisons`, `/api/comparisons/{name}`, `/api/comparisons/{name}/plots/{plot_name}` - cross-strategy comparisons.
 - `/api/holdout-evals`, `/api/holdout-evals/{name}`, `/api/holdout-evals/{name}/plots/{plot_name}` - holdout evaluations.
 - `/api/studies`, `/api/studies/{name}` - multi-leg study state + completion progress.
@@ -53,7 +54,7 @@ Configs (auth-gated):
 
 Jobs (auth-gated; per-user scope, admins may pass `?all=1`):
 - `POST /api/jobs` - submit a `JobSubmission`. The `kind` discriminator selects the payload:
-  - `kind=run` + `config_payload` - spawn `experiment run`.
+  - `kind=run` + `config_payload` (+ optional `feature_importance: true`) - spawn `experiment run`; the flag appends `--feature-importance` so the run computes and writes the importance artifact. Rejected with 422 for any non-run kind.
   - `kind=tune` + `config_payload` + `hpo_payload` - spawn `experiment tune`.
   - `kind=compare` + `compare_payload` - spawn `experiment compare` in `--reuse-runs` mode over 2-8 existing run dirs.
   - `kind=holdout` + `holdout_payload` - spawn `experiment holdout-eval` against a run (with `holdout_start`) or an HPO study (with `best_config.yaml`).
@@ -119,9 +120,12 @@ subcommand (`run` / `tune` / `compare` / `holdout-eval`) under
 pages drive the lifecycle. `/configure` is a hub: Run / Tune build
 experiments from scratch, while Compare / Holdout / Deploy reuse completed
 artifacts (the run/HPO detail pages also surface contextual "Run holdout
-eval" CTAs when the source carries the required artifact). The **New
-deployment** card routes to `/deployments?new=1`, which opens the deploy
-picker.
+eval" CTAs when the source carries the required artifact). The Configure
+run form carries a **Compute feature importance** toggle, and a run's
+detail page renders a **Feature importance** panel - permutation and
+XGBoost-gain bars with a method toggle, empty-state when the run carries no
+artifact. The **New deployment** card routes to `/deployments?new=1`, which
+opens the deploy picker.
 
 `/deployments` lists saved deployments and hosts an inline picker that shows
 **only** models with a holdout evaluation (run- or HPO-sourced, one row per

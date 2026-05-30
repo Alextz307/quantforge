@@ -429,6 +429,81 @@
         "title": "DeploymentSummary",
         "type": "object"
       },
+      "FeatureImportanceEntry": {
+        "description": "One feature's cross-fold aggregated importance under one method.\n\n``importance`` and ``std`` are ``None`` when the aggregate is non-finite\n(a degenerate fold the driver could not score).",
+        "properties": {
+          "feature": {
+            "title": "Feature",
+            "type": "string"
+          },
+          "importance": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Importance"
+          },
+          "method": {
+            "$ref": "#/components/schemas/ImportanceMethod"
+          },
+          "n_folds": {
+            "title": "N Folds",
+            "type": "integer"
+          },
+          "std": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Std"
+          }
+        },
+        "required": [
+          "feature",
+          "importance",
+          "std",
+          "n_folds",
+          "method"
+        ],
+        "title": "FeatureImportanceEntry",
+        "type": "object"
+      },
+      "FeatureImportanceResponse": {
+        "description": "Cross-fold feature importance for `/api/runs/{experiment_id}/feature-importance`.\n\n``entries`` is empty and ``message`` is set for the common \"no artifact\"\ncases (importance not requested for the run, a rule-based strategy that\nemits none, or a pre-importance run) so the endpoint stays 200.",
+        "properties": {
+          "entries": {
+            "items": {
+              "$ref": "#/components/schemas/FeatureImportanceEntry"
+            },
+            "title": "Entries",
+            "type": "array"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          }
+        },
+        "required": [
+          "entries"
+        ],
+        "title": "FeatureImportanceResponse",
+        "type": "object"
+      },
       "FoldRow": {
         "properties": {
           "annualized_return": {
@@ -1005,6 +1080,15 @@
         "title": "HpoSummary",
         "type": "object"
       },
+      "ImportanceMethod": {
+        "description": "How a feature-importance score was produced.",
+        "enum": [
+          "permutation",
+          "xgb_gain"
+        ],
+        "title": "ImportanceMethod",
+        "type": "string"
+      },
       "Interval": {
         "description": "Bar timeframe - used for annualization factor computation.",
         "enum": [
@@ -1170,6 +1254,11 @@
               }
             ],
             "title": "Config Payload"
+          },
+          "feature_importance": {
+            "default": false,
+            "title": "Feature Importance",
+            "type": "boolean"
           },
           "holdout_payload": {
             "anyOf": [
@@ -4901,6 +4990,48 @@
           }
         },
         "summary": "Get Run Detail",
+        "tags": [
+          "runs"
+        ]
+      }
+    },
+    "/api/runs/{experiment_id}/feature-importance": {
+      "get": {
+        "operationId": "get_run_feature_importance_api_runs__experiment_id__feature_importance_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "experiment_id",
+            "required": true,
+            "schema": {
+              "title": "Experiment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeatureImportanceResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Run Feature Importance",
         "tags": [
           "runs"
         ]

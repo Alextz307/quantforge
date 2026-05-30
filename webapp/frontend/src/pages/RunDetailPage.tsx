@@ -1,12 +1,19 @@
 import { useMemo } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useCreateDeployment } from "@/api/deployments";
-import { plotDownloadUrl, useRun, useRunFolds, type FoldRow } from "@/api/runs";
+import {
+  plotDownloadUrl,
+  useFeatureImportance,
+  useRun,
+  useRunFolds,
+  type FoldRow,
+} from "@/api/runs";
 import { BackLink } from "@/components/BackLink";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EquityChart, type EquityTrace } from "@/components/charts/EquityChart";
+import { FeatureImportanceChart } from "@/components/charts/FeatureImportanceChart";
 import { FoldMetricsTable } from "@/components/runs/FoldMetricsTable";
 import { ManifestPanel } from "@/components/runs/ManifestPanel";
 import { PlotIndex } from "@/components/PlotIndex";
@@ -43,6 +50,7 @@ export function RunDetailPage() {
   const { experimentId = "" } = useParams<{ experimentId: string }>();
   const runQuery = useRun(experimentId);
   const foldsQuery = useRunFolds(experimentId);
+  const importanceQuery = useFeatureImportance(experimentId);
   const create = useCreateDeployment();
   const navigate = useNavigate();
 
@@ -120,6 +128,26 @@ export function RunDetailPage() {
                 loadingMessage="Loading folds..."
               >
                 {(folds) => <EquityChart traces={foldsToTraces(folds)} xLabel="Bar within fold" />}
+              </QueryRenderer>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Feature importance</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="mb-3 text-sm text-muted-foreground">
+                Out-of-sample permutation importance (mean score drop &plusmn; across-fold std);
+                XGBoost gain where available. The ARMA/GARCH+LSTM hybrids route features only
+                through the residual correction, so their bars compress toward zero.
+              </p>
+              <QueryRenderer
+                query={importanceQuery}
+                errorTitle="Failed to load feature importance"
+                loadingMessage="Loading feature importance..."
+              >
+                {(importance) => <FeatureImportanceChart response={importance} />}
               </QueryRenderer>
             </CardContent>
           </Card>

@@ -10,9 +10,18 @@ from pathlib import Path
 
 import pytest
 
+from src.analysis.feature_importance import (
+    FeatureImportance,
+    FoldImportance,
+    ImportanceMethod,
+    build_importance_artifact,
+)
+from src.core import json_io
+from src.core.persistence import FEATURE_IMPORTANCE_JSON
 from webapp.backend.app.infrastructure.store import RunNotFoundError
 from webapp.backend.app.services.run_service import (
     PlotNotFoundError,
+    get_feature_importance,
     get_folds,
     get_run,
     list_runs,
@@ -24,6 +33,62 @@ from webapp.backend.tests.conftest import (
     make_synthetic_run,
     make_viewer_user,
 )
+
+_FEATURE_A = "rsi_14"
+_FEATURE_B = "vol_20"
+_EXPECTED_ENTRY_COUNT = 4
+_EXPECTED_PERMUTATION_COUNT = 2
+_RSI_PERMUTATION_MEAN = 0.45
+_RSI_PERMUTATION_STD = 0.0707106781
+
+_BOTH_METHOD_FOLDS = (
+    FoldImportance(
+        fold_index=0,
+        scores=(
+            FeatureImportance(_FEATURE_A, 0.40, 0.0, ImportanceMethod.PERMUTATION),
+            FeatureImportance(_FEATURE_B, 0.10, 0.0, ImportanceMethod.PERMUTATION),
+            FeatureImportance(_FEATURE_A, 0.60, 0.0, ImportanceMethod.XGB_GAIN),
+            FeatureImportance(_FEATURE_B, 0.30, 0.0, ImportanceMethod.XGB_GAIN),
+        ),
+    ),
+    FoldImportance(
+        fold_index=1,
+        scores=(
+            FeatureImportance(_FEATURE_A, 0.50, 0.0, ImportanceMethod.PERMUTATION),
+            FeatureImportance(_FEATURE_B, 0.20, 0.0, ImportanceMethod.PERMUTATION),
+            FeatureImportance(_FEATURE_A, 0.70, 0.0, ImportanceMethod.XGB_GAIN),
+            FeatureImportance(_FEATURE_B, 0.40, 0.0, ImportanceMethod.XGB_GAIN),
+        ),
+    ),
+)
+
+# Two folds, both NaN -> aggregate mean AND across-fold std are NaN (null in JSON).
+_NAN_SCORE = FeatureImportance(_FEATURE_A, float("nan"), 0.0, ImportanceMethod.PERMUTATION)
+_NAN_FOLDS = (
+    FoldImportance(0, (_NAN_SCORE,)),
+    FoldImportance(1, (_NAN_SCORE,)),
+)
+
+# build_importance_artifact nulls non-finite scores, so hand-build a raw
+# Infinity payload to exercise the read-side guard on a legacy artifact.
+_INF_AGGREGATED_PAYLOAD: dict[str, object] = {
+    "n_folds": 1,
+    "per_fold": [],
+    "aggregated": [
+        {
+            "feature": _FEATURE_A,
+            "importance": float("inf"),
+            "std": 0.0,
+            "n_folds": 1,
+            "method": ImportanceMethod.PERMUTATION.value,
+        }
+    ],
+}
+
+
+def _write_importance(run_dir: Path, folds: tuple[FoldImportance, ...]) -> None:
+    json_io.write(run_dir / FEATURE_IMPORTANCE_JSON, build_importance_artifact(folds))
+
 
 NEWER_ID = "20260301_120000_AdaptiveBollinger_aaa1111_aaaaaaaa"
 OLDER_ID = "20260101_120000_AdaptiveBollinger_bbb2222_bbbbbbbb"
@@ -202,3 +267,70 @@ def test_resolve_plot_raises_for_missing_file(tmp_path: Path, db_conn: sqlite3.C
             conn=db_conn,
             user=make_viewer_user(db_conn),
         )
+
+
+def test_get_feature_importance_returns_aggregated_entries(
+    tmp_path: Path, db_conn: sqlite3.Connection
+) -> None:
+    root = tmp_path / "experiment_results"
+    run_dir = make_synthetic_run(root / "flat_store" / "runs", experiment_id=NEWER_ID)
+    _write_importance(run_dir, _BOTH_METHOD_FOLDS)
+
+    response = get_feature_importance(root, NEWER_ID, conn=db_conn, user=make_viewer_user(db_conn))
+
+    assert len(response.entries) == _EXPECTED_ENTRY_COUNT
+    assert response.message is None
+    permutation = [e for e in response.entries if e.method == ImportanceMethod.PERMUTATION]
+    assert len(permutation) == _EXPECTED_PERMUTATION_COUNT
+    rsi = next(e for e in permutation if e.feature == _FEATURE_A)
+    assert rsi.importance == pytest.approx(_RSI_PERMUTATION_MEAN)
+    assert rsi.std == pytest.approx(_RSI_PERMUTATION_STD)
+
+
+def test_get_feature_importance_missing_artifact_returns_empty_with_message(
+    tmp_path: Path, db_conn: sqlite3.Connection
+) -> None:
+    root = tmp_path / "experiment_results"
+    make_synthetic_run(root / "flat_store" / "runs", experiment_id=NEWER_ID)
+
+    response = get_feature_importance(root, NEWER_ID, conn=db_conn, user=make_viewer_user(db_conn))
+
+    assert response.entries == []
+    assert response.message is not None
+
+
+def test_get_feature_importance_maps_nan_to_none(
+    tmp_path: Path, db_conn: sqlite3.Connection
+) -> None:
+    root = tmp_path / "experiment_results"
+    run_dir = make_synthetic_run(root / "flat_store" / "runs", experiment_id=NEWER_ID)
+    _write_importance(run_dir, _NAN_FOLDS)
+
+    response = get_feature_importance(root, NEWER_ID, conn=db_conn, user=make_viewer_user(db_conn))
+
+    assert len(response.entries) == 1
+    assert response.entries[0].importance is None
+    assert response.entries[0].std is None
+
+
+def test_get_feature_importance_maps_inf_to_none(
+    tmp_path: Path, db_conn: sqlite3.Connection
+) -> None:
+    root = tmp_path / "experiment_results"
+    run_dir = make_synthetic_run(root / "flat_store" / "runs", experiment_id=NEWER_ID)
+    json_io.write(run_dir / FEATURE_IMPORTANCE_JSON, _INF_AGGREGATED_PAYLOAD)
+
+    response = get_feature_importance(root, NEWER_ID, conn=db_conn, user=make_viewer_user(db_conn))
+
+    assert len(response.entries) == 1
+    assert response.entries[0].importance is None
+
+
+def test_get_feature_importance_raises_for_unknown_id(
+    tmp_path: Path, db_conn: sqlite3.Connection
+) -> None:
+    root = tmp_path / "experiment_results"
+    make_synthetic_run(root / "flat_store" / "runs", experiment_id=NEWER_ID)
+
+    with pytest.raises(RunNotFoundError):
+        get_feature_importance(root, "missing_id", conn=db_conn, user=make_viewer_user(db_conn))

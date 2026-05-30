@@ -121,6 +121,9 @@ class JobSubmission(BaseModel):
     holdout_payload: HoldoutPayload | None = None
     study_payload: StudyPayload | None = None
     overrides: list[str] = Field(default_factory=list, max_length=64)
+    # Meaningful for RUN only: TUNE forces importance off (HPO stays fast) and
+    # STUDY forces it on per leg, both inside the orchestrator.
+    feature_importance: bool = False
 
     @model_validator(mode="after")
     def _validate_payload_per_kind(self) -> Self:
@@ -132,6 +135,8 @@ class JobSubmission(BaseModel):
                 raise ValueError(f"{field} is required when kind={self.kind.value!r}")
             if not needed and present:
                 raise ValueError(f"{field} must be omitted when kind={self.kind.value!r}")
+        if self.feature_importance and self.kind is not JobKind.RUN:
+            raise ValueError(f"feature_importance is only valid when kind={JobKind.RUN.value!r}")
         return self
 
 

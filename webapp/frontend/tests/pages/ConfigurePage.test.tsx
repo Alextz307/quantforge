@@ -4,8 +4,10 @@ import { http, HttpResponse } from "msw";
 import { describe, expect, it } from "vitest";
 import { Route, Routes } from "react-router-dom";
 import { ConfigurePage } from "@/pages/ConfigurePage";
+import type { JobRow, JobSubmission } from "@/api/jobs";
 import { API_PATHS } from "@/api/paths";
 import { ROUTES } from "@/lib/routes";
+import { JOB_COMPLETED } from "../msw/handlers";
 import { server } from "../msw/server";
 import { renderWithProviders } from "../util/render";
 
@@ -40,6 +42,37 @@ describe("ConfigurePage", () => {
     await user.click(screen.getByRole("button", { name: /Launch run/i }));
 
     expect(await screen.findByText("job detail page")).toBeInTheDocument();
+  });
+
+  it("sends feature_importance=true when the toggle is checked", async () => {
+    let capturedBody: JobSubmission | null = null;
+    server.use(
+      http.post(API_PATHS.jobs, async ({ request }) => {
+        capturedBody = (await request.json()) as JobSubmission;
+        return HttpResponse.json(JOB_COMPLETED satisfies JobRow);
+      }),
+    );
+    const user = userEvent.setup();
+    renderWithProviders(
+      <Routes>
+        <Route path={ROUTES.configure} element={<ConfigurePage />} />
+        <Route path={ROUTES.jobDetail} element={<div>job detail page</div>} />
+      </Routes>,
+      { initialEntries: [ROUTES.configure] },
+    );
+
+    await screen.findByLabelText(/Run name/i);
+    await waitFor(() => {
+      expect(screen.getByLabelText(/Strategy$/i)).not.toBeDisabled();
+    });
+
+    await fillBaseFields(user);
+    await user.click(screen.getByTestId("feature-importance-toggle"));
+    await user.click(screen.getByRole("button", { name: /Launch run/i }));
+
+    expect(await screen.findByText("job detail page")).toBeInTheDocument();
+    expect(capturedBody).not.toBeNull();
+    expect((capturedBody as unknown as JobSubmission).feature_importance).toBe(true);
   });
 
   it("blocks submit and shows inline error when a required strategy param is missing", async () => {

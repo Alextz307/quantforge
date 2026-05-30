@@ -53,7 +53,9 @@ class _RunningProcess:
     stop_event: asyncio.Event
 
 
-def build_run_command(*, config_path: Path, job_id: str, store_root: Path) -> tuple[str, ...]:
+def build_run_command(
+    *, config_path: Path, job_id: str, store_root: Path, feature_importance: bool = False
+) -> tuple[str, ...]:
     return (
         sys.executable,
         "-m",
@@ -66,6 +68,7 @@ def build_run_command(*, config_path: Path, job_id: str, store_root: Path) -> tu
         "--store-root",
         str(store_root),
         "--no-progress",
+        *(("--feature-importance",) if feature_importance else ()),
     )
 
 

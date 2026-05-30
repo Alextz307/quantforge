@@ -16,6 +16,9 @@ export type FoldRow = components["schemas"]["FoldRow"];
 export type RunsPage = components["schemas"]["RunsPage"];
 export type RunSortBy = components["schemas"]["RunSortBy"];
 export type SortOrder = components["schemas"]["SortOrder"];
+export type FeatureImportanceResponse = components["schemas"]["FeatureImportanceResponse"];
+export type FeatureImportanceEntry = components["schemas"]["FeatureImportanceEntry"];
+export type ImportanceMethod = components["schemas"]["ImportanceMethod"];
 
 const LIST_STALE_TIME = 30_000;
 // Free-form filter inputs spawn one query key per debounced state. Cap
@@ -85,6 +88,26 @@ export function useRun(experimentId: string): UseQueryResult<RunDetail> {
 
 export function useRunFolds(experimentId: string): UseQueryResult<FoldRow[]> {
   return useApiQuery(runFoldsConfig(experimentId));
+}
+
+function runFeatureImportanceConfig(
+  experimentId: string,
+): ApiQueryOptions<FeatureImportanceResponse> {
+  return {
+    queryKey: queryKeys.runFeatureImportance(experimentId),
+    fetcher: () =>
+      apiClient.GET(API_PATHS.runFeatureImportance, {
+        params: { path: { experiment_id: experimentId } },
+      }),
+    errorMsg: "Failed to load feature importance",
+    staleTime: Infinity,
+  };
+}
+
+export function useFeatureImportance(
+  experimentId: string,
+): UseQueryResult<FeatureImportanceResponse> {
+  return useApiQuery(runFeatureImportanceConfig(experimentId));
 }
 
 export function usePrefetchRun(): (experimentId: string) => void {

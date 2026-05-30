@@ -489,7 +489,10 @@ class _RunHandler:
         config_path = _config_path(job_temp_dir, row.id)
         return _SpawnPlan(
             command=build_run_command(
-                config_path=config_path, job_id=row.id, store_root=ctx.store_root
+                config_path=config_path,
+                job_id=row.id,
+                store_root=ctx.store_root,
+                feature_importance=submission.feature_importance,
             ),
             primary_config_path=config_path,
             configs_to_write={config_path: submission.config_payload},

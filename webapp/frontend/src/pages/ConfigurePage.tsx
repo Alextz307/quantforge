@@ -42,6 +42,7 @@ export function ConfigurePage() {
 
   const validate = useValidateConfig();
   const submit = useSubmitJob();
+  const [featureImportance, setFeatureImportance] = useState(false);
   const [serverErrors, setServerErrors] = useState<readonly ValidationErrorItem[]>([]);
   const errorsByLoc = useMemo(() => buildErrorIndex(serverErrors), [serverErrors]);
 
@@ -65,6 +66,7 @@ export function ConfigurePage() {
         kind: "run",
         config_payload: payload,
         overrides: [],
+        feature_importance: featureImportance,
       });
       navigate(jobDetailPath(job.id));
     } catch (err) {
@@ -97,6 +99,20 @@ export function ConfigurePage() {
             errorsByLoc={errorsByLoc}
             isSubmitting={isSubmitting}
           />
+
+          <label className="flex items-center gap-2 text-sm" htmlFor="feature-importance">
+            <input
+              id="feature-importance"
+              type="checkbox"
+              className="h-4 w-4"
+              data-testid="feature-importance-toggle"
+              checked={featureImportance}
+              onChange={(e) => {
+                setFeatureImportance(e.target.checked);
+              }}
+            />
+            Compute out-of-sample feature importance (permutation + XGBoost gain)
+          </label>
 
           <ServerErrorList errors={serverErrors} />
           <SubmitFailureAlert mutation={submit} />

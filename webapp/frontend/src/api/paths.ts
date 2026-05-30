@@ -2,6 +2,7 @@ export const API_PATHS = {
   runs: "/api/runs",
   run: "/api/runs/{experiment_id}",
   runFolds: "/api/runs/{experiment_id}/folds",
+  runFeatureImportance: "/api/runs/{experiment_id}/feature-importance",
   runPlot: "/api/runs/{experiment_id}/plots/{plot_name}",
   comparisons: "/api/comparisons",
   comparison: "/api/comparisons/{name}",

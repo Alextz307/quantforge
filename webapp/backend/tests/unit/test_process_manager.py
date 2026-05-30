@@ -16,6 +16,7 @@ from webapp.backend.app.infrastructure.process_manager import (
     JobEventBroker,
     ProcessManager,
     _resolve_experiment_id,
+    build_run_command,
 )
 from webapp.backend.app.schemas.jobs import (
     JobKind,
@@ -137,6 +138,23 @@ def test_failed_exit_code_classified_as_failed(tmp_path: Path) -> None:
     final = asyncio.run(scenario())
     assert final.status is JobStatus.FAILED
     assert final.exit_code == 2
+
+
+def test_build_run_command_appends_feature_importance_flag(tmp_path: Path) -> None:
+    config_path = tmp_path / "config.yaml"
+
+    with_flag = build_run_command(
+        config_path=config_path, job_id=JOB_ID, store_root=tmp_path, feature_importance=True
+    )
+    without_flag = build_run_command(
+        config_path=config_path, job_id=JOB_ID, store_root=tmp_path, feature_importance=False
+    )
+
+    assert "--feature-importance" in with_flag
+    assert "--feature-importance" not in without_flag
+    assert without_flag == build_run_command(
+        config_path=config_path, job_id=JOB_ID, store_root=tmp_path
+    )
 
 
 def test_resolve_experiment_id_finds_run_by_name(tmp_path: Path) -> None:

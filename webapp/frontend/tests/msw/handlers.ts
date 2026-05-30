@@ -13,7 +13,7 @@ import type { HoldoutEvalDetail, HoldoutEvalSummary } from "@/api/holdout";
 import type { HpoDetail, HpoSummary, ParamImportanceResponse, TrialRow } from "@/api/hpo";
 import type { JobRow, JobSubmission } from "@/api/jobs";
 import { API_PATHS, toMswPath } from "@/api/paths";
-import type { FoldRow, RunDetail, RunSummary } from "@/api/runs";
+import type { FeatureImportanceResponse, FoldRow, RunDetail, RunSummary } from "@/api/runs";
 import type { RegistryEntry, StrategySchema } from "@/api/strategies";
 import type { StudyConsolidatedDTO, StudyDetail, StudySummary } from "@/api/studies";
 import { ROLE_ADMIN, ROLE_USER, type UserCreate, type UserPublic } from "@/api/users";
@@ -52,6 +52,13 @@ export const RUN_IVV_VOO: RunSummary = {
 };
 
 export const SEED_RUNS: RunSummary[] = [RUN_SPY, RUN_IVV_VOO];
+
+// Both seeded runs are rule-based strategies (AdaptiveBollinger / PairsTrading)
+// that emit no importance, so the faithful default is the empty-state response.
+export const RUN_FEATURE_IMPORTANCE_EMPTY: FeatureImportanceResponse = {
+  entries: [],
+  message: "Feature importance was not computed for this run.",
+};
 
 export const RUN_SPY_DETAIL: RunDetail = {
   experiment_id: RUN_SPY.experiment_id,
@@ -615,6 +622,14 @@ export const handlers = [
     if (params.experiment_id === RUN_SPY.experiment_id) return HttpResponse.json(RUN_SPY_FOLDS);
     if (params.experiment_id === RUN_IVV_VOO.experiment_id)
       return HttpResponse.json(RUN_PAIRS_FOLDS);
+    return new HttpResponse(null, { status: 404 });
+  }),
+  http.get(toMswPath(API_PATHS.runFeatureImportance), ({ params }) => {
+    if (
+      params.experiment_id === RUN_SPY.experiment_id ||
+      params.experiment_id === RUN_IVV_VOO.experiment_id
+    )
+      return HttpResponse.json(RUN_FEATURE_IMPORTANCE_EMPTY);
     return new HttpResponse(null, { status: 404 });
   }),
   http.get(API_PATHS.comparisons, () => HttpResponse.json(SEED_COMPARISONS)),

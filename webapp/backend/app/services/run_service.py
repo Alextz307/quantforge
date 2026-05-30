@@ -5,6 +5,7 @@ Read-only services for the persisted run tree.
 from __future__ import annotations
 
 import logging
+import math
 import sqlite3
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
@@ -21,11 +22,13 @@ try:
 except ImportError:  # pragma: no cover - depends on libyaml presence
     from yaml import SafeLoader as _SafeLoader  # type: ignore[assignment]
 
+from src.analysis.feature_importance import AggregatedImportance, read_aggregated_importance
 from src.core import json_io
 from src.core.persistence import (
     EXPERIMENT_CONFIG_YAML,
     EXPERIMENT_MANIFEST_JSON,
     EXPERIMENT_METRICS_JSON,
+    FEATURE_IMPORTANCE_JSON,
     read_experiment_manifest,
 )
 from src.orchestration.run_loader import (
@@ -39,6 +42,8 @@ from webapp.backend.app.infrastructure.store import (
     store_label,
 )
 from webapp.backend.app.schemas.runs import (
+    FeatureImportanceEntry,
+    FeatureImportanceResponse,
     FoldRow,
     RunDetail,
     RunSortBy,
@@ -79,12 +84,15 @@ __all__ = [
     "ArtifactAccessDeniedError",
     "PlotNotFoundError",
     "RunNotFoundError",
+    "get_feature_importance",
     "get_folds",
     "get_run",
     "list_runs",
     "list_runs_page",
     "resolve_plot",
 ]
+
+_FEATURE_IMPORTANCE_NOT_COMPUTED_MESSAGE = "Feature importance was not computed for this run."
 
 
 # Per-run summarization is dominated by file I/O (manifest + metrics + config).
@@ -352,6 +360,58 @@ def get_folds(
         )
         for f in result.folds
     ]
+
+
+def get_feature_importance(
+    root: Path,
+    experiment_id: str,
+    *,
+    conn: sqlite3.Connection,
+    user: UserPublic,
+) -> FeatureImportanceResponse:
+    """
+    Read cross-fold feature importance for one run.
+
+    Returns ``entries=[]`` plus a ``message`` (200, not 404) when the run has
+    no ``feature_importance.json``. That is the common case: importance is
+    opt-in per run, rule-based strategies emit none, and pre-importance runs
+    predate the artifact. A missing RUN (as opposed to a present run that
+    simply lacks the artifact) raises ``RunNotFoundError`` from the dir
+    lookup, which the route maps to 404.
+    """
+
+    check_artifact_access(conn, experiment_id=experiment_id, user=user)
+    run_dir = _lookup_run_dir(root, experiment_id)
+    try:
+        payload = json_io.read_dict(run_dir / FEATURE_IMPORTANCE_JSON)
+    except FileNotFoundError:
+        return FeatureImportanceResponse(
+            entries=[], message=_FEATURE_IMPORTANCE_NOT_COMPUTED_MESSAGE
+        )
+    entries = [_entry_from_aggregated(agg) for agg in read_aggregated_importance(payload)]
+    return FeatureImportanceResponse(entries=entries)
+
+
+def _entry_from_aggregated(agg: AggregatedImportance) -> FeatureImportanceEntry:
+    return FeatureImportanceEntry(
+        feature=agg.feature,
+        importance=_json_safe_float(agg.importance),
+        std=_json_safe_float(agg.std),
+        n_folds=agg.n_folds,
+        method=agg.method,
+    )
+
+
+def _json_safe_float(value: float) -> float | None:
+    """
+    Non-finite -> ``None`` so the value survives Starlette's ``allow_nan=False`` render.
+
+    ``allow_nan=False`` rejects ``+/-inf`` as well as ``NaN``, and an artifact
+    written before the write-time guard can still carry a raw ``Infinity`` token,
+    so guard on ``isfinite`` rather than ``isnan``.
+    """
+
+    return None if not math.isfinite(value) else value
 
 
 def resolve_plot(

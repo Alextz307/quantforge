@@ -490,6 +490,26 @@ def test_job_submission_validator_requires_hpo_payload_for_tune() -> None:
         )
 
 
+def test_job_submission_validator_rejects_feature_importance_for_non_run() -> None:
+    with pytest.raises(ValueError, match="feature_importance is only valid"):
+        JobSubmission(
+            kind=JobKind.TUNE,
+            config_payload=make_valid_experiment_payload(),
+            hpo_payload={"study_name": "x"},
+            feature_importance=True,
+        )
+
+
+def test_job_submission_validator_allows_feature_importance_for_run() -> None:
+    submission = JobSubmission(
+        kind=JobKind.RUN,
+        config_payload=make_valid_experiment_payload(),
+        feature_importance=True,
+    )
+
+    assert submission.feature_importance is True
+
+
 _COMPARE_RUN_A = "20260101_120000_AdaptiveBollinger_abc1234_deadbeef"
 _COMPARE_RUN_B = "20260201_090000_AdaptiveBollinger_def5678_cafebabe"
 _HOLDOUT_RUN_ID = "20260301_080000_AdaptiveBollinger_aaa0000_bbbb1111"
