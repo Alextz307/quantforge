@@ -28,7 +28,7 @@ class TestHPOConfigDefaults:
     def test_minimal_payload_applies_defaults(self) -> None:
         cfg = HPOConfig.model_validate({"study_name": _MIN_STUDY_NAME})
         assert cfg.study_name == _MIN_STUDY_NAME
-        assert cfg.n_trials == 50
+        assert cfg.n_trials == 100
         assert cfg.n_jobs == 1
         assert cfg.sampler == SamplerKind.TPE
         assert cfg.pruner == PrunerKind.MEDIAN

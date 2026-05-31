@@ -1,0 +1,13 @@
+# HPO study config for CrossAssetMomentum.
+#
+# Pair with config/strategies/cross_asset_momentum.yaml:
+#   python -m scripts.experiment tune \
+#       --config config/strategies/cross_asset_momentum.yaml \
+#       --hpo-config config/hpo/cross_asset_momentum.yaml
+
+study_name: cross_asset_momentum_sharpe
+n_trials: 100
+n_jobs: 2
+sampler: tpe
+pruner: median
+seed: 42

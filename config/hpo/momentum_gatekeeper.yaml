@@ -6,7 +6,7 @@
 #       --hpo-config config/hpo/momentum_gatekeeper.yaml
 
 study_name: spy_momentum_gatekeeper_sharpe
-n_trials: 50
+n_trials: 100
 n_jobs: 2
 sampler: tpe
 pruner: median

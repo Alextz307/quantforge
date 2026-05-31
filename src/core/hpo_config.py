@@ -72,7 +72,7 @@ class HPOConfig(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     study_name: str = Field(min_length=1)
-    n_trials: int = Field(default=50, ge=1)
+    n_trials: int = Field(default=100, ge=1)
     n_jobs: int = Field(default=1, ge=1)
     sampler: SamplerKind = SamplerKind.TPE
     pruner: PrunerKind = PrunerKind.MEDIAN

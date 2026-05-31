@@ -56,6 +56,7 @@ config/
         volatility_targeting.yaml
     hpo/
         adaptive_bollinger.yaml
+        cross_asset_momentum.yaml
         momentum_gatekeeper.yaml
         pairs_trading.yaml
         return_forecast.yaml
