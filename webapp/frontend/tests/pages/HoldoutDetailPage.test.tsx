@@ -42,4 +42,13 @@ describe("HoldoutDetailPage", () => {
     const sourceLink = await screen.findByRole("link", { name: RUN_SPY.experiment_id });
     expect(sourceLink).toHaveAttribute("href", `/runs/${RUN_SPY.experiment_id}`);
   });
+
+  it("points feature importance at the source run", async () => {
+    renderWithProviders(<Tree />, {
+      initialEntries: [holdoutDetailPath(HOLDOUT_DEMO_SUMMARY.name)],
+    });
+
+    const importanceLink = await screen.findByTestId("holdout-source-importance-link");
+    expect(importanceLink).toHaveAttribute("href", `/runs/${RUN_SPY.experiment_id}`);
+  });
 });

@@ -11,7 +11,7 @@ device selection, and small JSON / FS helpers.
 | --- | --- |
 | `Interval` (StrEnum) | Bar timeframe; `annualization_factor()` returns bars/year. |
 | `LossFunction`, `InformationCriterion`, `Device` | Strict StrEnum types used in ctor params + Optuna search spaces. |
-| `JobKind` (StrEnum) | Kind of framework operation that produces a persisted artifact (`run`/`tune`/`compare`/`holdout`/`study`). Single source of truth: the CLI attributes artifacts with it and the webapp imports it as a job's kind. |
+| `JobKind` (StrEnum) | Kind of framework operation that produces a persisted artifact (`run`/`tune`/`compare`/`holdout`/`study`/`importance`). Single source of truth: the CLI attributes artifacts with it and the webapp imports it as a job's kind. |
 | `BarData`, `Signal`, `PairSignal` | Pydantic v2 frozen value types with bounds + invariants. |
 | `OHLCV_COLUMNS`, `PAIRS_LEG_SUFFIXES`, `TRADING_DAYS_PER_YEAR`, `DEFAULT_REALIZED_VOL_WINDOW`, ... | Centralised constants: magic numbers live here, never inline. |
 | `ComponentRegistry[T]` + globals | `strategy_registry`, `model_registry`, `classifier_registry`, `data_source_registry`, `feature_registry`. `create_from_config(ComponentConfig)` is the config-layer entry point. |
@@ -45,7 +45,7 @@ device selection, and small JSON / FS helpers.
 | `seeding.py` | `seed_all` (lazy torch import). |
 | `json_io.py` | Typed JSON read / write helpers (no pickle). |
 | `fs.py` | Atomic write / mkdir helpers. |
-| `utils.py` | `validate_open_unit_interval`, `compute_log_returns`, `next_bar_direction`, `annualized_garman_klass`, `directional_accuracy`, `negative_qlike` (higher-is-better scoring primitives for feature importance). |
+| `utils.py` | `validate_open_unit_interval`, `compute_log_returns`, `next_bar_direction`, `next_bar_log_return`, `annualized_garman_klass`, and the higher-is-better feature-importance scoring primitives `directional_accuracy`, `negative_return_mse`, `negative_log_loss`, `negative_qlike`. |
 | `contracts.py` | `assert_*` runtime contract helpers. |
 
 ## Anti-leakage primitives

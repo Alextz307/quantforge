@@ -83,6 +83,29 @@ def test_list_runs_filter_by_strategy(webapp_store: Path, authed_client: TestCli
     assert payload["items"][0]["experiment_id"] == FLAT_ID
 
 
+def test_list_runs_filter_by_strategy_prefix(webapp_store: Path, authed_client: TestClient) -> None:
+    payload = authed_client.get(f"{RUNS_PATH}?strategy=Adapt").json()
+    assert payload["total"] == 1
+    assert payload["items"][0]["experiment_id"] == FLAT_ID
+
+
+def test_list_runs_filter_by_strategy_case_insensitive(
+    webapp_store: Path, authed_client: TestClient
+) -> None:
+    payload = authed_client.get(f"{RUNS_PATH}?strategy=pairs").json()
+    assert payload["total"] == 1
+    assert payload["items"][0]["experiment_id"] == STUDY_ID
+
+
+def test_list_runs_filter_by_ticker_substring(
+    webapp_store: Path, authed_client: TestClient
+) -> None:
+    # "sp" matches SPY (FLAT_ID) but neither leg of the IVV/VOO pair.
+    payload = authed_client.get(f"{RUNS_PATH}?ticker=sp").json()
+    assert payload["total"] == 1
+    assert payload["items"][0]["experiment_id"] == FLAT_ID
+
+
 def test_get_run_detail_returns_manifest_and_metrics(
     webapp_store: Path, authed_client: TestClient
 ) -> None:

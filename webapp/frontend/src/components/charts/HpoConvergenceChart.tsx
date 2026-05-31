@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import type { Data, Layout } from "plotly.js";
-import { Plot, useThemedLayout } from "@/components/charts/plot";
+import { Plot } from "@/components/charts/plot";
+import { useThemedLayout } from "@/components/charts/chartTheme";
 import type { StudyDirection, TrialRow } from "@/api/hpo";
 import { TRIAL_STATE_COMPLETE } from "@/lib/trialState";
 

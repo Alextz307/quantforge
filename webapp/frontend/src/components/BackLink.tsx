@@ -18,10 +18,14 @@ export function BackLink({ to, children }: BackLinkProps) {
       ? (location.state as { from: string }).from
       : null;
   const target = stateFrom ?? to;
+  // The list label ("All runs") only fits when returning to that list; if
+  // ``from`` points elsewhere (a source run -> its diverged run), show "Back".
+  const fromPath = stateFrom === null ? null : stateFrom.split("?")[0];
+  const label = fromPath !== null && fromPath !== to ? "Back" : children;
   return (
     <div>
       <Link to={target} className="text-xs text-primary hover:underline">
-        {"<-"} {children}
+        {"<-"} {label}
       </Link>
     </div>
   );

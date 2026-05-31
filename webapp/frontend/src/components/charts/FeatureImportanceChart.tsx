@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import type { Data, Layout } from "plotly.js";
-import { Plot, useThemedLayout } from "@/components/charts/plot";
+import { Plot } from "@/components/charts/plot";
+import { useThemedLayout } from "@/components/charts/chartTheme";
 import { buildFeatureImportanceBars } from "@/components/charts/featureImportanceBars";
 import { Button } from "@/components/ui/button";
 import type { FeatureImportanceResponse, ImportanceMethod } from "@/api/runs";
@@ -25,6 +26,16 @@ const METHOD_AXIS_TITLE: Record<ImportanceMethod, string> = {
 const METHOD_COLOR: Record<ImportanceMethod, string> = {
   permutation: "#3b82f6",
   xgb_gain: "#a855f7",
+};
+
+const METHOD_CAPTION: Record<ImportanceMethod, string> = {
+  permutation:
+    "Permutation: the out-of-sample score drop when this feature is shuffled, averaged across " +
+    "walk-forward folds (negative MSE / log-loss / QLIKE depending on the model). Correlated " +
+    "features split their credit, and values can dip slightly negative.",
+  xgb_gain:
+    "XGBoost gain: the booster's average improvement in the split criterion across every split " +
+    "that uses this feature (tree-based models only).",
 };
 
 export function FeatureImportanceChart({ response, height = 360 }: FeatureImportanceChartProps) {
@@ -124,6 +135,9 @@ export function FeatureImportanceChart({ response, height = 360 }: FeatureImport
           useResizeHandler
         />
       </div>
+      <p className="text-xs text-muted-foreground" data-testid="feature-importance-method-note">
+        {METHOD_CAPTION[method]}
+      </p>
     </div>
   );
 }

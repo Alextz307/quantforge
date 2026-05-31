@@ -21,6 +21,7 @@ from webapp.backend.app.infrastructure.process_manager import (
     ProcessManager,
 )
 from webapp.backend.app.schemas.jobs import JobStatus
+from webapp.backend.app.services._dir_cache import clear as clear_artifact_dir_cache
 from webapp.backend.app.services.auth_service import has_any_active_user
 from webapp.backend.app.services.job_service import reconcile_orphans
 
@@ -46,6 +47,10 @@ async def _persist_terminal_status(
             )
         except IllegalStatusTransitionError:
             logger.warning("on_complete: job %s already terminal, skipping update", job_id)
+    # A finished job may have written a new run dir. Clear the listing cache
+    # before the WS status frame fires, so the SPA's completion refetch sees the
+    # fresh listing instead of a stale snapshot.
+    clear_artifact_dir_cache()
 
 
 @asynccontextmanager

@@ -1,5 +1,5 @@
 import { useMemo, type ReactNode } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 
 export type SortOrder = "asc" | "desc";
 
@@ -94,6 +94,10 @@ export function FilterableTablePage<TRow, TFilters, K extends string = string>({
 }: FilterableTablePageProps<TRow, TFilters, K>) {
   const filtered = useMemo(() => applyFilters(rows, filters), [rows, filters, applyFilters]);
   const nameIsLast = columns.length === 0;
+  // Stash the current list URL (sort + filters live in the query string) so the
+  // detail page's BackLink returns here exactly, not to the bare list route.
+  const location = useLocation();
+  const fromUrl = location.pathname + location.search;
 
   return (
     <>
@@ -146,7 +150,11 @@ export function FilterableTablePage<TRow, TFilters, K extends string = string>({
                   }
                 >
                   <td className={cellClass(nameIsLast, "left")}>
-                    <Link to={rowHref(row)} className="text-primary hover:underline">
+                    <Link
+                      to={rowHref(row)}
+                      state={{ from: fromUrl }}
+                      className="text-primary hover:underline"
+                    >
                       {rowName(row)}
                     </Link>
                   </td>

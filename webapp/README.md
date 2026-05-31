@@ -34,7 +34,7 @@ Admin (role=admin):
 Read-only artifact API (auth-gated, all `GET`):
 - `/api/strategies`, `/api/strategies/{name}/schema`, `/api/models` - registry introspection + per-strategy ctor schema for the Configure form.
 - `/api/runs`, `/api/runs/{id}`, `/api/runs/{id}/folds`, `/api/runs/{id}/feature-importance`, `/api/runs/{id}/plots/{plot_name}` - persisted runs.
-- `/api/runs/{id}/feature-importance` - cross-fold out-of-sample feature importance for feature-consuming strategies: permutation (mean score drop +/- across-fold std) plus XGBoost native gain where available. Returns `{entries, message}` with `entries=[]` plus a `message` (still 200) when the run carries no artifact - importance is opt-in per run, off during HPO trials, and never emitted by rule-based strategies. Non-finite aggregates serialize as `null`.
+- `/api/runs/{id}/feature-importance` - cross-fold out-of-sample feature importance for feature-consuming strategies: permutation (mean score drop +/- across-fold std) plus XGBoost native gain where available. Returns `{entries, message, computable}` with `entries=[]` plus a `message` (still 200) when the run carries no artifact - importance is opt-in per run, off during HPO trials, and never emitted by rule-based strategies. `computable` is whether the run's strategy can produce importance at all; the SPA offers an on-demand compute action only when `computable` is true and `entries` is empty. Non-finite aggregates serialize as `null`.
 - `/api/comparisons`, `/api/comparisons/{name}`, `/api/comparisons/{name}/plots/{plot_name}` - cross-strategy comparisons.
 - `/api/holdout-evals`, `/api/holdout-evals/{name}`, `/api/holdout-evals/{name}/plots/{plot_name}` - holdout evaluations.
 - `/api/studies`, `/api/studies/{name}` - multi-leg study state + completion progress.
@@ -58,6 +58,7 @@ Jobs (auth-gated; per-user scope, admins may pass `?all=1`):
   - `kind=tune` + `config_payload` + `hpo_payload` - spawn `experiment tune`.
   - `kind=compare` + `compare_payload` - spawn `experiment compare` in `--reuse-runs` mode over 2-8 existing run dirs.
   - `kind=holdout` + `holdout_payload` - spawn `experiment holdout-eval` against a run (with `holdout_start`) or an HPO study (with `best_config.yaml`).
+  - `kind=importance` + `importance_payload` (`run_id`) - spawn `experiment importance` to recompute a finished run's feature importance. Rejected (422) when the run is missing, the strategy is rule-based, or importance is already present. Resolves to a new run id only when the re-fit diverged (a reproduced backfill leaves the job's `experiment_id` null - importance landed on the original run).
   Validates upfront and returns 422 with the same `loc/msg/type` shape on bad payloads.
 - `GET /api/jobs`, `GET /api/jobs/{id}`, `DELETE /api/jobs/{id}` - list / fetch / cancel.
 - `GET /api/jobs/{id}/log` - full log file (text response).
@@ -123,9 +124,16 @@ artifacts (the run/HPO detail pages also surface contextual "Run holdout
 eval" CTAs when the source carries the required artifact). The Configure
 run form carries a **Compute feature importance** toggle, and a run's
 detail page renders a **Feature importance** panel - permutation and
-XGBoost-gain bars with a method toggle, empty-state when the run carries no
-artifact. The **New deployment** card routes to `/deployments?new=1`, which
-opens the deploy picker.
+XGBoost-gain bars with a method toggle. When a feature-consuming run carries
+no artifact the panel offers a **Compute importance** action that launches an
+`importance` job and watches it live: on completion it either swaps in the
+backfilled chart or, if the re-fit diverged, links to the separate run the
+importance was saved under (a link the original run also keeps persistently
+across reloads). Rule-based runs show a plain not-applicable note. A holdout
+eval has no per-fold importance of its own (it refits on full dev and scores
+the reserved window once), so its detail page points feature importance at the
+source run instead. The **New deployment** card routes to `/deployments?new=1`,
+which opens the deploy picker.
 
 `/deployments` lists saved deployments and hosts an inline picker that shows
 **only** models with a holdout evaluation (run- or HPO-sourced, one row per

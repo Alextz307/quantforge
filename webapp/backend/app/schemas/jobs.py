@@ -77,6 +77,19 @@ class HoldoutPayload(BaseModel):
     publish_label: str | None = Field(default=None, pattern=_SLUG_PATTERN)
 
 
+class ImportancePayload(BaseModel):
+    """
+    Input for ``experiment importance``: the finished run to compute for.
+
+    ``run_id`` must resolve to a completed run dir under the server's
+    store_root whose strategy consumes engineered features and that does not
+    already carry feature importance. The job_service surfaces a 422 with a
+    structured ``loc`` when those preconditions fail.
+    """
+
+    run_id: str = Field(min_length=1)
+
+
 class StudyPayload(BaseModel):
     """
     Inputs for ``experiment study run`` (cross-strategy x cross-universe sweep).
@@ -103,6 +116,7 @@ _PAYLOAD_FIELDS: tuple[str, ...] = (
     "compare_payload",
     "holdout_payload",
     "study_payload",
+    "importance_payload",
 )
 _REQUIRED_PAYLOADS: dict[JobKind, frozenset[str]] = {
     JobKind.RUN: frozenset({"config_payload"}),
@@ -110,6 +124,7 @@ _REQUIRED_PAYLOADS: dict[JobKind, frozenset[str]] = {
     JobKind.COMPARE: frozenset({"compare_payload"}),
     JobKind.HOLDOUT: frozenset({"holdout_payload"}),
     JobKind.STUDY: frozenset({"study_payload"}),
+    JobKind.IMPORTANCE: frozenset({"importance_payload"}),
 }
 
 
@@ -120,6 +135,7 @@ class JobSubmission(BaseModel):
     compare_payload: ComparePayload | None = None
     holdout_payload: HoldoutPayload | None = None
     study_payload: StudyPayload | None = None
+    importance_payload: ImportancePayload | None = None
     overrides: list[str] = Field(default_factory=list, max_length=64)
     # Meaningful for RUN only: TUNE forces importance off (HPO stays fast) and
     # STUDY forces it on per leg, both inside the orchestrator.

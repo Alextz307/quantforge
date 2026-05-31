@@ -1,4 +1,4 @@
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { holdoutPlotDownloadUrl, useHoldoutEval, type HoldoutEvalDetail } from "@/api/holdout";
 import { BackLink } from "@/components/BackLink";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,7 +8,8 @@ import { MetadataField } from "@/components/MetadataField";
 import { PlotIndex } from "@/components/PlotIndex";
 import { QueryRenderer } from "@/components/QueryRenderer";
 import { formatDateTime, shortHash } from "@/lib/format";
-import { ROUTES } from "@/lib/routes";
+import { holdoutDetailPath, ROUTES, runDetailPath } from "@/lib/routes";
+import { SOURCE_KIND_RUN } from "@/lib/sourceKind";
 
 function IdentityCard({ holdout }: { holdout: HoldoutEvalDetail }) {
   return (
@@ -33,6 +34,40 @@ function holdoutToTraces(holdout: HoldoutEvalDetail): EquityTrace[] {
   return [{ name: "Holdout", equity: holdout.equity_curve }];
 }
 
+function SourceImportanceCard({ holdout }: { holdout: HoldoutEvalDetail }) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Feature importance</CardTitle>
+      </CardHeader>
+      <CardContent>
+        {holdout.source_kind === SOURCE_KIND_RUN ? (
+          <p className="text-sm text-muted-foreground">
+            A holdout evaluation refits the source run's configuration on the full dev region and
+            scores it once on the reserved window, so it has no per-fold importance of its own.
+            Feature importance (computed across that run's walk-forward folds) lives on the source
+            run, where you can also recompute it.{" "}
+            <Link
+              className="underline"
+              to={runDetailPath(holdout.source_id)}
+              state={{ from: holdoutDetailPath(holdout.name) }}
+              data-testid="holdout-source-importance-link"
+            >
+              View the source run's feature importance &rarr;
+            </Link>
+          </p>
+        ) : (
+          <p className="text-sm text-muted-foreground" data-testid="holdout-source-importance-none">
+            This evaluation derives from the HPO study{" "}
+            <span className="font-mono">{holdout.source_id}</span>, whose trials don't compute
+            feature importance. Run a backtest on the best config to inspect it.
+          </p>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 export function HoldoutDetailPage() {
   const { name = "" } = useParams<{ name: string }>();
   const query = useHoldoutEval(name);
@@ -49,6 +84,8 @@ export function HoldoutDetailPage() {
           <IdentityCard holdout={holdout} />
 
           <DevVsHoldoutPanel holdout={holdout} />
+
+          <SourceImportanceCard holdout={holdout} />
 
           <Card>
             <CardHeader>

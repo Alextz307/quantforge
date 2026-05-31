@@ -66,9 +66,12 @@ All six register themselves at import time on `strategy_registry`
   `feature_importance_frame(data)` (identity for the hybrids, which
   already receive engineered columns; transform-and-attach-`close` for
   the classifier strategies, which build features internally), and
-  `feature_importance_score(frame)` (directional hit-rate for
-  return/probability models, negative QLIKE for the volatility
-  forecaster). XGBoost-backed strategies also override `feature_gain()`.
+  `feature_importance_score(frame)` - a continuous, magnitude-sensitive
+  score so the feature-fed term stays visible (negative MSE for the
+  return forecaster, negative log-loss for the directional classifiers,
+  negative QLIKE for the volatility forecaster; a discrete hit-rate is
+  avoided because it can round feature effects to zero).
+  XGBoost-backed strategies also override `feature_gain()`.
   The score derives its realised target only from `close`, so it is
   invariant to permuting any feature. Rule-based strategies inherit the
   defaults and are skipped.

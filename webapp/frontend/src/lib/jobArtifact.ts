@@ -25,5 +25,9 @@ export function jobArtifactLink(job: JobRow): JobArtifactLink | null {
       return { to: runDetailPath(job.experiment_id), label: "View run ->" };
     case "study":
       return { to: studyDetailPath(job.experiment_id), label: "View study ->" };
+    case "importance":
+      // An importance job carries an experiment_id only when it diverged into a
+      // fresh run (a reproduced backfill leaves it null, caught above).
+      return { to: runDetailPath(job.experiment_id), label: "View run ->" };
   }
 }

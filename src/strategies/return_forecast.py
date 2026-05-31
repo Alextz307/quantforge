@@ -26,7 +26,7 @@ from src.core.temporal import (
     collect_metadata,
 )
 from src.core.types import Device, InformationCriterion, Interval, LossFunction
-from src.core.utils import compute_log_returns, directional_accuracy
+from src.core.utils import compute_log_returns, negative_return_mse
 from src.models.hybrid_return import HybridReturnModel
 from src.strategies.interface import RECURSIVE_LEAF_CONVERGENCE_MARGIN_BARS, IStrategy
 
@@ -306,16 +306,19 @@ class ReturnForecastStrategy(IStrategy):
 
     def feature_importance_score(self, frame: pd.DataFrame) -> float | None:
         """
-        Directional hit-rate of the forecast return vs the realised next bar.
+        Negative MSE of the forecast return vs the realised next-bar return.
 
-        The forecast is the ARMA conditional mean (from ``close``, invariant to
-        feature permutation) plus the LSTM residual (the only term the features
-        feed), so permutation importances here are compressed toward zero - see
-        the residual-dominance caveat in the feature-importance module docstring.
+        A continuous (magnitude-sensitive) score is deliberate: the forecast is
+        the ARMA conditional mean (from ``close``, invariant to feature
+        permutation) plus the LSTM residual - the only term the features feed,
+        and one that moves the forecast's magnitude far more often than its sign.
+        A directional hit-rate would therefore read every feature as zero (the
+        ARMA-set sign rarely flips); squared error keeps the residual's feature
+        dependence visible.
         """
 
         forecast = self._hybrid_return.predict(frame)
-        return directional_accuracy(forecast, frame["close"])
+        return negative_return_mse(forecast, frame["close"])
 
     @staticmethod
     def suggest_params(trial: optuna.trial.BaseTrial) -> dict[str, object]:

@@ -9,6 +9,7 @@ const PERMUTATION_COUNT = 3;
 const GAIN_COUNT = 2;
 
 const BOTH_METHODS: FeatureImportanceResponse = {
+  computable: true,
   entries: [
     { feature: "rsi_14", importance: 0.4, std: 0.05, n_folds: 3, method: "permutation" },
     { feature: "vol_20", importance: 0.1, std: 0.02, n_folds: 3, method: "permutation" },
@@ -20,6 +21,7 @@ const BOTH_METHODS: FeatureImportanceResponse = {
 };
 
 const PERMUTATION_ONLY: FeatureImportanceResponse = {
+  computable: true,
   entries: [
     { feature: "rsi_14", importance: 0.4, std: 0.05, n_folds: 3, method: "permutation" },
     { feature: "vol_20", importance: 0.1, std: 0.02, n_folds: 3, method: "permutation" },
@@ -28,11 +30,13 @@ const PERMUTATION_ONLY: FeatureImportanceResponse = {
 };
 
 const EMPTY_WITH_MESSAGE: FeatureImportanceResponse = {
+  computable: false,
   entries: [],
   message: "Feature importance was not computed for this run.",
 };
 
 const PERMUTATION_NULL_GAIN_FINITE: FeatureImportanceResponse = {
+  computable: true,
   entries: [
     { feature: "rsi_14", importance: null, std: null, n_folds: 3, method: "permutation" },
     { feature: "vol_20", importance: null, std: null, n_folds: 3, method: "permutation" },
@@ -98,6 +102,16 @@ describe("FeatureImportanceChart", () => {
     const wrapper = screen.getByTestId("feature-importance");
     expect(wrapper.getAttribute("data-method")).toBe("xgb_gain");
     expect(wrapper.getAttribute("data-feature-count")).toBe(String(GAIN_COUNT));
+  });
+
+  it("shows a method-specific methodology caption that follows the toggle", () => {
+    renderWithProviders(<FeatureImportanceChart response={BOTH_METHODS} />);
+
+    expect(screen.getByTestId("feature-importance-method-note")).toHaveTextContent(/permutation/i);
+
+    fireEvent.click(screen.getByTestId("feature-importance-method-xgb_gain"));
+
+    expect(screen.getByTestId("feature-importance-method-note")).toHaveTextContent(/xgboost gain/i);
   });
 
   it("defaults to the method with finite bars when permutation is all-null", () => {

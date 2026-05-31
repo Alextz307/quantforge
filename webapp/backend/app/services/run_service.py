@@ -28,12 +28,14 @@ from src.core.persistence import (
     EXPERIMENT_CONFIG_YAML,
     EXPERIMENT_MANIFEST_JSON,
     EXPERIMENT_METRICS_JSON,
+    FEATURE_IMPORTANCE_DIVERGED_JSON,
     FEATURE_IMPORTANCE_JSON,
     read_experiment_manifest,
 )
 from src.orchestration.run_loader import (
     load_experiment_config_from_run,
     load_experiment_result,
+    strategy_supports_feature_importance,
 )
 from webapp.backend.app.infrastructure.store import (
     RunNotFoundError,
@@ -233,9 +235,13 @@ def list_runs_page(
 def _matches_filters(
     row: RunSummary, strategy: str | None, ticker: str | None, since: datetime | None
 ) -> bool:
-    if strategy is not None and row.strategy != strategy:
+    # Free-text search: match case-insensitive substrings, not the whole name,
+    # so typing "vol" surfaces VolatilityTargeting incrementally.
+    if strategy is not None and strategy.strip().casefold() not in row.strategy.casefold():
         return False
-    if ticker is not None and ticker not in row.tickers:
+    if ticker is not None and not any(
+        ticker.strip().casefold() in t.casefold() for t in row.tickers
+    ):
         return False
     if since is not None and row.created_at < since:
         return False
@@ -385,11 +391,33 @@ def get_feature_importance(
     try:
         payload = json_io.read_dict(run_dir / FEATURE_IMPORTANCE_JSON)
     except FileNotFoundError:
+        # A present artifact implies a feature-consuming strategy, so don't make
+        # the response hinge on config.yaml; only the empty case needs it (to
+        # report whether importance is computable).
+        strategy_name, _, _ = _read_config_summary(run_dir)
         return FeatureImportanceResponse(
-            entries=[], message=_FEATURE_IMPORTANCE_NOT_COMPUTED_MESSAGE
+            entries=[],
+            message=_FEATURE_IMPORTANCE_NOT_COMPUTED_MESSAGE,
+            computable=strategy_supports_feature_importance(strategy_name),
+            diverged_run_id=_read_diverged_run_id(run_dir),
         )
     entries = [_entry_from_aggregated(agg) for agg in read_aggregated_importance(payload)]
-    return FeatureImportanceResponse(entries=entries)
+    return FeatureImportanceResponse(entries=entries, computable=True)
+
+
+def _read_diverged_run_id(run_dir: Path) -> str | None:
+    """
+    Return the separate run a diverged recompute saved importance under, if any.
+    """
+
+    try:
+        pointer = json_io.read_dict(run_dir / FEATURE_IMPORTANCE_DIVERGED_JSON)
+    except (FileNotFoundError, ValueError):
+        # Absent or malformed pointer: treat as "no divergence" rather than
+        # 500ing the importance endpoint on a half-written / corrupt file.
+        return None
+    run_id = pointer.get("diverged_run_id")
+    return run_id if isinstance(run_id, str) else None
 
 
 def _entry_from_aggregated(agg: AggregatedImportance) -> FeatureImportanceEntry:

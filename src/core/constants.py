@@ -31,6 +31,26 @@ FEATURE_IMPORTANCE_N_REPEATS: int = 10
 
 HPO_IMPORTANCE_FANOVA_SEED: int = 23
 
+# The on-demand importance backfill re-runs a finished run's frozen config and
+# compares aggregated metrics against the original to decide whether to attach
+# importance in place (reproduced) or save it as a separate run (diverged). The
+# tolerance separates two regimes. Benign run-to-run noise that does NOT mean
+# different models - multithreaded-BLAS summation order, and the GARCH/ARMA MLE
+# in the hybrids converging within its own optimizer tolerance - perturbs the
+# metrics up to ~1e-6 even on the same machine and seed. A genuinely different
+# fit (a non-deterministic accelerator-trained LSTM, or a flipped discrete
+# signal) moves them by ~1e-4 or more. 1e-6 sits in the gap: it absorbs the
+# former so a faithful re-run still backfills, and flags the latter as a
+# separate run. Tighter (1e-9) would spuriously diverge every hybrid recompute;
+# looser (1e-3) would mask small genuine divergences.
+IMPORTANCE_REPRODUCTION_RTOL: float = 1e-6
+
+# Absolute floor for the same comparison: near-zero metrics (a flat strategy's
+# return) make the relative tolerance collapse to ~0, so without a floor benign
+# noise there would spuriously diverge. The all-keys conjunction in
+# _metrics_reproduced keeps this floor from ever masking a real divergence.
+IMPORTANCE_REPRODUCTION_ABS_TOL: float = 1e-6
+
 OHLCV_COLUMNS: tuple[str, str, str, str, str] = (
     "open",
     "high",

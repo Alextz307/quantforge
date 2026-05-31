@@ -18,6 +18,7 @@ import yaml
 from src.core import json_io
 from src.core.persistence import (
     EXPERIMENT_MANIFEST_JSON,
+    FEATURE_IMPORTANCE_JSON,
     HPO_SUBDIR,
     RUNS_SUBDIR,
 )
@@ -39,7 +40,9 @@ from webapp.backend.app.infrastructure.process_manager import (
 from webapp.backend.app.schemas.jobs import (
     ComparePayload,
     HoldoutPayload,
+    ImportancePayload,
     JobKind,
+    JobRow,
     JobStatus,
     JobSubmission,
 )
@@ -849,3 +852,191 @@ def test_job_submission_validator_rejects_holdout_with_compare_payload() -> None
             compare_payload=ComparePayload(run_ids=[_COMPARE_RUN_A, _COMPARE_RUN_B], out_name="x"),
             holdout_payload=HoldoutPayload(source_kind="run", source_id=_HOLDOUT_RUN_ID),
         )
+
+
+_IMPORTANCE_FEATURE_RUN = "exp_mg_importance"
+_IMPORTANCE_RULE_RUN = "exp_ab_importance"
+
+
+def _submit_importance(
+    conn: sqlite3.Connection,
+    manager: ProcessManager,
+    user: UserPublic,
+    *,
+    run_id: str,
+    store_root: Path,
+    tmp_path: Path,
+) -> JobRow:
+    return asyncio.run(
+        submit_job(
+            conn=conn,
+            manager=manager,
+            user=user,
+            submission=JobSubmission(
+                kind=JobKind.IMPORTANCE, importance_payload=ImportancePayload(run_id=run_id)
+            ),
+            store_root=store_root,
+            config_root=tmp_path / "config",
+            job_temp_dir=tmp_path / "jobs",
+            study_spec_uploads_dir=tmp_path / "uploads",
+        )
+    )
+
+
+def test_submit_importance_spawns_for_feature_consuming_run(
+    db_conn: sqlite3.Connection, tmp_path: Path
+) -> None:
+    user = _user(db_conn, "alice")
+    manager = _stub_manager()
+    store_root = tmp_path / "store"
+    make_synthetic_run(
+        store_root / RUNS_SUBDIR,
+        experiment_id=_IMPORTANCE_FEATURE_RUN,
+        strategy="MomentumGatekeeper",
+    )
+
+    row = _submit_importance(
+        db_conn,
+        manager,
+        user,
+        run_id=_IMPORTANCE_FEATURE_RUN,
+        store_root=store_root,
+        tmp_path=tmp_path,
+    )
+
+    assert row.status is JobStatus.RUNNING
+    # Outcome-dependent; resolved post-completion via the manifest scan.
+    assert row.experiment_id is None
+    cast(AsyncMock, manager.spawn).assert_awaited_once()
+
+
+def test_submit_importance_rejects_rule_based_run(
+    db_conn: sqlite3.Connection, tmp_path: Path
+) -> None:
+    user = _user(db_conn, "alice")
+    manager = _stub_manager()
+    store_root = tmp_path / "store"
+    make_synthetic_run(
+        store_root / RUNS_SUBDIR,
+        experiment_id=_IMPORTANCE_RULE_RUN,
+        strategy="AdaptiveBollinger",
+    )
+
+    with pytest.raises(JobConfigInvalidError) as excinfo:
+        _submit_importance(
+            db_conn,
+            manager,
+            user,
+            run_id=_IMPORTANCE_RULE_RUN,
+            store_root=store_root,
+            tmp_path=tmp_path,
+        )
+    assert any("no engineered features" in e.msg for e in excinfo.value.errors)
+    cast(AsyncMock, manager.spawn).assert_not_awaited()
+
+
+def test_submit_importance_rejects_run_with_existing_importance(
+    db_conn: sqlite3.Connection, tmp_path: Path
+) -> None:
+    user = _user(db_conn, "alice")
+    manager = _stub_manager()
+    store_root = tmp_path / "store"
+    run_dir = make_synthetic_run(
+        store_root / RUNS_SUBDIR,
+        experiment_id=_IMPORTANCE_FEATURE_RUN,
+        strategy="MomentumGatekeeper",
+    )
+    json_io.write(
+        run_dir / FEATURE_IMPORTANCE_JSON, {"n_folds": 0, "per_fold": [], "aggregated": []}
+    )
+
+    with pytest.raises(JobConfigInvalidError) as excinfo:
+        _submit_importance(
+            db_conn,
+            manager,
+            user,
+            run_id=_IMPORTANCE_FEATURE_RUN,
+            store_root=store_root,
+            tmp_path=tmp_path,
+        )
+    assert any("already has feature importance" in e.msg for e in excinfo.value.errors)
+    cast(AsyncMock, manager.spawn).assert_not_awaited()
+
+
+def test_submit_importance_rejects_missing_run(db_conn: sqlite3.Connection, tmp_path: Path) -> None:
+    user = _user(db_conn, "alice")
+    manager = _stub_manager()
+
+    with pytest.raises(JobConfigInvalidError) as excinfo:
+        _submit_importance(
+            db_conn,
+            manager,
+            user,
+            run_id="does_not_exist",
+            store_root=tmp_path / "store",
+            tmp_path=tmp_path,
+        )
+    assert any("run not found" in e.msg for e in excinfo.value.errors)
+    cast(AsyncMock, manager.spawn).assert_not_awaited()
+
+
+def test_submit_importance_rejects_run_missing_metrics(
+    db_conn: sqlite3.Connection, tmp_path: Path
+) -> None:
+    user = _user(db_conn, "alice")
+    manager = _stub_manager()
+    store_root = tmp_path / "store"
+    make_synthetic_run(
+        store_root / RUNS_SUBDIR,
+        experiment_id=_IMPORTANCE_FEATURE_RUN,
+        strategy="MomentumGatekeeper",
+        write_metrics=False,
+    )
+
+    with pytest.raises(JobConfigInvalidError) as excinfo:
+        _submit_importance(
+            db_conn,
+            manager,
+            user,
+            run_id=_IMPORTANCE_FEATURE_RUN,
+            store_root=store_root,
+            tmp_path=tmp_path,
+        )
+    assert any("missing metrics.json" in e.msg for e in excinfo.value.errors)
+    cast(AsyncMock, manager.spawn).assert_not_awaited()
+
+
+def test_submit_importance_rejects_concurrent_recompute(
+    db_conn: sqlite3.Connection, tmp_path: Path
+) -> None:
+    user = _user(db_conn, "alice")
+    manager = _stub_manager()
+    store_root = tmp_path / "store"
+    make_synthetic_run(
+        store_root / RUNS_SUBDIR,
+        experiment_id=_IMPORTANCE_FEATURE_RUN,
+        strategy="MomentumGatekeeper",
+    )
+
+    first = _submit_importance(
+        db_conn,
+        manager,
+        user,
+        run_id=_IMPORTANCE_FEATURE_RUN,
+        store_root=store_root,
+        tmp_path=tmp_path,
+    )
+    assert first.status is JobStatus.RUNNING
+
+    with pytest.raises(JobConfigInvalidError) as excinfo:
+        _submit_importance(
+            db_conn,
+            manager,
+            user,
+            run_id=_IMPORTANCE_FEATURE_RUN,
+            store_root=store_root,
+            tmp_path=tmp_path,
+        )
+    assert any("already being computed" in e.msg for e in excinfo.value.errors)
+    # Only the first submission spawned; the concurrent one is rejected upfront.
+    cast(AsyncMock, manager.spawn).assert_awaited_once()

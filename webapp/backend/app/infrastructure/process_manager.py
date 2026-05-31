@@ -72,6 +72,31 @@ def build_run_command(
     )
 
 
+def build_importance_command(*, run_dir: Path, store_root: Path, job_id: str) -> tuple[str, ...]:
+    """
+    ``experiment importance`` invocation: recompute a finished run's importance.
+
+    ``--name job_id`` makes a diverged re-run's ``manifest.name`` equal the job
+    id, so :func:`_resolve_run_experiment_id` resolves the job to that new run
+    (a reproduced backfill writes no new run, leaving experiment_id unresolved -
+    the frontend then sees importance attached to the original run).
+    """
+
+    return (
+        sys.executable,
+        "-m",
+        "scripts.experiment",
+        "importance",
+        "--run-dir",
+        str(run_dir),
+        "--store-root",
+        str(store_root),
+        "--name",
+        job_id,
+        "--no-progress",
+    )
+
+
 def build_tune_command(
     *,
     experiment_config_path: Path,
@@ -244,12 +269,15 @@ def _resolve_experiment_id(
     Single dispatch for "which artifact directory belongs to this finished job?".
 
     RUN jobs need a manifest walk because the run dir's basename is the
-    auto-generated experiment_id, not the job_id. TUNE/COMPARE/HOLDOUT
-    pre-commit their artifact name at submission time so the resolver is a
-    cheap stat.
+    auto-generated experiment_id, not the job_id. IMPORTANCE jobs use the same
+    walk: a diverged re-run is saved under ``manifest.name == job_id`` (a
+    reproduced backfill writes no new run, so the walk finds nothing and the
+    job's experiment_id stays None - the original run is where importance
+    landed). TUNE/COMPARE/HOLDOUT pre-commit their artifact name at submission
+    time so the resolver is a cheap stat.
     """
 
-    if kind is JobKind.RUN:
+    if kind in (JobKind.RUN, JobKind.IMPORTANCE):
         return _resolve_run_experiment_id(store_root, job_id)
     subdir = _ARTIFACT_SUBDIR_BY_KIND.get(kind)
     if subdir is None or artifact_name is None:

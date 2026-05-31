@@ -61,7 +61,12 @@ export function useJobStream(jobId: string, initialStatus: JobStatus): JobStream
       if (isTerminalStatus(frame.status)) {
         void qc.invalidateQueries({ queryKey: queryKeys.jobsAll });
         if (frame.status === "completed" && frame.experiment_id) {
-          void qc.invalidateQueries({ queryKey: queryKeys.runs });
+          // Refresh the runs LIST only, not an open run detail's own queries
+          // (detail / folds / importance): those didn't change, and refetching
+          // them reflows that page's charts (e.g. disturbs the equity curve).
+          void qc.invalidateQueries({
+            predicate: (q) => q.queryKey[0] === "runs" && q.queryKey[1] === "page",
+          });
         }
       }
     },

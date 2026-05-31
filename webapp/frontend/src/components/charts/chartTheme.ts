@@ -1,11 +1,7 @@
-import createPlotlyComponent from "react-plotly.js/factory";
-import Plotly from "plotly.js-cartesian-dist-min";
 import type { Layout } from "plotly.js";
 import { useMemo } from "react";
 import { useTheme } from "@/lib/theme";
 import type { ResolvedTheme } from "@/lib/themeStorage";
-
-export const Plot = createPlotlyComponent(Plotly);
 
 interface ChartPalette {
   font: string;
@@ -14,9 +10,8 @@ interface ChartPalette {
   axisLine: string;
 }
 
-// Hex values mirror the HSL CSS tokens in src/index.css (--foreground, --border).
-// Baked here because Plotly doesn't read CSS vars - keeps the palette deterministic
-// per theme without a layout-time getComputedStyle call.
+// Hex values mirror the HSL CSS tokens in src/index.css; baked here because
+// Plotly can't read CSS vars (and to avoid a layout-time getComputedStyle).
 const PALETTES: Record<ResolvedTheme, ChartPalette> = {
   light: { font: "#0a0a0c", grid: "#e2e5ea", zeroLine: "#cbd0d7", axisLine: "#cbd0d7" },
   dark: { font: "#f8fafc", grid: "#2a2d35", zeroLine: "#3f434c", axisLine: "#3f434c" },

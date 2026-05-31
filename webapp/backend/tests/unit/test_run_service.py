@@ -17,7 +17,11 @@ from src.analysis.feature_importance import (
     build_importance_artifact,
 )
 from src.core import json_io
-from src.core.persistence import FEATURE_IMPORTANCE_JSON
+from src.core.persistence import (
+    EXPERIMENT_CONFIG_YAML,
+    FEATURE_IMPORTANCE_DIVERGED_JSON,
+    FEATURE_IMPORTANCE_JSON,
+)
 from webapp.backend.app.infrastructure.store import RunNotFoundError
 from webapp.backend.app.services.run_service import (
     PlotNotFoundError,
@@ -287,6 +291,24 @@ def test_get_feature_importance_returns_aggregated_entries(
     assert rsi.std == pytest.approx(_RSI_PERMUTATION_STD)
 
 
+def test_get_feature_importance_serves_entries_without_config(
+    tmp_path: Path, db_conn: sqlite3.Connection
+) -> None:
+    # A present artifact must render even with config.yaml gone: it implies a
+    # feature-consuming strategy, so the response must not re-read the config.
+    root = tmp_path / "experiment_results"
+    run_dir = make_synthetic_run(
+        root / "flat_store" / "runs", experiment_id=NEWER_ID, strategy="MomentumGatekeeper"
+    )
+    _write_importance(run_dir, _BOTH_METHOD_FOLDS)
+    (run_dir / EXPERIMENT_CONFIG_YAML).unlink()
+
+    response = get_feature_importance(root, NEWER_ID, conn=db_conn, user=make_viewer_user(db_conn))
+
+    assert len(response.entries) == _EXPECTED_ENTRY_COUNT
+    assert response.computable is True
+
+
 def test_get_feature_importance_missing_artifact_returns_empty_with_message(
     tmp_path: Path, db_conn: sqlite3.Connection
 ) -> None:
@@ -297,6 +319,49 @@ def test_get_feature_importance_missing_artifact_returns_empty_with_message(
 
     assert response.entries == []
     assert response.message is not None
+
+
+def test_get_feature_importance_marks_feature_strategy_computable(
+    tmp_path: Path, db_conn: sqlite3.Connection
+) -> None:
+    root = tmp_path / "experiment_results"
+    make_synthetic_run(
+        root / "flat_store" / "runs", experiment_id=NEWER_ID, strategy="MomentumGatekeeper"
+    )
+
+    response = get_feature_importance(root, NEWER_ID, conn=db_conn, user=make_viewer_user(db_conn))
+
+    assert response.entries == []
+    assert response.computable is True
+
+
+def test_get_feature_importance_marks_rule_based_not_computable(
+    tmp_path: Path, db_conn: sqlite3.Connection
+) -> None:
+    root = tmp_path / "experiment_results"
+    make_synthetic_run(
+        root / "flat_store" / "runs", experiment_id=NEWER_ID, strategy="AdaptiveBollinger"
+    )
+
+    response = get_feature_importance(root, NEWER_ID, conn=db_conn, user=make_viewer_user(db_conn))
+
+    assert response.computable is False
+
+
+def test_get_feature_importance_surfaces_diverged_pointer(
+    tmp_path: Path, db_conn: sqlite3.Connection
+) -> None:
+    root = tmp_path / "experiment_results"
+    run_dir = make_synthetic_run(
+        root / "flat_store" / "runs", experiment_id=NEWER_ID, strategy="MomentumGatekeeper"
+    )
+    json_io.write(run_dir / FEATURE_IMPORTANCE_DIVERGED_JSON, {"diverged_run_id": "exp_refit_123"})
+
+    response = get_feature_importance(root, NEWER_ID, conn=db_conn, user=make_viewer_user(db_conn))
+
+    assert response.entries == []
+    assert response.computable is True
+    assert response.diverged_run_id == "exp_refit_123"
 
 
 def test_get_feature_importance_maps_nan_to_none(

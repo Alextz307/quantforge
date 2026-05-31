@@ -17,9 +17,16 @@ from src.core.config import StudyLeg, StudySpec
 from src.core.fs import ensure_parent_dir
 from src.core.persistence import (
     EXPERIMENT_CONFIG_YAML,
+    EXPERIMENT_MANIFEST_JSON,
+    EXPERIMENT_METRICS_JSON,
+    FEATURE_IMPORTANCE_JSON,
     read_experiment_manifest,
 )
 from src.optimization.checkpointing import BEST_CONFIG_YAML_NAME
+from src.orchestration.run_loader import (
+    load_experiment_config_from_run,
+    strategy_supports_feature_importance,
+)
 from src.orchestration.study import make_leg_id
 from webapp.backend.app.core.types import Role
 from webapp.backend.app.infrastructure.job_store import (
@@ -37,6 +44,7 @@ from webapp.backend.app.infrastructure.process_manager import (
     ProcessManager,
     build_compare_command,
     build_holdout_command,
+    build_importance_command,
     build_run_command,
     build_study_command,
     build_tune_command,
@@ -54,6 +62,7 @@ from webapp.backend.app.schemas.jobs import (
     TERMINAL_STATUSES,
     ComparePayload,
     HoldoutPayload,
+    ImportancePayload,
     JobKind,
     JobRow,
     JobStatus,
@@ -64,6 +73,10 @@ from webapp.backend.app.schemas.users import UserPublic
 from webapp.backend.app.services._dir_cache import cached_artifact_dirs
 from webapp.backend.app.services.config_service import validate as validate_config
 from webapp.backend.app.services.hpo_service import best_config_reserves_holdout
+from webapp.backend.app.services.ownership import (
+    ArtifactAccessDeniedError,
+    check_artifact_access,
+)
 from webapp.backend.app.services.strategy_service import describe_strategy
 from webapp.backend.app.services.study_service import find_live_study_job_for
 from webapp.backend.app.services.study_spec_uploads import find_upload_path
@@ -644,12 +657,113 @@ class _StudyHandler:
         )
 
 
+def _find_live_importance_job(conn: sqlite3.Connection, config_path: str) -> str | None:
+    """
+    Return the id of a non-terminal IMPORTANCE job recomputing the same run.
+
+    Importance jobs leave ``experiment_id`` unresolved until completion, so
+    (unlike studies) they're keyed by ``config_path`` - the target run's
+    ``config.yaml`` - to reject a concurrent double-submit for one run.
+    """
+
+    terminal = tuple(s.value for s in TERMINAL_STATUSES)
+    placeholders = ",".join("?" * len(terminal))
+    row = conn.execute(
+        f"SELECT id FROM jobs "
+        f"WHERE kind = ? AND config_path = ? AND status NOT IN ({placeholders}) "
+        f"ORDER BY id DESC LIMIT 1",
+        (JobKind.IMPORTANCE.value, config_path, *terminal),
+    ).fetchone()
+    if row is None:
+        return None
+    return str(row["id"])
+
+
+def _resolve_importance_run(payload: ImportancePayload, ctx: _HandlerCtx) -> Path:
+    """
+    Resolve + gate the run an importance job will recompute for.
+
+    Surfaces a structured 422 (not a 404/403) so the form can highlight the
+    field. Access denial is reported as "run not found", matching the read
+    side's non-disclosure: a backfill writes into the run dir, so a caller who
+    can't see the run must not be able to mutate it either. The strategy must
+    consume engineered features, and the run must not already carry importance.
+    """
+
+    loc = ["importance_payload", "run_id"]
+
+    def reject(msg: str) -> JobConfigInvalidError:
+        return JobConfigInvalidError([ValidationErrorItem(loc=loc, msg=msg, type="value_error")])
+
+    try:
+        run_dir = find_run_dir(ctx.store_root, payload.run_id)
+    except RunNotFoundError as exc:
+        raise reject(f"run not found: {payload.run_id}") from exc
+    try:
+        check_artifact_access(ctx.conn, experiment_id=payload.run_id, user=ctx.user)
+    except ArtifactAccessDeniedError as exc:
+        raise reject(f"run not found: {payload.run_id}") from exc
+    if not (run_dir / EXPERIMENT_CONFIG_YAML).is_file():
+        raise reject(f"run is missing config.yaml: {payload.run_id}")
+    # The re-run needs the original's metrics to decide where importance lands,
+    # so reject upfront when they're absent instead of failing late.
+    for required in (EXPERIMENT_METRICS_JSON, EXPERIMENT_MANIFEST_JSON):
+        if not (run_dir / required).is_file():
+            raise reject(f"run is missing {required}: {payload.run_id}")
+    strategy_name = load_experiment_config_from_run(run_dir).strategy.name
+    if not strategy_supports_feature_importance(strategy_name):
+        raise reject(
+            f"strategy {strategy_name!r} consumes no engineered features, so it "
+            f"produces no feature importance; nothing to compute for this run."
+        )
+    if (run_dir / FEATURE_IMPORTANCE_JSON).is_file():
+        raise reject(f"run {payload.run_id} already has feature importance.")
+    return run_dir
+
+
+class _ImportanceHandler:
+    def validate(self, submission: JobSubmission, ctx: _HandlerCtx) -> None:
+        assert submission.importance_payload is not None
+        run_dir = _resolve_importance_run(submission.importance_payload, ctx)
+        live = _find_live_importance_job(ctx.conn, str(run_dir / EXPERIMENT_CONFIG_YAML))
+        if live is not None:
+            raise JobConfigInvalidError(
+                [
+                    ValidationErrorItem(
+                        loc=["importance_payload", "run_id"],
+                        msg=(
+                            f"feature importance is already being computed for run "
+                            f"{submission.importance_payload.run_id} under job {live!r}; "
+                            "wait for it to finish or cancel it before recomputing."
+                        ),
+                        type="value_error",
+                    )
+                ]
+            )
+
+    def plan(
+        self, submission: JobSubmission, row: JobRow, job_temp_dir: Path, ctx: _HandlerCtx
+    ) -> _SpawnPlan:
+        assert submission.importance_payload is not None
+        run_dir = _resolve_importance_run(submission.importance_payload, ctx)
+        # experiment_id is outcome-dependent, resolved post-completion via the
+        # manifest scan: a diverged re-run saves under manifest.name == row.id;
+        # a reproduced backfill writes no new run, so it stays None.
+        return _SpawnPlan(
+            command=build_importance_command(
+                run_dir=run_dir, store_root=ctx.store_root, job_id=row.id
+            ),
+            primary_config_path=run_dir / EXPERIMENT_CONFIG_YAML,
+        )
+
+
 _HANDLERS: dict[JobKind, _JobHandler] = {
     JobKind.RUN: _RunHandler(),
     JobKind.TUNE: _TuneHandler(),
     JobKind.COMPARE: _CompareHandler(),
     JobKind.HOLDOUT: _HoldoutHandler(),
     JobKind.STUDY: _StudyHandler(),
+    JobKind.IMPORTANCE: _ImportanceHandler(),
 }
 
 
@@ -792,7 +906,9 @@ def _job_artifact_present(job: JobRow, valid_run_ids: set[str], valid_hpo_ids: s
         return True
     if job.experiment_id is None:
         return True
-    if job.kind is JobKind.RUN:
+    if job.kind in (JobKind.RUN, JobKind.IMPORTANCE):
+        # IMPORTANCE resolves to a run id only when it diverged into a new run;
+        # a reproduced backfill leaves experiment_id None and returned True above.
         return job.experiment_id in valid_run_ids
     if job.kind is JobKind.TUNE:
         return job.experiment_id in valid_hpo_ids

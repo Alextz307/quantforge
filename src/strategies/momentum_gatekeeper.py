@@ -34,7 +34,7 @@ from src.core.temporal import (
 from src.core.types import Device, Interval
 from src.core.utils import (
     align_features_for_directional_target,
-    directional_accuracy,
+    negative_log_loss,
     validate_open_unit_interval,
 )
 from src.features.pipeline import FeatureEngineeringPipeline
@@ -45,10 +45,6 @@ if TYPE_CHECKING:
     import optuna
 
 logger = get_logger(__name__)
-
-# Scoring-only P(up) cutoff; deliberately separate from the tuned trading-gate
-# ``prob_threshold`` so feature skill is measured at the neutral midpoint.
-_UP_DIRECTION_PROB_THRESHOLD: float = 0.5
 
 
 @dataclass(frozen=True)
@@ -401,13 +397,17 @@ class MomentumGatekeeperStrategy(IStrategy):
 
     def feature_importance_score(self, frame: pd.DataFrame) -> float | None:
         """
-        Directional hit-rate of P(up) vs the realised next-bar move.
+        Negative log-loss of P(up) vs the realised next-bar move.
+
+        Continuous on purpose: a thresholded hit-rate ignores probability shifts
+        that don't cross 0.5, so it under-resolves features that move P(up)
+        without flipping the call. Log-loss tracks the full probability.
         """
 
         if self._classifier is None:
             return None
         prob_up = self._classifier.predict_proba(frame)
-        return directional_accuracy(prob_up, frame["close"], threshold=_UP_DIRECTION_PROB_THRESHOLD)
+        return negative_log_loss(prob_up, frame["close"])
 
     def feature_gain(self) -> Mapping[str, float] | None:
         if self._classifier is None:

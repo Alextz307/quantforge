@@ -477,8 +477,24 @@
         "type": "object"
       },
       "FeatureImportanceResponse": {
-        "description": "Cross-fold feature importance for `/api/runs/{experiment_id}/feature-importance`.\n\n``entries`` is empty and ``message`` is set for the common \"no artifact\"\ncases (importance not requested for the run, a rule-based strategy that\nemits none, or a pre-importance run) so the endpoint stays 200.",
+        "description": "Cross-fold feature importance for `/api/runs/{experiment_id}/feature-importance`.\n\n``entries`` is empty and ``message`` is set for the common \"no artifact\"\ncases (importance not requested for the run, a rule-based strategy that\nemits none, or a pre-importance run) so the endpoint stays 200.\n\n``computable`` is whether this run's strategy can produce importance at all\n(feature-consuming strategies can; rule-based ones cannot). The frontend\noffers an on-demand \"compute importance\" action only when ``computable`` is\ntrue and ``entries`` is empty.\n\n``diverged_run_id`` is set when a prior recompute diverged (the re-fit\ndidn't reproduce this run's metrics) and saved importance as a separate\nrun; the detail page links to it persistently across reloads.",
         "properties": {
+          "computable": {
+            "default": false,
+            "title": "Computable",
+            "type": "boolean"
+          },
+          "diverged_run_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Diverged Run Id"
+          },
           "entries": {
             "items": {
               "$ref": "#/components/schemas/FeatureImportanceEntry"
@@ -1089,6 +1105,21 @@
         "title": "ImportanceMethod",
         "type": "string"
       },
+      "ImportancePayload": {
+        "description": "Input for ``experiment importance``: the finished run to compute for.\n\n``run_id`` must resolve to a completed run dir under the server's\nstore_root whose strategy consumes engineered features and that does not\nalready carry feature importance. The job_service surfaces a 422 with a\nstructured ``loc`` when those preconditions fail.",
+        "properties": {
+          "run_id": {
+            "minLength": 1,
+            "title": "Run Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "run_id"
+        ],
+        "title": "ImportancePayload",
+        "type": "object"
+      },
       "Interval": {
         "description": "Bar timeframe - used for annualization factor computation.",
         "enum": [
@@ -1110,7 +1141,8 @@
           "tune",
           "compare",
           "holdout",
-          "study"
+          "study",
+          "importance"
         ],
         "title": "JobKind",
         "type": "string"
@@ -1282,6 +1314,16 @@
               }
             ],
             "title": "Hpo Payload"
+          },
+          "importance_payload": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ImportancePayload"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "kind": {
             "$ref": "#/components/schemas/JobKind"

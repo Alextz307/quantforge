@@ -64,6 +64,10 @@ FOLD_RESULTS_JSONL = "fold_results.jsonl"
 EXPERIMENT_CONFIG_YAML = "config.yaml"
 EXPERIMENT_METRICS_JSON = "metrics.json"
 FEATURE_IMPORTANCE_JSON = "feature_importance.json"
+# Pointer written into a run dir when a diverged importance recompute saved its
+# result as a separate run: records that run's id so the detail page can link
+# there. Carries no importance data; never touches metrics.json.
+FEATURE_IMPORTANCE_DIVERGED_JSON = "feature_importance_diverged.json"
 EXPERIMENT_STRATEGY_SUBDIR = "strategy_state"
 EXPERIMENT_CHECKPOINTS_SUBDIR = "checkpoints"
 EXPERIMENT_RUN_LOG = "run.log"

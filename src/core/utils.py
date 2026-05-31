@@ -169,3 +169,82 @@ def negative_qlike(
     var_realised = aligned["realised"] ** 2
     qlike = np.log(var_hat) + var_realised / var_hat
     return float(-qlike.mean())
+
+
+def next_bar_log_return(close: pd.Series[float]) -> pd.Series[float]:
+    """
+    Realised next-bar log return aligned at bar ``t`` (return ``t`` -> ``t+1``); final row excluded.
+
+    The regression counterpart to :func:`next_bar_direction`: a return forecast
+    at bar ``t`` predicts this quantity. Derived only from ``close``, so it is
+    invariant to permuting any engineered feature. The last bar has no ``t+1``
+    close, so it is dropped (not filled) to avoid a leakage hazard.
+    """
+
+    realised: pd.Series[float] = compute_log_returns(close).shift(-1).iloc[:-1]
+    return realised
+
+
+def negative_return_mse(forecast: pd.Series[float], close: pd.Series[float]) -> float:
+    """
+    Negative MSE of a return forecast vs the realised next-bar return (higher is better).
+
+    The continuous counterpart to :func:`directional_accuracy` for a mean
+    forecast. A return hybrid sets the forecast SIGN with a feature-invariant
+    term (ARMA from ``close``) and only nudges its MAGNITUDE through the
+    feature-fed residual, so a discrete hit-rate is blind to the features (it
+    moves only when a sign flips); squared error tracks the magnitude, so the
+    residual's feature dependence stays visible. The sign is flipped to match
+    the higher-is-better convention of the permutation driver. Aligned on the
+    shared index; the realised target comes only from ``close``, so it is
+    invariant to feature permutation. Returns ``nan`` when no bar survives.
+    """
+
+    stray_labels = forecast.index.difference(close.index)
+    if len(stray_labels) > 0:
+        raise ValueError(
+            f"negative_return_mse: forecast carries {len(stray_labels)} index "
+            f"label(s) absent from close (e.g. {stray_labels[0]!r}); align the "
+            f"forecast to the close series so no row is silently dropped."
+        )
+    aligned = pd.DataFrame({"forecast": forecast, "realised": next_bar_log_return(close)}).dropna()
+    if aligned.empty:
+        return float("nan")
+    error = aligned["forecast"] - aligned["realised"]
+    return float(-(error**2).mean())
+
+
+# Clip probabilities off {0, 1} before the log so a confident miss yields a
+# large-but-finite loss instead of -inf.
+_LOG_LOSS_CLIP_EPS = 1e-15
+
+
+def negative_log_loss(prob_up: pd.Series[float], close: pd.Series[float]) -> float:
+    """
+    Negative binary log-loss of an up-probability vs the realised next-bar move (higher is better).
+
+    The continuous counterpart to :func:`directional_accuracy` for a directional
+    classifier. A thresholded hit-rate ignores any probability shift that does
+    not cross the decision boundary, so it under-resolves features that move
+    ``P(up)`` without flipping the call; log-loss tracks the full probability, so
+    every feature's contribution registers. The sign is flipped to match the
+    higher-is-better convention of the permutation driver. ``prob_up`` is aligned
+    against :func:`next_bar_direction`; the realised target comes only from
+    ``close``, so it is invariant to feature permutation. Returns ``nan`` when no
+    bar survives.
+    """
+
+    stray_labels = prob_up.index.difference(close.index)
+    if len(stray_labels) > 0:
+        raise ValueError(
+            f"negative_log_loss: prob_up carries {len(stray_labels)} index "
+            f"label(s) absent from close (e.g. {stray_labels[0]!r}); align the "
+            f"forecast to the close series so no row is silently dropped."
+        )
+    aligned = pd.DataFrame({"prob": prob_up, "realised": next_bar_direction(close)}).dropna()
+    if aligned.empty:
+        return float("nan")
+    prob = aligned["prob"].clip(_LOG_LOSS_CLIP_EPS, 1.0 - _LOG_LOSS_CLIP_EPS)
+    realised = aligned["realised"]
+    loss = -(realised * np.log(prob) + (1.0 - realised) * np.log(1.0 - prob))
+    return float(-loss.mean())

@@ -41,7 +41,7 @@ from src.core.types import Device, Interval
 from src.core.utils import (
     align_features_for_directional_target,
     compute_log_returns,
-    directional_accuracy,
+    negative_log_loss,
 )
 from src.models.xgboost_classifier import DirectionalClassifier
 from src.strategies.interface import IStrategy
@@ -55,10 +55,6 @@ _THRESHOLD_LOWER_BOUND = 0.5
 _THRESHOLD_UPPER_BOUND = 1.0
 
 _LOG_RETURN_WARMUP = 1
-
-# Scoring-only P(up) cutoff; deliberately separate from the tuned trading-gate
-# ``direction_threshold`` so feature skill is measured at the neutral midpoint.
-_UP_DIRECTION_PROB_THRESHOLD: float = 0.5
 
 
 @dataclass(frozen=True)
@@ -371,13 +367,17 @@ class CrossAssetMomentumStrategy(IStrategy):
 
     def feature_importance_score(self, frame: pd.DataFrame) -> float | None:
         """
-        Directional hit-rate of P(up) vs the primary's realised next-bar move.
+        Negative log-loss of P(up) vs the primary's realised next-bar move.
+
+        Continuous on purpose: a thresholded hit-rate under-resolves features
+        that move P(up) without crossing 0.5; log-loss tracks the full
+        probability.
         """
 
         if self._classifier is None:
             return None
         prob_up = self._classifier.predict_proba(frame)
-        return directional_accuracy(prob_up, frame["close"], threshold=_UP_DIRECTION_PROB_THRESHOLD)
+        return negative_log_loss(prob_up, frame["close"])
 
     def feature_gain(self) -> Mapping[str, float] | None:
         if self._classifier is None:

@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { memo, useMemo } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useCreateDeployment } from "@/api/deployments";
 import {
@@ -13,7 +13,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EquityChart, type EquityTrace } from "@/components/charts/EquityChart";
-import { FeatureImportanceChart } from "@/components/charts/FeatureImportanceChart";
+import { FeatureImportanceView } from "@/components/runs/FeatureImportanceView";
 import { FoldMetricsTable } from "@/components/runs/FoldMetricsTable";
 import { ManifestPanel } from "@/components/runs/ManifestPanel";
 import { PlotIndex } from "@/components/PlotIndex";
@@ -46,8 +46,21 @@ function foldsToTraces(folds: readonly FoldRow[]): EquityTrace[] {
   return folds.map((f) => ({ name: `Fold ${String(f.fold_index)}`, equity: f.equity_curve }));
 }
 
+// Memoized on the folds reference so a background job finishing (which re-renders
+// RunDetailPage via the importance query) doesn't reflow the untouched equity chart.
+const EquitySection = memo(function EquitySection({ folds }: { folds: readonly FoldRow[] }) {
+  return <EquityChart traces={foldsToTraces(folds)} xLabel="Bar within fold" />;
+});
+
 export function RunDetailPage() {
   const { experimentId = "" } = useParams<{ experimentId: string }>();
+  // Remount per run id: a client-side nav between run detail pages otherwise
+  // reuses this instance with new data, and Plotly keeps a stale size and
+  // overlaps until reload. Keying by id gives each run a clean mount.
+  return <RunDetailContent key={experimentId} experimentId={experimentId} />;
+}
+
+function RunDetailContent({ experimentId }: { experimentId: string }) {
   const runQuery = useRun(experimentId);
   const foldsQuery = useRunFolds(experimentId);
   const importanceQuery = useFeatureImportance(experimentId);
@@ -127,7 +140,7 @@ export function RunDetailPage() {
                 errorTitle="Failed to load folds"
                 loadingMessage="Loading folds..."
               >
-                {(folds) => <EquityChart traces={foldsToTraces(folds)} xLabel="Bar within fold" />}
+                {(folds) => <EquitySection folds={folds} />}
               </QueryRenderer>
             </CardContent>
           </Card>
@@ -147,7 +160,13 @@ export function RunDetailPage() {
                 errorTitle="Failed to load feature importance"
                 loadingMessage="Loading feature importance..."
               >
-                {(importance) => <FeatureImportanceChart response={importance} />}
+                {(importance) => (
+                  <FeatureImportanceView
+                    experimentId={experimentId}
+                    strategyName={run.strategy}
+                    response={importance}
+                  />
+                )}
               </QueryRenderer>
             </CardContent>
           </Card>

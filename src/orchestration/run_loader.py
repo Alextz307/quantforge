@@ -118,6 +118,26 @@ def resolve_run_dir(store_root: Path, experiment_id: str) -> Path:
     return flat
 
 
+def strategy_supports_feature_importance(strategy_name: str) -> bool:
+    """
+    Whether a registered strategy can produce feature importance.
+
+    A strategy supports importance iff it overrides ``feature_columns`` to
+    declare engineered columns (the rule-based strategies inherit the base
+    empty-tuple method and the importance subsystem skips them). Derived from
+    the registered class so it can't drift from the strategies themselves;
+    returns ``False`` for an unregistered name rather than raising, since both
+    callers (the read endpoint's ``computable`` flag and the job handler's
+    pre-launch guard) treat an unknown strategy as "nothing to compute".
+    """
+
+    try:
+        cls = strategy_registry.get(strategy_name)
+    except KeyError:
+        return False
+    return cls.feature_columns is not IStrategy.feature_columns
+
+
 def load_strategy_from_run_dir(run_dir: Path) -> IStrategy:
     """
     Reconstruct the trained strategy persisted under a run directory.

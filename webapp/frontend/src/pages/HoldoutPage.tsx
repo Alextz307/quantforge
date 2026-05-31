@@ -1,5 +1,5 @@
-import { useCallback, useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useMemo, useState } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useMe } from "@/api/auth";
 import { useCreateDeployment } from "@/api/deployments";
 import { useHoldoutEvals, usePrefetchHoldoutEval, type HoldoutEvalSummary } from "@/api/holdout";
@@ -25,9 +25,47 @@ type SourceKindFilter = SourceKind | typeof ALL_OPTION;
 type HoldoutSortKey = "created_at" | "holdout_start" | "sharpe_ratio";
 
 const DEFAULT_SORT: SortState<HoldoutSortKey> = { sortBy: "created_at", order: "desc" };
+const SORT_KEYS: ReadonlySet<HoldoutSortKey> = new Set([
+  "created_at",
+  "holdout_start",
+  "sharpe_ratio",
+]);
+const ORDER_VALUES: ReadonlySet<SortOrder> = new Set(["asc", "desc"]);
 
 function isSourceKindFilter(value: string): value is SourceKindFilter {
   return value === ALL_OPTION || (SOURCE_KINDS as readonly string[]).includes(value);
+}
+
+function readValidSince(raw: string | null): string {
+  // Drop an unparseable ?since: applyFilters compares against new Date(since),
+  // and NaN makes every comparison false - silently disabling the filter.
+  if (raw === null || raw === "") return "";
+  return Number.isNaN(new Date(raw).getTime()) ? "" : raw;
+}
+
+interface HoldoutUrlState {
+  sortBy: HoldoutSortKey;
+  order: SortOrder;
+  sourceKind: SourceKindFilter;
+  since: string;
+}
+
+// Sort + filters live in the URL so they survive a round-trip into a detail and
+// back; allUsers stays component-local, matching the runs page.
+function readState(params: URLSearchParams): HoldoutUrlState {
+  const sortBy = params.get("sort_by");
+  const order = params.get("order");
+  const sourceKind = params.get("source_kind");
+  return {
+    sortBy:
+      sortBy && SORT_KEYS.has(sortBy as HoldoutSortKey)
+        ? (sortBy as HoldoutSortKey)
+        : DEFAULT_SORT.sortBy,
+    order:
+      order && ORDER_VALUES.has(order as SortOrder) ? (order as SortOrder) : DEFAULT_SORT.order,
+    sourceKind: sourceKind && isSourceKindFilter(sourceKind) ? sourceKind : ALL_OPTION,
+    since: readValidSince(params.get("since")),
+  };
 }
 
 interface HoldoutFilters {
@@ -75,16 +113,26 @@ export function HoldoutPage() {
   const isAdmin = me.data?.role === "admin";
   const [allUsers, setAllUsers] = useState(false);
   const query = useHoldoutEvals({ allUsers: isAdmin && allUsers });
-  const [sourceKind, setSourceKind] = useState<SourceKindFilter>(ALL_OPTION);
-  const [since, setSince] = useState<string>("");
-  const [sortState, setSortState] = useState<SortState<HoldoutSortKey>>(DEFAULT_SORT);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const urlState = useMemo(() => readState(searchParams), [searchParams]);
+  const sortState = useMemo<SortState<HoldoutSortKey>>(
+    () => ({ sortBy: urlState.sortBy, order: urlState.order }),
+    [urlState.sortBy, urlState.order],
+  );
 
-  const onSortToggle = useCallback((col: HoldoutSortKey) => {
-    setSortState((prev) => {
-      const nextOrder: SortOrder = prev.sortBy === col && prev.order === "desc" ? "asc" : "desc";
-      return { sortBy: col, order: nextOrder };
-    });
-  }, []);
+  const onSortToggle = (col: HoldoutSortKey) => {
+    const next = new URLSearchParams(searchParams);
+    next.set("sort_by", col);
+    next.set("order", urlState.sortBy === col && urlState.order === "desc" ? "asc" : "desc");
+    setSearchParams(next);
+  };
+
+  const updateFilter = (key: string, value: string) => {
+    const next = new URLSearchParams(searchParams);
+    if (value === "") next.delete(key);
+    else next.set(key, value);
+    setSearchParams(next);
+  };
 
   return (
     <Card>
@@ -108,10 +156,14 @@ export function HoldoutPage() {
           {(rows) => (
             <HoldoutBody
               rows={rows}
-              sourceKind={sourceKind}
-              since={since}
-              onSourceKind={setSourceKind}
-              onSince={setSince}
+              sourceKind={urlState.sourceKind}
+              since={urlState.since}
+              onSourceKind={(v) => {
+                updateFilter("source_kind", v === ALL_OPTION ? "" : v);
+              }}
+              onSince={(v) => {
+                updateFilter("since", v);
+              }}
               sortState={sortState}
               onSortToggle={onSortToggle}
             />
@@ -141,10 +193,15 @@ function HoldoutBody({
   sortState,
   onSortToggle,
 }: BodyProps) {
-  const sourceKindOptions = useMemo<SourceKind[]>(
-    () => uniqSorted(rows.map((r) => r.source_kind)) as SourceKind[],
-    [rows],
-  );
+  const sourceKindOptions = useMemo<SourceKind[]>(() => {
+    const present = uniqSorted(rows.map((r) => r.source_kind)) as SourceKind[];
+    // Keep the active filter selectable even when no row carries it (e.g. a
+    // shared ?source_kind= URL), so the <select> doesn't fall back to "All".
+    if (sourceKind !== ALL_OPTION && !present.includes(sourceKind)) {
+      return uniqSorted([...present, sourceKind]) as SourceKind[];
+    }
+    return present;
+  }, [rows, sourceKind]);
   const filters = useMemo<HoldoutFilters>(() => ({ sourceKind, since }), [sourceKind, since]);
   const sorted = useMemo(() => sortRows(rows, sortState), [rows, sortState]);
   const prefetchHoldoutEval = usePrefetchHoldoutEval();

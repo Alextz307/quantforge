@@ -88,6 +88,7 @@ class JobKind(StrEnum):
     COMPARE = "compare"
     HOLDOUT = "holdout"
     STUDY = "study"
+    IMPORTANCE = "importance"
 
 
 _ANNUALIZATION_FACTORS: dict[Interval, int] = {

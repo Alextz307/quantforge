@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import type { Data, Layout } from "plotly.js";
-import { Plot, useThemedLayout } from "@/components/charts/plot";
+import { Plot } from "@/components/charts/plot";
+import { useThemedLayout } from "@/components/charts/chartTheme";
 import { buildHpoImportanceRows } from "@/components/charts/hpoImportanceRows";
 import type { ParamImportanceResponse } from "@/api/hpo";
 
@@ -59,6 +60,11 @@ export function HpoParamImportanceChart({ response, height = 320 }: HpoParamImpo
         style={{ width: "100%" }}
         useResizeHandler
       />
+      <p className="text-xs text-muted-foreground" data-testid="hpo-importance-note">
+        Optuna fANOVA over completed trials: the share of validation-objective variance each
+        hyperparameter explains across the searched ranges &mdash; which knobs moved the result most
+        during the search, not the single best value.
+      </p>
     </div>
   );
 }

@@ -124,7 +124,18 @@ class FeatureImportanceResponse(BaseModel):
     ``entries`` is empty and ``message`` is set for the common "no artifact"
     cases (importance not requested for the run, a rule-based strategy that
     emits none, or a pre-importance run) so the endpoint stays 200.
+
+    ``computable`` is whether this run's strategy can produce importance at all
+    (feature-consuming strategies can; rule-based ones cannot). The frontend
+    offers an on-demand "compute importance" action only when ``computable`` is
+    true and ``entries`` is empty.
+
+    ``diverged_run_id`` is set when a prior recompute diverged (the re-fit
+    didn't reproduce this run's metrics) and saved importance as a separate
+    run; the detail page links to it persistently across reloads.
     """
 
     entries: list[FeatureImportanceEntry]
     message: str | None = None
+    computable: bool = False
+    diverged_run_id: str | None = None

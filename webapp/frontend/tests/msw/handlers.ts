@@ -56,6 +56,7 @@ export const SEED_RUNS: RunSummary[] = [RUN_SPY, RUN_IVV_VOO];
 // Both seeded runs are rule-based strategies (AdaptiveBollinger / PairsTrading)
 // that emit no importance, so the faithful default is the empty-state response.
 export const RUN_FEATURE_IMPORTANCE_EMPTY: FeatureImportanceResponse = {
+  computable: false,
   entries: [],
   message: "Feature importance was not computed for this run.",
 };

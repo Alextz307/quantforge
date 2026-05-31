@@ -33,7 +33,13 @@ from src.analysis.feature_importance import (
 )
 from src.core.temporal import WalkForwardValidator
 from src.core.types import Interval
-from src.core.utils import directional_accuracy, negative_qlike
+from src.core.utils import (
+    compute_log_returns,
+    directional_accuracy,
+    negative_log_loss,
+    negative_qlike,
+    negative_return_mse,
+)
 from src.engine.cpp_engine import CppBacktestEngine
 from src.engine.walk_forward import evaluate_walk_forward
 from src.strategies.interface import IStrategy
@@ -215,6 +221,60 @@ def test_negative_qlike_all_nan_is_nan() -> None:
     idx = pd.date_range("2020-01-01", periods=3, freq="D")
     nan_series = pd.Series([float("nan")] * 3, index=idx, dtype=float)
     assert math.isnan(negative_qlike(nan_series, nan_series))
+
+
+def test_negative_return_mse_perfect_beats_biased() -> None:
+    idx = pd.date_range("2020-01-01", periods=6, freq="D")
+    close = pd.Series([1.0, 1.1, 1.0, 1.2, 1.1, 1.3], index=idx, dtype=float)
+    realised_next = compute_log_returns(close).shift(-1).reindex(idx)
+    score_perfect = negative_return_mse(realised_next, close)
+    score_biased = negative_return_mse(realised_next + 0.05, close)
+    assert score_perfect == 0.0
+    assert score_perfect > score_biased
+
+
+def test_negative_return_mse_empty_is_nan() -> None:
+    idx = pd.date_range("2020-01-01", periods=2, freq="D")
+    close = pd.Series([1.0, 2.0], index=idx, dtype=float)
+    forecast = pd.Series([float("nan"), float("nan")], index=idx, dtype=float)
+    assert math.isnan(negative_return_mse(forecast, close))
+
+
+def test_negative_return_mse_rejects_stray_label() -> None:
+    close = pd.Series(
+        [1.0, 1.1, 1.2], index=pd.date_range("2020-01-01", periods=3, freq="D"), dtype=float
+    )
+    forecast = pd.Series([0.0], index=pd.date_range("2030-01-01", periods=1, freq="D"), dtype=float)
+    with pytest.raises(ValueError, match="absent from close"):
+        negative_return_mse(forecast, close)
+
+
+def test_negative_log_loss_confident_correct_beats_wrong() -> None:
+    idx = pd.date_range("2020-01-01", periods=6, freq="D")
+    close = pd.Series([1.0, 2.0, 1.5, 2.5, 2.0, 3.0], index=idx, dtype=float)
+    # next_bar_direction: up, down, up, down, up (last row dropped).
+    confident_right = pd.Series([0.99, 0.01, 0.99, 0.01, 0.99, 0.5], index=idx, dtype=float)
+    confident_wrong = pd.Series([0.01, 0.99, 0.01, 0.99, 0.01, 0.5], index=idx, dtype=float)
+    score_right = negative_log_loss(confident_right, close)
+    score_wrong = negative_log_loss(confident_wrong, close)
+    assert math.isfinite(score_right)
+    assert score_right > score_wrong
+
+
+def test_negative_log_loss_clips_certain_miss_to_finite() -> None:
+    idx = pd.date_range("2020-01-01", periods=3, freq="D")
+    close = pd.Series([1.0, 2.0, 1.5], index=idx, dtype=float)
+    # next_bar_direction at t=0,1 is up,down; a p=1.0 call on the down bar would
+    # be log(0) without the clip.
+    prob = pd.Series([1.0, 1.0, 0.5], index=idx, dtype=float)
+    assert math.isfinite(negative_log_loss(prob, close))
+
+
+def test_negative_log_loss_empty_is_nan() -> None:
+    idx = pd.date_range("2020-01-01", periods=2, freq="D")
+    close = pd.Series([1.0, 2.0], index=idx, dtype=float)
+    prob = pd.Series([float("nan"), float("nan")], index=idx, dtype=float)
+    assert math.isnan(negative_log_loss(prob, close))
 
 
 def test_permutation_importance_separates_signal_from_noise() -> None:

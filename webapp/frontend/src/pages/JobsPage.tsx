@@ -47,7 +47,7 @@ export function JobsPage() {
           className="text-sm text-primary hover:underline"
           data-testid="jobs-launch-link"
         >
-          Launch new run {"->"}
+          Launch new job {"->"}
         </Link>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">

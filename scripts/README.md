@@ -8,7 +8,7 @@ pyproject, Python vs. C++ constants).
 
 | Script | Role |
 | --- | --- |
-| `experiment.py` (`make experiment`) | Click group with `run`, `tune`, `compare`, `holdout-eval`, `study`, `clean` subcommands. Drives the orchestration layer end to end. |
+| `experiment.py` (`make experiment`) | Click group with `run`, `tune`, `compare`, `holdout-eval`, `importance`, `study`, `clean` subcommands. Drives the orchestration layer end to end. `importance` recomputes a finished run's feature importance by re-running its frozen config: it backfills `feature_importance.json` in place when the re-fit reproduces the run's metrics, or saves a separate `source_run`-tagged run when training is non-deterministic and the re-fit diverges. |
 | `deploy.py` | Click group with `create`, `predict`, `list`, `show`, `signals` subcommands. Live-inference layer over a frozen trained run; idempotent on `--as-of`. |
 | `check_ci_deps.py` | Drift guard: every runtime dep in `pyproject.toml` appears in CI's `python-test` pip install line; every `types-*` / `*-stubs` dev dep appears in CI's `lint-and-typecheck` pip install line. Runs in CI as an early lint step. (The `webapp` + `webapp-frontend` jobs use `pip install -e ".[webapp]"` so their installs cannot drift from `[webapp]` extras.) |
 | `check_constants_sync.py` | Drift guard: every numeric constant mirrored between `src/core/constants.py` and `cpp/include/quant/core/types.hpp` (trading-calendar counts, position limits) has the same value on both sides. Pairs to verify are listed in `MIRROR_PAIRS` in the script. |
