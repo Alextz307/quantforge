@@ -27,7 +27,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from src.core.persistence import CLI_LOGS_SUBDIR, EXPERIMENT_RUN_LOG
+from src.core.persistence import CLI_COMBINED_LOG, CLI_LOGS_SUBDIR, EXPERIMENT_RUN_LOG
 
 CLI_LOG_FORMAT = "%(asctime)s %(levelname)s %(name)s: %(message)s"
 
@@ -119,7 +119,14 @@ def attach_cli_log_file(root_dir: Path, command_name: str) -> Iterator[Path]:
     entry point. Removed unconditionally on exit so pytest captures and
     repeat invocations don't accumulate handlers.
 
-    Not re-entrant: the handler is added to the *root* logger, so a
+    The same stream is ALSO appended to a single shared
+    ``<root_dir>/cli_logs/combined.log`` so the whole history of a store
+    (every run / tune / study invocation, in order) reads top-to-bottom in
+    one file, while the per-invocation files stay around for isolating a
+    single command. Each invocation writes a ``===== <command> <ts> pid
+    =====`` banner into the combined file so the boundaries stay legible.
+
+    Not re-entrant: the handlers are added to the *root* logger, so a
     second concurrent call in the same process would tee both files'
     output to each other. Single-shot CLI invocation only.
     """
@@ -128,7 +135,10 @@ def attach_cli_log_file(root_dir: Path, command_name: str) -> Iterator[Path]:
     log_dir.mkdir(parents=True, exist_ok=True)
     timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
     log_path = log_dir / f"{command_name}_{timestamp}_{os.getpid()}.log"
-    with _tee_root_to_file(log_path) as p:
+    combined_path = log_dir / CLI_COMBINED_LOG
+    with combined_path.open("a", encoding="utf-8") as banner:
+        banner.write(f"\n===== {command_name} {timestamp} pid={os.getpid()} =====\n")
+    with _tee_root_to_file(combined_path), _tee_root_to_file(log_path) as p:
         yield p
 
 

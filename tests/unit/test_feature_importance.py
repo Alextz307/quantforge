@@ -28,8 +28,10 @@ from src.analysis.feature_importance import (
     build_importance_artifact,
     compute_fold_importance,
     permutation_importance,
+    permutation_importance_grouped,
     read_aggregated_importance,
     xgb_gain_importance,
+    xgb_gain_importance_grouped,
 )
 from src.core.temporal import WalkForwardValidator
 from src.core.types import Interval
@@ -64,6 +66,7 @@ _NOISE_MAX_ABS_IMPORTANCE = 0.05
 _PERFECT_VOL = 0.2
 _WORSE_VOL = 0.6
 _INTERIOR_NAN_ROW = 100
+_SIG_DUP_COL = "signal_feat_dup"
 
 
 def _direction_frame(seed: int = _SEED) -> pd.DataFrame:
@@ -178,6 +181,25 @@ class _RecordingStrategy(_StubImportanceStrategy):
     def feature_importance_score(self, frame: pd.DataFrame) -> float | None:
         self.scored_indices.append(frame.index)
         return super().feature_importance_score(frame)
+
+
+class _GroupedImportanceStrategy(_StubImportanceStrategy):
+    """
+    Stub that also groups its feature columns by asset (basket strategy shape).
+    """
+
+    def __init__(
+        self,
+        columns: tuple[str, ...],
+        *,
+        groups: dict[str, tuple[str, ...]],
+        gain: dict[str, float] | None = None,
+    ) -> None:
+        super().__init__(columns, gain=gain)
+        self._groups = groups
+
+    def feature_groups(self) -> dict[str, tuple[str, ...]]:
+        return self._groups
 
 
 def test_directional_accuracy_perfect_and_anti() -> None:
@@ -340,6 +362,107 @@ def test_xgb_gain_importance_fills_unsplit_columns() -> None:
     assert by_feature[_NOISE_COL].importance == 0.0
     assert all(r.method is ImportanceMethod.XGB_GAIN for r in results)
     assert len(results) == 2
+
+
+def test_permutation_importance_grouped_separates_signal_from_noise_assets() -> None:
+    frame = _direction_frame()
+    frame[_SIG_DUP_COL] = frame[_SIGNAL_COL]
+    strategy = _StubImportanceStrategy((_SIGNAL_COL, _SIG_DUP_COL, _NOISE_COL))
+
+    def scorer(f: pd.DataFrame) -> float:
+        value = strategy.feature_importance_score(f)
+        assert value is not None
+        return value
+
+    results = permutation_importance_grouped(
+        scorer,
+        frame,
+        {"SIG": (_SIGNAL_COL, _SIG_DUP_COL), "NOISE": (_NOISE_COL,)},
+        n_repeats=_N_REPEATS,
+        rng=np.random.default_rng(_SEED),
+    )
+    by_asset = {r.feature: r for r in results}
+    assert by_asset["SIG"].importance > _INFORMATIVE_MIN_IMPORTANCE
+    assert abs(by_asset["NOISE"].importance) < _NOISE_MAX_ABS_IMPORTANCE
+    assert all(r.method is ImportanceMethod.ASSET_PERMUTATION for r in results)
+
+
+def test_permutation_importance_grouped_does_not_mutate_input() -> None:
+    frame = _direction_frame()
+    frame[_SIG_DUP_COL] = frame[_SIGNAL_COL]
+    before = frame.copy(deep=True)
+    strategy = _StubImportanceStrategy((_SIGNAL_COL, _SIG_DUP_COL))
+
+    def scorer(f: pd.DataFrame) -> float:
+        value = strategy.feature_importance_score(f)
+        assert value is not None
+        return value
+
+    permutation_importance_grouped(
+        scorer,
+        frame,
+        {"SIG": (_SIGNAL_COL, _SIG_DUP_COL)},
+        n_repeats=_N_REPEATS,
+        rng=np.random.default_rng(1),
+    )
+    pd.testing.assert_frame_equal(frame, before)
+
+
+def test_permutation_importance_grouped_raises_on_nonpositive_repeats() -> None:
+    frame = _direction_frame()
+    strategy = _StubImportanceStrategy((_SIGNAL_COL,))
+
+    def scorer(f: pd.DataFrame) -> float:
+        value = strategy.feature_importance_score(f)
+        assert value is not None
+        return value
+
+    with pytest.raises(ValueError, match="n_repeats"):
+        permutation_importance_grouped(
+            scorer, frame, {"SIG": (_SIGNAL_COL,)}, n_repeats=0, rng=np.random.default_rng(_SEED)
+        )
+
+
+def test_xgb_gain_importance_grouped_sums_member_gain() -> None:
+    gain = {"lag1_QQQ": 2.0, "lag5_QQQ": 3.0, "lag1_GLD": 1.0}
+    results = xgb_gain_importance_grouped(
+        gain, {"QQQ": ("lag1_QQQ", "lag5_QQQ"), "GLD": ("lag1_GLD", "lag5_GLD")}
+    )
+    by_asset = {r.feature: r for r in results}
+    assert by_asset["QQQ"].importance == 5.0
+    assert by_asset["GLD"].importance == 1.0
+    assert all(r.method is ImportanceMethod.ASSET_XGB_GAIN for r in results)
+
+
+def test_compute_fold_importance_includes_asset_scores_when_grouped() -> None:
+    frame = _direction_frame()
+    frame[_SIG_DUP_COL] = frame[_SIGNAL_COL]
+    strategy = _GroupedImportanceStrategy(
+        (_SIGNAL_COL, _SIG_DUP_COL, _NOISE_COL),
+        groups={"SIG": (_SIGNAL_COL, _SIG_DUP_COL), "NOISE": (_NOISE_COL,)},
+        gain={_SIGNAL_COL: 3.0, _SIG_DUP_COL: 1.0},
+    )
+    fold = compute_fold_importance(
+        strategy, frame, fold_index=0, n_repeats=_N_REPEATS, rng=np.random.default_rng(_SEED)
+    )
+    assert fold is not None
+    assert {s.method for s in fold.scores} == {
+        ImportanceMethod.PERMUTATION,
+        ImportanceMethod.XGB_GAIN,
+        ImportanceMethod.ASSET_PERMUTATION,
+        ImportanceMethod.ASSET_XGB_GAIN,
+    }
+    asset_perm = {
+        s.feature: s.importance
+        for s in fold.scores
+        if s.method is ImportanceMethod.ASSET_PERMUTATION
+    }
+    assert asset_perm["SIG"] > _INFORMATIVE_MIN_IMPORTANCE
+    assert abs(asset_perm["NOISE"]) < _NOISE_MAX_ABS_IMPORTANCE
+    asset_gain = {
+        s.feature: s.importance for s in fold.scores if s.method is ImportanceMethod.ASSET_XGB_GAIN
+    }
+    assert asset_gain["SIG"] == 4.0
 
 
 def test_compute_fold_importance_runs_permutation_and_gain() -> None:

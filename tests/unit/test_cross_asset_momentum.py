@@ -172,6 +172,17 @@ class TestTrainGenerate:
         expected = tuple(_derive_feature_columns(_FEATURE_TICKERS, _LAGS))
         assert meta.feature_columns == expected
 
+    def test_feature_groups_partition_feature_columns(self) -> None:
+        s = _make_strategy()
+        groups = s.feature_groups()
+        assert groups is not None
+        assert set(groups.keys()) == set(_FEATURE_TICKERS)
+        for ticker in _FEATURE_TICKERS:
+            assert groups[ticker] == tuple(f"lag{lag}_{ticker}" for lag in _LAGS)
+        flat = tuple(col for cols in groups.values() for col in cols)
+        assert flat == s.feature_columns()
+        assert len(flat) == len(set(flat))
+
     def test_signals_three_way_set(self, wide_df: pd.DataFrame) -> None:
         s = _make_strategy()
         s.train(wide_df)

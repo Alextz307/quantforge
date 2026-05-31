@@ -1,0 +1,11 @@
+data:
+  source: yfinance
+  tickers: [SPY, QQQ, IWM, GLD, TLT]
+  start: 2021-01-01
+  end: 2025-12-31
+  interval: daily
+strategy_params:
+  primary_ticker: SPY
+  feature_tickers: [QQQ, IWM, GLD, TLT]
+validation:
+  holdout_pct: 0.20

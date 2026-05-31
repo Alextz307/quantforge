@@ -75,6 +75,7 @@ _FEATURE_IMPORTANCE_HEATMAP_FILENAME = "feature_importance_heatmap.png"
 _EQUITY_OVERLAYS_SUBDIR = "per_universe_equity_overlays"
 _HOLDOUT_EQUITY_CURVES_SUBDIR = "holdout_equity_curves"
 _FEATURE_IMPORTANCE_BARS_SUBDIR = "feature_importance"
+_ASSET_IMPORTANCE_BARS_SUBDIR = "asset_importance"
 
 
 class StudyReportReporter:
@@ -130,6 +131,7 @@ class StudyReportReporter:
         self._plot_strategy_x_universe_heatmap(report, plots_dir)
         self._plot_holdout_dev_scatter(report, plots_dir)
         self._plot_feature_importance(report, plots_dir)
+        self._plot_asset_importance(report, plots_dir)
         self._copy_equity_overlays(report, plots_dir)
         self._copy_holdout_equity_curves(report, plots_dir)
 
@@ -356,7 +358,9 @@ class StudyReportReporter:
                 "no feature-importance artifacts on any leg - skipping feature-importance plots"
             )
             return
-        per_strategy = _permutation_means_by_strategy(report.per_leg_feature_importance)
+        per_strategy = _importance_means_by_strategy(
+            report.per_leg_feature_importance, ImportanceMethod.PERMUTATION
+        )
         per_strategy = {s: means for s, means in per_strategy.items() if means}
         if not per_strategy:
             return
@@ -402,6 +406,44 @@ class StudyReportReporter:
             ylabel="feature",
             placeholder_log_label="feature x strategy importance",
         )
+
+    def _plot_asset_importance(self, report: ConsolidatedStudyReport, plots_dir: Path) -> None:
+        """
+        Per-asset block-permutation bars for basket strategies (CrossAssetMomentum).
+
+        One horizontal bar per peer ticker: how much the prediction degrades
+        when that asset's whole lag block is permuted, averaged across the
+        strategy's basket universes. Skipped silently when no leg carries
+        ``ASSET_PERMUTATION`` entries (a sweep without a basket strategy).
+        """
+
+        per_strategy = _importance_means_by_strategy(
+            report.per_leg_feature_importance, ImportanceMethod.ASSET_PERMUTATION
+        )
+        per_strategy = {s: means for s, means in per_strategy.items() if means}
+        if not per_strategy:
+            return
+
+        bars_dir = plots_dir / _ASSET_IMPORTANCE_BARS_SUBDIR
+        bars_dir.mkdir(parents=True, exist_ok=True)
+        for strategy in sorted(per_strategy):
+            ordered = sorted(per_strategy[strategy].items(), key=lambda kv: kv[1], reverse=True)
+            names = [asset for asset, _ in ordered]
+            values = [value for _, value in ordered]
+            fig, ax = plt.subplots(figsize=(FIGURE_WIDTH_IN, FIGURE_HEIGHT_IN), dpi=FIGURE_DPI)
+            try:
+                ax.barh(range(len(names)), values, color="tab:green")
+                ax.axvline(0.0, color="0.4", linewidth=0.8)
+                ax.set_yticks(range(len(names)))
+                ax.set_yticklabels(names)
+                ax.invert_yaxis()
+                ax.set_xlabel("asset importance (mean OOS score drop, block-permuted)")
+                ax.set_title(f"per-asset importance - {strategy}")
+                ax.grid(True, axis="x", alpha=0.3)
+                fig.tight_layout()
+                save_png_and_svg(fig, bars_dir / f"{strategy}.png")
+            finally:
+                plt.close(fig)
 
     def _copy_equity_overlays(self, report: ConsolidatedStudyReport, plots_dir: Path) -> None:
         dest_dir = plots_dir / _EQUITY_OVERLAYS_SUBDIR
@@ -521,24 +563,26 @@ def _build_ranking_df(
     return pd.DataFrame(rows)
 
 
-def _permutation_means_by_strategy(
+def _importance_means_by_strategy(
     per_leg: Mapping[tuple[str, str], tuple[AggregatedImportance, ...]],
+    method: ImportanceMethod,
 ) -> dict[str, dict[str, float]]:
     """
-    Collapse per-leg importance to ``strategy -> {feature -> mean permutation importance}``.
+    Collapse per-leg importance to ``strategy -> {feature -> mean importance}``.
 
-    Averages the permutation-method importance of each feature across that
-    strategy's universes (gain entries are ignored - the cross-strategy view
-    uses the one method every feature-consuming strategy shares). NaN values
-    (a leg that could not score the feature) are dropped before averaging so
-    one failed leg cannot poison a feature's cross-universe mean; a feature
-    that is NaN on every universe is omitted entirely rather than shown blank.
+    Averages the given method's importance of each feature across that
+    strategy's universes (other methods are ignored). NaN values (a leg that
+    could not score the feature) are dropped before averaging so one failed
+    leg cannot poison a feature's cross-universe mean; a feature that is NaN
+    on every universe is omitted entirely rather than shown blank. With
+    ``method=ASSET_PERMUTATION`` the ``feature`` keys are asset tickers
+    (CrossAssetMomentum baskets) rather than column names.
     """
 
     accumulated: dict[str, dict[str, list[float]]] = defaultdict(lambda: defaultdict(list))
     for (strategy, _universe), aggs in per_leg.items():
         for agg in aggs:
-            if agg.method is ImportanceMethod.PERMUTATION and not np.isnan(agg.importance):
+            if agg.method is method and not np.isnan(agg.importance):
                 accumulated[strategy][agg.feature].append(agg.importance)
     return {
         strategy: {feature: float(np.mean(values)) for feature, values in features.items()}

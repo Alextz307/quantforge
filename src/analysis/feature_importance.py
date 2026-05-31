@@ -11,6 +11,15 @@ Two complementary methods:
 * **XGBoost native gain** - the booster's average loss reduction per feature,
   for the directional-classifier strategies only.
 
+Per-asset variant (basket strategies): when a strategy groups its feature
+columns by source asset via :meth:`IStrategy.feature_groups` (CrossAssetMomentum
+maps each peer ticker to its lag columns), both methods also run at the asset
+level - block-permuting all of an asset's lag columns together under one shared
+row permutation (``ASSET_PERMUTATION``) and summing their booster gain
+(``ASSET_XGB_GAIN``). The block permutation answers "how much does destroying
+this asset's history hurt the prediction", read as the asset's marginal value
+given the rest of the basket.
+
 Anti-leakage contract:
 
 * Importance is computed on the OOS test frame ONLY, with an already-fitted
@@ -75,10 +84,19 @@ _logger = get_logger(__name__)
 class ImportanceMethod(StrEnum):
     """
     How a feature-importance score was produced.
+
+    The ``ASSET_*`` variants are per-asset (not per-column): a basket
+    strategy (CrossAssetMomentum) groups its lag columns by source ticker
+    via :meth:`IStrategy.feature_groups`, and these methods score a whole
+    asset's contribution at once - block-permuting all its lag columns
+    together (``ASSET_PERMUTATION``) or summing its columns' booster gain
+    (``ASSET_XGB_GAIN``). Their ``feature`` field holds the asset ticker.
     """
 
     PERMUTATION = "permutation"
     XGB_GAIN = "xgb_gain"
+    ASSET_PERMUTATION = "asset_permutation"
+    ASSET_XGB_GAIN = "asset_xgb_gain"
 
 
 def _score_to_json(value: float) -> float | None:
@@ -285,6 +303,92 @@ def xgb_gain_importance(
     )
 
 
+def permutation_importance_grouped(
+    score_fn: Callable[[pd.DataFrame], float],
+    features: pd.DataFrame,
+    groups: Mapping[str, Sequence[str]],
+    *,
+    n_repeats: int,
+    rng: np.random.Generator,
+    baseline: float | None = None,
+) -> tuple[FeatureImportance, ...]:
+    """
+    Block permutation importance for whole feature groups (one per asset).
+
+    Where :func:`permutation_importance` shuffles a single column, this
+    shuffles every column of a group together under ONE shared row
+    permutation per repeat. The shared permutation preserves the group's
+    internal joint distribution (an asset's lag columns stay aligned to each
+    other) while severing the group's link to the realised target, so the
+    score drop measures the asset's MARGINAL contribution given the rest of
+    the basket: two redundant assets each read as low (the other covers for
+    it), which is itself a true read on basket overlap.
+
+    Only rows where every column of the group is finite are shuffled (their
+    shared positions); any NaN row is left in place, exactly as the single
+    column variant does, so the scored row set is permutation-invariant.
+    ``features`` is never mutated. The ``feature`` field of each result holds
+    the group name (the asset ticker); the method is ``ASSET_PERMUTATION``.
+    """
+
+    if n_repeats < 1:
+        raise ValueError(
+            f"n_repeats must be >= 1, got {n_repeats}; fix by passing a positive "
+            f"repeat count (FEATURE_IMPORTANCE_N_REPEATS is the project default)."
+        )
+    base = score_fn(features) if baseline is None else baseline
+    results: list[FeatureImportance] = []
+    for group_name, columns in groups.items():
+        cols = list(columns)
+        originals = {c: np.asarray(features[c], dtype=np.float64) for c in cols}
+        finite_mask = np.ones(len(features), dtype=bool)
+        for c in cols:
+            finite_mask &= ~np.isnan(originals[c])
+        finite_positions = np.flatnonzero(finite_mask)
+        working = features.copy()
+        drops = np.empty(n_repeats, dtype=np.float64)
+        for repeat in range(n_repeats):
+            permuted_positions = rng.permutation(finite_positions)
+            for c in cols:
+                shuffled = originals[c].copy()
+                shuffled[finite_positions] = originals[c][permuted_positions]
+                working[c] = shuffled
+            drops[repeat] = base - score_fn(working)
+        results.append(
+            FeatureImportance(
+                feature=group_name,
+                importance=float(np.mean(drops)),
+                std=float(np.std(drops, ddof=1)) if n_repeats > 1 else 0.0,
+                method=ImportanceMethod.ASSET_PERMUTATION,
+            )
+        )
+    return tuple(results)
+
+
+def xgb_gain_importance_grouped(
+    gain: Mapping[str, float],
+    groups: Mapping[str, Sequence[str]],
+) -> tuple[FeatureImportance, ...]:
+    """
+    Sum an XGBoost gain map into one :class:`FeatureImportance` per group.
+
+    The complementary per-asset view to :func:`permutation_importance_grouped`:
+    each asset's total reliance is the sum of its lag columns' booster gain
+    (gain is additive across splits). Method ``ASSET_XGB_GAIN``; ``feature``
+    is the group name.
+    """
+
+    return tuple(
+        FeatureImportance(
+            feature=group_name,
+            importance=float(sum(gain.get(c, 0.0) for c in columns)),
+            std=0.0,
+            method=ImportanceMethod.ASSET_XGB_GAIN,
+        )
+        for group_name, columns in groups.items()
+    )
+
+
 def compute_fold_importance(
     strategy: IStrategy,
     test_frame: pd.DataFrame,
@@ -368,6 +472,16 @@ def compute_fold_importance(
     gain = strategy.feature_gain()
     if gain is not None:
         scores.extend(xgb_gain_importance(gain, columns))
+
+    groups = strategy.feature_groups()
+    if groups:
+        scores.extend(
+            permutation_importance_grouped(
+                scorer, clean, groups, n_repeats=n_repeats, rng=rng, baseline=baseline
+            )
+        )
+        if gain is not None:
+            scores.extend(xgb_gain_importance_grouped(gain, groups))
 
     return FoldImportance(fold_index=fold_index, scores=tuple(scores))
 

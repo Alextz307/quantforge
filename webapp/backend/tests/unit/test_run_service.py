@@ -40,6 +40,7 @@ from webapp.backend.tests.conftest import (
 
 _FEATURE_A = "rsi_14"
 _FEATURE_B = "vol_20"
+_ASSET = "QQQ"
 _EXPECTED_ENTRY_COUNT = 4
 _EXPECTED_PERMUTATION_COUNT = 2
 _RSI_PERMUTATION_MEAN = 0.45
@@ -62,6 +63,18 @@ _BOTH_METHOD_FOLDS = (
             FeatureImportance(_FEATURE_B, 0.20, 0.0, ImportanceMethod.PERMUTATION),
             FeatureImportance(_FEATURE_A, 0.70, 0.0, ImportanceMethod.XGB_GAIN),
             FeatureImportance(_FEATURE_B, 0.40, 0.0, ImportanceMethod.XGB_GAIN),
+        ),
+    ),
+)
+
+_WITH_ASSET_FOLDS = (
+    FoldImportance(
+        fold_index=0,
+        scores=(
+            FeatureImportance(_FEATURE_A, 0.40, 0.0, ImportanceMethod.PERMUTATION),
+            FeatureImportance(_FEATURE_A, 0.60, 0.0, ImportanceMethod.XGB_GAIN),
+            FeatureImportance(_ASSET, 0.25, 0.0, ImportanceMethod.ASSET_PERMUTATION),
+            FeatureImportance(_ASSET, 1.20, 0.0, ImportanceMethod.ASSET_XGB_GAIN),
         ),
     ),
 )
@@ -288,6 +301,22 @@ def test_get_feature_importance_returns_aggregated_entries(
     rsi = next(e for e in permutation if e.feature == _FEATURE_A)
     assert rsi.importance == pytest.approx(_RSI_PERMUTATION_MEAN)
     assert rsi.std == pytest.approx(_RSI_PERMUTATION_STD)
+
+
+def test_get_feature_importance_excludes_per_asset_entries(
+    tmp_path: Path, db_conn: sqlite3.Connection
+) -> None:
+    root = tmp_path / "experiment_results"
+    run_dir = make_synthetic_run(root / "flat_store" / "runs", experiment_id=NEWER_ID)
+    _write_importance(run_dir, _WITH_ASSET_FOLDS)
+
+    response = get_feature_importance(root, NEWER_ID, conn=db_conn, user=make_viewer_user(db_conn))
+
+    assert {e.method for e in response.entries} == {
+        ImportanceMethod.PERMUTATION,
+        ImportanceMethod.XGB_GAIN,
+    }
+    assert all(e.feature == _FEATURE_A for e in response.entries)
 
 
 def test_get_feature_importance_serves_entries_without_config(

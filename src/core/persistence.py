@@ -79,6 +79,7 @@ HPO_TRIALS_RUNS_SUBDIR = "runs"
 COMPARISONS_SUBDIR = "comparisons"
 HOLDOUT_EVALS_SUBDIR = "holdout_evals"
 CLI_LOGS_SUBDIR = "cli_logs"
+CLI_COMBINED_LOG = "combined.log"
 
 # Live deployment layout - each deployment is a directory under
 # ``<store_root>/deployments/<deployment_id>/`` holding the typed manifest

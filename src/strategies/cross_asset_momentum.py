@@ -384,6 +384,20 @@ class CrossAssetMomentumStrategy(IStrategy):
             return None
         return self._classifier.feature_gain()
 
+    def feature_groups(self) -> Mapping[str, tuple[str, ...]] | None:
+        """
+        Map each peer ticker to its lag columns, for per-asset importance.
+
+        Mirrors :func:`_derive_feature_columns`' naming so the groups partition
+        :meth:`feature_columns` exactly: every column belongs to exactly one
+        asset, and the union is the full feature set.
+        """
+
+        return {
+            ticker: tuple(f"lag{lag}_{ticker}" for lag in self._params.lags)
+            for ticker in self._params.feature_tickers
+        }
+
     @staticmethod
     def suggest_params(trial: optuna.trial.BaseTrial) -> dict[str, object]:
         """

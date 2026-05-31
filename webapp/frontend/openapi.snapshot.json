@@ -1087,10 +1087,12 @@
         "type": "object"
       },
       "ImportanceMethod": {
-        "description": "How a feature-importance score was produced.",
+        "description": "How a feature-importance score was produced.\n\nThe ``ASSET_*`` variants are per-asset (not per-column): a basket\nstrategy (CrossAssetMomentum) groups its lag columns by source ticker\nvia :meth:`IStrategy.feature_groups`, and these methods score a whole\nasset's contribution at once - block-permuting all its lag columns\ntogether (``ASSET_PERMUTATION``) or summing its columns' booster gain\n(``ASSET_XGB_GAIN``). Their ``feature`` field holds the asset ticker.",
         "enum": [
           "permutation",
-          "xgb_gain"
+          "xgb_gain",
+          "asset_permutation",
+          "asset_xgb_gain"
         ],
         "title": "ImportanceMethod",
         "type": "string"

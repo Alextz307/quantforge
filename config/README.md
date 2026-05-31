@@ -62,18 +62,11 @@ config/
         return_forecast.yaml
         volatility_targeting.yaml
     universes/
-        spy_daily_5y.yaml
-        spy_daily_10y.yaml
-        spy_daily_covid.yaml
-        spy_daily_2008.yaml
-        qqq_daily_5y.yaml
-        iwm_daily_5y.yaml
-        dia_daily_5y.yaml
-        aapl_daily_5y.yaml
-        msft_daily_5y.yaml
-        jpm_daily_5y.yaml
-        gld_daily_5y.yaml
-        ivv_voo_daily_5y.yaml
+        <ticker>_daily_5y.yaml        # SPY QQQ GLD AAPL MSFT GOOGL META AMZN TSLA KO JPM
+        <ticker>_daily_10y.yaml       # same 11 tickers, 10y window
+        megacap_tech_daily_5y.yaml    # CrossAssetMomentum baskets (+ _10y)
+        cross_asset_daily_5y.yaml     # (+ _10y)
+        ivv_voo_daily_5y.yaml         # IVV/VOO pair (+ _10y)
     study/
         main_study.yaml
 ```

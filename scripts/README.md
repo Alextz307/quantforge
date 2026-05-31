@@ -17,6 +17,7 @@ pyproject, Python vs. C++ constants).
 | `check_webapp_schema_mirror.py` (`make webapp-check-schema-mirror`) | Drift guard: extract every Pydantic write-DTO mirrored as a zod schema (`LoginRequest`, `UserCreate`) into `webapp/frontend/schema-mirror.snapshot.json`; pair vitest test asserts the zod schema agrees on field names, types, min/max constraints. `--write` regenerates the snapshot. |
 | `regen_stubs.py` (`make stubs`) | Regenerate `quant_engine` pybind11 stubs and apply ruff lint / format so the checked-in artefact passes `make lint`. |
 | `regen_spy_fixture.py` | Refetch + normalize + validate `tests/fixtures/SPY.parquet` (`SPY` daily, `2018-01-01` -> `2024-12-31`, `auto_adjust=True`). Run when the committed fixture goes stale. |
+| `validate_cam_baskets.py` | Validate the CrossAssetMomentum baskets: reads each basket (primary + feature tickers + lags) from `main_study.yaml` and the universe profiles, then prints the contemporaneous return correlation (shared structure, not near-duplicate) and the peer-momentum lead-lag table from yfinance, with a pass / flag verdict per basket. Not run in CI. |
 | `backfill_save_markers.py` | One-time migration: re-mark model save directories persisted before the `.save_complete` marker existed so they load again. Walks the store; for each run missing markers, writes them only if the strategy then loads (the completeness oracle) - a save that fails to load is reverted and reported. Model data is never modified. Idempotent; `--dry-run` lists without writing. |
 
 ## Layout
@@ -33,6 +34,7 @@ pyproject, Python vs. C++ constants).
 | `check_webapp_schema_mirror.py` | Walks `model_fields` on Pydantic v2 models; `--write` regenerates the snapshot, default mode diffs. Frontend pair: `webapp/frontend/tests/lib/schemas/mirror.test.ts`. |
 | `regen_stubs.py` | Wraps `pybind11-stubgen` + `ruff check --fix` + `ruff format`. |
 | `regen_spy_fixture.py` | Wraps `yfinance.download` + `DataNormalizer` + `validate_bars`; not run in CI. |
+| `validate_cam_baskets.py` | Reads CrossAssetMomentum baskets via `load_study_spec` + `compose_leg_config`; fetches returns with `yfinance.download`; correlation + lead-lag diagnostics. Not run in CI. |
 | `backfill_save_markers.py` | Provisional-mark -> `load_strategy_from_run_dir` certify -> keep-or-revert. Pairs with `tests/unit/test_backfill_save_markers.py`. |
 
 ## `experiment` subcommands
@@ -85,6 +87,13 @@ The file contains the same lines `tail -f` would show on stdout (same
 formatter), so a dropped terminal during a multi-day sweep doesn't lose
 the diagnostic trail. Utility commands (`clean`) skip the file handler
 since they're fast and produce no logger output worth persisting.
+
+The same stream is also appended to one shared
+`<store_root>/cli_logs/combined.log`, so the full history of a store
+reads top-to-bottom in a single file while the per-invocation files stay
+around for isolating one command. Each invocation opens with a
+`===== <command> <UTC_ts> pid=<pid> =====` banner in the combined file to
+keep the boundaries legible.
 
 ## Drift-guard invariants
 

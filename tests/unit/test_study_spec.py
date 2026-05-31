@@ -18,6 +18,8 @@ from tests.conftest import REPO_ROOT
 MAIN_STUDY_PATH = REPO_ROOT / "config" / "study" / "main_study.yaml"
 UNIVERSE_DIR = REPO_ROOT / "config" / "universes"
 
+_MULTI_TICKER_STRATEGIES = frozenset({"PairsTrading", "CrossAssetMomentum"})
+
 
 @pytest.fixture(scope="module")
 def main_study() -> StudySpec:
@@ -122,7 +124,7 @@ class TestMainStudyYAML:
         self, main_study: StudySpec
     ) -> None:
         for leg in main_study.legs:
-            if leg.strategy == "PairsTrading":
+            if leg.strategy in _MULTI_TICKER_STRATEGIES:
                 continue
             for name in leg.universes:
                 profile = load_universe_profile(UNIVERSE_DIR / f"{name}.yaml")
@@ -130,3 +132,24 @@ class TestMainStudyYAML:
                     f"single-asset strategy '{leg.strategy}' references multi-ticker "
                     f"universe '{name}' with tickers {profile.data.tickers}"
                 )
+
+    def test_cross_asset_momentum_runs_on_valid_baskets(self, main_study: StudySpec) -> None:
+        cam_legs = [leg for leg in main_study.legs if leg.strategy == "CrossAssetMomentum"]
+        assert len(cam_legs) == 1
+        for name in cam_legs[0].universes:
+            profile = load_universe_profile(UNIVERSE_DIR / f"{name}.yaml")
+            assert len(profile.data.tickers) >= 2, (
+                f"CrossAssetMomentum basket '{name}' must be multi-ticker, "
+                f"got {profile.data.tickers}"
+            )
+            # Tickers must live in data.tickers, else the per-fold slice raises at train time.
+            assert profile.strategy_params is not None, (
+                f"CrossAssetMomentum basket '{name}' must pin strategy_params "
+                f"(primary_ticker / feature_tickers)"
+            )
+            primary = profile.strategy_params["primary_ticker"]
+            features = profile.strategy_params["feature_tickers"]
+            assert primary in profile.data.tickers
+            assert isinstance(features, list)
+            assert set(features) <= set(profile.data.tickers)
+            assert primary not in features

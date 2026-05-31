@@ -304,6 +304,21 @@ class IStrategy(ABC):
 
         return None
 
+    def feature_groups(self) -> Mapping[str, tuple[str, ...]] | None:
+        """
+        Group feature columns by source asset, for per-asset importance.
+
+        Default ``None``: most strategies' features don't map onto assets, so
+        the importance subsystem reports only per-column scores. Basket
+        strategies (CrossAssetMomentum) override to return
+        ``{ticker: (its feature columns)}`` - every column must appear in
+        :meth:`feature_columns`. When present, the importance driver also runs
+        block permutation + gain-sum at the group level, yielding one
+        per-asset score (how much that asset's history matters to the model).
+        """
+
+        return None
+
     def save(self, path: str | Path) -> None:
         """
         Persist the trained strategy to a directory at ``path``.

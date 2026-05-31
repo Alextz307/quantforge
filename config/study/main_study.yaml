@@ -1,11 +1,14 @@
 name: main_study
 description: >
-  Empirical study - five strategies evaluated across twelve universes
-  (index ETFs, single large-caps, commodity, GFC stress window). Each leg
-  is composed by deep-merging a universe profile (config/universes/<name>.yaml)
-  onto the strategy YAML, then running HPO + cross-strategy comparison +
-  holdout-eval. ML-bearing strategies refit their leaves per fold so
-  walk-forward folds remain self-contained.
+  Empirical study - six strategies swept across liquid, well-known assets
+  (an index ETF, gold, nine mega-cap single-names) plus two cross-asset
+  baskets, each at 5-year (2021-2025) and 10-year (2016-2025) lookbacks.
+  Longer histories take a smaller holdout (5y -> 0.20, 10y -> 0.15). Each
+  leg deep-merges a universe profile (config/universes/<name>.yaml) onto
+  the strategy YAML, then runs HPO + cross-strategy comparison +
+  holdout-eval. CrossAssetMomentum sweeps multi-ticker baskets via
+  per-universe strategy_params overrides. ML-bearing strategies refit
+  their leaves per fold so walk-forward folds stay self-contained.
 seed: 42
 output_dir: studies/main
 
@@ -16,21 +19,33 @@ legs:
     universes:
       - spy_daily_5y
       - spy_daily_10y
-      - spy_daily_covid
       - qqq_daily_5y
-      - iwm_daily_5y
-      - dia_daily_5y
-      - aapl_daily_5y
-      - msft_daily_5y
-      - jpm_daily_5y
+      - qqq_daily_10y
       - gld_daily_5y
-      - spy_daily_2008
+      - gld_daily_10y
+      - aapl_daily_5y
+      - aapl_daily_10y
+      - msft_daily_5y
+      - msft_daily_10y
+      - googl_daily_5y
+      - googl_daily_10y
+      - meta_daily_5y
+      - meta_daily_10y
+      - amzn_daily_5y
+      - amzn_daily_10y
+      - tsla_daily_5y
+      - tsla_daily_10y
+      - ko_daily_5y
+      - ko_daily_10y
+      - jpm_daily_5y
+      - jpm_daily_10y
 
   - strategy: PairsTrading
     strategy_config: config/strategies/pairs_trading.yaml
     hpo_config: config/hpo/pairs_trading.yaml
     universes:
       - ivv_voo_daily_5y
+      - ivv_voo_daily_10y
 
   - strategy: MomentumGatekeeper
     strategy_config: config/strategies/momentum_gatekeeper.yaml
@@ -38,15 +53,26 @@ legs:
     universes:
       - spy_daily_5y
       - spy_daily_10y
-      - spy_daily_covid
-      - spy_daily_2008
       - qqq_daily_5y
-      - iwm_daily_5y
-      - dia_daily_5y
-      - aapl_daily_5y
-      - msft_daily_5y
-      - jpm_daily_5y
+      - qqq_daily_10y
       - gld_daily_5y
+      - gld_daily_10y
+      - aapl_daily_5y
+      - aapl_daily_10y
+      - msft_daily_5y
+      - msft_daily_10y
+      - googl_daily_5y
+      - googl_daily_10y
+      - meta_daily_5y
+      - meta_daily_10y
+      - amzn_daily_5y
+      - amzn_daily_10y
+      - tsla_daily_5y
+      - tsla_daily_10y
+      - ko_daily_5y
+      - ko_daily_10y
+      - jpm_daily_5y
+      - jpm_daily_10y
 
   - strategy: VolatilityTargeting
     strategy_config: config/strategies/volatility_targeting.yaml
@@ -54,15 +80,26 @@ legs:
     universes:
       - spy_daily_5y
       - spy_daily_10y
-      - spy_daily_covid
-      - spy_daily_2008
       - qqq_daily_5y
-      - iwm_daily_5y
-      - dia_daily_5y
-      - aapl_daily_5y
-      - msft_daily_5y
-      - jpm_daily_5y
+      - qqq_daily_10y
       - gld_daily_5y
+      - gld_daily_10y
+      - aapl_daily_5y
+      - aapl_daily_10y
+      - msft_daily_5y
+      - msft_daily_10y
+      - googl_daily_5y
+      - googl_daily_10y
+      - meta_daily_5y
+      - meta_daily_10y
+      - amzn_daily_5y
+      - amzn_daily_10y
+      - tsla_daily_5y
+      - tsla_daily_10y
+      - ko_daily_5y
+      - ko_daily_10y
+      - jpm_daily_5y
+      - jpm_daily_10y
 
   - strategy: ReturnForecast
     strategy_config: config/strategies/return_forecast.yaml
@@ -70,12 +107,32 @@ legs:
     universes:
       - spy_daily_5y
       - spy_daily_10y
-      - spy_daily_covid
-      - spy_daily_2008
       - qqq_daily_5y
-      - iwm_daily_5y
-      - dia_daily_5y
-      - aapl_daily_5y
-      - msft_daily_5y
-      - jpm_daily_5y
+      - qqq_daily_10y
       - gld_daily_5y
+      - gld_daily_10y
+      - aapl_daily_5y
+      - aapl_daily_10y
+      - msft_daily_5y
+      - msft_daily_10y
+      - googl_daily_5y
+      - googl_daily_10y
+      - meta_daily_5y
+      - meta_daily_10y
+      - amzn_daily_5y
+      - amzn_daily_10y
+      - tsla_daily_5y
+      - tsla_daily_10y
+      - ko_daily_5y
+      - ko_daily_10y
+      - jpm_daily_5y
+      - jpm_daily_10y
+
+  - strategy: CrossAssetMomentum
+    strategy_config: config/strategies/cross_asset_momentum.yaml
+    hpo_config: config/hpo/cross_asset_momentum.yaml
+    universes:
+      - megacap_tech_daily_5y
+      - megacap_tech_daily_10y
+      - cross_asset_daily_5y
+      - cross_asset_daily_10y

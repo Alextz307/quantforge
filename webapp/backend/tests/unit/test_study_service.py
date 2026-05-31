@@ -42,7 +42,7 @@ def test_list_studies_surfaces_completion(tmp_path: Path, db_conn: sqlite3.Conne
         legs=(
             ("AdaptiveBollinger", "spy_daily_5y", True),
             ("AdaptiveBollinger", "spy_daily_10y", True),
-            ("AdaptiveBollinger", "spy_daily_covid", False),
+            ("AdaptiveBollinger", "qqq_daily_5y", False),
         ),
     )
 

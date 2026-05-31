@@ -31,11 +31,14 @@ schema-validation time. The orchestrator and the test suite open them.
 
 ## Inventory
 
-`main_study.yaml` - five strategies (`AdaptiveBollinger`, `PairsTrading`,
-`MomentumGatekeeper`, `VolatilityTargeting`, `ReturnForecast`) over the
-universes in `config/universes/`, with each strategy's universe list
-filtered for compatibility (e.g. only the IVV/VOO pair for
-`PairsTrading`).
+`main_study.yaml` - six strategies (`AdaptiveBollinger`, `PairsTrading`,
+`MomentumGatekeeper`, `VolatilityTargeting`, `ReturnForecast`,
+`CrossAssetMomentum`) over the universes in `config/universes/`, with each
+strategy's universe list filtered for compatibility. The four single-asset
+strategies sweep the 11-ticker matrix at 5y/10y (22 universes each);
+`PairsTrading` runs only the IVV/VOO pair; `CrossAssetMomentum` runs the
+two multi-ticker baskets (each carrying a `strategy_params` override for
+its primary/feature tickers). 94 legs total.
 
 ## Loading a spec
 

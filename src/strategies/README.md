@@ -8,7 +8,7 @@ runs the backtest.
 
 | Symbol | Role |
 | --- | --- |
-| `IStrategy` | Abstract base. Required: `train`, `generate_signals`, `name`, `required_warmup_bars`, `suggest_params`. Default: `save`/`load` (raise), `hedge_ratio` (raise unless overridden), `get_all_training_metadata`, `_assert_fitted_with_metadata` (read-side guard), `_set_fitted_with_metadata` (atomic write-side commit), and the feature-importance hooks (`feature_columns`, `feature_importance_frame`, `feature_importance_score`, `feature_gain`) - all default to "skip" so rule-based strategies opt out for free. |
+| `IStrategy` | Abstract base. Required: `train`, `generate_signals`, `name`, `required_warmup_bars`, `suggest_params`. Default: `save`/`load` (raise), `hedge_ratio` (raise unless overridden), `get_all_training_metadata`, `_assert_fitted_with_metadata` (read-side guard), `_set_fitted_with_metadata` (atomic write-side commit), and the feature-importance hooks (`feature_columns`, `feature_importance_frame`, `feature_importance_score`, `feature_gain`, `feature_groups`) - all default to "skip" so rule-based strategies opt out for free. |
 | `IStrategy.is_pairs_strategy` | `ClassVar[bool]` - `True` only on pairs strategies. The walk-forward dispatcher branches on this to call `engine.run` vs `engine.run_pairs`. |
 | `IStrategy.is_multi_feature_strategy` | `ClassVar[bool]` - `True` for single-asset traded strategies that read N feature tickers from a wide `<ohlcv>_<TICKER>` frame. Mutually exclusive with `is_pairs_strategy`; the dispatcher slices the primary asset's OHLCV before calling `engine.run`. |
 | `IStrategy.primary_ticker` | Property - the asset a multi-feature strategy trades; default raises (override required). |
@@ -74,7 +74,10 @@ All six register themselves at import time on `strategy_registry`
   XGBoost-backed strategies also override `feature_gain()`.
   The score derives its realised target only from `close`, so it is
   invariant to permuting any feature. Rule-based strategies inherit the
-  defaults and are skipped.
+  defaults and are skipped. Basket strategies (CrossAssetMomentum) also
+  override `feature_groups()` - mapping each peer ticker to its lag
+  columns - so the importance driver adds a per-asset block-permutation +
+  gain-sum view on top of the per-column scores.
 
 ## Adding a new strategy
 

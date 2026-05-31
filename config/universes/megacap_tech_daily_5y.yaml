@@ -1,0 +1,11 @@
+data:
+  source: yfinance
+  tickers: [AAPL, MSFT, GOOGL, META, AMZN]
+  start: 2021-01-01
+  end: 2025-12-31
+  interval: daily
+strategy_params:
+  primary_ticker: AAPL
+  feature_tickers: [MSFT, GOOGL, META, AMZN]
+validation:
+  holdout_pct: 0.20

@@ -158,15 +158,20 @@ def compose_leg_config(leg: StudyLegRun) -> ExperimentConfig:
     profile's ``data`` block wins entirely; its ``validation`` keys
     override per-key (so the universe pins ``holdout_pct`` while leaving
     the strategy YAML's ``n_splits``/``test_size``/``gap`` intact unless
-    the universe overrides them).
+    the universe overrides them). An optional ``strategy_params`` block
+    overrides ``strategy.params`` per-key, so one strategy config can run
+    different parameterizations across universes (e.g. CrossAssetMomentum's
+    per-basket ``primary_ticker`` / ``feature_tickers``).
     """
 
     base = _read_yaml(leg.strategy_config_path)
     profile = load_universe_profile(leg.universe_profile_path)
     base["name"] = leg.leg_id
     base["data"] = profile.data.model_dump(mode="json")
-    raw_validation = base.get("validation") or {}
-    if not isinstance(raw_validation, dict):
+    raw_validation = base.get("validation")
+    if raw_validation is None:
+        raw_validation = {}
+    elif not isinstance(raw_validation, dict):
         raise ValueError(
             f"strategy YAML {leg.strategy_config_path} 'validation' block "
             f"must be a mapping, got {type(raw_validation).__name__}"
@@ -174,6 +179,27 @@ def compose_leg_config(leg: StudyLegRun) -> ExperimentConfig:
     merged_validation: dict[str, object] = dict(raw_validation)
     merged_validation.update(profile.validation.model_dump(exclude_unset=True))
     base["validation"] = merged_validation
+
+    if profile.strategy_params is not None:
+        raw_strategy = base.get("strategy")
+        if not isinstance(raw_strategy, dict):
+            raise ValueError(
+                f"strategy YAML {leg.strategy_config_path} 'strategy' block must "
+                f"be a mapping to accept a universe strategy_params override, got "
+                f"{type(raw_strategy).__name__}"
+            )
+        raw_params = raw_strategy.get("params")
+        if raw_params is None:
+            raw_params = {}
+        elif not isinstance(raw_params, dict):
+            raise ValueError(
+                f"strategy YAML {leg.strategy_config_path} 'strategy.params' block "
+                f"must be a mapping, got {type(raw_params).__name__}"
+            )
+        merged_params: dict[str, object] = dict(raw_params)
+        merged_params.update(profile.strategy_params)
+        raw_strategy["params"] = merged_params
+        base["strategy"] = raw_strategy
 
     return ExperimentConfig.model_validate(base)
 

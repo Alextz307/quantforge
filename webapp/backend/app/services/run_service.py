@@ -22,7 +22,11 @@ try:
 except ImportError:  # pragma: no cover - depends on libyaml presence
     from yaml import SafeLoader as _SafeLoader  # type: ignore[assignment]
 
-from src.analysis.feature_importance import AggregatedImportance, read_aggregated_importance
+from src.analysis.feature_importance import (
+    AggregatedImportance,
+    ImportanceMethod,
+    read_aggregated_importance,
+)
 from src.core import json_io
 from src.core.persistence import (
     EXPERIMENT_CONFIG_YAML,
@@ -398,7 +402,13 @@ def get_feature_importance(
             computable=strategy_supports_feature_importance(strategy_name),
             diverged_run_id=_read_diverged_run_id(run_dir),
         )
-    entries = [_entry_from_aggregated(agg) for agg in read_aggregated_importance(payload)]
+    # This panel is per-column. The per-asset (ASSET_*) entries a basket
+    # strategy also emits are a study-report artifact, not surfaced here.
+    entries = [
+        _entry_from_aggregated(agg)
+        for agg in read_aggregated_importance(payload)
+        if agg.method in (ImportanceMethod.PERMUTATION, ImportanceMethod.XGB_GAIN)
+    ]
     return FeatureImportanceResponse(entries=entries, computable=True)
 
 

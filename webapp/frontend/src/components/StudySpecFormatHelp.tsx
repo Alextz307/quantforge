@@ -151,7 +151,7 @@ legs:
     universes:
       - spy_daily_5y
       - qqq_daily_5y
-      - iwm_daily_5y
+      - gld_daily_5y
 
   - strategy: VolatilityTargeting
     strategy_config: config/strategies/volatility_targeting.yaml

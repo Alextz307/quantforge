@@ -15,7 +15,7 @@ subdirectories.
 | `ComparisonReporter.generate_full_report(report, folds_by_strategy, out_dir, *, publish_label=None)` | Cross-strategy artefacts: ranking LaTeX, pairwise-significance LaTeX, equity overlay normalised at 1.0, comparison `manifest.json`. |
 | `HPOReporter.generate_full_report(study, out_dir)` | Optuna-study artefacts: convergence curve, parameter-importance bars, top-trials LaTeX. |
 | `HoldoutEvalReporter.generate_full_report(result, out_dir, *, publish_label=None)` | One-shot holdout-eval artefacts: holdout-metrics LaTeX (two-column metric | value), normalised holdout-equity curve. |
-| `StudyReportReporter.generate_full_report(report, out_dir, *, publish_label=None)` | Cross-leg consolidated artefacts: master / per-universe rankings headlined by pooled OOS Sharpe (with PSR + cross-leg-deflated columns; mean-of-folds kept as the stability read) / holdout rankings (`.tex` + `.csv`), strategy x universe heatmap (pooled OOS Sharpe), dev-vs-holdout scatter, per-strategy feature-importance bars + feature x strategy importance heatmap, per-universe equity-overlay copies, per-leg holdout-equity copies. |
+| `StudyReportReporter.generate_full_report(report, out_dir, *, publish_label=None)` | Cross-leg consolidated artefacts: master / per-universe rankings headlined by pooled OOS Sharpe (with PSR + cross-leg-deflated columns; mean-of-folds kept as the stability read) / holdout rankings (`.tex` + `.csv`), strategy x universe heatmap (pooled OOS Sharpe), dev-vs-holdout scatter, per-strategy feature-importance bars + feature x strategy importance heatmap, per-asset importance bars (basket strategies), per-universe equity-overlay copies, per-leg holdout-equity copies. |
 | `build_booktabs_table(df, *, caption, label, ...)` / `write_booktabs_table` | Single LaTeX styling entry point; every reporter routes through here. |
 | `validate_publish_label(slug)` | Shared regex gate for the citation slug accepted by every reporter's `publish_label` kwarg. |
 | `save_png_and_svg(fig, png_path)` | PNG + SVG twin-write helper; pinned `FIGURE_WIDTH_IN`, `FIGURE_HEIGHT_IN`, `FIGURE_DPI`. |
@@ -31,7 +31,7 @@ subdirectories.
 | `comparison_reporter.py` | `ComparisonReporter` (multi-strategy ranking + significance). |
 | `hpo_reporter.py` | `HPOReporter` (Optuna study convergence + importance + top trials). |
 | `holdout_eval_reporter.py` | `HoldoutEvalReporter` (one-shot holdout-eval table + equity plot). |
-| `study_report_reporter.py` | `StudyReportReporter` (cross-leg consolidated tables + heatmaps + dev-vs-holdout scatter + per-strategy feature-importance bars + per-leg artefact copies). |
+| `study_report_reporter.py` | `StudyReportReporter` (cross-leg consolidated tables + heatmaps + dev-vs-holdout scatter + per-strategy feature-importance bars + per-asset importance bars + per-leg artefact copies). |
 
 ## Conventions enforced here
 

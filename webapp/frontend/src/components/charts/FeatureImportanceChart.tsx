@@ -13,22 +13,27 @@ export interface FeatureImportanceChartProps {
 
 const METHOD_ORDER = ["permutation", "xgb_gain"] as const satisfies readonly ImportanceMethod[];
 
-const METHOD_LABEL: Record<ImportanceMethod, string> = {
+// This panel is per-column. Basket strategies also emit per-asset (ASSET_*)
+// methods, but those are filtered out server-side, so the chart types against
+// just the column methods and stays valid as ImportanceMethod gains members.
+type ColumnMethod = (typeof METHOD_ORDER)[number];
+
+const METHOD_LABEL: Record<ColumnMethod, string> = {
   permutation: "Permutation (OOS drop)",
   xgb_gain: "XGBoost gain",
 };
 
-const METHOD_AXIS_TITLE: Record<ImportanceMethod, string> = {
+const METHOD_AXIS_TITLE: Record<ColumnMethod, string> = {
   permutation: "Mean out-of-sample score drop",
   xgb_gain: "Average gain",
 };
 
-const METHOD_COLOR: Record<ImportanceMethod, string> = {
+const METHOD_COLOR: Record<ColumnMethod, string> = {
   permutation: "#3b82f6",
   xgb_gain: "#a855f7",
 };
 
-const METHOD_CAPTION: Record<ImportanceMethod, string> = {
+const METHOD_CAPTION: Record<ColumnMethod, string> = {
   permutation:
     "Permutation: the out-of-sample score drop when this feature is shuffled, averaged across " +
     "walk-forward folds (negative MSE / log-loss / QLIKE depending on the model). Correlated " +
@@ -48,7 +53,7 @@ export function FeatureImportanceChart({ response, height = 360 }: FeatureImport
       ),
     [response.entries],
   );
-  const [selected, setSelected] = useState<ImportanceMethod>(METHOD_ORDER[0]);
+  const [selected, setSelected] = useState<ColumnMethod>(METHOD_ORDER[0]);
   const method = availableMethods.includes(selected)
     ? selected
     : (availableMethods[0] ?? METHOD_ORDER[0]);

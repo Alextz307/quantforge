@@ -9,8 +9,8 @@ from pathlib import Path
 
 import pytest
 
-from src.core.logging import attach_run_log_file, get_logger
-from src.core.persistence import EXPERIMENT_RUN_LOG
+from src.core.logging import attach_cli_log_file, attach_run_log_file, get_logger
+from src.core.persistence import CLI_COMBINED_LOG, CLI_LOGS_SUBDIR, EXPERIMENT_RUN_LOG
 
 
 class TestContextualLogger:
@@ -75,3 +75,34 @@ class TestAttachRunLogFile:
         body = log_path.read_text(encoding="utf-8")
         assert "during run" in body
         assert "after run" not in body
+
+
+class TestAttachCliLogFile:
+    def test_writes_both_per_invocation_and_combined(self, tmp_path: Path) -> None:
+        logger = logging.getLogger("test.cli_log.both")
+        logger.setLevel(logging.INFO)
+        with attach_cli_log_file(tmp_path, "experiment_run") as log_path:
+            logger.info("running the thing")
+        combined = tmp_path / CLI_LOGS_SUBDIR / CLI_COMBINED_LOG
+        assert log_path.parent == tmp_path / CLI_LOGS_SUBDIR
+        assert "running the thing" in log_path.read_text(encoding="utf-8")
+        assert "running the thing" in combined.read_text(encoding="utf-8")
+
+    def test_combined_accumulates_across_invocations(self, tmp_path: Path) -> None:
+        logger = logging.getLogger("test.cli_log.accumulate")
+        logger.setLevel(logging.INFO)
+        with attach_cli_log_file(tmp_path, "experiment_run"):
+            logger.info("first invocation")
+        with attach_cli_log_file(tmp_path, "experiment_tune"):
+            logger.info("second invocation")
+        combined = (tmp_path / CLI_LOGS_SUBDIR / CLI_COMBINED_LOG).read_text(encoding="utf-8")
+        assert "first invocation" in combined
+        assert "second invocation" in combined
+        assert "===== experiment_run" in combined
+        assert "===== experiment_tune" in combined
+
+    def test_handlers_removed_on_exit(self, tmp_path: Path) -> None:
+        before = len(logging.getLogger().handlers)
+        with attach_cli_log_file(tmp_path, "experiment_run"):
+            pass
+        assert len(logging.getLogger().handlers) == before

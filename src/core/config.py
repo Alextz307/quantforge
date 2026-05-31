@@ -328,7 +328,8 @@ def _find_duplicates[T](items: list[T]) -> list[T]:
 
 class UniverseProfile(BaseModel):
     """
-    Reusable ``data:`` + ``validation:`` block deep-merged onto a strategy YAML.
+    Reusable ``data:`` + ``validation:`` (+ optional ``strategy_params:``)
+    block deep-merged onto a strategy YAML.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -337,6 +338,16 @@ class UniverseProfile(BaseModel):
     validation: ValidationConfig = Field(
         default_factory=ValidationConfig,
         description="Validation knobs for this universe.",
+    )
+    strategy_params: dict[str, object] | None = Field(
+        default=None,
+        description=(
+            "Optional per-universe overrides for `strategy.params`, merged "
+            "per-key onto the strategy YAML. Lets one strategy config run "
+            "different parameterizations across universes - e.g. "
+            "CrossAssetMomentum's `primary_ticker` / `feature_tickers` differ "
+            "per basket. Leave unset when only `data` / `validation` vary."
+        ),
     )
 
 

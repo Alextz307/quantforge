@@ -1,8 +1,8 @@
 data:
   source: yfinance
   tickers: [SPY]
-  start: 2020-01-01
-  end: 2024-12-31
+  start: 2021-01-01
+  end: 2025-12-31
   interval: daily
 validation:
   holdout_pct: 0.20

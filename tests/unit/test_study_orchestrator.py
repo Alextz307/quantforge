@@ -20,6 +20,7 @@ from src.core.config import StudySpec, load_study_spec
 from src.orchestration.study import (
     SPEC_SNAPSHOT_FILENAME,
     STUDY_STATE_FILENAME,
+    StudyLegRun,
     compose_hpo_config,
     compose_leg_config,
     expand_spec_into_legs,
@@ -39,9 +40,11 @@ from tests.conftest import REPO_ROOT
 
 MAIN_STUDY_PATH = REPO_ROOT / "config" / "study" / "main_study.yaml"
 
-# Composition: AdaptiveBollinger(11) + PairsTrading(1) + MomentumGatekeeper(11)
-# + VolatilityTargeting(11) + ReturnForecast(11) = 45.
-EXPECTED_MAIN_STUDY_LEG_COUNT = 45
+# Composition: AdaptiveBollinger(22) + PairsTrading(2) + MomentumGatekeeper(22)
+# + VolatilityTargeting(22) + ReturnForecast(22) + CrossAssetMomentum(4) = 94.
+EXPECTED_MAIN_STUDY_LEG_COUNT = 94
+
+_TEN_YEAR_HOLDOUT_PCT = 0.15
 
 
 @pytest.fixture(scope="module")
@@ -120,14 +123,122 @@ class TestComposeLegConfig:
 
     def test_universe_holdout_pct_overrides_strategy_default(self, main_spec: StudySpec) -> None:
         legs = expand_spec_into_legs(main_spec, repo_root=REPO_ROOT)
-        ab_2008 = next(
+        ab_10y = next(
             leg
             for leg in legs
-            if leg.strategy == "AdaptiveBollinger" and leg.universe == "spy_daily_2008"
+            if leg.strategy == "AdaptiveBollinger" and leg.universe == "spy_daily_10y"
         )
-        cfg = compose_leg_config(ab_2008)
-        # spy_daily_2008 pins holdout_pct: 0.0 so the GFC becomes the eval set.
-        assert cfg.validation.holdout_pct == 0.0
+        cfg = compose_leg_config(ab_10y)
+        assert cfg.validation.holdout_pct == _TEN_YEAR_HOLDOUT_PCT
+
+
+_CAM_STRATEGY_CONFIG = "config/strategies/cross_asset_momentum.yaml"
+_CAM_HPO_CONFIG = "config/hpo/cross_asset_momentum.yaml"
+_BASKET_TICKERS = ["SPY", "QQQ", "IWM", "GLD", "TLT"]
+_BASE_CAM_TICKERS = ["SPY", "QQQ", "IWM", "DIA"]
+_OVERRIDE_PRIMARY = "SPY"
+_OVERRIDE_FEATURES = ["QQQ", "IWM", "GLD", "TLT"]
+
+
+def _cam_leg_with_universe(tmp_path: Path, universe_payload: dict[str, Any]) -> StudyLegRun:
+    """
+    Build a CrossAssetMomentum leg pointed at a temp universe profile.
+
+    Lets a test exercise ``compose_leg_config``'s strategy_params merge
+    against the real strategy YAML without editing a committed universe file.
+    """
+
+    universe = "tmp_basket"
+    uni_path = tmp_path / f"{universe}.yaml"
+    uni_path.write_text(yaml.safe_dump(universe_payload, default_flow_style=False))
+    return StudyLegRun(
+        leg_id=make_leg_id("CrossAssetMomentum", universe),
+        strategy="CrossAssetMomentum",
+        universe=universe,
+        strategy_config_path=REPO_ROOT / _CAM_STRATEGY_CONFIG,
+        hpo_config_path=REPO_ROOT / _CAM_HPO_CONFIG,
+        universe_profile_path=uni_path,
+    )
+
+
+def _basket_data(tickers: list[str]) -> dict[str, Any]:
+    return {
+        "source": "yfinance",
+        "tickers": tickers,
+        "start": "2021-01-01",
+        "end": "2025-12-31",
+        "interval": "daily",
+    }
+
+
+class TestComposeLegConfigStrategyParams:
+    def test_strategy_params_override_merges_per_key(self, tmp_path: Path) -> None:
+        leg = _cam_leg_with_universe(
+            tmp_path,
+            {
+                "data": _basket_data(_BASKET_TICKERS),
+                "strategy_params": {
+                    "primary_ticker": _OVERRIDE_PRIMARY,
+                    "feature_tickers": _OVERRIDE_FEATURES,
+                },
+                "validation": {"holdout_pct": 0.20},
+            },
+        )
+        cfg = compose_leg_config(leg)
+        assert cfg.data.tickers == _BASKET_TICKERS
+        assert cfg.strategy.params["primary_ticker"] == _OVERRIDE_PRIMARY
+        assert cfg.strategy.params["feature_tickers"] == _OVERRIDE_FEATURES
+
+    def test_override_leaves_unrelated_base_params_intact(self, tmp_path: Path) -> None:
+        base_cfg = compose_leg_config(
+            _cam_leg_with_universe(
+                tmp_path,
+                {"data": _basket_data(_BASE_CAM_TICKERS), "validation": {"holdout_pct": 0.20}},
+            )
+        )
+        overridden_cfg = compose_leg_config(
+            _cam_leg_with_universe(
+                tmp_path,
+                {
+                    "data": _basket_data(_BASKET_TICKERS),
+                    "strategy_params": {"feature_tickers": _OVERRIDE_FEATURES},
+                    "validation": {"holdout_pct": 0.20},
+                },
+            )
+        )
+        assert (
+            overridden_cfg.strategy.params["n_estimators"]
+            == (base_cfg.strategy.params["n_estimators"])
+        )
+        assert overridden_cfg.strategy.params["feature_tickers"] == _OVERRIDE_FEATURES
+        assert base_cfg.strategy.params["feature_tickers"] != _OVERRIDE_FEATURES
+
+    def test_override_rejects_non_dict_base_params(self, tmp_path: Path) -> None:
+        base_path = tmp_path / "bad_strategy.yaml"
+        base_path.write_text(
+            yaml.safe_dump(
+                {"strategy": {"name": "CrossAssetMomentum", "params": ["not", "a", "map"]}}
+            )
+        )
+        uni_path = tmp_path / "tmp_basket.yaml"
+        uni_path.write_text(
+            yaml.safe_dump(
+                {
+                    "data": _basket_data(_BASKET_TICKERS),
+                    "strategy_params": {"primary_ticker": _OVERRIDE_PRIMARY},
+                }
+            )
+        )
+        leg = StudyLegRun(
+            leg_id=make_leg_id("CrossAssetMomentum", "tmp_basket"),
+            strategy="CrossAssetMomentum",
+            universe="tmp_basket",
+            strategy_config_path=base_path,
+            hpo_config_path=REPO_ROOT / _CAM_HPO_CONFIG,
+            universe_profile_path=uni_path,
+        )
+        with pytest.raises(ValueError, match=r"strategy\.params"):
+            compose_leg_config(leg)
 
 
 class TestComposeHpoConfig:

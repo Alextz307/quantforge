@@ -46,6 +46,8 @@ _DSR_TRIAL_KURTOSIS = 3.0
 
 _IMPORTANCE_FEATURE_STRONG = "rsi_14"
 _IMPORTANCE_FEATURE_WEAK = "roc_63"
+_IMPORTANCE_ASSET_STRONG = "TLT"
+_IMPORTANCE_ASSET_WEAK = "GLD"
 _IMPORTANCE_STRONG_VALUE = 0.18
 _IMPORTANCE_WEAK_VALUE = 0.02
 _IMPORTANCE_STD = 0.01
@@ -67,6 +69,20 @@ def _importance(strong: float, weak: float) -> tuple[AggregatedImportance, ...]:
             std=_IMPORTANCE_STD,
             n_folds=_IMPORTANCE_N_FOLDS,
             method=ImportanceMethod.PERMUTATION,
+        ),
+        AggregatedImportance(
+            feature=_IMPORTANCE_ASSET_STRONG,
+            importance=strong,
+            std=_IMPORTANCE_STD,
+            n_folds=_IMPORTANCE_N_FOLDS,
+            method=ImportanceMethod.ASSET_PERMUTATION,
+        ),
+        AggregatedImportance(
+            feature=_IMPORTANCE_ASSET_WEAK,
+            importance=weak,
+            std=_IMPORTANCE_STD,
+            n_folds=_IMPORTANCE_N_FOLDS,
+            method=ImportanceMethod.ASSET_PERMUTATION,
         ),
     )
 
@@ -216,6 +232,10 @@ def test_generate_full_report_writes_full_tree(tmp_path: Path) -> None:
     assert (fi_dir / "StratA.svg").is_file()
     assert (fi_dir / "StratB.png").is_file()
 
+    asset_dir = plots / "asset_importance"
+    assert (asset_dir / "StratA.png").is_file()
+    assert (asset_dir / "StratA.svg").is_file()
+
 
 def test_master_ranking_sorts_by_sharpe_desc(tmp_path: Path) -> None:
     """
@@ -361,6 +381,7 @@ def test_skips_sections_when_no_input_data(tmp_path: Path) -> None:
     plots = tmp_path / PLOTS_SUBDIR
     assert not (plots / "feature_importance_heatmap.png").exists()
     assert not (plots / "feature_importance").exists()
+    assert not (plots / "asset_importance").exists()
 
 
 def test_copies_per_universe_equity_overlay_when_source_exists(tmp_path: Path) -> None:

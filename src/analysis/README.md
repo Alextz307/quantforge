@@ -20,8 +20,9 @@ pairwise / forecaster significance tests.
 | `compute_buy_and_hold(bars, *, slippage, interval, ...)` -> `BaselineResult` | Long-only "do nothing" baseline on canonical OHLCV; runs through the same `IBacktestEngine` + slippage scenario as the strategy. |
 | `percentile_ci(samples, confidence)` | Symmetric percentile bounds; reused by aggregator and bootstrap helpers. |
 | `evaluate_signals(bar_timestamps, signal_values, opens)` -> `SignalEvaluation` | Backward open->open scoring of a deployment's emitted signals against realised session opens: per-signal realised return + directional hit + cumulative growth, plus hit-rate / cumulative-return headline stats. Pure and read-only, the evaluation counterpart to signal generation. |
-| `compute_fold_importance(strategy, test_frame, fold_index, *, n_repeats, rng)` -> `FoldImportance \| None` | Out-of-sample feature importance for a feature-consuming strategy on one fold's frozen model: permutation importance (model-agnostic) plus XGBoost native gain when the strategy exposes a booster. Skips rule-based strategies. |
+| `compute_fold_importance(strategy, test_frame, fold_index, *, n_repeats, rng)` -> `FoldImportance \| None` | Out-of-sample feature importance for a feature-consuming strategy on one fold's frozen model: permutation importance (model-agnostic) plus XGBoost native gain when the strategy exposes a booster. When the strategy also exposes `feature_groups()` (CrossAssetMomentum baskets), adds per-asset block-permutation + gain-sum scores. Skips rule-based strategies. |
 | `permutation_importance(score_fn, features, feature_columns, *, n_repeats, rng, baseline=None)` | Per-column OOS permutation importance against a higher-is-better score; never mutates the input frame. |
+| `permutation_importance_grouped(score_fn, features, groups, ...)` / `xgb_gain_importance_grouped(gain, groups)` | Per-asset importance: block-permute each group's columns together under one shared row shuffle (`ASSET_PERMUTATION`) / sum each group's booster gain (`ASSET_XGB_GAIN`). Drives the per-asset view for CrossAssetMomentum baskets. |
 | `xgb_gain_importance(gain, feature_columns)` / `aggregate_fold_importance(folds)` / `build_importance_artifact(folds)` / `read_aggregated_importance(payload)` | Gain-map wrapper (0.0-filled), cross-fold mean +/- std aggregation, and the `feature_importance.json` write/read pair. |
 
 ## Layout
@@ -33,7 +34,7 @@ pairwise / forecaster significance tests.
 | `significance.py` | Stationary bootstrap (Politis-Romano), Diebold-Mariano (HLN-corrected), deflated Sharpe + pooled-OOS Sharpe / PSR / cross-leg deflation (Bailey-López de Prado); result types `BootstrapCI`, `DMResult`, `DeflatedSharpe`, `PooledSharpe` + enums `DMLoss`, `DMDirection`. |
 | `baselines.py` | `BaselineResult` + `compute_buy_and_hold` - per-universe long-only reference. |
 | `signal_evaluation.py` | `ScoredSignal`, `SignalEvaluation`, `evaluate_signals` - open->open scoring of a deployment's signal log. |
-| `feature_importance.py` | `ImportanceMethod` (StrEnum) + `FeatureImportance` / `FoldImportance` / `AggregatedImportance` result types; permutation + XGBoost-gain importance, per-fold driver, cross-fold aggregation, and `feature_importance.json` round-trip. OOS-only, never mutates inputs. |
+| `feature_importance.py` | `ImportanceMethod` (StrEnum) + `FeatureImportance` / `FoldImportance` / `AggregatedImportance` result types; per-column and per-asset (grouped) permutation + XGBoost-gain importance, per-fold driver, cross-fold aggregation, and `feature_importance.json` round-trip. OOS-only, never mutates inputs. |
 
 ## Aggregation choices worth knowing
 
