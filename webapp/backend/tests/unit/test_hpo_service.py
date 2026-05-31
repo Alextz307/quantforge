@@ -267,17 +267,18 @@ def test_get_param_importance_with_real_optuna_study(
             )
         )
 
-    response = get_param_importance(
-        root,
-        f"studies~main~hpo~{_IMPORTANCE_STUDY_NAME}",
-        conn=db_conn,
-        user=make_viewer_user(db_conn),
-    )
+    viewer = make_viewer_user(db_conn)
+    wire_id = f"studies~main~hpo~{_IMPORTANCE_STUDY_NAME}"
+    response = get_param_importance(root, wire_id, conn=db_conn, user=viewer)
 
     assert response.message is None
     assert set(response.importance.keys()) == {"window", "k"}
     assert all(v >= 0 for v in response.importance.values())
     assert sum(response.importance.values()) == pytest.approx(1.0, abs=1e-6)
+
+    repeat = get_param_importance(root, wire_id, conn=db_conn, user=viewer)
+
+    assert repeat.importance == response.importance
 
 
 def test_get_param_importance_raises_for_unknown_name(

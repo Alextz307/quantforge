@@ -29,6 +29,8 @@ OBV_ZSCORE_WINDOW: int = 20
 FEATURE_IMPORTANCE_RNG_SEED: int = 23
 FEATURE_IMPORTANCE_N_REPEATS: int = 10
 
+HPO_IMPORTANCE_FANOVA_SEED: int = 23
+
 OHLCV_COLUMNS: tuple[str, str, str, str, str] = (
     "open",
     "high",

@@ -14,6 +14,7 @@ experiment under the study directory, and returns a scalar objective.
 | `build_sampler(kind, seed)` | `SamplerKind` -> `BaseSampler` (TPE, Random, CMA-ES, QMC). Always seeded. |
 | `build_pruner(kind)` | `PrunerKind` -> `BasePruner` (Median, Hyperband, Percentile@25, NopPruner). |
 | `TrialCallback` | Optuna callback: appends `trials.jsonl`, refreshes `best_config.yaml` on improvement. |
+| `param_importances(study)` | Seeded fANOVA importances over a study's COMPLETE trials; deterministic so the report figure and the webapp panel agree. |
 | `BEST_CONFIG_YAML`, `TRIALS_JSONL` | Re-exports of the on-disk filenames. |
 
 ## Layout
@@ -27,6 +28,7 @@ experiment under the study directory, and returns a scalar objective.
 | `pruners.py` | `build_pruner` factory. |
 | `checkpointing.py` | `TrialCallback` writing append-only `trials.jsonl` + the latest `best_config.yaml`. |
 | `dsr.py` | `compute_and_write_dsr` - deflated-Sharpe ratio over a completed study's trial Sharpes, written beside the study. |
+| `importance.py` | `param_importances` - seeded fANOVA evaluator, the single seam the report renderer and webapp share. Imports Optuna's sklearn-backed importance submodule lazily. |
 
 ## On-disk layout per study
 
@@ -73,4 +75,6 @@ print(study.best_value, study.best_params)
   feed every objective.
 - Strategy / model search spaces are owned by each component's static
   `suggest_params` (under `src/strategies/` and `src/models/`).
-- HPO report rendering lives in `src/visualization/hpo_reporter.py`.
+- HPO report rendering lives in `src/visualization/hpo_reporter.py`; it
+  and the webapp's `hpo_service.get_param_importance` both compute
+  importance through `importance.py::param_importances`.

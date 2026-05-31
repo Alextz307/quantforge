@@ -7,10 +7,10 @@ under ``<study_dir>/plots/`` + ``<study_dir>/tables/``:
 * ``plots/convergence.png/svg`` - per-trial objective value + rolling
   best-so-far line. The story is "did the study converge, and how
   quickly did it find the best region".
-* ``plots/param_importance.png/svg`` - horizontal bar chart from
-  ``optuna.importance.get_param_importances``. Skipped (with an info log)
-  for studies with <2 completed trials where the importance computation
-  is undefined.
+* ``plots/param_importance.png/svg`` - horizontal bar chart of seeded
+  fANOVA importances (computed over COMPLETE trials only; the seed makes
+  the figure reproducible across report runs). Skipped (with an info log)
+  for studies with <2 completed trials where the computation is undefined.
 * ``tables/top_trials.tex`` - booktabs LaTeX ranking the top-N trials
   by objective value, one row per trial with number + value + key
   params. Row count capped at :data:`_TOP_TRIALS_N`.
@@ -23,10 +23,10 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import optuna
 import pandas as pd
-from optuna.importance import get_param_importances
 from optuna.trial import TrialState
 
 from src.core.logging import get_logger
+from src.optimization.importance import param_importances
 from src.visualization.latex import write_booktabs_table
 from src.visualization.plots import (
     FIGURE_DPI,
@@ -116,7 +116,7 @@ class HPOReporter:
         plt.close(fig)
 
     def _plot_param_importance(self, study: optuna.Study, path: Path) -> None:
-        importances = get_param_importances(study)
+        importances = param_importances(study)
         if not importances:
             return
         names = list(importances.keys())

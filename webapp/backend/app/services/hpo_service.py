@@ -13,6 +13,7 @@ import yaml
 from src.core import json_io
 from src.core.persistence import HPO_SUBDIR
 from src.optimization.checkpointing import BEST_CONFIG_YAML_NAME, TRIALS_JSONL_NAME
+from src.optimization.importance import param_importances
 from src.optimization.tuner import STUDY_DB_FILENAME, storage_url_for
 from webapp.backend.app.infrastructure.store import (
     HPO_WIRE_DELIMITER,
@@ -197,7 +198,7 @@ def get_param_importance(
         # Optuna's own study_name is the basename - the SQLite row stores it
         # that way regardless of where the dir lives on disk.
         study = optuna.load_study(study_name=study_dir.name, storage=storage_url_for(study_dir))
-        importances = optuna.importance.get_param_importances(study)
+        importances = param_importances(study)
     except Exception as exc:  # noqa: BLE001 - Optuna raises Value/Runtime/KeyError variously
         return ParamImportanceResponse(importance={}, message=f"Importance unavailable: {exc}")
     return ParamImportanceResponse(importance={k: float(v) for k, v in importances.items()})
