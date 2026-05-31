@@ -7,6 +7,13 @@ subprocesses and reads the predictable artifact tree under
 `experiment_results/`, so anything that runs from the UI is bit-identical
 to the same command issued from `bash`.
 
+`process_manager.build_*_command` constructs the argv each job spawns
+(`python -m scripts.experiment <verb> --flag ...`). Those flag strings are
+the one boundary the webapp shares with the CLI by hand, so a guard test,
+`backend/tests/unit/test_cli_argv_contract.py`, reads every flag the builders
+emit off the live Click command objects: a renamed or dropped option fails the
+test rather than a spawned subprocess at runtime.
+
 ## Layout
 
 | Path | Role |
