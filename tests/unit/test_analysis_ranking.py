@@ -1,8 +1,8 @@
 """
 Behavioral tests for :func:`src.analysis.ranking.rank_strategies`.
 
-Validates the deterministic sort (primary metric desc -> tiebreaker
-metric desc -> name asc) and the tidy column set.
+Validates the deterministic sort (Sharpe desc -> Sortino desc -> name
+asc) and the tidy column set.
 """
 
 from __future__ import annotations
@@ -10,7 +10,7 @@ from __future__ import annotations
 from dataclasses import replace
 
 from src.analysis.metrics_aggregator import AggregateStats
-from src.analysis.ranking import RankingMetric, rank_strategies
+from src.analysis.ranking import rank_strategies
 from tests.conftest import make_stub_aggregate_stats
 
 _EXPECTED_COLUMNS: tuple[str, ...] = (
@@ -45,22 +45,9 @@ class TestRankStrategiesMultiple:
             "Bravo": make_stub_aggregate_stats(sharpe=0.5),
             "Charlie": make_stub_aggregate_stats(sharpe=1.6),
         }
-        df = rank_strategies(stats, by=RankingMetric.SHARPE)
+        df = rank_strategies(stats)
         assert list(df["name"]) == ["Charlie", "Alpha", "Bravo"]
         assert list(df["rank"]) == [1, 2, 3]
-
-    def test_calmar_selects_different_winner_than_sharpe(self) -> None:
-        """
-        Sanity: ``by`` actually switches the primary sort axis.
-        """
-
-        alpha = make_stub_aggregate_stats(sharpe=1.6)
-        bravo = replace(make_stub_aggregate_stats(sharpe=0.9), calmar_mean=2.1)
-        stats = {"Alpha": alpha, "Bravo": bravo}
-        by_sharpe = rank_strategies(stats, by=RankingMetric.SHARPE)
-        by_calmar = rank_strategies(stats, by=RankingMetric.CALMAR)
-        assert by_sharpe["name"].iloc[0] == "Alpha"
-        assert by_calmar["name"].iloc[0] == "Bravo"
 
 
 class TestRankStrategiesTieBreaking:
@@ -74,7 +61,7 @@ class TestRankStrategiesTieBreaking:
 
         alpha = replace(make_stub_aggregate_stats(sharpe=1.0), sortino_mean=1.0)
         bravo = replace(make_stub_aggregate_stats(sharpe=1.0), sortino_mean=1.5)
-        df = rank_strategies({"Alpha": alpha, "Bravo": bravo}, by=RankingMetric.SHARPE)
+        df = rank_strategies({"Alpha": alpha, "Bravo": bravo})
         assert list(df["name"]) == ["Bravo", "Alpha"]
 
     def test_fully_tied_strategies_broken_by_name_alphabetical(self) -> None:
@@ -83,5 +70,5 @@ class TestRankStrategiesTieBreaking:
             "Alpha": make_stub_aggregate_stats(sharpe=1.0),
             "Bravo": make_stub_aggregate_stats(sharpe=1.0),
         }
-        df = rank_strategies(stats, by=RankingMetric.SHARPE)
+        df = rank_strategies(stats)
         assert list(df["name"]) == ["Alpha", "Bravo", "Charlie"]

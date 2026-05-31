@@ -30,7 +30,7 @@ import pandas as pd
 
 from src.analysis.feature_importance import AggregatedImportance, ImportanceMethod
 from src.analysis.metrics_aggregator import AggregateStats
-from src.analysis.significance import DeflatedSharpe
+from src.analysis.significance import DeflatedSharpe, PooledSharpe, deflate_pooled_across_legs
 from src.core import json_io
 from src.core.fs import atomic_write_path
 from src.core.logging import get_logger
@@ -142,12 +142,19 @@ class StudyReportReporter:
             _logger.info("no completed legs - skipping master_ranking")
             return
 
-        df = ranking_df.sort_values("sharpe_mean", ascending=False).reset_index(drop=True)
+        df = ranking_df.sort_values("sharpe_pooled", ascending=False).reset_index(drop=True)
         _write_table_pair(
             df,
             tables_dir,
             stem=_MASTER_RANKING_FILENAME,
-            caption=f"Master ranking across all (strategy, universe) legs - {slug}",
+            caption=(
+                f"Master ranking across all (strategy, universe) legs, sorted by pooled "
+                f"out-of-sample Sharpe (the realised end-to-end walk-forward track record). "
+                f"deflated_sharpe_pooled corrects for selection across all legs; psr_pooled is "
+                f"the per-leg probability the pooled Sharpe exceeds zero; sharpe_mean +/- "
+                f"sharpe_std is the cross-fold stability. deflated_sharpe is the separate HPO "
+                f"search-selection guard - {slug}"
+            ),
             label=f"tab:master_ranking_{slug}",
         )
 
@@ -157,13 +164,15 @@ class StudyReportReporter:
         if ranking_df.empty:
             return
 
-        df = ranking_df.sort_values(["universe", "sharpe_mean"], ascending=[True, False])
+        df = ranking_df.sort_values(["universe", "sharpe_pooled"], ascending=[True, False])
         df = df.reset_index(drop=True)
         _write_table_pair(
             df,
             tables_dir,
             stem=_PER_UNIVERSE_RANKING_FILENAME,
-            caption=f"Per-universe ranking, sorted by Sharpe within each universe - {slug}",
+            caption=(
+                f"Per-universe ranking, sorted by pooled OOS Sharpe within each universe - {slug}"
+            ),
             label=f"tab:per_universe_ranking_{slug}",
         )
 
@@ -264,14 +273,14 @@ class StudyReportReporter:
                 stats = report.per_leg_aggregate.get((strategy, universe))
                 if stats is None or stats.n_folds == 0:
                     continue
-                matrix[i, j] = stats.sharpe_mean
+                matrix[i, j] = stats.sharpe_pooled
 
         render_value_heatmap(
             matrix,
             row_labels=strategies,
             col_labels=universes,
             out_path=plots_dir / _STRATEGY_X_UNIVERSE_HEATMAP_FILENAME,
-            title="strategy x universe (mean Sharpe)",
+            title="strategy x universe (pooled OOS Sharpe)",
             xlabel="universe",
             ylabel="strategy",
             placeholder_log_label="strategy x universe",
@@ -293,9 +302,9 @@ class StudyReportReporter:
             if dev is None or dev.n_folds == 0:
                 continue
             xs, ys = by_strategy.setdefault(strategy, ([], []))
-            xs.append(dev.sharpe_mean)
+            xs.append(dev.sharpe_pooled)
             ys.append(holdout.sharpe_ratio)
-            all_xs.append(dev.sharpe_mean)
+            all_xs.append(dev.sharpe_pooled)
             all_ys.append(holdout.sharpe_ratio)
 
         cmap = plt.get_cmap("tab10")
@@ -323,7 +332,7 @@ class StudyReportReporter:
         )
         ax.axhline(0.0, color="grey", linewidth=0.3, alpha=0.5)
         ax.axvline(0.0, color="grey", linewidth=0.3, alpha=0.5)
-        ax.set_xlabel("dev mean Sharpe (walk-forward)")
+        ax.set_xlabel("dev pooled OOS Sharpe (walk-forward)")
         ax.set_ylabel("holdout Sharpe (single OOS window)")
         ax.set_title("dev vs. holdout Sharpe - points below dashed line = overfit gap")
         ax.legend(loc="best", fontsize="small")
@@ -452,22 +461,50 @@ def _build_ranking_df(
     """
     Build a long-form DataFrame: one row per (strategy, universe) leg.
 
-    Legs that produced a ``dsr.json`` post-tune get three extra columns
-    (``deflated_sharpe``, ``dsr_p_value``, ``n_trials``); legs without
-    DSR (zero-trial study, single-strategy universe before tune)
-    receive ``NaN`` so the column shape stays uniform.
+    The headline is ``sharpe_pooled`` - the Sharpe of the stitched
+    out-of-sample return stream (the realised end-to-end track record).
+    ``deflated_sharpe_pooled`` corrects it for selection across every leg
+    (the "best of many pairs" guard); ``psr_pooled`` is the per-leg
+    probability the pooled Sharpe beats zero. ``sharpe_mean`` /
+    ``sharpe_std`` carry the cross-fold *stability* read alongside.
+
+    The separate ``deflated_sharpe`` / ``dsr_p_value`` / ``n_trials`` come
+    from each leg's post-tune ``dsr.json`` and guard the HPO *search*
+    selection (over Optuna trials), not the leg selection; legs without a
+    DSR (zero-trial study) receive ``NaN`` / ``0`` so the shape stays
+    uniform.
     """
 
+    items = [
+        ((strategy, universe), stats)
+        for (strategy, universe), stats in per_leg_aggregate.items()
+        if stats.n_folds > 0
+    ]
+    deflated_pooled = deflate_pooled_across_legs(
+        [
+            PooledSharpe(
+                sharpe=stats.sharpe_pooled,
+                psr=stats.psr_pooled,
+                n_obs=stats.n_oos_bars,
+                skew=stats.pooled_skew,
+                kurtosis=stats.pooled_kurtosis,
+            )
+            for _, stats in items
+        ]
+    )
+
     rows: list[dict[str, object]] = []
-    for (strategy, universe), stats in per_leg_aggregate.items():
-        if stats.n_folds == 0:
-            continue
+    for ((strategy, universe), stats), deflated in zip(items, deflated_pooled, strict=True):
         dsr = per_leg_dsr.get((strategy, universe))
         rows.append(
             {
                 "strategy": strategy,
                 "universe": universe,
                 "n_folds": stats.n_folds,
+                "n_oos_bars": stats.n_oos_bars,
+                "sharpe_pooled": stats.sharpe_pooled,
+                "deflated_sharpe_pooled": deflated,
+                "psr_pooled": stats.psr_pooled,
                 "sharpe_mean": stats.sharpe_mean,
                 "sharpe_std": stats.sharpe_std,
                 "sortino_mean": stats.sortino_mean,
@@ -516,7 +553,7 @@ def _build_holdout_df(
     rows: list[dict[str, object]] = []
     for (strategy, universe), holdout in per_leg_holdout.items():
         dev = per_leg_aggregate.get((strategy, universe))
-        dev_sharpe = dev.sharpe_mean if dev is not None and dev.n_folds > 0 else float("nan")
+        dev_sharpe = dev.sharpe_pooled if dev is not None and dev.n_folds > 0 else float("nan")
         bah = holdout.buy_and_hold
         rows.append(
             {

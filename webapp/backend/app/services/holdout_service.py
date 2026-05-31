@@ -124,7 +124,6 @@ def get_holdout_eval(
         slippage_scenario=SlippageScenario(json_io.get_str(payload, "slippage_scenario")),
         total_return=json_io.get_float(metrics, "total_return"),
         annualized_return=json_io.get_float(metrics, "annualized_return"),
-        annualized_volatility=json_io.get_float(metrics, "annualized_volatility"),
         sharpe_ratio=json_io.get_float(metrics, "sharpe_ratio"),
         sortino_ratio=json_io.get_float(metrics, "sortino_ratio"),
         calmar_ratio=json_io.get_float(metrics, "calmar_ratio"),

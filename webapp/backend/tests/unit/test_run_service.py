@@ -147,7 +147,6 @@ def test_list_runs_tolerates_missing_metrics(tmp_path: Path, db_conn: sqlite3.Co
     summary = list_runs(root, conn=db_conn, user=make_viewer_user(db_conn), all_users=False)[0]
 
     assert summary.sharpe_mean is None
-    assert summary.calmar_mean is None
 
 
 def test_get_run_returns_full_detail(tmp_path: Path, db_conn: sqlite3.Connection) -> None:

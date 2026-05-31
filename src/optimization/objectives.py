@@ -1,37 +1,21 @@
 """
-Objective adapters that map aggregate metrics to a scalar.
+The HPO objective: mean-of-folds Sharpe.
 
-The tuner hands each trial's aggregate-metrics dict to the selected
-objective and returns the scalar to Optuna. Keeping the adapter boundary
-at ``dict[str, object]`` (the exact shape
+The tuner hands each trial's aggregate-metrics dict to
+:class:`SharpeObjective` and returns the scalar to Optuna. Keeping the
+adapter boundary at ``dict[str, object]`` (the exact shape
 :meth:`src.analysis.metrics_aggregator.AggregateStats.to_dict` produces)
-means objectives stay mockable without depending on the full
+means the objective stays mockable without depending on the full
 ``AggregateStats`` type graph - the tuner converts via ``to_dict()``
 immediately before dispatch.
 
-Every objective is MAXIMIZED - Optuna studies are configured with
-``direction="maximize"``. Drawdown / loss-style metrics are negated at
-the objective layer so the study semantics stay uniform.
+The objective is MAXIMIZED - Optuna studies are configured with
+``direction="maximize"``.
 """
 
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import dataclass
-from typing import Protocol, assert_never, runtime_checkable
-
-from src.core.hpo_config import ObjectiveKind
-
-_DEFAULT_DRAWDOWN_PENALTY = 2.0
-
-
-@runtime_checkable
-class IObjective(Protocol):
-    """
-    Callable that collapses aggregate metrics to a single maximization target.
-    """
-
-    def __call__(self, aggregate_metrics: Mapping[str, object]) -> float: ...
 
 
 def _read_float_metric(aggregate_metrics: Mapping[str, object], key: str) -> float:
@@ -63,56 +47,8 @@ def _read_float_metric(aggregate_metrics: Mapping[str, object], key: str) -> flo
 
 class SharpeObjective:
     """
-    Mean Sharpe across folds - the thesis-default single-objective.
+    Mean-of-folds Sharpe - the sole HPO objective.
     """
 
     def __call__(self, aggregate_metrics: Mapping[str, object]) -> float:
         return _read_float_metric(aggregate_metrics, "sharpe_mean")
-
-
-class CalmarObjective:
-    """
-    Mean Calmar across folds - rewards return-per-unit-drawdown.
-    """
-
-    def __call__(self, aggregate_metrics: Mapping[str, object]) -> float:
-        return _read_float_metric(aggregate_metrics, "calmar_mean")
-
-
-@dataclass(frozen=True)
-class SortinoMinusDrawdownPenaltyObjective:
-    """
-    Sortino mean minus a penalty on the worst observed drawdown.
-
-    ``max_drawdown_worst`` is reported as a negative number (the min
-    across folds). We apply ``abs()`` before the penalty so the
-    arithmetic reads as "Sortino minus penalty-times-depth-of-drawdown"
-    and setting ``penalty=0.0`` degenerates cleanly to pure Sortino.
-
-    Configurable via the ``penalty`` kwarg; ``build_objective`` uses the
-    default. If a study needs a non-default penalty, construct the
-    objective directly and pass it into :class:`StrategyTuner`.
-    """
-
-    penalty: float = _DEFAULT_DRAWDOWN_PENALTY
-
-    def __call__(self, aggregate_metrics: Mapping[str, object]) -> float:
-        sortino = _read_float_metric(aggregate_metrics, "sortino_mean")
-        max_dd = _read_float_metric(aggregate_metrics, "max_drawdown_worst")
-        return sortino - self.penalty * abs(max_dd)
-
-
-def build_objective(kind: ObjectiveKind) -> IObjective:
-    """
-    Dispatch :class:`ObjectiveKind` to a concrete objective instance.
-    """
-
-    match kind:
-        case ObjectiveKind.SHARPE:
-            return SharpeObjective()
-        case ObjectiveKind.CALMAR:
-            return CalmarObjective()
-        case ObjectiveKind.SORTINO_MINUS_DRAWDOWN:
-            return SortinoMinusDrawdownPenaltyObjective()
-        case _ as unknown:
-            assert_never(unknown)

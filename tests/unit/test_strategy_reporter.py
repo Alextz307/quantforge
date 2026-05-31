@@ -13,6 +13,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
+from src.core.types import Interval
 from src.engine.scenarios import SlippageScenario
 from src.orchestration.manifest import Manifest
 from src.orchestration.types import ExperimentResult, FoldRecord
@@ -51,6 +52,8 @@ def _make_result(n_folds: int = 3) -> ExperimentResult:
         seed=42,
         data_hash="deadbeef" * 8,
         slippage_scenario=SlippageScenario.NORMAL,
+        interval=Interval.DAILY,
+        risk_free_rate=0.0,
         holdout_start=pd.Timestamp("2023-01-03"),
     )
     folds = tuple(_make_fold(i) for i in range(n_folds))

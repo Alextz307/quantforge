@@ -2,7 +2,7 @@
 Strategy ranking across :class:`AggregateStats` bundles.
 
 Takes a ``{strategy_name -> AggregateStats}`` mapping and produces a tidy
-``pd.DataFrame`` sorted by a chosen primary metric, with deterministic
+``pd.DataFrame`` sorted by mean-of-folds Sharpe, with deterministic
 tie-breaking. The DataFrame is the direct input to the comparison
 reporter's LaTeX table builder - columns + dtypes are stable across
 invocations so the LaTeX output is diffable.
@@ -11,22 +11,10 @@ invocations so the LaTeX output is diffable.
 from __future__ import annotations
 
 from collections.abc import Mapping
-from enum import StrEnum
 
 import pandas as pd
 
 from src.analysis.metrics_aggregator import AggregateStats
-
-
-class RankingMetric(StrEnum):
-    """
-    Primary axis to sort strategies by in :func:`rank_strategies`.
-    """
-
-    SHARPE = "sharpe"
-    SORTINO = "sortino"
-    CALMAR = "calmar"
-
 
 _DISPLAY_COLUMNS: tuple[str, ...] = (
     "rank",
@@ -38,25 +26,15 @@ _DISPLAY_COLUMNS: tuple[str, ...] = (
     "n_folds",
 )
 
-_SORT_KEYS: Mapping[RankingMetric, tuple[str, str]] = {
-    RankingMetric.SHARPE: ("sharpe_mean", "sortino_mean"),
-    RankingMetric.SORTINO: ("sortino_mean", "sharpe_mean"),
-    RankingMetric.CALMAR: ("calmar_mean", "sortino_mean"),
-}
 
-
-def rank_strategies(
-    per_strategy_stats: Mapping[str, AggregateStats],
-    *,
-    by: RankingMetric = RankingMetric.SHARPE,
-) -> pd.DataFrame:
+def rank_strategies(per_strategy_stats: Mapping[str, AggregateStats]) -> pd.DataFrame:
     """
-    Rank strategies by the chosen metric, break ties deterministically.
+    Rank strategies by mean-of-folds Sharpe, break ties deterministically.
 
-    Sort order: primary metric descending -> secondary metric descending ->
-    strategy name ascending (the final alphabetical step makes the ranking
-    bit-stable across invocations even when two strategies tie on every
-    numeric axis, which is rare but legal).
+    Sort order: Sharpe descending -> Sortino descending -> strategy name
+    ascending (the final alphabetical step makes the ranking bit-stable
+    across invocations even when two strategies tie on every numeric axis,
+    which is rare but legal).
 
     Returns a tidy DataFrame with columns listed in :data:`_DISPLAY_COLUMNS`.
     ``rank`` is 1-indexed and reflects the sort order above (no "dense" or
@@ -66,7 +44,6 @@ def rank_strategies(
     if not per_strategy_stats:
         return pd.DataFrame(columns=list(_DISPLAY_COLUMNS))
 
-    primary_col, secondary_col = _SORT_KEYS[by]
     rows: list[dict[str, object]] = [
         {
             "name": name,
@@ -80,7 +57,7 @@ def rank_strategies(
     ]
     df = pd.DataFrame(rows)
     df = df.sort_values(
-        by=[primary_col, secondary_col, "name"],
+        by=["sharpe_mean", "sortino_mean", "name"],
         ascending=[False, False, True],
         kind="mergesort",  # stable - guarantees deterministic tie-break at the third key
     ).reset_index(drop=True)

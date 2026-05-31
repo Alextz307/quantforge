@@ -151,7 +151,6 @@ def _build_metrics_df(result: HoldoutEvalResult) -> pd.DataFrame:
         ("Max drawdown", f"{result.max_drawdown:+.3f}"),
         ("Total return", f"{result.total_return:+.3f}"),
         ("Annualised return", f"{result.annualized_return:+.3f}"),
-        ("Annualised volatility", f"{result.annualized_volatility:.3f}"),
         ("Win rate", f"{result.win_rate:.3f}"),
         ("Trades", str(result.trade_count)),
         ("Holdout bars", str(result.n_holdout_bars)),

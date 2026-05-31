@@ -255,9 +255,7 @@ def _sort_key(sort_by: RunSortBy) -> Callable[[RunSummary], float]:
     # same return type and mypy can resolve the comparator unambiguously.
     if sort_by is RunSortBy.CREATED_AT:
         return lambda r: r.created_at.timestamp()
-    if sort_by is RunSortBy.SHARPE_MEAN:
-        return lambda r: r.sharpe_mean if r.sharpe_mean is not None else float("-inf")
-    return lambda r: r.calmar_mean if r.calmar_mean is not None else float("-inf")
+    return lambda r: r.sharpe_mean if r.sharpe_mean is not None else float("-inf")
 
 
 def _ensure_plots(run_dir: Path) -> None:
@@ -355,7 +353,6 @@ def get_folds(
             test_end=f.test_end,
             total_return=f.total_return,
             annualized_return=f.annualized_return,
-            annualized_volatility=f.annualized_volatility,
             sharpe_ratio=f.sharpe_ratio,
             sortino_ratio=f.sortino_ratio,
             calmar_ratio=f.calmar_ratio,
@@ -484,7 +481,6 @@ def _summarize(run_dir: Path, root: Path) -> RunSummary:
         store=store_label(run_dir, root),
         created_at=manifest.created_at,
         sharpe_mean=metrics.get("sharpe_mean"),
-        calmar_mean=metrics.get("calmar_mean"),
         has_holdout=manifest.holdout_start is not None,
         data_hash=manifest.data_hash,
     )

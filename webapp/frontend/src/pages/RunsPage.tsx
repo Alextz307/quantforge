@@ -25,11 +25,7 @@ const DEFAULT_LIMIT = 50;
 // query/fetch waits for the input to settle so the server isn't hit per
 // keystroke and the React Query cache cannot accumulate unbounded keys.
 const FILTER_DEBOUNCE_MS = 300;
-const SORT_BY_VALUES: ReadonlySet<RunSortBy> = new Set([
-  "created_at",
-  "sharpe_mean",
-  "calmar_mean",
-]);
+const SORT_BY_VALUES: ReadonlySet<RunSortBy> = new Set(["created_at", "sharpe_mean"]);
 const ORDER_VALUES: ReadonlySet<SortOrder> = new Set(["asc", "desc"]);
 
 interface RunsPageState {
@@ -221,13 +217,6 @@ function RunsBody({ page, state, onToggleSort, onPrev, onNext }: RunsBodyProps) 
                 onToggle={onToggleSort}
                 align="right"
               />
-              <SortableHeader
-                label="Calmar"
-                col="calmar_mean"
-                state={state}
-                onToggle={onToggleSort}
-                align="right"
-              />
               <th className="py-2 pr-0">Launched by</th>
             </tr>
           </thead>
@@ -254,7 +243,6 @@ function RunsBody({ page, state, onToggleSort, onPrev, onNext }: RunsBodyProps) 
                 <td className="py-2 pr-4 font-mono">{r.interval}</td>
                 <td className="py-2 pr-4 font-mono text-xs">{formatDateTime(r.created_at)}</td>
                 <td className="py-2 pr-4 text-right font-mono">{formatMetric(r.sharpe_mean, 3)}</td>
-                <td className="py-2 pr-4 text-right font-mono">{formatMetric(r.calmar_mean, 3)}</td>
                 <td className="py-2 pr-0">
                   <LaunchedByCell username={r.launched_by_username} />
                 </td>

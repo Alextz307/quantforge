@@ -778,6 +778,8 @@ def make_stub_experiment_result(
         seed=seed,
         data_hash=data_hash,
         slippage_scenario=SlippageScenario.NORMAL,
+        interval=Interval.DAILY,
+        risk_free_rate=0.0,
     )
     return ExperimentResult(
         experiment_id=f"stub_{name}",
@@ -824,23 +826,28 @@ def comparison_curve_seed(name: str, fold_index: int) -> int:
     return (name_anchor << 16) | (fold_index & 0xFFFF)
 
 
+_STUB_N_OOS_BARS = 252
+
+
 def make_stub_aggregate_stats(
     *,
     sharpe: float,
     n_folds: int = 1,
     max_drawdown_worst: float = -0.1,
     total_return_mean: float = 0.05,
+    sharpe_pooled: float | None = None,
+    n_oos_bars: int = _STUB_N_OOS_BARS,
 ) -> AggregateStats:
     """
     Build a stub :class:`AggregateStats` from a scalar Sharpe.
 
     Used by tuner / CLI tests that monkeypatch ``aggregate_folds`` and only
-    care about the objective-driving sharpe/sortino/calmar fields - every
-    other numeric field mirrors ``sharpe`` so the dict emitted by
-    ``to_dict()`` is a well-formed superset regardless of which objective
-    the test happens to select. ``n_folds`` defaults to 1 for the tuner
-    callers; the consolidator tests pass higher values to exercise
-    fold-weighted pooling.
+    care about the Sharpe the objective reads - every other numeric field
+    mirrors ``sharpe`` so the dict emitted by ``to_dict()`` is a well-formed
+    superset. ``n_folds`` defaults to 1 for the tuner callers; the
+    consolidator tests pass higher values to exercise fold-weighted pooling.
+    ``sharpe_pooled`` defaults to ``sharpe`` but the study-report tests vary
+    it per leg to drive the cross-leg deflation.
     """
 
     return AggregateStats(
@@ -863,4 +870,9 @@ def make_stub_aggregate_stats(
         total_return_std=0.0,
         win_rate_mean=0.5,
         trade_count_total=1,
+        sharpe_pooled=sharpe if sharpe_pooled is None else sharpe_pooled,
+        psr_pooled=0.5,
+        n_oos_bars=n_oos_bars,
+        pooled_skew=0.0,
+        pooled_kurtosis=3.0,
     )

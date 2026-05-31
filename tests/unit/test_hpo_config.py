@@ -16,7 +16,6 @@ from pydantic import ValidationError
 
 from src.core.hpo_config import (
     HPOConfig,
-    ObjectiveKind,
     PrunerKind,
     SamplerKind,
     load_hpo_config,
@@ -33,7 +32,6 @@ class TestHPOConfigDefaults:
         assert cfg.n_jobs == 1
         assert cfg.sampler == SamplerKind.TPE
         assert cfg.pruner == PrunerKind.MEDIAN
-        assert cfg.objective == ObjectiveKind.SHARPE
         assert cfg.timeout_s is None
         assert cfg.seed == 42
 
@@ -43,12 +41,10 @@ class TestHPOConfigDefaults:
                 "study_name": _MIN_STUDY_NAME,
                 "sampler": "random",
                 "pruner": "hyperband",
-                "objective": "calmar",
             }
         )
         assert cfg.sampler == SamplerKind.RANDOM
         assert cfg.pruner == PrunerKind.HYPERBAND
-        assert cfg.objective == ObjectiveKind.CALMAR
 
     def test_frozen_config(self) -> None:
         cfg = HPOConfig.model_validate({"study_name": _MIN_STUDY_NAME})
@@ -102,7 +98,6 @@ class TestLoadHPOConfig:
             "n_jobs": 2,
             "sampler": "tpe",
             "pruner": "none",
-            "objective": "sortino_minus_drawdown",
             "timeout_s": 60.0,
             "seed": 1,
         }
@@ -115,7 +110,6 @@ class TestLoadHPOConfig:
         assert cfg.n_trials == 5
         assert cfg.n_jobs == 2
         assert cfg.pruner == PrunerKind.NONE
-        assert cfg.objective == ObjectiveKind.SORTINO_MINUS_DRAWDOWN
 
     def test_missing_file_raises_file_not_found(self, tmp_path: Path) -> None:
         with pytest.raises(FileNotFoundError, match="hpo config not found"):

@@ -1,16 +1,14 @@
 import { z } from "zod";
 import { experimentBaseSchema, startBeforeEndRefinement } from "./configureForm";
 
-// Mirrors src.core.hpo_config.{SamplerKind,PrunerKind,ObjectiveKind} StrEnums.
+// Mirrors src.core.hpo_config.{SamplerKind,PrunerKind} StrEnums.
 // Server-side validation via POST /api/configs/validate?kind=hpo is the source
-// of truth; this list exists for the typed dropdown on the Configure form only.
+// of truth; these lists exist for the typed dropdowns on the Configure form only.
 export const SAMPLER_VALUES = ["tpe", "random", "cmaes", "qmc"] as const;
 export const PRUNER_VALUES = ["median", "hyperband", "percentile", "none"] as const;
-export const OBJECTIVE_VALUES = ["sharpe", "calmar", "sortino_minus_drawdown"] as const;
 
 export type SamplerValue = (typeof SAMPLER_VALUES)[number];
 export type PrunerValue = (typeof PRUNER_VALUES)[number];
-export type ObjectiveValue = (typeof OBJECTIVE_VALUES)[number];
 
 // Mirrored from the HPOConfig.study_name backend constraint - imported by
 // HpoFieldsSection so the input's HTML maxLength matches the server.
@@ -39,7 +37,6 @@ export const configureTuneFormSchema = experimentBaseSchema
     nJobs: z.coerce.number().int().min(N_JOBS_MIN).max(N_JOBS_MAX).default(DEFAULT_N_JOBS),
     sampler: z.enum(SAMPLER_VALUES).default("tpe"),
     pruner: z.enum(PRUNER_VALUES).default("median"),
-    objective: z.enum(OBJECTIVE_VALUES).default("sharpe"),
     hpoSeed: z.coerce.number().int().min(HPO_SEED_MIN).default(DEFAULT_HPO_SEED),
   })
   .refine(startBeforeEndRefinement.predicate, {
@@ -55,7 +52,6 @@ export const HPO_FORM_DEFAULTS = {
   nJobs: DEFAULT_N_JOBS,
   sampler: "tpe" as SamplerValue,
   pruner: "median" as PrunerValue,
-  objective: "sharpe" as ObjectiveValue,
   hpoSeed: DEFAULT_HPO_SEED,
 } as const;
 
@@ -65,7 +61,6 @@ export type HpoPayload = Record<string, unknown> & {
   n_jobs: number;
   sampler: SamplerValue;
   pruner: PrunerValue;
-  objective: ObjectiveValue;
   seed: number;
 };
 
@@ -76,7 +71,6 @@ export function toHpoPayload(values: ConfigureTuneFormValues): HpoPayload {
     n_jobs: values.nJobs,
     sampler: values.sampler,
     pruner: values.pruner,
-    objective: values.objective,
     seed: values.hpoSeed,
   };
 }

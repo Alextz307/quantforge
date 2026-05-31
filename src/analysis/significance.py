@@ -55,6 +55,7 @@ import numpy as np
 import numpy.typing as npt
 import scipy.stats as scipy_stats
 
+from quant_engine import MetricsCalculator
 from src.core import json_io
 
 _FloatArray = npt.NDArray[np.float64]
@@ -196,6 +197,35 @@ class DeflatedSharpe:
             trial_sharpe_skew=json_io.get_float(d, "trial_sharpe_skew"),
             trial_sharpe_kurtosis=json_io.get_float(d, "trial_sharpe_kurtosis"),
         )
+
+
+@dataclass(frozen=True)
+class PooledSharpe:
+    """
+    Pooled out-of-sample Sharpe + Probabilistic Sharpe Ratio for one leg.
+
+    Computed from the concatenation of every walk-forward fold's
+    within-fold OOS returns (the seam return between two folds is not
+    tradeable and is dropped by the producer). Unlike the mean-of-folds
+    Sharpe, this is the realised end-to-end track record - observation
+    weighted, so long folds count more than short ones.
+
+    ``psr`` is the Bailey-Lopez de Prado Probabilistic Sharpe Ratio
+    against a zero benchmark: the probability the true Sharpe exceeds 0
+    given the return distribution's ``skew`` / ``kurtosis`` and sample
+    length ``n_obs``. The cross-leg *deflated* Sharpe (selection over many
+    legs) is produced separately by :func:`deflate_pooled_across_legs`,
+    which needs every leg at once. ``kurtosis`` is non-excess (Normal = 3).
+
+    A leg with fewer than two pooled OOS returns yields all-NaN fields;
+    downstream code discriminates on ``math.isnan(sharpe)``.
+    """
+
+    sharpe: float
+    psr: float
+    n_obs: int
+    skew: float
+    kurtosis: float
 
 
 @dataclass(frozen=True)
@@ -478,14 +508,13 @@ def deflated_sharpe_ratio(
 
     expected_max = _expected_max_sharpe(n_trials=n_trials, trial_variance=trial_var)
 
-    denom_sq = 1.0 - trial_skew * observed + ((trial_kurt - 1.0) / 4.0) * observed * observed
-    if denom_sq <= 0.0:
-        deflated = 0.5
-        psi = 0.0
-    else:
-        psi = (observed - expected_max) * math.sqrt(sample_length - 1) / math.sqrt(denom_sq)
-        deflated = float(scipy_stats.norm.cdf(psi))
-
+    deflated = _psr_probability(
+        observed_sharpe=observed,
+        benchmark_sharpe=expected_max,
+        skew=trial_skew,
+        kurtosis=trial_kurt,
+        sample_length=sample_length,
+    )
     p_value = 1.0 - deflated
 
     return DeflatedSharpe(
@@ -517,6 +546,126 @@ def _expected_max_sharpe(*, n_trials: int, trial_variance: float) -> float:
     q1 = float(scipy_stats.norm.ppf(1.0 - 1.0 / n_trials))
     q2 = float(scipy_stats.norm.ppf(1.0 - 1.0 / (n_trials * math.e)))
     return std * ((1.0 - _EULER_MASCHERONI) * q1 + _EULER_MASCHERONI * q2)
+
+
+def _psr_probability(
+    *,
+    observed_sharpe: float,
+    benchmark_sharpe: float,
+    skew: float,
+    kurtosis: float,
+    sample_length: int,
+) -> float:
+    """
+    Bailey-Lopez de Prado eq.(9) test statistic mapped to a probability.
+
+    Shared core of both the trial-based deflated Sharpe and the pooled-OOS
+    PSR. Returns ``Phi(psi)`` where
+
+    ``psi = (observed - benchmark) * sqrt(T - 1) /
+            sqrt(1 - skew*observed + ((kurtosis - 1)/4)*observed^2)``
+
+    The denominator is the Sharpe-estimator standard error corrected for
+    non-normal returns (``kurtosis`` non-excess, Normal = 3). A non-positive
+    radicand (extreme negative skew x large Sharpe) leaves the statistic
+    undefined; we return ``0.5`` (non-significant) rather than raise.
+    ``benchmark_sharpe`` is ``0`` for a plain PSR - P[true Sharpe > 0] - or
+    the expected-max over N candidates for the selection-deflated form.
+    """
+
+    denom_sq = (
+        1.0 - skew * observed_sharpe + ((kurtosis - 1.0) / 4.0) * observed_sharpe * observed_sharpe
+    )
+    if denom_sq <= 0.0:
+        return 0.5
+    psi = (observed_sharpe - benchmark_sharpe) * math.sqrt(sample_length - 1) / math.sqrt(denom_sq)
+    return float(scipy_stats.norm.cdf(psi))
+
+
+def compute_pooled_sharpe(
+    returns: _FloatArray, *, annualization_factor: int, risk_free_rate: float = 0.0
+) -> PooledSharpe:
+    """
+    Pooled OOS Sharpe + zero-benchmark PSR for one leg's stitched returns.
+
+    ``returns`` is the concatenation of each fold's within-fold OOS returns
+    (the caller drops the non-tradeable seam between folds). The Sharpe is
+    annualised through the same C++ ``MetricsCalculator.sharpe_ratio`` the
+    per-fold metrics use, and ``risk_free_rate`` is the same rate those
+    per-fold metrics subtract, so pooled and per-fold Sharpes are on one
+    scale. The PSR uses the per-bar return skew / kurtosis and
+    ``T = len(returns)``.
+
+    Fewer than two returns -> all-NaN (Sharpe undefined). A numerically
+    constant series falls back to Normal-baseline moments (skew 0,
+    kurtosis 3) to dodge scipy's constant-input warnings, matching
+    :func:`deflated_sharpe_ratio`.
+    """
+
+    arr = _as_1d_float(returns, "returns")
+    n_obs = len(arr)
+    if n_obs < 2:
+        nan = float("nan")
+        return PooledSharpe(sharpe=nan, psr=nan, n_obs=n_obs, skew=nan, kurtosis=nan)
+
+    sharpe = float(
+        MetricsCalculator.sharpe_ratio(
+            np.ascontiguousarray(arr), annualization_factor, risk_free_rate
+        )
+    )
+    if float(np.var(arr, ddof=1)) > _TRIAL_VARIANCE_EPS:
+        skew = float(scipy_stats.skew(arr, bias=False))
+        kurtosis = float(scipy_stats.kurtosis(arr, fisher=False, bias=False))
+    else:
+        skew = 0.0
+        kurtosis = 3.0
+
+    psr = _psr_probability(
+        observed_sharpe=sharpe,
+        benchmark_sharpe=0.0,
+        skew=skew,
+        kurtosis=kurtosis,
+        sample_length=n_obs,
+    )
+    return PooledSharpe(sharpe=sharpe, psr=psr, n_obs=n_obs, skew=skew, kurtosis=kurtosis)
+
+
+def deflate_pooled_across_legs(legs: Sequence[PooledSharpe]) -> tuple[float, ...]:
+    """
+    Selection-deflated pooled Sharpe probability per leg, aligned to input order.
+
+    Guards the "we kept the best of many strategy x universe pairs"
+    selection bias: each leg's PSR benchmark is the expected maximum Sharpe
+    across all legs (BLP expected-max of ``N`` iid-normal Sharpes with the
+    legs' observed Sharpe variance), not zero. A leg whose pooled Sharpe
+    clears that selection bar scores high; one below it scores low.
+
+    Legs with a NaN pooled Sharpe (too few OOS bars) are excluded from the
+    variance + expected-max estimate and map to NaN in the output, so the
+    return tuple stays aligned with ``legs``.
+    """
+
+    finite = [leg for leg in legs if not math.isnan(leg.sharpe)]
+    if not finite:
+        return tuple(float("nan") for _ in legs)
+
+    n_legs = len(finite)
+    sharpes = np.array([leg.sharpe for leg in finite], dtype=np.float64)
+    variance = float(np.var(sharpes, ddof=1)) if n_legs >= 2 else 0.0
+    expected_max = _expected_max_sharpe(n_trials=n_legs, trial_variance=variance)
+
+    return tuple(
+        float("nan")
+        if math.isnan(leg.sharpe)
+        else _psr_probability(
+            observed_sharpe=leg.sharpe,
+            benchmark_sharpe=expected_max,
+            skew=leg.skew,
+            kurtosis=leg.kurtosis,
+            sample_length=leg.n_obs,
+        )
+        for leg in legs
+    )
 
 
 def _run_block_bootstrap(

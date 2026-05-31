@@ -26,11 +26,13 @@ from src.core import json_io
 from src.core.persistence import (
     COMPARISONS_SUBDIR,
     EXPERIMENT_MANIFEST_JSON,
+    EXPERIMENT_METRICS_JSON,
     FOLD_RESULTS_JSONL,
     HOLDOUT_EVAL_JSON,
     HOLDOUT_EVALS_SUBDIR,
     RUNS_SUBDIR,
 )
+from src.core.types import Interval
 from src.engine.scenarios import SlippageScenario
 from src.orchestration.manifest import Manifest
 from src.orchestration.study_report import (
@@ -53,6 +55,7 @@ from tests.conftest import (
 
 _BOOTSTRAP_SEED = 1337
 _STUB_DATA_HASH = "a" * 64
+_ANNUALIZATION_FACTOR = Interval.DAILY.annualization_factor()
 _FOLD_TIME_RANGE_START = pd.Timestamp("2020-01-01")
 _FOLD_TIME_RANGE_END = pd.Timestamp("2020-12-31")
 _HOLDOUT_START = pd.Timestamp("2024-01-01")
@@ -64,6 +67,7 @@ def _write_fake_run(
     run_id: str,
     name: str,
     sharpes: tuple[float, ...],
+    write_metrics: bool = True,
 ) -> None:
     """
     Materialise a minimal valid ``runs/<id>/`` dir.
@@ -71,7 +75,9 @@ def _write_fake_run(
     Writes ``manifest.json`` and ``fold_results.jsonl`` so
     :func:`load_experiment_result` can reconstruct an
     :class:`ExperimentResult`. Skips ``config.yaml`` and per-fold
-    artifacts - the consolidator doesn't read those.
+    artifacts - the consolidator doesn't read those. ``write_metrics=False``
+    omits ``metrics.json`` to mimic a legacy/partial run the consolidator
+    must recompute from folds rather than crash on.
     """
 
     run_dir = runs_dir / run_id
@@ -85,6 +91,11 @@ def _write_fake_run(
         for i, sharpe in enumerate(sharpes)
     )
     json_io.write_jsonl(run_dir / FOLD_RESULTS_JSONL, [f.to_dict() for f in folds])
+    if write_metrics:
+        json_io.write(
+            run_dir / EXPERIMENT_METRICS_JSON,
+            aggregate_folds(folds, annualization_factor=_ANNUALIZATION_FACTOR).to_dict(),
+        )
     manifest = Manifest(
         experiment_id=run_id,
         name=name,
@@ -93,6 +104,8 @@ def _write_fake_run(
         seed=42,
         data_hash=_STUB_DATA_HASH,
         slippage_scenario=SlippageScenario.NORMAL,
+        interval=Interval.DAILY,
+        risk_free_rate=0.0,
         holdout_start=_HOLDOUT_START,
     )
     json_io.write(run_dir / EXPERIMENT_MANIFEST_JSON, manifest.to_dict())
@@ -184,6 +197,7 @@ def _build_study_dir(
     *,
     legs: Sequence[tuple[str, str, str, tuple[float, ...]]],
     incomplete_leg_ids: tuple[str, ...] = (),
+    legs_without_metrics: tuple[str, ...] = (),
     holdout_data: dict[str, float] | None = None,
     comparison_data: dict[str, tuple[PairwiseSignificance, ...]] | None = None,
 ) -> Path:
@@ -208,7 +222,13 @@ def _build_study_dir(
             leg_states.append(LegState.initial(leg_id, strategy, universe))
             continue
         run_id = f"stub_{leg_id}"
-        _write_fake_run(runs_dir, run_id=run_id, name=leg_id, sharpes=sharpes)
+        _write_fake_run(
+            runs_dir,
+            run_id=run_id,
+            name=leg_id,
+            sharpes=sharpes,
+            write_metrics=leg_id not in legs_without_metrics,
+        )
         leg_states.append(
             LegState(
                 leg_id=leg_id,
@@ -279,13 +299,46 @@ def test_consolidate_study_full_tree(tmp_path: Path) -> None:
     strat_a_uni1 = report.per_leg_aggregate[("StratA", "uni1")]
     assert strat_a_uni1.n_folds == 3
     assert strat_a_uni1.sharpe_mean == pytest.approx(
-        aggregate_folds(_load_folds(study_dir, "stub_StratA__uni1")).sharpe_mean
+        aggregate_folds(
+            _load_folds(study_dir, "stub_StratA__uni1"),
+            annualization_factor=_ANNUALIZATION_FACTOR,
+        ).sharpe_mean
     )
     assert ("StratA", "uni1") in report.per_leg_holdout
     assert report.per_leg_holdout[("StratA", "uni1")].sharpe_ratio == 0.95
     assert "uni1" in report.per_universe_pairwise
     assert report.per_universe_pairwise["uni1"][0].name_a == "StratA"
     assert report.incomplete_leg_ids == ()
+
+
+def test_consolidate_study_recomputes_when_metrics_json_missing(tmp_path: Path) -> None:
+    """
+    A completed leg whose ``metrics.json`` is absent (legacy/partial run)
+    must not crash consolidation; the aggregate is recomputed from the
+    loaded folds using the manifest's interval/rate.
+    """
+
+    legs = [
+        ("StratA__uni1", "StratA", "uni1", (1.2, 1.3, 1.1)),
+        ("StratB__uni1", "StratB", "uni1", (0.9, 1.0, 0.8)),
+    ]
+    study_dir = _build_study_dir(
+        tmp_path,
+        legs=legs,
+        legs_without_metrics=("StratB__uni1",),
+    )
+
+    report = consolidate_study(study_dir)
+
+    assert len(report.per_leg_aggregate) == 2
+    recomputed = report.per_leg_aggregate[("StratB", "uni1")]
+    assert recomputed.n_folds == 3
+    assert recomputed.sharpe_mean == pytest.approx(
+        aggregate_folds(
+            _load_folds(study_dir, "stub_StratB__uni1"),
+            annualization_factor=_ANNUALIZATION_FACTOR,
+        ).sharpe_mean
+    )
 
 
 def test_consolidate_study_skips_incomplete_legs(tmp_path: Path) -> None:

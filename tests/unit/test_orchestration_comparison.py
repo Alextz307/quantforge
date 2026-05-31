@@ -230,3 +230,29 @@ class TestRunComparisonAlignment:
                 store_root=tmp_path,
                 significance_test=SignificanceTest.BOOTSTRAP,
             )
+
+
+class TestRunComparisonReuse:
+    """
+    The ``reused_results`` path skips the walk-forward and ranks prior runs.
+
+    It is the only path the study consolidator uses
+    (``_run_per_universe_compares``), and it supplies no ``configs`` - the
+    annualization factor must come from each result's manifest. Without
+    coverage here a broken reuse path fails silently inside the study's
+    broad ``except`` and emits no comparison reports.
+    """
+
+    def test_reuse_path_ranks_without_configs(self, tmp_path: Path) -> None:
+        results = [_stub_result("Alpha", sharpe=1.5), _stub_result("Charlie", sharpe=2.1)]
+
+        report, folds = run_comparison(
+            out_name="reuse",
+            store_root=tmp_path,
+            reused_results=results,
+        )
+
+        assert set(report.per_strategy_stats.keys()) == {"Alpha", "Charlie"}
+        assert set(folds.keys()) == {"Alpha", "Charlie"}
+        assert list(report.ranking["name"])[0] == "Charlie"
+        assert report.per_strategy_stats["Charlie"].n_oos_bars > 0

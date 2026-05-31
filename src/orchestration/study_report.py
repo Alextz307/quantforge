@@ -42,6 +42,7 @@ from src.core.logging import get_logger
 from src.core.persistence import (
     COMPARISONS_SUBDIR,
     DSR_JSON_FILENAME,
+    EXPERIMENT_METRICS_JSON,
     FEATURE_IMPORTANCE_JSON,
     HOLDOUT_EVAL_JSON,
     HOLDOUT_EVALS_SUBDIR,
@@ -286,7 +287,19 @@ def consolidate_study(study_dir: Path) -> ConsolidatedStudyReport:
         key = (leg.strategy, leg.universe)
         run_dir = resolve_run_dir(study_dir, leg.run_experiment_id)
         result = load_experiment_result(run_dir)
-        per_leg_aggregate[key] = aggregate_folds(result.folds)
+        try:
+            per_leg_aggregate[key] = AggregateStats.from_dict(
+                json_io.read_dict(run_dir / EXPERIMENT_METRICS_JSON)
+            )
+        except (FileNotFoundError, KeyError):
+            # A missing metrics.json (partial run) or one predating the pooled
+            # Sharpe keys (legacy schema) would otherwise crash consolidation;
+            # recompute from the loaded folds using the run's own interval/rate.
+            per_leg_aggregate[key] = aggregate_folds(
+                result.folds,
+                annualization_factor=result.manifest.interval.annualization_factor(),
+                risk_free_rate=result.manifest.risk_free_rate,
+            )
         per_leg_run_id[key] = leg.run_experiment_id
 
         floor_stats = aggregate_floor_bind_across_folds(

@@ -17,6 +17,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from src.core.types import Interval
 from src.engine.scenarios import SlippageScenario
 from src.orchestration.manifest import Manifest
 from src.orchestration.types import ExperimentResult, FoldRecord
@@ -48,6 +49,8 @@ def _make_manifest(experiment_id: str = _EXPERIMENT_ID) -> Manifest:
         seed=42,
         data_hash="deadbeef",
         slippage_scenario=SlippageScenario.NORMAL,
+        interval=Interval.DAILY,
+        risk_free_rate=0.0,
         holdout_start=pd.Timestamp("2023-06-30T00:00:00"),
     )
 

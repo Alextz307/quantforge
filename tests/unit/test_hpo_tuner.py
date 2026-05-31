@@ -18,7 +18,7 @@ import pytest
 
 from src.analysis.metrics_aggregator import AggregateStats
 from src.core.config import ExperimentConfig
-from src.core.hpo_config import HPOConfig, ObjectiveKind, SamplerKind
+from src.core.hpo_config import HPOConfig, SamplerKind
 from src.optimization import tuner as tuner_mod
 from src.optimization.checkpointing import BEST_CONFIG_YAML_NAME, TRIALS_JSONL_NAME
 from src.optimization.tuner import (
@@ -81,7 +81,6 @@ def _hpo_cfg(study_name: str, n_trials: int) -> HPOConfig:
             "study_name": study_name,
             "n_trials": n_trials,
             "sampler": SamplerKind.RANDOM.value,
-            "objective": ObjectiveKind.SHARPE.value,
             "seed": 1,
         }
     )
@@ -103,7 +102,7 @@ def mocked_tuner_env(
     def _fake_build(cfg: ExperimentConfig) -> _FakeExperiment:
         return _FakeExperiment(experiment_id=f"fake_exp_{counter['n']}")
 
-    def _fake_aggregate(folds: tuple[object, ...]) -> AggregateStats:
+    def _fake_aggregate(folds: tuple[object, ...], **_kwargs: object) -> AggregateStats:
         trial_cfg_window = _window_for_trial(counter["n"])
         sharpe = 1.0 - abs(trial_cfg_window - _TARGET_WINDOW) * _SHARPE_PENALTY_PER_UNIT
         counter["n"] += 1
@@ -251,7 +250,7 @@ class TestStrategyTunerPruning:
         def _fake_build(cfg: ExperimentConfig) -> _FakeExperiment:
             return _FakeExperiment(experiment_id=f"prune_exp_{counter['n']}")
 
-        def _fake_aggregate(folds: tuple[object, ...]) -> AggregateStats:
+        def _fake_aggregate(folds: tuple[object, ...], **_kwargs: object) -> AggregateStats:
             n = counter["n"]
             counter["n"] += 1
             if n == 1:

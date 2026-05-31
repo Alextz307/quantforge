@@ -158,7 +158,11 @@ def run_comparison(
         )
 
     per_strategy_stats = {
-        name: aggregate_folds(result.folds)
+        name: aggregate_folds(
+            result.folds,
+            annualization_factor=result.manifest.interval.annualization_factor(),
+            risk_free_rate=result.manifest.risk_free_rate,
+        )
         for name, result in zip(inputs.strategy_names, results, strict=True)
     }
     per_strategy_experiment_id = {

@@ -16,7 +16,6 @@ from src.engine.scenarios import SlippageScenario
 class RunSortBy(StrEnum):
     CREATED_AT = "created_at"
     SHARPE_MEAN = "sharpe_mean"
-    CALMAR_MEAN = "calmar_mean"
 
 
 class SortOrder(StrEnum):
@@ -45,7 +44,6 @@ class RunSummary(BaseModel):
     store: str
     created_at: datetime
     sharpe_mean: float | None
-    calmar_mean: float | None
     has_holdout: bool
     data_hash: str
     launched_by_username: str | None = None
@@ -81,7 +79,6 @@ class FoldRow(BaseModel):
     test_end: datetime
     total_return: float
     annualized_return: float
-    annualized_volatility: float
     sharpe_ratio: float
     sortino_ratio: float
     calmar_ratio: float

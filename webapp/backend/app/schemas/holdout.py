@@ -46,7 +46,6 @@ class HoldoutEvalDetail(BaseModel):
     slippage_scenario: SlippageScenario
     total_return: float
     annualized_return: float
-    annualized_volatility: float
     sharpe_ratio: float
     sortino_ratio: float
     calmar_ratio: float

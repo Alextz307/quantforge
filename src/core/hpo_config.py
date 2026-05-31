@@ -7,7 +7,7 @@ Kept deliberately separate from :class:`ExperimentConfig`:
   every ``run`` config would force unused HPO knobs into every YAML.
 * The tuner takes ``(experiment_cfg, hpo_cfg)`` explicitly; a single
   experiment config can be reused across multiple studies (different
-  sampler / objective / n_trials) without rewriting the base YAML.
+  sampler / pruner / n_trials) without rewriting the base YAML.
 
 StrEnum choices mirror Optuna's built-in sampler / pruner classes so YAML
 values like ``sampler: tpe`` round-trip without hand-written unions.
@@ -50,20 +50,6 @@ class PrunerKind(StrEnum):
     NONE = "none"
 
 
-class ObjectiveKind(StrEnum):
-    """
-    Which aggregate metric the study maximises.
-
-    All three read from ``ExperimentResult.aggregate_metrics`` keys - the
-    objective layer is a thin adapter, no per-fold maths lives in the
-    tuner.
-    """
-
-    SHARPE = "sharpe"
-    CALMAR = "calmar"
-    SORTINO_MINUS_DRAWDOWN = "sortino_minus_drawdown"
-
-
 class HPOConfig(BaseModel):
     """
     Typed knobs for one Optuna study.
@@ -90,7 +76,6 @@ class HPOConfig(BaseModel):
     n_jobs: int = Field(default=1, ge=1)
     sampler: SamplerKind = SamplerKind.TPE
     pruner: PrunerKind = PrunerKind.MEDIAN
-    objective: ObjectiveKind = ObjectiveKind.SHARPE
     timeout_s: float | None = Field(default=None, gt=0.0)
     seed: int = 42
 

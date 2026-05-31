@@ -28,7 +28,8 @@ from typing import TYPE_CHECKING
 import numpy as np
 import numpy.typing as npt
 
-from src.analysis.significance import percentile_ci
+from src.analysis.significance import compute_pooled_sharpe, percentile_ci
+from src.core import json_io
 
 if TYPE_CHECKING:
     from src.orchestration.types import FoldRecord
@@ -47,10 +48,12 @@ class AggregateStats:
     """
     Summary of a walk-forward run's fold-level metrics.
 
-    All ``*_mean`` / ``*_std`` / ``*_ci95_*`` fields are ``float('nan')``
-    when ``n_folds == 0`` - the zero-fold path is a degenerate case (empty
-    dev slice after holdout reservation) that callers should surface as an
-    error, not aggregate over.
+    All ``*_mean`` / ``*_std`` / ``*_ci95_*`` and the pooled-Sharpe fields
+    (``sharpe_pooled``, ``psr_pooled``, ``pooled_skew``,
+    ``pooled_kurtosis``) are ``float('nan')`` when ``n_folds == 0`` (and
+    ``n_oos_bars`` is ``0``) - the zero-fold path is a degenerate case
+    (empty dev slice after holdout reservation) that callers should
+    surface as an error, not aggregate over.
     """
 
     n_folds: int
@@ -72,6 +75,11 @@ class AggregateStats:
     total_return_std: float
     win_rate_mean: float
     trade_count_total: int
+    sharpe_pooled: float
+    psr_pooled: float
+    n_oos_bars: int
+    pooled_skew: float
+    pooled_kurtosis: float
 
     def to_dict(self) -> dict[str, object]:
         """
@@ -104,6 +112,11 @@ class AggregateStats:
             "total_return_std": self.total_return_std,
             "win_rate_mean": self.win_rate_mean,
             "trade_count_total": self.trade_count_total,
+            "sharpe_pooled": self.sharpe_pooled,
+            "psr_pooled": self.psr_pooled,
+            "n_oos_bars": self.n_oos_bars,
+            "pooled_skew": self.pooled_skew,
+            "pooled_kurtosis": self.pooled_kurtosis,
         }
 
     @classmethod
@@ -138,16 +151,71 @@ class AggregateStats:
             total_return_std=nan,
             win_rate_mean=nan,
             trade_count_total=0,
+            sharpe_pooled=nan,
+            psr_pooled=nan,
+            n_oos_bars=0,
+            pooled_skew=nan,
+            pooled_kurtosis=nan,
+        )
+
+    @classmethod
+    def from_dict(cls, d: dict[str, object]) -> AggregateStats:
+        """
+        Reconstruct from the :meth:`to_dict` view (e.g. a run's metrics.json).
+
+        Mirrors the zero-fold short-circuit: a dict with ``n_folds == 0``
+        rebuilds the :meth:`empty` sentinel without requiring the other keys.
+        """
+
+        if json_io.get_int(d, "n_folds") == 0:
+            return cls.empty()
+        return cls(
+            n_folds=json_io.get_int(d, "n_folds"),
+            sharpe_mean=json_io.get_float(d, "sharpe_mean"),
+            sharpe_std=json_io.get_float(d, "sharpe_std"),
+            sharpe_ci95_low=json_io.get_float(d, "sharpe_ci95_low"),
+            sharpe_ci95_high=json_io.get_float(d, "sharpe_ci95_high"),
+            sortino_mean=json_io.get_float(d, "sortino_mean"),
+            sortino_std=json_io.get_float(d, "sortino_std"),
+            sortino_ci95_low=json_io.get_float(d, "sortino_ci95_low"),
+            sortino_ci95_high=json_io.get_float(d, "sortino_ci95_high"),
+            calmar_mean=json_io.get_float(d, "calmar_mean"),
+            calmar_std=json_io.get_float(d, "calmar_std"),
+            calmar_ci95_low=json_io.get_float(d, "calmar_ci95_low"),
+            calmar_ci95_high=json_io.get_float(d, "calmar_ci95_high"),
+            max_drawdown_worst=json_io.get_float(d, "max_drawdown_worst"),
+            max_drawdown_mean=json_io.get_float(d, "max_drawdown_mean"),
+            total_return_mean=json_io.get_float(d, "total_return_mean"),
+            total_return_std=json_io.get_float(d, "total_return_std"),
+            win_rate_mean=json_io.get_float(d, "win_rate_mean"),
+            trade_count_total=json_io.get_int(d, "trade_count_total"),
+            sharpe_pooled=json_io.get_float(d, "sharpe_pooled"),
+            psr_pooled=json_io.get_float(d, "psr_pooled"),
+            n_oos_bars=json_io.get_int(d, "n_oos_bars"),
+            pooled_skew=json_io.get_float(d, "pooled_skew"),
+            pooled_kurtosis=json_io.get_float(d, "pooled_kurtosis"),
         )
 
 
 def aggregate_folds(
     folds: tuple[FoldRecord, ...],
     *,
+    annualization_factor: int,
+    risk_free_rate: float = 0.0,
     rng: np.random.Generator | None = None,
 ) -> AggregateStats:
     """
-    Collapse ``folds`` into per-metric mean / std / 95% CI.
+    Collapse ``folds`` into per-metric mean / std / 95% CI plus pooled Sharpe.
+
+    Two views of Sharpe come out of this. The ``sharpe_mean`` / ``sharpe_std``
+    pair is the equal-weighted mean and dispersion across folds - a
+    *stability* read (does the edge hold across regimes?). ``sharpe_pooled``
+    is the Sharpe of the stitched out-of-sample return stream (every fold's
+    within-fold returns concatenated, seams dropped) - the *realised*
+    end-to-end track record, observation weighted. ``annualization_factor``
+    (bars per year for the data's interval) and ``risk_free_rate`` (the same
+    rate the per-fold Sharpes subtract) put the pooled Sharpe on the same
+    annualised scale as the per-fold Sharpes.
 
     ``rng`` seeds the IID bootstrap resampler. Defaults to a fixed internal
     seed so ``metrics.json`` is a deterministic function of fold values -
@@ -165,6 +233,11 @@ def aggregate_folds(
         return AggregateStats.empty()
 
     rng = rng if rng is not None else np.random.default_rng(_DEFAULT_RNG_SEED)
+    pooled = compute_pooled_sharpe(
+        _pooled_oos_returns(folds),
+        annualization_factor=annualization_factor,
+        risk_free_rate=risk_free_rate,
+    )
 
     sharpe = np.array([f.sharpe_ratio for f in folds], dtype=np.float64)
     sortino = np.array([f.sortino_ratio for f in folds], dtype=np.float64)
@@ -200,7 +273,42 @@ def aggregate_folds(
         total_return_std=total_return_std,
         win_rate_mean=float(np.mean(win_rate)),
         trade_count_total=int(np.sum(trade_count)),
+        sharpe_pooled=pooled.sharpe,
+        psr_pooled=pooled.psr,
+        n_oos_bars=pooled.n_obs,
+        pooled_skew=pooled.skew,
+        pooled_kurtosis=pooled.kurtosis,
     )
+
+
+def _pooled_oos_returns(folds: tuple[FoldRecord, ...]) -> _FloatArray:
+    """
+    Concatenate each fold's within-fold OOS returns, dropping the fold seams.
+
+    Each fold's equity curve is re-based to its own starting capital, so a
+    return spanning the boundary between two folds is not a tradeable
+    return. We take simple returns inside each fold
+    (``e[1:] / e[:-1] - 1``) and concatenate them, which reconstructs the
+    stitched OOS return stream the pooled Sharpe is computed on. Folds with
+    fewer than two equity points contribute nothing.
+
+    A non-positive prior equity point (a blow-up to zero / negative equity)
+    yields ``0.0`` rather than ``inf`` / ``nan``, mirroring the C++
+    ``MetricsCalculator::equity_to_returns`` guard so the pooled return
+    stream is derived identically to the per-fold one.
+    """
+
+    segments: list[_FloatArray] = []
+    for fold in folds:
+        equity = np.asarray(fold.equity_curve, dtype=np.float64)
+        if equity.size < 2:
+            continue
+        prev = equity[:-1]
+        positive = prev > 0.0
+        segments.append(np.where(positive, equity[1:] / np.where(positive, prev, 1.0) - 1.0, 0.0))
+    if not segments:
+        return np.empty(0, dtype=np.float64)
+    return np.concatenate(segments)
 
 
 def _mean_std_ci(

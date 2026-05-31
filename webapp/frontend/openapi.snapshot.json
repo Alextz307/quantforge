@@ -526,10 +526,6 @@
             "title": "Annualized Return",
             "type": "number"
           },
-          "annualized_volatility": {
-            "title": "Annualized Volatility",
-            "type": "number"
-          },
           "calmar_ratio": {
             "title": "Calmar Ratio",
             "type": "number"
@@ -598,7 +594,6 @@
           "test_end",
           "total_return",
           "annualized_return",
-          "annualized_volatility",
           "sharpe_ratio",
           "sortino_ratio",
           "calmar_ratio",
@@ -645,10 +640,6 @@
         "properties": {
           "annualized_return": {
             "title": "Annualized Return",
-            "type": "number"
-          },
-          "annualized_volatility": {
-            "title": "Annualized Volatility",
             "type": "number"
           },
           "calmar_ratio": {
@@ -773,7 +764,6 @@
           "slippage_scenario",
           "total_return",
           "annualized_return",
-          "annualized_volatility",
           "sharpe_ratio",
           "sortino_ratio",
           "calmar_ratio",
@@ -1809,8 +1799,7 @@
       "RunSortBy": {
         "enum": [
           "created_at",
-          "sharpe_mean",
-          "calmar_mean"
+          "sharpe_mean"
         ],
         "title": "RunSortBy",
         "type": "string"
@@ -1818,17 +1807,6 @@
       "RunSummary": {
         "description": "List-view row for `/api/runs`.\n\nStrategy/tickers/interval are sourced from the run's frozen\n`config.yaml` so any future strategy works without changing this code.\n``has_holdout`` mirrors ``manifest.holdout_start is not None`` so the\nholdout-launcher form can filter eligible runs without a per-row\ndetail fetch. ``data_hash`` is the run's bar-series fingerprint so the\ncompare picker can lock subsequent selections to the first run's\nuniverse (the paired-bootstrap test rejects mixed bar indices).",
         "properties": {
-          "calmar_mean": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Calmar Mean"
-          },
           "created_at": {
             "format": "date-time",
             "title": "Created At",
@@ -1901,7 +1879,6 @@
           "store",
           "created_at",
           "sharpe_mean",
-          "calmar_mean",
           "has_holdout",
           "data_hash"
         ],

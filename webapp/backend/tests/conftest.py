@@ -87,7 +87,6 @@ def make_valid_hpo_payload(study_name: str = "test_hpo_study") -> dict[str, obje
         "n_jobs": 1,
         "sampler": "tpe",
         "pruner": "median",
-        "objective": "sharpe",
         "seed": 7,
     }
 

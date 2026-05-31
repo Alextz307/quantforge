@@ -43,10 +43,6 @@ export function DevVsHoldoutPanel({ holdout }: { holdout: HoldoutEvalDetail }) {
             label="Annualized return"
             value={formatPercent(holdout.annualized_return)}
           />
-          <MetadataField
-            label="Annualized vol"
-            value={formatPercent(holdout.annualized_volatility)}
-          />
           <MetadataField label="Sharpe" value={formatMetric(holdout.sharpe_ratio)} />
           <MetadataField label="Sortino" value={formatMetric(holdout.sortino_ratio)} />
           <MetadataField label="Calmar" value={formatMetric(holdout.calmar_ratio)} />

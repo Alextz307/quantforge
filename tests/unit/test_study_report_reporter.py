@@ -232,6 +232,22 @@ def test_master_ranking_sorts_by_sharpe_desc(tmp_path: Path) -> None:
     assert df.iloc[0]["sharpe_mean"] == pytest.approx(1.50)
 
 
+def test_master_ranking_includes_pooled_columns_and_sorts_by_pooled(tmp_path: Path) -> None:
+    report = _make_report(study_dir=tmp_path)
+    StudyReportReporter().generate_full_report(report, tmp_path)
+
+    df = pd.read_csv(tmp_path / TABLES_SUBDIR / "master_ranking.csv")
+    assert {
+        "sharpe_pooled",
+        "deflated_sharpe_pooled",
+        "psr_pooled",
+        "n_oos_bars",
+        "sharpe_std",
+    } <= set(df.columns)
+    # Headline sort is pooled Sharpe descending.
+    assert df["sharpe_pooled"].is_monotonic_decreasing
+
+
 def test_holdout_results_includes_dev_and_holdout_columns(tmp_path: Path) -> None:
     report = _make_report(study_dir=tmp_path)
     StudyReportReporter().generate_full_report(report, tmp_path)

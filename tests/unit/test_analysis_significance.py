@@ -10,6 +10,8 @@ deterministic - no statistical flakiness in CI.
 
 from __future__ import annotations
 
+import math
+
 import numpy as np
 import numpy.typing as npt
 import pytest
@@ -20,11 +22,15 @@ from src.analysis.significance import (
     DMDirection,
     DMLoss,
     DMResult,
+    PooledSharpe,
     bootstrap_sharpe_ci,
+    compute_pooled_sharpe,
+    deflate_pooled_across_legs,
     deflated_sharpe_ratio,
     diebold_mariano_test,
     paired_bootstrap_sharpe_differential,
 )
+from src.core.types import Interval
 
 _FloatArray = npt.NDArray[np.float64]
 
@@ -243,3 +249,103 @@ class TestDeflatedSharpeRatio:
     def test_rejects_short_sample(self) -> None:
         with pytest.raises(ValueError, match="sample_length"):
             deflated_sharpe_ratio([0.1, 0.2], sample_length=1)
+
+
+_POOLED_ANNUALIZATION = Interval.DAILY.annualization_factor()
+_POOLED_N = 1500
+_POOLED_GOOD_PER_BAR_SHARPE = 0.06
+_POOLED_MID_PER_BAR_SHARPE = 0.04
+_POOLED_BAD_PER_BAR_SHARPE = -0.06
+_POOLED_SIGNIFICANT_PSR = 0.95
+_POOLED_INSIGNIFICANT_PSR = 0.05
+_POOLED_RISK_FREE_RATE = 0.001
+
+
+class TestComputePooledSharpe:
+    def test_positive_drift_leg_is_significant(self) -> None:
+        returns = _daily_returns_with_known_sharpe(
+            _POOLED_N, sharpe=_POOLED_GOOD_PER_BAR_SHARPE, seed=_BOOTSTRAP_SEED
+        )
+        pooled = compute_pooled_sharpe(returns, annualization_factor=_POOLED_ANNUALIZATION)
+        assert pooled.n_obs == _POOLED_N
+        assert pooled.sharpe > 0.0
+        assert pooled.psr > _POOLED_SIGNIFICANT_PSR
+
+    def test_negative_drift_leg_is_not_significant(self) -> None:
+        returns = _daily_returns_with_known_sharpe(
+            _POOLED_N, sharpe=_POOLED_BAD_PER_BAR_SHARPE, seed=_BOOTSTRAP_SEED
+        )
+        pooled = compute_pooled_sharpe(returns, annualization_factor=_POOLED_ANNUALIZATION)
+        assert pooled.sharpe < 0.0
+        assert pooled.psr < _POOLED_INSIGNIFICANT_PSR
+
+    def test_annualization_scales_the_sharpe(self) -> None:
+        """
+        The pooled Sharpe must be annualised: a larger factor yields a
+        proportionally larger Sharpe on the same return stream.
+        """
+
+        returns = _daily_returns_with_known_sharpe(
+            _POOLED_N, sharpe=_POOLED_GOOD_PER_BAR_SHARPE, seed=_BOOTSTRAP_SEED
+        )
+        daily = compute_pooled_sharpe(returns, annualization_factor=_POOLED_ANNUALIZATION)
+        hourly = compute_pooled_sharpe(
+            returns, annualization_factor=Interval.HOUR.annualization_factor()
+        )
+        assert hourly.sharpe > daily.sharpe
+
+    def test_too_few_returns_yields_nan(self) -> None:
+        pooled = compute_pooled_sharpe(
+            np.array([0.01], dtype=np.float64), annualization_factor=_POOLED_ANNUALIZATION
+        )
+        assert pooled.n_obs == 1
+        assert math.isnan(pooled.sharpe)
+        assert math.isnan(pooled.psr)
+
+    def test_risk_free_rate_lowers_the_sharpe(self) -> None:
+        """
+        Subtracting a positive risk-free rate shrinks the excess return, so
+        the pooled Sharpe drops - matching the rate the per-fold metrics use
+        keeps the two Sharpe views on one scale.
+        """
+
+        returns = _daily_returns_with_known_sharpe(
+            _POOLED_N, sharpe=_POOLED_GOOD_PER_BAR_SHARPE, seed=_BOOTSTRAP_SEED
+        )
+        zero_rf = compute_pooled_sharpe(returns, annualization_factor=_POOLED_ANNUALIZATION)
+        with_rf = compute_pooled_sharpe(
+            returns,
+            annualization_factor=_POOLED_ANNUALIZATION,
+            risk_free_rate=_POOLED_RISK_FREE_RATE,
+        )
+        assert with_rf.sharpe < zero_rf.sharpe
+
+
+class TestDeflatePooledAcrossLegs:
+    def _leg(self, per_bar_sharpe: float, seed: int) -> PooledSharpe:
+        returns = _daily_returns_with_known_sharpe(_POOLED_N, sharpe=per_bar_sharpe, seed=seed)
+        return compute_pooled_sharpe(returns, annualization_factor=_POOLED_ANNUALIZATION)
+
+    def test_best_leg_outranks_weakest_after_deflation(self) -> None:
+        good = self._leg(_POOLED_GOOD_PER_BAR_SHARPE, seed=_BOOTSTRAP_SEED)
+        mid = self._leg(_POOLED_MID_PER_BAR_SHARPE, seed=_BOOTSTRAP_SEED + 1)
+        bad = self._leg(_POOLED_BAD_PER_BAR_SHARPE, seed=_BOOTSTRAP_SEED + 2)
+        deflated = deflate_pooled_across_legs([good, mid, bad])
+        assert deflated[0] > deflated[2]
+        assert all(0.0 <= value <= 1.0 for value in deflated)
+
+    def test_nan_leg_maps_to_nan_and_keeps_alignment(self) -> None:
+        good = self._leg(_POOLED_GOOD_PER_BAR_SHARPE, seed=_BOOTSTRAP_SEED)
+        degenerate = compute_pooled_sharpe(
+            np.array([0.01], dtype=np.float64), annualization_factor=_POOLED_ANNUALIZATION
+        )
+        deflated = deflate_pooled_across_legs([good, degenerate])
+        assert not math.isnan(deflated[0])
+        assert math.isnan(deflated[1])
+
+    def test_all_nan_legs_return_all_nan(self) -> None:
+        degenerate = compute_pooled_sharpe(
+            np.array([0.01], dtype=np.float64), annualization_factor=_POOLED_ANNUALIZATION
+        )
+        deflated = deflate_pooled_across_legs([degenerate, degenerate])
+        assert all(math.isnan(value) for value in deflated)

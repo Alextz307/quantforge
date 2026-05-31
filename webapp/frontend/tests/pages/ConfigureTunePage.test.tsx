@@ -74,7 +74,6 @@ describe("ConfigureTunePage", () => {
     const hpo = submission.hpo_payload as Record<string, unknown>;
     expect(hpo.study_name).toBe(STUDY_NAME);
     expect(hpo.sampler).toBe("tpe");
-    expect(hpo.objective).toBe("sharpe");
     expect(hpo.n_trials).toBe(50);
   });
 

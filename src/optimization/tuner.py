@@ -61,7 +61,7 @@ from src.optimization.checkpointing import (
     TRIALS_JSONL_NAME,
     TrialCallback,
 )
-from src.optimization.objectives import IObjective, build_objective
+from src.optimization.objectives import SharpeObjective
 from src.optimization.pruners import build_pruner
 from src.optimization.samplers import build_sampler
 from src.optimization.sampling import sample_trial_params
@@ -149,20 +149,19 @@ class StrategyTuner:
             load_if_exists=True,
         )
 
-        objective = build_objective(self.hpo_cfg.objective)
+        objective = SharpeObjective()
         callback = TrialCallback(
             experiment_cfg=self.experiment_cfg,
             study_dir=self.study_dir,
         )
 
         _logger.info(
-            "study '%s' starting: n_trials=%d n_jobs=%d sampler=%s pruner=%s objective=%s",
+            "study '%s' starting: n_trials=%d n_jobs=%d sampler=%s pruner=%s",
             self.hpo_cfg.study_name,
             self.hpo_cfg.n_trials,
             self.hpo_cfg.n_jobs,
             self.hpo_cfg.sampler.value,
             self.hpo_cfg.pruner.value,
-            self.hpo_cfg.objective.value,
         )
 
         # Bind a study-scoped GARCH grid cache so two trials whose
@@ -180,7 +179,7 @@ class StrategyTuner:
             )
         return study
 
-    def _objective(self, trial: optuna.Trial, objective: IObjective) -> float:
+    def _objective(self, trial: optuna.Trial, objective: SharpeObjective) -> float:
         start = time.monotonic()
         sampled = sample_trial_params(self.experiment_cfg, trial)
         trial_cfg = _materialize_trial_config(self.experiment_cfg, sampled)
@@ -193,7 +192,11 @@ class StrategyTuner:
         )
         trial.set_user_attr(USER_ATTR_EXPERIMENT_ID, result.experiment_id)
 
-        metrics = aggregate_folds(result.folds).to_dict()
+        metrics = aggregate_folds(
+            result.folds,
+            annualization_factor=self.experiment_cfg.data.interval.annualization_factor(),
+            risk_free_rate=self.experiment_cfg.risk_free_rate,
+        ).to_dict()
         value = objective(metrics)
         elapsed = time.monotonic() - start
 

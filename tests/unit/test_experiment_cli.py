@@ -78,7 +78,6 @@ def _write_hpo_config(tmp_path: Path, *, study_name: str = _TUNE_STUDY_NAME) -> 
         "study_name": study_name,
         "n_trials": _TUNE_N_TRIALS,
         "sampler": "random",
-        "objective": "sharpe",
         "seed": 1,
     }
     cfg_path = tmp_path / "hpo.yaml"
@@ -123,7 +122,7 @@ class TestTuneSubcommand:
         def _fake_build(cfg: ExperimentConfig) -> _StubExperiment:
             return _StubExperiment(experiment_id=f"cli_tune_exp_{counter['n']}")
 
-        def _fake_aggregate(folds: tuple[object, ...]) -> AggregateStats:
+        def _fake_aggregate(folds: tuple[object, ...], **_kwargs: object) -> AggregateStats:
             sharpe = 1.0 - counter["n"] * 0.1
             counter["n"] += 1
             return make_stub_aggregate_stats(sharpe=sharpe, total_return_mean=0.01)

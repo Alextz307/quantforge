@@ -18,6 +18,7 @@ import pandas as pd
 import pytest
 
 from src.core.persistence import EXPERIMENT_MANIFEST_JSON, write_experiment_manifest
+from src.core.types import Interval
 from src.engine.scenarios import SlippageScenario
 from src.orchestration.manifest import Manifest
 
@@ -28,6 +29,8 @@ _GIT_SHA = "abc1234"
 _SEED = 42
 _DATA_HASH = "deadbeef" * 8
 _HOLDOUT_ISO = "2023-06-30T00:00:00"
+_INTERVAL = Interval.HOUR
+_RISK_FREE_RATE = 0.02
 
 
 def _make(holdout: pd.Timestamp | None = pd.Timestamp(_HOLDOUT_ISO)) -> Manifest:
@@ -39,6 +42,8 @@ def _make(holdout: pd.Timestamp | None = pd.Timestamp(_HOLDOUT_ISO)) -> Manifest
         seed=_SEED,
         data_hash=_DATA_HASH,
         slippage_scenario=SlippageScenario.NORMAL,
+        interval=_INTERVAL,
+        risk_free_rate=_RISK_FREE_RATE,
         holdout_start=holdout,
     )
 
@@ -54,6 +59,8 @@ class TestManifestRoundTrip:
             "seed",
             "data_hash",
             "slippage_scenario",
+            "interval",
+            "risk_free_rate",
             "holdout_start",
         }
         assert set(d.keys()) == expected_keys
@@ -65,6 +72,25 @@ class TestManifestRoundTrip:
     def test_slippage_scenario_serializes_as_enum_value(self) -> None:
         d = _make().to_dict()
         assert d["slippage_scenario"] == SlippageScenario.NORMAL.value
+
+    def test_interval_serializes_as_enum_value(self) -> None:
+        d = _make().to_dict()
+        assert d["interval"] == _INTERVAL.value
+
+    def test_legacy_manifest_without_new_fields_defaults(self) -> None:
+        """
+        A manifest persisted before ``interval`` / ``risk_free_rate`` existed
+        still loads: the webapp run listing reads such legacy dirs, so
+        ``from_dict`` must tolerate the absent keys with safe defaults rather
+        than raise.
+        """
+
+        d = _make().to_dict()
+        del d["interval"]
+        del d["risk_free_rate"]
+        revived = Manifest.from_dict(d)
+        assert revived.interval == Interval.DAILY
+        assert revived.risk_free_rate == 0.0
 
     def test_roundtrip_preserves_every_field(self) -> None:
         original = _make()

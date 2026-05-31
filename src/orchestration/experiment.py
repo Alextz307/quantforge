@@ -337,6 +337,8 @@ class Experiment:
             seed=self.config.seed,
             data_hash=data_hash,
             slippage_scenario=self.config.slippage.scenario,
+            interval=self.config.data.interval,
+            risk_free_rate=self.config.risk_free_rate,
             holdout_start=boundary,
         )
 
@@ -369,7 +371,14 @@ class Experiment:
             folds = tuple(FoldRecord.from_fold_result(fr) for fr in fold_results)
 
             json_io.write_jsonl(run_dir / FOLD_RESULTS_JSONL, (f.to_dict() for f in folds))
-            json_io.write(run_dir / EXPERIMENT_METRICS_JSON, aggregate_folds(folds).to_dict())
+            json_io.write(
+                run_dir / EXPERIMENT_METRICS_JSON,
+                aggregate_folds(
+                    folds,
+                    annualization_factor=self.config.data.interval.annualization_factor(),
+                    risk_free_rate=self.config.risk_free_rate,
+                ).to_dict(),
+            )
 
             fold_importances = [
                 fr.feature_importance for fr in fold_results if fr.feature_importance is not None

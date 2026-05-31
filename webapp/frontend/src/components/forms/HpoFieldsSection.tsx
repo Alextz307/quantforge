@@ -2,7 +2,6 @@ import type { FieldErrors, UseFormRegister } from "react-hook-form";
 import { Input } from "@/components/ui/input";
 import { ConfigField } from "@/components/forms/ConfigField";
 import {
-  OBJECTIVE_VALUES,
   PRUNER_VALUES,
   SAMPLER_VALUES,
   STUDY_NAME_MAX,
@@ -67,20 +66,6 @@ export function HpoFieldsSection({ register, errors, isSubmitting }: HpoFieldsSe
             className={SELECT_CLASS}
           >
             {PRUNER_VALUES.map((v) => (
-              <option key={v} value={v}>
-                {v}
-              </option>
-            ))}
-          </select>
-        </ConfigField>
-        <ConfigField id="objective" label="Objective" error={errors.objective?.message}>
-          <select
-            id="objective"
-            {...register("objective")}
-            disabled={isSubmitting}
-            className={SELECT_CLASS}
-          >
-            {OBJECTIVE_VALUES.map((v) => (
               <option key={v} value={v}>
                 {v}
               </option>
