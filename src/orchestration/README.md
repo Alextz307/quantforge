@@ -20,7 +20,7 @@ multiple runs into cross-strategy comparison reports.
 | `run_holdout_eval(source, out_name, store_root)` | Refit a fresh strategy on the full dev region, evaluate once on the reserved holdout. Cross-checks `data_hash` + `holdout_start` against the source manifest before fitting. |
 | `run_study(spec_path, ...)` | Drive a full `StudySpec` end-to-end: cross-strategy x cross-universe sweep with per-leg resume. |
 | `consolidate_study(study_dir)` | Walk a completed study tree (`runs/`, `holdout_evals/`, `comparisons/`); return a `ConsolidatedStudyReport` value object covering every completed leg. |
-| `plan_clean(store_root)` / `apply_clean(plan)` | Tidy ephemeral subdirs under an `experiment_results/` tree; default dry-run, refuse to delete dirs containing git-tracked files. |
+| `plan_clean(store_root)` / `apply_clean(plan)` | Tidy ephemeral subdirs under an `experiment_results/` tree; default dry-run, refuse to delete dirs containing git-tracked files. Also removes a stray top-level sweep-tracking-file allowlist (`.sweep_pid`, `sweep_*.log`, ...); other top-level files are preserved. |
 | `Manifest` | Frozen, round-tripable provenance dataclass. |
 | `LegState`, `StudyState`, `ConsolidatedStudyReport`, `HoldoutSnapshot` | Frozen, round-tripable resume / consolidation dataclasses. |
 
@@ -38,7 +38,7 @@ multiple runs into cross-strategy comparison reports.
 | `study.py` | Empirical-study orchestrator: leg expansion, universe-profile composition, per-universe cross-strategy compare. |
 | `study_state.py` | `LegState` + `StudyState` resume dataclasses; atomic write via `os.replace`; spec-hash guard refuses to resume against a mutated spec. |
 | `study_report.py` | `consolidate_study(study_dir)` walker + `ConsolidatedStudyReport` / `HoldoutSnapshot` value types - collapses per-leg artifacts (metrics, holdout, DSR, floor-bind, feature-importance) into a cross-leg view consumed by `StudyReportReporter`. |
-| `clean.py` | `plan_clean` / `apply_clean` / `format_plan` - tidy ephemeral `experiment_results/` subdirs with a `--keep` preserve set and a `git ls-files` refusal on tracked content. |
+| `clean.py` | `plan_clean` / `apply_clean` / `format_plan` - tidy ephemeral `experiment_results/` subdirs with a `--keep` preserve set and a `git ls-files` refusal on tracked content; `CleanPlan.stray_files` carries a top-level sweep-tracking-file allowlist removed alongside the dirs. |
 | `git_info.py` | `read_git_sha()` - best-effort short SHA, `"unknown"` outside git. |
 | `types.py` | `ExperimentResult`, `FoldRecord`, `StrategyComparisonReport`, `PairwiseSignificance` (round-trips via `to_dict` / `from_dict`). |
 

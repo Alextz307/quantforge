@@ -18,17 +18,27 @@ What gets wiped:
   freely while a directory the user committed by accident gets a
   loud failure rather than a silent wipe.
 
+* A short allowlist of stray *top-level* sweep-tracking files
+  (``.sweep_pid``, ``.sweep_started_at``, ``.sweep_log_path``,
+  ``sweep_*.log``). An external sweep launcher can drop these at the
+  store root; the framework itself never writes them, so removing them
+  leaves a clean record with no stale sweep pointers.
+
 What is NOT touched:
 
-* Files at the top level of ``<store_root>/`` (e.g., a stray README).
-  Only directory contents are candidates.
-* Directories whose names are listed in ``--keep``.
+* Any other file at the top level of ``<store_root>/`` (e.g., a stray
+  README): only directory contents and the sweep-tracking allowlist are
+  candidates.
+* Directories or top-level file names listed in ``--keep``.
+* Any git-tracked path: a tracked top-level file matching the allowlist
+  is left in place rather than deleted.
 * Anything outside ``<store_root>/``: parent path traversal is
   defensively blocked.
 """
 
 from __future__ import annotations
 
+import fnmatch
 import shutil
 import subprocess
 from collections.abc import Iterable
@@ -38,6 +48,20 @@ from pathlib import Path
 from src.core.logging import get_logger
 
 _logger = get_logger(__name__)
+
+# Stray top-level sweep-tracking files an external launcher may drop at the
+# store root. The framework never writes these, so they are safe to remove
+# on a clean; every other top-level file is preserved.
+_STRAY_FILE_PATTERNS: tuple[str, ...] = (
+    ".sweep_pid",
+    ".sweep_started_at",
+    ".sweep_log_path",
+    "sweep_*.log",
+)
+
+
+def _is_stray_file(name: str) -> bool:
+    return any(fnmatch.fnmatch(name, pattern) for pattern in _STRAY_FILE_PATTERNS)
 
 
 @dataclass(frozen=True)
@@ -69,6 +93,7 @@ class CleanPlan:
     store_root: Path
     candidates: tuple[CleanCandidate, ...]
     preserved: tuple[str, ...]
+    stray_files: tuple[Path, ...] = ()
 
     @property
     def deletable(self) -> tuple[CleanCandidate, ...]:
@@ -103,22 +128,26 @@ def plan_clean(
     tracked_by_child = _git_tracked_by_child(store_root, git_root=git_root)
 
     candidates: list[CleanCandidate] = []
+    stray_files: list[Path] = []
     for child in sorted(store_root.iterdir()):
-        if not child.is_dir():
-            continue
         if child.name in preserved:
             continue
-        candidates.append(
-            CleanCandidate(
-                path=child,
-                size_bytes=_dir_size_bytes(child),
-                tracked_files=tracked_by_child.get(child.name, ()),
+        if child.is_dir():
+            candidates.append(
+                CleanCandidate(
+                    path=child,
+                    size_bytes=_dir_size_bytes(child),
+                    tracked_files=tracked_by_child.get(child.name, ()),
+                )
             )
-        )
+        elif child.is_file() and _is_stray_file(child.name):
+            if not tracked_by_child.get(child.name):
+                stray_files.append(child)
     return CleanPlan(
         store_root=store_root,
         candidates=tuple(candidates),
         preserved=tuple(sorted(preserved)),
+        stray_files=tuple(stray_files),
     )
 
 
@@ -149,6 +178,9 @@ def apply_clean(plan: CleanPlan) -> tuple[Path, ...]:
         _logger.info("wiping %s (%.1f MB)", candidate.path, candidate.size_bytes / (1024 * 1024))
         _empty_directory(candidate.path)
         wiped.append(candidate.path)
+    for stray in plan.stray_files:
+        _logger.info("removing stray file %s", stray)
+        stray.unlink(missing_ok=True)
     return tuple(wiped)
 
 
@@ -169,7 +201,7 @@ def format_plan(plan: CleanPlan) -> str:
     Human-readable rendering of a :class:`CleanPlan` for the dry-run output.
     """
 
-    if not plan.candidates:
+    if not plan.candidates and not plan.stray_files:
         return (
             f"experiment clean: nothing to wipe under {plan.store_root} "
             f"(preserved: {', '.join(plan.preserved) or '<none>'})"
@@ -188,11 +220,14 @@ def format_plan(plan: CleanPlan) -> str:
                 f"  REFUSE  {c.path.name:40s}  {size_mb:8.1f} MB  "
                 f"({tracked_count} tracked file{'s' if tracked_count != 1 else ''})"
             )
+    for stray in plan.stray_files:
+        lines.append(f"  RM-FILE {stray.name:40s}  (stray sweep-tracking file)")
 
     lines.append(f"preserved: {', '.join(plan.preserved) or '<none>'}")
     lines.append(
         f"would free {wipeable_total_bytes / (1024 * 1024):.1f} MB across "
-        f"{len(plan.deletable)} directory(ies); pass --apply to wipe."
+        f"{len(plan.deletable)} directory(ies) and remove {len(plan.stray_files)} "
+        f"stray file(s); pass --apply to wipe."
     )
     return "\n".join(lines)
 

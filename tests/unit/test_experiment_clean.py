@@ -141,7 +141,8 @@ def test_format_plan_lists_size_and_action(tmp_path: Path) -> None:
 
 def test_plan_clean_ignores_files_at_top_level(tmp_path: Path) -> None:
     """
-    A stray top-level file (e.g., README) is left alone - only dirs are candidates.
+    A stray top-level file (e.g., README) is left alone - only dirs and the
+    sweep-tracking allowlist are candidates.
     """
 
     store = tmp_path / "experiment_results"
@@ -151,4 +152,94 @@ def test_plan_clean_ignores_files_at_top_level(tmp_path: Path) -> None:
     plan = plan_clean(store)
     candidate_names = {c.path.name for c in plan.candidates}
     assert candidate_names == {"_dir"}
+    assert plan.stray_files == ()
     assert (store / "README.md").is_file()
+
+
+_STRAY_FILE_NAMES = (".sweep_pid", ".sweep_started_at", ".sweep_log_path", "sweep_2026-05-22.log")
+_PRESERVED_TOP_LEVEL_FILE = "README.md"
+
+
+def _populate_top_level_files(store_root: Path) -> None:
+    """
+    Drop the stray sweep-tracking allowlist plus one preserved file.
+    """
+
+    store_root.mkdir(parents=True, exist_ok=True)
+    for name in (*_STRAY_FILE_NAMES, _PRESERVED_TOP_LEVEL_FILE):
+        (store_root / name).write_text("x", encoding="utf-8")
+
+
+def test_plan_clean_collects_stray_sweep_files(tmp_path: Path) -> None:
+    """
+    The sweep-tracking allowlist is collected; other top-level files are not.
+    """
+
+    store = tmp_path / "experiment_results"
+    _populate_top_level_files(store)
+    plan = plan_clean(store)
+    assert {p.name for p in plan.stray_files} == set(_STRAY_FILE_NAMES)
+    assert _PRESERVED_TOP_LEVEL_FILE not in {p.name for p in plan.stray_files}
+
+
+def test_apply_clean_removes_stray_files_keeps_other_top_level_files(tmp_path: Path) -> None:
+    """
+    Apply unlinks the allowlist files and leaves every other top-level file.
+    """
+
+    store = tmp_path / "experiment_results"
+    _populate_top_level_files(store)
+    plan = plan_clean(store)
+    apply_clean(plan)
+    for name in _STRAY_FILE_NAMES:
+        assert not (store / name).exists()
+    assert (store / _PRESERVED_TOP_LEVEL_FILE).is_file()
+
+
+def test_plan_clean_keep_protects_stray_file_name(tmp_path: Path) -> None:
+    """
+    A ``--keep`` entry matching a stray file name excludes it from removal.
+    """
+
+    store = tmp_path / "experiment_results"
+    _populate_top_level_files(store)
+    plan = plan_clean(store, keep=(".sweep_pid",))
+    assert ".sweep_pid" not in {p.name for p in plan.stray_files}
+    assert ".sweep_log_path" in {p.name for p in plan.stray_files}
+
+
+def test_plan_clean_leaves_tracked_stray_file(tmp_path: Path) -> None:
+    """
+    A git-tracked file matching the allowlist is left in place, not removed.
+    """
+
+    subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)
+    subprocess.run(["git", "config", "user.email", "x@y.z"], cwd=tmp_path, check=True)
+    subprocess.run(["git", "config", "user.name", "x"], cwd=tmp_path, check=True)
+
+    store = tmp_path / "experiment_results"
+    store.mkdir()
+    tracked_log = store / "sweep_tracked.log"
+    tracked_log.write_text("tracked", encoding="utf-8")
+    subprocess.run(
+        ["git", "add", "experiment_results/sweep_tracked.log"], cwd=tmp_path, check=True
+    )
+    subprocess.run(["git", "commit", "-q", "-m", "track"], cwd=tmp_path, check=True)
+
+    plan = plan_clean(store, repo_root=tmp_path)
+    assert plan.stray_files == ()
+    apply_clean(plan)
+    assert tracked_log.is_file()
+
+
+def test_format_plan_shows_stray_files(tmp_path: Path) -> None:
+    """
+    Dry-run text lists the stray files and counts them in the tally line.
+    """
+
+    store = tmp_path / "experiment_results"
+    _populate_top_level_files(store)
+    output = format_plan(plan_clean(store))
+    assert "RM-FILE" in output
+    assert ".sweep_pid" in output
+    assert "stray file(s)" in output

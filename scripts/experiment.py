@@ -1059,7 +1059,10 @@ def clean_cmd(store_root: Path, apply: bool, keep: tuple[str, ...]) -> None:
     canonical store layout (``runs/``, ``hpo/``, ``studies/``, ...) is
     intact after a wipe. Refuses to wipe any directory containing
     git-tracked files; pass ``--keep <name>`` for each to exclude them
-    and rerun.
+    and rerun. A short allowlist of stray top-level sweep-tracking files
+    (``.sweep_pid``, ``.sweep_started_at``, ``.sweep_log_path``,
+    ``sweep_*.log``) is also removed; every other top-level file is left
+    in place.
     """
 
     from src.orchestration.clean import apply_clean, format_plan, plan_clean
@@ -1075,7 +1078,8 @@ def clean_cmd(store_root: Path, apply: bool, keep: tuple[str, ...]) -> None:
             f"`git rm` first or pass --keep for each."
         )
     wiped = apply_clean(plan)
-    click.echo(f"wiped {len(wiped)} directory(ies).")
+    suffix = f" and removed {len(plan.stray_files)} stray file(s)" if plan.stray_files else ""
+    click.echo(f"wiped {len(wiped)} directory(ies){suffix}.")
 
 
 if __name__ == "__main__":
