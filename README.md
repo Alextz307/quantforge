@@ -4,7 +4,7 @@
 
 A thesis-grade, bifurcated C++/Python quantitative trading framework with strict anti-leakage guarantees, temporal contracts, and a clean separation between computation (C++) and orchestration (Python). Built around walk-forward validation, typed interfaces, and end-to-end hyperparameter tuning.
 
-**Current state:** a Python orchestration layer built on top of a C++ core. Implemented and under test: the typed temporal contracts, data layer, ML leaf models (GARCH, ARMA, LSTM, XGBoost), hybrid residual models, six trading strategies, the feature pipeline, a C++ indicator suite (RSI, MACD, Bollinger, Garman-Klass, Parkinson), a GARCH inference filter, two strategy state machines and two full `IStrategy` C++ classes (pairs trading + adaptive bollinger) with a shared `SpreadCalculator` primitive, and the C++ backtest engine + performance metrics, all bridged through a `pybind11` module (`quant_engine`) with the GIL released on every compute call. Every model and strategy round-trips through directory-based `save()` / `load()` (JSON configs + metadata + native binary weights, zero pickle). `WalkForwardValidator` supports an optional `snap_to_day` mode that keeps every train/test boundary on a daily close, honouring the intraday day-boundary rule. CI is green on Linux and macOS with `mypy --strict` clean on the full Python tree, and `ruff` clean across the whole repo.
+It pairs a C++ computation core with a Python orchestration layer, bridged by one `pybind11` module (`quant_engine`) that maps numpy buffers onto `std::span` with the GIL released on every compute call. The C++ side owns the backtest engine, the performance metrics, an indicator suite (RSI, MACD, Bollinger, Garman-Klass, Parkinson), a GARCH inference filter, the strategy state machines, and two full `IStrategy` classes (pairs trading and adaptive Bollinger) over a shared `SpreadCalculator`. The Python side owns the data layer, the ML leaf models (GARCH, ARMA, LSTM, XGBoost), the hybrid residual models, six trading strategies, the feature pipeline, an out-of-sample feature-importance subsystem, Optuna tuning, and an empirical-study orchestrator that sweeps strategies across universes and ranks them by deflated out-of-sample Sharpe. Every model and strategy round-trips through directory-based `save()` / `load()` (JSON configs, metadata, and native binary weights, no pickle), and `WalkForwardValidator` offers a `snap_to_day` mode that keeps every train/test boundary on a daily close. CI runs `mypy --strict` over the full Python tree and `ruff` across the repo, on a Linux and macOS matrix.
 
 ## Architecture
 
@@ -73,7 +73,7 @@ Anything that runs inside the backtest hot loop (bar iteration, indicators, metr
 - **Temporal contracts.** `TemporalSplit`, `TemporalTripleSplit`, and `WalkForwardValidator` enforce train-then-test ordering with embargo gaps. The holdout set is reserved for final thesis evaluation and is never touched during development or HPO.
 - **Strict typing.** `mypy --strict` across `src/`, `tests/`, and `scripts/`. No `Any` at internal boundaries. `**kwargs: object` rather than `**kwargs: Any`. Public APIs use pure `Enum` types, not `Enum | str` weak unions. CI enforces this on every push.
 - **Performance in the hot loop.** C++ uses `std::span<const double>` interfaces, SoA layouts, and Welford's algorithm for rolling mean/std fused in one pass. Every hot-path indicator, metric, engine, and strategy exposes both an allocating convenience overload and a buffer-reuse (`out`-param / `Buffer&`) overload so HPO inner loops reuse scratch across scenarios. `TimeSeries::slice_view` returns a non-owning `std::span` for zero-copy walk-forward splitting. Pybind11 bindings emit zero-copy numpy views over C++-owned buffers via pybind11 `py::capsule` and `handle base` ownership, with no `memcpy` at the Python<->C++ boundary. Release builds compile with `-O3 -march=native -flto`; rolling kernels are `noexcept` to unblock inlining + vectorization.
-- **Registry-driven composition.** Every model, data source, and strategy registers via a decorator, which will let a future config loader instantiate an entire pipeline from a YAML file.
+- **Registry-driven composition.** Every model, data source, and strategy registers via a decorator, so the experiment builder and study orchestrator instantiate an entire pipeline straight from a YAML config.
 - **Drift guards over review vigilance.** Two sources of truth that must stay aligned (pyproject deps <-> CI pip install, composite dataclass fields <-> leaf ctor signature, Python `Interval` constants <-> C++ `kTradingDaysPerYear`) get an automated stdlib-only script in `scripts/` plus a pytest, wired into the CI lint job as an early step.
 
 ## Model Composition
@@ -159,8 +159,9 @@ The holdout split is reserved for the final thesis evaluation - it is never touc
 
 The orchestration layer turns a validated YAML config into a fully-wired
 `Experiment`, drives the walk-forward, and routes results to the
-matching reporter. Two CLI subcommands compose the full surface: one
-config feeds `experiment run`, N configs feed `experiment compare`.
+matching reporter. The `experiment` CLI spans `run`, `tune`, `compare`,
+`holdout-eval`, `importance`, `study`, and `clean`; the core path is one
+config into `experiment run` and N configs into `experiment compare`.
 
 ```mermaid
 graph LR
@@ -285,7 +286,7 @@ End-to-end capabilities:
 ### Python ML layer (`src/`)
 - **Leaf models.** `GARCHPredictor` (AIC grid search, params frozen post-fit, inference loop delegates to C++ `garch_filter`), `ARMAPredictor` (`pmdarima.auto_arima`, order and coefficients frozen; on reload reconstructed as a statsmodels `ARIMA` with the fitted order so `pmdarima` is a fit-time tool only), `MarketLSTM` + `LSTMPredictor` (configurable loss, temporal 80/20 validation split, early stopping, device auto-select), `DirectionalClassifier` (XGBoost binary direction). Every leaf implements `save(path)` / `load(path)` round-trip (JSON config + metadata, native binary weights for torch / XGBoost).
 - **Hybrid residual models.** `HybridVolatilityModel` (GARCH + LSTM residual correction -> conditional variance) and `HybridReturnModel` (ARMA + LSTM residual correction -> conditional mean). Strict black-box composition - the leaves' anti-leakage guarantees are preserved at the composite level for free. `save` / `load` recurse into each leaf under `<root>/{garch,arma,lstm}/` subdirectories plus a root `scaler.json`.
-- **Feature pipeline.** `FeatureEngineeringPipeline` produces log returns, RSI, MACD (+ signal and histogram), rolling volatility, MA ratio, and short/long return features. RSI and MACD delegate to the `quant_engine` bindings (Wilder smoothing for RSI, single-pass EMA fast/slow/signal for MACD). Every period is a ctor parameter and appears in `suggest_params`.
+- **Feature pipeline.** `FeatureEngineeringPipeline` produces 17 features across the momentum, volatility, range, trend, mean-reversion, and volume families: log returns, RSI, MACD (+ signal and histogram), rolling volatility, MA ratio, and short/long returns, plus medium-horizon ROC, Garman-Klass range volatility, intraday range, overnight gap, Bollinger %B, ADX trend strength, a volume z-score, and an OBV z-score. RSI, MACD, Bollinger, and Garman-Klass delegate to the `quant_engine` bindings; the rest are vectorized pandas. The set is curated for family diversity and low within-family redundancy so per-feature importance stays interpretable. Every period is a ctor parameter and appears in `suggest_params`, and the pipeline requires full OHLCV input.
 - **Cointegration.** `CointegrationTester` implements the Engle-Granger two-step procedure with hedge ratio and spread statistics.
 - **Strategies.** All implement `IStrategy` with `train()` + `generate_signals()` + `save()` + `load()` + `suggest_params()`:
   - `AdaptiveBollingerStrategy` - mean-reversion bands scaled by GARCH forecast volatility, gated by a trend filter; the whole rule path (rolling mid, trend MA, position carry) runs in C++ via `quant_engine.AdaptiveBollingerStrategy`.
@@ -302,6 +303,13 @@ End-to-end capabilities:
 - **Persistence layout** (`src/core/persistence.py`). Directory-based: `<root>/config.json`, `<root>/metadata.json` (from `TrainingMetadata.to_dict()`), and model-specific weight files - `weights.json` for GARCH and ARMA, `weights.pt` for LSTM, `model.ubj` for XGBoost, `scaler.json` for `StandardScaler`. No pickle, no joblib. `ensure_model_dir` refuses non-empty targets so a stale directory never silently shadows a fresh save.
 - **Data layer.** `CSVSource`, `DataNormalizer` (handles both yfinance and polygon column conventions), `DataCache`, and a `validate_bars` ingestion-time quality check (NaN, non-positive prices, OHLC ordering, duplicate timestamps) that runs once per fetch before the cache write so bad data never reaches the strategies or the C++ engine.
 - **Registries.** `model_registry`, `classifier_registry`, `strategy_registry`, `data_source_registry`.
+
+### Analysis, importance, and the empirical study
+- **Fold aggregation + ranking.** `aggregate_folds` reduces per-fold metrics to cross-fold mean/std with bootstrap confidence intervals; `rank_strategies` produces a deterministic, tie-broken ordering.
+- **Deflated Sharpe.** Two layers guard against selection bias: a per-leg deflated Sharpe over the HPO trial budget, and a pooled cross-leg deflation so the headline ranking corrects for picking the best of many strategy x universe legs. Paired stationary-bootstrap CIs back every pairwise comparison, and each leg is scored against its buy-and-hold baseline.
+- **Feature importance.** Model-agnostic out-of-sample permutation importance plus XGBoost native gain, computed per fold on the test frame only and aggregated across folds. Basket strategies add per-asset importance (block permutation + gain summed by asset). Rule-based strategies opt out and are skipped.
+- **Empirical-study orchestrator.** `experiment study run` sweeps every strategy across its compatible universes, tunes each leg, evaluates an untouched holdout, and runs per-universe cross-strategy comparisons. It is resumable via `study_state.json` and isolates per-leg failures; `experiment study report` consolidates the legs into master / per-universe / holdout rankings plus heatmaps and importance figures.
+- **Live inference.** A deployment layer freezes a trained run and serves next-session signals, surfaced through the webapp.
 
 ## Getting Started
 
@@ -382,7 +390,7 @@ src/
   quant_engine/          pybind11 module re-exports + checked-in mypy stubs
   orchestration/         Builder, Experiment + RunOptions, comparison, manifest, deployment, holdout-eval, study orchestrator + report, clean
   optimization/          Optuna StrategyTuner + samplers / pruners / objectives + checkpointing
-  analysis/              Fold aggregator, ranking, paired-bootstrap significance
+  analysis/              Fold aggregator, ranking, paired-bootstrap significance, deflated Sharpe, feature importance
   visualization/         Strategy / Comparison / HPO reporters (plots + booktabs LaTeX)
 
 tests/
@@ -394,7 +402,7 @@ tests/
 scripts/                 experiment CLI + stdlib-only drift guards
 config/                  Strategy / HPO / universe YAMLs
 experiment_results/
-  runs/, comparisons/, hpo/, studies/, models/  Ephemeral per-developer artefacts (gitignored)
+  runs/, comparisons/, holdout_evals/, hpo/, studies/, deployments/, cli_logs/  Ephemeral artefacts (gitignored)
 .github/workflows/ci.yml Lint, typecheck, C++ matrix, Python matrix
 Makefile                 Canonical build/test entry points
 pyproject.toml           Python deps + scikit-build-core config
@@ -417,7 +425,7 @@ code.
 - [`src/data/`](src/data/README.md) - sources, normaliser, cache, fingerprint (single + pair).
 - [`src/core/`](src/core/README.md) - types, constants, registry, temporal primitives, persistence layout, exceptions, config.
 - [`src/models/`](src/models/README.md) - leaf predictors / classifiers / hybrids / cointegration / dataset.
-- [`src/analysis/`](src/analysis/README.md) - fold aggregator, ranking, significance.
+- [`src/analysis/`](src/analysis/README.md) - fold aggregator, ranking, significance, deflated Sharpe, feature importance.
 - [`src/visualization/`](src/visualization/README.md) - strategy / comparison / HPO reporters.
 - [`scripts/`](scripts/README.md) - `experiment` CLI and drift guards.
 - [`config/`](config/README.md) - strategy / HPO / model / universe YAMLs.
