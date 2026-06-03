@@ -23,12 +23,14 @@ from src.core.persistence import (
     FEATURE_IMPORTANCE_JSON,
 )
 from webapp.backend.app.infrastructure.store import RunNotFoundError
+from webapp.backend.app.schemas.runs import RunSortBy, SortOrder
 from webapp.backend.app.services.run_service import (
     PlotNotFoundError,
     get_feature_importance,
     get_folds,
     get_run,
     list_runs,
+    list_runs_page,
     resolve_plot,
 )
 from webapp.backend.tests.conftest import (
@@ -160,6 +162,40 @@ def test_list_runs_tolerates_missing_metrics(tmp_path: Path, db_conn: sqlite3.Co
     summary = list_runs(root, conn=db_conn, user=make_viewer_user(db_conn), all_users=False)[0]
 
     assert summary.sharpe_mean is None
+
+
+HIGH_SHARPE_ID = "20260201_120000_AdaptiveBollinger_ccc3333_cccccccc"
+LOW_SHARPE_ID = "20260115_120000_AdaptiveBollinger_ddd4444_dddddddd"
+NULL_SHARPE_ID = "20260110_120000_AdaptiveBollinger_eee5555_eeeeeeee"
+
+
+def test_list_runs_page_sinks_null_sharpe_to_bottom_both_directions(
+    tmp_path: Path, db_conn: sqlite3.Connection
+) -> None:
+    root = tmp_path / "experiment_results"
+    runs = root / "flat_store" / "runs"
+    make_synthetic_run(runs, experiment_id=HIGH_SHARPE_ID, sharpe_mean=2.0)
+    make_synthetic_run(runs, experiment_id=LOW_SHARPE_ID, sharpe_mean=-1.0)
+    make_synthetic_run(runs, experiment_id=NULL_SHARPE_ID, write_metrics=False)
+    user = make_viewer_user(db_conn)
+
+    def ids(order: SortOrder) -> list[str]:
+        page = list_runs_page(
+            root,
+            conn=db_conn,
+            user=user,
+            all_users=False,
+            limit=50,
+            offset=0,
+            sort_by=RunSortBy.SHARPE_MEAN,
+            order=order,
+        )
+        return [r.experiment_id for r in page.items]
+
+    # Descending: best Sharpe first, null last.
+    assert ids(SortOrder.DESC) == [HIGH_SHARPE_ID, LOW_SHARPE_ID, NULL_SHARPE_ID]
+    # Ascending: weakest real Sharpe first, null STILL last (not surfaced to the top).
+    assert ids(SortOrder.ASC) == [LOW_SHARPE_ID, HIGH_SHARPE_ID, NULL_SHARPE_ID]
 
 
 def test_get_run_returns_full_detail(tmp_path: Path, db_conn: sqlite3.Connection) -> None:

@@ -7,7 +7,6 @@ from __future__ import annotations
 import logging
 import math
 import sqlite3
-from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from pathlib import Path
@@ -230,7 +229,7 @@ def list_runs_page(
         all_users=all_users,
     )
     filtered = [r for r in all_rows if _matches_filters(r, strategy, ticker, since)]
-    filtered.sort(key=_sort_key(sort_by), reverse=(order is SortOrder.DESC))
+    _sort_runs(filtered, sort_by, order)
 
     page = filtered[offset : offset + limit]
     return RunsPage(items=page, total=len(filtered), limit=limit, offset=offset)
@@ -252,14 +251,22 @@ def _matches_filters(
     return True
 
 
-def _sort_key(sort_by: RunSortBy) -> Callable[[RunSummary], float]:
-    # Metric-based sorts treat missing values as the worst possible so they
-    # sink to the bottom under DESC (the usual "best first" ordering). The
-    # created_at branch returns its POSIX timestamp so every branch has the
-    # same return type and mypy can resolve the comparator unambiguously.
+def _sort_runs(filtered: list[RunSummary], sort_by: RunSortBy, order: SortOrder) -> None:
+    reverse = order is SortOrder.DESC
     if sort_by is RunSortBy.CREATED_AT:
-        return lambda r: r.created_at.timestamp()
-    return lambda r: r.sharpe_mean if r.sharpe_mean is not None else float("-inf")
+        filtered.sort(key=lambda r: r.created_at, reverse=reverse)
+        return
+    # A missing Sharpe sinks to the bottom under BOTH directions (mirrors the
+    # holdout list), so ascending-by-Sharpe surfaces the weakest real results
+    # first instead of a wall of null runs. Direction is folded into the value
+    # sign rather than `reverse=` so the null-last primary key is not flipped.
+    sign = -1.0 if reverse else 1.0
+    filtered.sort(
+        key=lambda r: (
+            r.sharpe_mean is None,
+            sign * r.sharpe_mean if r.sharpe_mean is not None else 0.0,
+        )
+    )
 
 
 def _ensure_plots(run_dir: Path) -> None:
