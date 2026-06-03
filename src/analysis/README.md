@@ -12,7 +12,7 @@ pairwise / forecaster significance tests.
 | `AggregateStats.to_dict()` / `AggregateStats.from_dict(d)` | Flat dict consumed by HPO objectives + `metrics.json`; `from_dict` reconstructs it (the study report reads each run's persisted aggregate rather than recomputing). |
 | `rank_strategies(per_strategy_stats)` -> `pd.DataFrame` | Tidy ranking table sorted by mean-of-folds Sharpe (Sortino then name as tie-breaks), via a stable mergesort. |
 | `paired_bootstrap_sharpe_differential(returns_a, returns_b, ...)` | Stationary bootstrap on aligned bar-level returns; returns a 95% CI on the Sharpe differential. |
-| `bootstrap_sharpe_ci(returns, ...)` | 95% CI on a single strategy's Sharpe via stationary bootstrap. |
+| `bootstrap_sharpe_ci(returns, *, annualization=1.0, ...)` | Stationary-bootstrap CI on a single strategy's Sharpe. Sharpe is scale-invariant in returns, so `annualization` (e.g. 252 for daily) multiplies the point estimate and both bounds by `sqrt(factor)` to report the CI in the same units as the annualised point Sharpe. |
 | `diebold_mariano_test(forecasts_a, forecasts_b, realised, *, loss=...)` | DM test on aligned forecaster outputs (with Harvey-Leybourne-Newbold small-sample correction). |
 | `deflated_sharpe_ratio(trial_sharpes, *, sample_length)` -> `DeflatedSharpe` | Bailey-López de Prado 2014 multiple-testing-adjusted significance for an HPO study's best Sharpe. Inputs come from the Optuna `study.db`. |
 | `compute_pooled_sharpe(returns, *, annualization_factor, risk_free_rate=0.0)` -> `PooledSharpe` | Pooled-OOS Sharpe + zero-benchmark Probabilistic Sharpe Ratio for one leg's stitched (seams-dropped) fold returns. |

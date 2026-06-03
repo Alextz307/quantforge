@@ -341,7 +341,7 @@ def run_holdout_eval(
             f"bootstrap. Investigate the strategy for blow-up behaviour."
         )
     returns = np.diff(equity_arr) / equity_arr[:-1]
-    sharpe_ci = bootstrap_sharpe_ci(returns)
+    sharpe_ci = bootstrap_sharpe_ci(returns, annualization=annualization)
 
     bah_bars = dispatch_primary_ohlcv(experiment.strategy, holdout)
     bah = compute_buy_and_hold(

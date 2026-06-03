@@ -77,6 +77,28 @@ class TestBootstrapSharpeCI:
         ci = bootstrap_sharpe_ci(rets, n_resamples=_SHARPE_CI_RESAMPLES, rng=_make_rng())
         assert ci.lower <= _EXPECTED_SHARPE <= ci.upper
 
+    def test_annualization_scales_point_and_bounds(self) -> None:
+        """
+        Annualisation multiplies the point estimate and both CI bounds by
+        sqrt(factor); annualization=1.0 recovers the per-bar CI.
+        """
+
+        rets = _daily_returns_with_known_sharpe(_N_BARS, sharpe=_EXPECTED_SHARPE, seed=101)
+        factor = Interval.DAILY.annualization_factor()
+        per_bar = bootstrap_sharpe_ci(rets, n_resamples=_SHARPE_CI_RESAMPLES, rng=_make_rng())
+        annual = bootstrap_sharpe_ci(
+            rets, annualization=factor, n_resamples=_SHARPE_CI_RESAMPLES, rng=_make_rng()
+        )
+        scale = math.sqrt(factor)
+        assert annual.point_estimate == pytest.approx(per_bar.point_estimate * scale)
+        assert annual.lower == pytest.approx(per_bar.lower * scale)
+        assert annual.upper == pytest.approx(per_bar.upper * scale)
+        assert annual.lower <= annual.point_estimate <= annual.upper
+
+    def test_rejects_nonpositive_annualization(self) -> None:
+        with pytest.raises(ValueError, match="annualization must be positive"):
+            bootstrap_sharpe_ci(np.array([0.01, 0.02, 0.03]), annualization=0.0)
+
     def test_rejects_series_shorter_than_two(self) -> None:
         with pytest.raises(ValueError, match="at least 2 returns"):
             bootstrap_sharpe_ci(np.array([0.01]))

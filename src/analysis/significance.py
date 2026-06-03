@@ -251,19 +251,21 @@ class DMResult:
 def bootstrap_sharpe_ci(
     returns: _FloatArray,
     *,
+    annualization: float = 1.0,
     n_resamples: int = _DEFAULT_N_RESAMPLES,
     block_size: int | None = None,
     confidence: float = 0.95,
     rng: np.random.Generator | None = None,
 ) -> BootstrapCI:
     """
-    Stationary-bootstrap 95% CI for the Sharpe ratio of ``returns``.
+    Stationary-bootstrap CI for the Sharpe ratio of ``returns``.
 
-    ``returns`` is a 1-D array of periodic (per-bar) returns; annualisation
-    is deliberately NOT applied here - feed pre-annualised returns if
-    the CI should be in annualised Sharpe units. The bootstrap resamples
-    the raw series, so whatever scale goes in, the CI is in the same
-    scale out.
+    ``returns`` is a 1-D array of periodic (per-bar) returns. The Sharpe
+    ratio is scale-invariant in the returns, so annualisation cannot be
+    applied by rescaling the series; it multiplies the point estimate and
+    both CI bounds by ``sqrt(annualization)``. Pass ``annualization``
+    (e.g. 252 for daily bars) to report the CI in the same annualised
+    units as the matching point Sharpe; leave it at 1.0 for a per-bar CI.
     """
 
     arr = _as_1d_float(returns, "returns")
@@ -273,10 +275,16 @@ def bootstrap_sharpe_ci(
             f"got {len(arr)}; fix by passing a longer return series."
         )
     _validate_confidence(confidence)
+    if annualization <= 0.0:
+        raise ValueError(
+            f"annualization must be positive, got {annualization}; pass the "
+            f"bars-per-year factor (e.g. 252 for daily bars) or 1.0 for per-bar."
+        )
     rng_actual = rng if rng is not None else np.random.default_rng(_DEFAULT_RNG_SEED)
     block = _resolve_block_size(block_size, len(arr))
 
-    point = _sharpe(arr)
+    scale = math.sqrt(annualization)
+    point = _sharpe(arr) * scale
     sharpes = _run_block_bootstrap(
         lambda idx: _sharpe(arr[idx]),
         len(arr),
@@ -286,6 +294,7 @@ def bootstrap_sharpe_ci(
     )
 
     lo, hi = percentile_ci(sharpes, confidence)
+    lo, hi = lo * scale, hi * scale
     return BootstrapCI(
         point_estimate=point,
         lower=lo,
