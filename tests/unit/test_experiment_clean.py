@@ -221,9 +221,7 @@ def test_plan_clean_leaves_tracked_stray_file(tmp_path: Path) -> None:
     store.mkdir()
     tracked_log = store / "sweep_tracked.log"
     tracked_log.write_text("tracked", encoding="utf-8")
-    subprocess.run(
-        ["git", "add", "experiment_results/sweep_tracked.log"], cwd=tmp_path, check=True
-    )
+    subprocess.run(["git", "add", "experiment_results/sweep_tracked.log"], cwd=tmp_path, check=True)
     subprocess.run(["git", "commit", "-q", "-m", "track"], cwd=tmp_path, check=True)
 
     plan = plan_clean(store, repo_root=tmp_path)
