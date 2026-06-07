@@ -77,6 +77,16 @@ def _vendor_end_inclusive(end: datetime) -> datetime:
     return end + timedelta(days=1)
 
 
+# yfinance intermittently returns a sharply truncated window under load (a
+# handful of recent bars for a months-long request). A live predict on that
+# frame fails the warmup check and surfaces a misleading "pick a longer-history
+# ticker" error. Detect a response that covers far fewer sessions than the
+# exchange calendar says exist in the requested span and re-fetch a couple of
+# times, bypassing the cache so the bad frame is not re-served.
+_MIN_COVERAGE_RATIO = 0.5
+_MAX_FETCH_ATTEMPTS = 3
+
+
 class DailyLiveBarFetcher:
     """
     Daily live fetcher backed by :class:`~src.data.loader.YFinanceSource`.
@@ -89,6 +99,11 @@ class DailyLiveBarFetcher:
     latest *complete* session as the bar acted on. The cache layer
     (``~/.quant_cache``) masks vendor drift on historical bars so repeat
     predicts on the same date return identical inputs.
+
+    A transiently truncated vendor response is retried (cache-bypassed) up
+    to :data:`_MAX_FETCH_ATTEMPTS` times before being returned as-is, so a
+    flaky download recovers within a single predict instead of forcing the
+    user to refresh.
     """
 
     def __init__(self, source: YFinanceSource | None = None) -> None:
@@ -103,6 +118,10 @@ class DailyLiveBarFetcher:
     ) -> pd.DataFrame:
         """
         Fetch via :meth:`YFinanceSource.fetch`, then drop an unclosed bar.
+
+        Retries a sharply truncated vendor response (cache-bypassed) before
+        giving up; the caller's warmup check turns a persistent shortfall
+        into a clear error.
         """
 
         if interval is not Interval.DAILY:
@@ -111,8 +130,27 @@ class DailyLiveBarFetcher:
                 f"fix by routing non-daily intervals through resolve_fetcher() "
                 f"once an intraday implementation lands."
             )
-        bars = self._source.fetch(ticker, start, _vendor_end_inclusive(end), interval)
-        return _drop_unclosed_last_session(bars, pd.Timestamp.now(tz="UTC"))
+        vendor_end = _vendor_end_inclusive(end)
+        expected_sessions = self._expected_session_count(start, end)
+        bars = pd.DataFrame()
+        for attempt in range(_MAX_FETCH_ATTEMPTS):
+            raw = self._source.fetch(ticker, start, vendor_end, interval, force_refresh=attempt > 0)
+            bars = _drop_unclosed_last_session(raw, pd.Timestamp.now(tz="UTC"))
+            if expected_sessions == 0 or len(bars) >= expected_sessions * _MIN_COVERAGE_RATIO:
+                return bars
+        return bars
+
+    @staticmethod
+    def _expected_session_count(start: datetime, end: datetime) -> int:
+        """
+        NYSE sessions the calendar says fall in ``[start, end]``.
+
+        The yardstick for "did the vendor truncate": a healthy daily fetch
+        returns roughly this many bars; a truncated one returns a fraction.
+        """
+
+        sessions = _nyse_calendar().valid_days(start_date=start.date(), end_date=end.date())
+        return len(sessions)
 
 
 @cache

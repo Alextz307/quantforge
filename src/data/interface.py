@@ -53,6 +53,8 @@ class IDataSource(ABC):
         start: datetime,
         end: datetime,
         interval: Interval = Interval.DAILY,
+        *,
+        force_refresh: bool = False,
     ) -> pd.DataFrame:
         """
         Fetch data with caching + normalization.
@@ -62,6 +64,10 @@ class IDataSource(ABC):
             start: Start date for data range.
             end: End date for data range.
             interval: Bar interval (default: DAILY).
+            force_refresh: Skip the cache read and re-fetch from the vendor,
+                overwriting any cached frame for this key. Used by the live
+                fetcher to retry a transiently truncated vendor response
+                instead of re-serving the bad frame it just cached.
 
         Returns:
             Normalized DataFrame with DatetimeIndex and standard columns.
@@ -69,7 +75,7 @@ class IDataSource(ABC):
 
         cache_key = self._cache_key(ticker, start, end, interval)
 
-        if self.cache is not None:
+        if self.cache is not None and not force_refresh:
             try:
                 cached = self.cache.load(cache_key)
             except FileNotFoundError:

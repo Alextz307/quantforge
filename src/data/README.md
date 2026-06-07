@@ -8,7 +8,7 @@ holdout-eval uses to detect vendor drift.
 
 | Symbol | Role |
 | --- | --- |
-| `IDataSource` | ABC. `fetch(ticker, start, end, interval)` is the public entry point, wrapping `fetch_raw` (subclass-provided) with caching, normalisation, and `validate_bars`. |
+| `IDataSource` | ABC. `fetch(ticker, start, end, interval, *, force_refresh=False)` is the public entry point, wrapping `fetch_raw` (subclass-provided) with caching, normalisation, and `validate_bars`. `force_refresh=True` skips the cache read and overwrites the cached frame - used by the live fetcher to re-pull a transiently truncated vendor response. |
 | `LocalFileSource` | Intermediate ABC: shared scaffolding for local-file sources (path resolution, date-range mask, empty-result error, `available_tickers`). Subclass overrides `_extension` + `_read_file`. |
 | `YFinanceSource` (`"yfinance"`) | yfinance-backed source with retry + exponential backoff. Registered on `data_source_registry`. |
 | `CSVSource` (`"csv"`) | Local-CSV source for offline / fixture work. |
@@ -19,7 +19,7 @@ holdout-eval uses to detect vendor drift.
 | `fingerprint_bars(df)` | SHA-256 content hash over (columns, timestamps, OHLCV bytes). Stable across pandas / numpy upgrades. |
 | `fingerprint_pair_bars(df)` | Same hash, wide-format pair columns (`open_a` ... `volume_b`). |
 | `LiveBarFetcher` | Protocol: cadence-specific live OHLCV fetcher used by the deployment layer. |
-| `DailyLiveBarFetcher` | Daily implementation backed by `YFinanceSource`; drops the trailing bar while its NYSE session is still open (so a signal is never computed off a forming bar) and rejects non-daily intervals defensively. |
+| `DailyLiveBarFetcher` | Daily implementation backed by `YFinanceSource`; drops the trailing bar while its NYSE session is still open (so a signal is never computed off a forming bar), retries a sharply truncated vendor response (cache-bypassed, up to a bounded count) so a flaky download recovers within one predict, and rejects non-daily intervals defensively. |
 | `resolve_fetcher(interval)` | Dispatch site: picks the right `LiveBarFetcher` for an interval. Daily today; intraday is a future drop-in. |
 | `fetch_session_opens(ticker, start, end, interval, now)` | Evaluation-side data source: open price per session that has *opened* by `now` (keeps the still-forming session's open, fixed at the bell). Open-boundary mirror of the generation fetcher's close-boundary drop; used to score emitted signals open->open. Daily only. |
 

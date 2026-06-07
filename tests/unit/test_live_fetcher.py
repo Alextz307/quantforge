@@ -17,6 +17,7 @@ import pytest
 
 from src.core.types import Interval
 from src.data.live_fetcher import (
+    _MAX_FETCH_ATTEMPTS,
     DailyLiveBarFetcher,
     _drop_unclosed_last_session,
     _opens_of_opened_sessions,
@@ -70,10 +71,92 @@ class _ExclusiveEndSource(YFinanceSource):
         start: datetime,
         end: datetime,
         interval: Interval = Interval.DAILY,
+        *,
+        force_refresh: bool = False,
     ) -> pd.DataFrame:
+        del force_refresh  # canned frame; nothing to refresh
         cutoff = pd.Timestamp(end).normalize()
         index = pd.DatetimeIndex(self._frame.index)
         return self._frame.loc[index < cutoff]
+
+
+_RETRY_RANGE_START = datetime(2020, 1, 1)
+_RETRY_RANGE_END = datetime(2020, 5, 1)
+_FULL_BAR_COUNT = 80
+_TRUNCATED_BAR_COUNT = 3
+
+
+def _session_frame(n_rows: int) -> pd.DataFrame:
+    """Past-dated business-day OHLC frame whose sessions have all closed."""
+
+    index = pd.bdate_range("2020-01-02", periods=n_rows)
+    return pd.DataFrame({"close": range(1, n_rows + 1)}, index=index)
+
+
+class _FlakySource(YFinanceSource):
+    """
+    Returns a truncated frame for the first ``fail_attempts`` calls, then full.
+
+    Mimics yfinance handing back a sharply truncated window under load. The
+    ``force_refresh`` kwarg is accepted (the live fetcher passes it on retry)
+    and counted so the test can assert the cache was bypassed.
+    """
+
+    def __init__(self, truncated: pd.DataFrame, full: pd.DataFrame, fail_attempts: int) -> None:
+        super().__init__()
+        self._truncated = truncated
+        self._full = full
+        self._fail_attempts = fail_attempts
+        self.calls = 0
+
+    def fetch(
+        self,
+        ticker: str,
+        start: datetime,
+        end: datetime,
+        interval: Interval = Interval.DAILY,
+        *,
+        force_refresh: bool = False,
+    ) -> pd.DataFrame:
+        del ticker, start, end, interval, force_refresh
+        attempt = self.calls
+        self.calls += 1
+        return self._truncated if attempt < self._fail_attempts else self._full
+
+
+def test_daily_fetcher_retries_truncated_then_recovers() -> None:
+    """
+    A one-off truncated vendor response is re-fetched and recovers in-call.
+    """
+
+    source = _FlakySource(
+        truncated=_session_frame(_TRUNCATED_BAR_COUNT),
+        full=_session_frame(_FULL_BAR_COUNT),
+        fail_attempts=1,
+    )
+    fetcher = DailyLiveBarFetcher(source=source)
+
+    bars = fetcher.fetch("SPY", _RETRY_RANGE_START, _RETRY_RANGE_END, Interval.DAILY)
+
+    assert len(bars) == _FULL_BAR_COUNT  # recovered on the retry
+    assert source.calls == 2  # one truncated read + one cache-bypassed retry
+
+
+def test_daily_fetcher_returns_truncated_after_max_attempts() -> None:
+    """
+    A persistently truncated vendor doesn't loop forever - it gives up.
+    """
+
+    truncated = _session_frame(_TRUNCATED_BAR_COUNT)
+    source = _FlakySource(
+        truncated=truncated, full=truncated, fail_attempts=_MAX_FETCH_ATTEMPTS + 1
+    )
+    fetcher = DailyLiveBarFetcher(source=source)
+
+    bars = fetcher.fetch("SPY", _RETRY_RANGE_START, _RETRY_RANGE_END, Interval.DAILY)
+
+    assert len(bars) == _TRUNCATED_BAR_COUNT  # returns what it has
+    assert source.calls == _MAX_FETCH_ATTEMPTS  # bounded, no infinite retry
 
 
 def test_resolve_fetcher_daily_returns_daily_impl() -> None:
