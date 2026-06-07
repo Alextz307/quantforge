@@ -82,7 +82,10 @@ class _FakeDataSource(IDataSource):
         start: datetime,
         end: datetime,
         interval: Interval = Interval.DAILY,
+        *,
+        force_refresh: bool = False,
     ) -> pd.DataFrame:
+        del force_refresh  # synthetic frame; nothing to refresh
         self.call_log.append(ticker)
         return make_synthetic_ohlcv_df(n_rows=_N_BARS, seed=hash(ticker) & _FAKE_SOURCE_SEED_MASK)
 
