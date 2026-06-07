@@ -60,12 +60,22 @@ export function EquityChart({
   }
 
   return (
-    <div data-testid="equity-chart" data-trace-count={traces.length}>
+    // Reserve the height as a CSS-fixed, clipped box so the card's real width
+    // is known at first paint (the resize then draws correctly) and a degenerate
+    // intermediate Plotly draw is clipped here instead of its absolutely-
+    // positioned main-svg escaping a collapsed container and painting over the
+    // table below. Without this the chart and the table below it overlap until a
+    // later resize redraws the plot at the right size.
+    <div
+      data-testid="equity-chart"
+      data-trace-count={traces.length}
+      style={{ height, position: "relative", overflow: "hidden" }}
+    >
       <Plot
         data={plotData}
         layout={layout}
         config={{ displayModeBar: true, responsive: true }}
-        style={{ width: "100%" }}
+        style={{ width: "100%", height: "100%" }}
         useResizeHandler
       />
     </div>

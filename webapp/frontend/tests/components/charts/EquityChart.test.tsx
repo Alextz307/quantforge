@@ -23,4 +23,18 @@ describe("EquityChart", () => {
     expect(plot).toHaveAttribute("data-trace-count", String(TWO_TRACES.length));
     expect(plot).toHaveAttribute("data-trace-names", "Fold 0,Fold 1");
   });
+
+  it("reserves a fixed, clipped box so a mid-resize plot can't overlap siblings", () => {
+    const HEIGHT = 260;
+    renderWithProviders(<EquityChart traces={TWO_TRACES} height={HEIGHT} />);
+    const wrapper = screen.getByTestId("equity-chart");
+    // Height is CSS-fixed (not Plotly-driven) so the container's width is known
+    // at first paint; overflow:hidden clips any degenerate intermediate draw
+    // instead of letting the absolute main-svg paint over the table below.
+    expect(wrapper).toHaveStyle({
+      height: `${String(HEIGHT)}px`,
+      overflow: "hidden",
+      position: "relative",
+    });
+  });
 });

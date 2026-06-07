@@ -31,7 +31,7 @@ export function Plot(props: ComponentProps<typeof PlotlyComponent>) {
   });
 
   return (
-    <div ref={wrapperRef} style={{ width: "100%" }}>
+    <div ref={wrapperRef} style={{ width: "100%", height: "100%" }}>
       <PlotlyComponent
         {...props}
         onInitialized={(_figure, graphDiv) => {
