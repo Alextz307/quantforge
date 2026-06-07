@@ -29,6 +29,7 @@ from src.engine.scenarios import SlippageScenario, total_cost_fraction_for
 from src.orchestration.deployment import (
     SignalRow,
     _to_naive,
+    has_session_gaps,
     next_signal_date,
     read_signals,
     resolve_deployment_dir,
@@ -38,7 +39,7 @@ from src.orchestration.deployment import (
     create_deployment as framework_create_deployment,
 )
 from src.orchestration.deployment import (
-    predict as framework_predict,
+    predict_backfill as framework_predict_backfill,
 )
 from src.orchestration.holdout_eval import SourceKind
 from src.orchestration.run_loader import (
@@ -259,8 +260,11 @@ def _enforce_access(row: sqlite3.Row, user: UserPublic) -> None:
 
 
 def _last_signal(store_root: Path, deployment_id: str) -> SignalRow | None:
+    # max by bar_ts, not append order: a backfilled log appends the filled
+    # rows at the end before rewriting, and a legacy log may predate that
+    # rewrite - either way the latest signal is the one with the newest bar.
     signals = read_signals(store_root, deployment_id)
-    return signals[-1] if signals else None
+    return max(signals, key=lambda s: _to_naive(s.bar_ts)) if signals else None
 
 
 def _validate_source_for_predict(
@@ -587,7 +591,14 @@ def predict_if_stale(
     deployment_id: str,
 ) -> PredictIfStaleResponse:
     """
-    Return today's signal - recall the cached row when fresh, otherwise predict.
+    Return today's signal, filling any missing sessions on the way.
+
+    Fast path: when the latest recorded signal is already current *and* the
+    log has no interior session gaps, recall it without a fetch. Otherwise
+    run :func:`predict_backfill`, which both fills the holes left by sporadic
+    observation (a signal only lands on the days someone opened the page) and
+    extends the log to the latest completed bar. ``stale`` is ``True`` when
+    the on-disk log changed so the UI refetches the history + scorecard.
     """
 
     row = _fetch_row(conn, deployment_id)
@@ -600,18 +611,28 @@ def predict_if_stale(
 
     with _predict_lock(deployment_id):
         latest_available = _to_naive(_latest_available_bar_ts_cached(ticker, interval))
-        cached = _last_signal(store_root, deployment_id)
-        if cached is not None and _to_naive(cached.bar_ts) >= latest_available:
+        before = read_signals(store_root, deployment_id)
+        cached = max(before, key=lambda s: _to_naive(s.bar_ts)) if before else None
+        if (
+            cached is not None
+            and _to_naive(cached.bar_ts) >= latest_available
+            and not has_session_gaps([s.bar_ts for s in before], interval)
+        ):
             return PredictIfStaleResponse(stale=False, signal=_signal_to_out(cached, interval))
 
-        new_signal = framework_predict(
+        rows = framework_predict_backfill(
             deployment_id=deployment_id,
             store_root=store_root,
             as_of=None,
             strategy_loader=_load_strategy_cached,
         )
-        is_stale = cached is None or _to_naive(cached.bar_ts) != _to_naive(new_signal.bar_ts)
-        return PredictIfStaleResponse(stale=is_stale, signal=_signal_to_out(new_signal, interval))
+        latest_row = rows[-1]
+        before_ts = {_to_naive(s.bar_ts) for s in before}
+        wrote_new = any(_to_naive(r.bar_ts) not in before_ts for r in rows)
+        is_stale = (
+            cached is None or wrote_new or _to_naive(cached.bar_ts) != _to_naive(latest_row.bar_ts)
+        )
+        return PredictIfStaleResponse(stale=is_stale, signal=_signal_to_out(latest_row, interval))
 
 
 def _clear_caches_for_tests() -> None:

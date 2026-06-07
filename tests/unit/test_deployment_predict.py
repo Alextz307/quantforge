@@ -33,8 +33,10 @@ from src.core.persistence import (
 from src.core.types import Interval
 from src.orchestration.deployment import (
     create_deployment,
+    has_session_gaps,
     next_signal_date,
     predict,
+    predict_backfill,
     read_signals,
 )
 from src.strategies.adaptive_bollinger import AdaptiveBollingerStrategy
@@ -402,6 +404,188 @@ def test_predict_empty_fetch_raises(
             store_root=trained_run,
             as_of=pd.Timestamp(bars.index[-1]),
         )
+
+
+_GAP_EARLY_OFFSET = 10
+_GAP_LATE_OFFSET = 40
+_SOLO_OFFSET = 50
+_TRUNCATED_BAR_COUNT = 10
+
+
+def test_predict_vendor_truncation_raises_clear_error(
+    trained_run: Path, bars: pd.DataFrame, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """
+    A vendor frame shorter than ``warmup_bars`` is named as a truncation.
+
+    Distinct from the NaN-warmup case: the message must point at the data
+    vendor under-delivering (a transient yfinance hiccup), not tell the user
+    to swap to a longer-history ticker.
+    """
+
+    _create(trained_run)  # warmup_bars = _WARMUP_BARS (200), >> the truncated count
+    last = _TRAIN_END_INDEX + _SOLO_OFFSET
+
+    class _TruncatedFetcher:
+        def fetch(
+            self, ticker: str, start: datetime, end: datetime, interval: Interval
+        ) -> pd.DataFrame:
+            del ticker, start, end, interval
+            return bars.iloc[last - _TRUNCATED_BAR_COUNT + 1 : last + 1]
+
+    monkeypatch.setattr(
+        "src.orchestration.deployment.resolve_fetcher", lambda _: _TruncatedFetcher()
+    )
+
+    with pytest.raises(WarmupInsufficientError, match="data vendor returned only"):
+        predict(
+            deployment_id=_DEPLOYMENT_ID,
+            store_root=trained_run,
+            as_of=pd.Timestamp(bars.index[last]),
+        )
+
+
+def _predict_at(store: Path, bars: pd.DataFrame, cursor: dict[str, int], offset: int) -> None:
+    cursor["last"] = _TRAIN_END_INDEX + offset
+    predict(
+        deployment_id=_DEPLOYMENT_ID,
+        store_root=store,
+        as_of=pd.Timestamp(bars.index[cursor["last"]]),
+    )
+
+
+def test_predict_backfill_fills_interior_gap(
+    trained_run: Path, stub_fetcher: dict[str, int], bars: pd.DataFrame
+) -> None:
+    """
+    Two sporadic observations leave a hole; backfill fills every session.
+    """
+
+    _create(trained_run)
+    _predict_at(trained_run, bars, stub_fetcher, _GAP_EARLY_OFFSET)
+    _predict_at(trained_run, bars, stub_fetcher, _GAP_LATE_OFFSET)
+    assert len(read_signals(trained_run, _DEPLOYMENT_ID)) == 2  # gap present
+
+    stub_fetcher["last"] = _TRAIN_END_INDEX + _GAP_LATE_OFFSET
+    span = predict_backfill(
+        deployment_id=_DEPLOYMENT_ID,
+        store_root=trained_run,
+        as_of=pd.Timestamp(bars.index[stub_fetcher["last"]]),
+    )
+
+    expected = [
+        pd.Timestamp(t)
+        for t in bars.index[
+            _TRAIN_END_INDEX + _GAP_EARLY_OFFSET : _TRAIN_END_INDEX + _GAP_LATE_OFFSET + 1
+        ]
+    ]
+    on_disk = [row.bar_ts for row in read_signals(trained_run, _DEPLOYMENT_ID)]
+    assert on_disk == expected  # gap filled, chronological
+    assert [row.bar_ts for row in span] == expected
+    assert len(on_disk) == _GAP_LATE_OFFSET - _GAP_EARLY_OFFSET + 1
+
+
+def test_predict_backfill_no_history_emits_only_latest(
+    trained_run: Path, stub_fetcher: dict[str, int], bars: pd.DataFrame
+) -> None:
+    """
+    A deployment with no signals has no live history to fill - records one bar.
+    """
+
+    _create(trained_run)
+    stub_fetcher["last"] = _TRAIN_END_INDEX + _SOLO_OFFSET
+    span = predict_backfill(
+        deployment_id=_DEPLOYMENT_ID,
+        store_root=trained_run,
+        as_of=pd.Timestamp(bars.index[stub_fetcher["last"]]),
+    )
+
+    assert len(span) == 1
+    assert span[-1].bar_ts == pd.Timestamp(bars.index[_TRAIN_END_INDEX + _SOLO_OFFSET])
+    assert len(read_signals(trained_run, _DEPLOYMENT_ID)) == 1
+
+
+def test_predict_backfill_rewrites_log_in_chronological_order(
+    trained_run: Path, stub_fetcher: dict[str, int], bars: pd.DataFrame
+) -> None:
+    """
+    Out-of-order observation leaves a disordered log; backfill re-sorts it.
+    """
+
+    _create(trained_run)
+    _predict_at(trained_run, bars, stub_fetcher, _GAP_LATE_OFFSET)
+    _predict_at(trained_run, bars, stub_fetcher, _GAP_EARLY_OFFSET)
+    before = [row.bar_ts for row in read_signals(trained_run, _DEPLOYMENT_ID)]
+    assert before == [
+        pd.Timestamp(bars.index[_TRAIN_END_INDEX + _GAP_LATE_OFFSET]),
+        pd.Timestamp(bars.index[_TRAIN_END_INDEX + _GAP_EARLY_OFFSET]),
+    ]  # disordered on disk
+
+    stub_fetcher["last"] = _TRAIN_END_INDEX + _GAP_LATE_OFFSET
+    predict_backfill(
+        deployment_id=_DEPLOYMENT_ID,
+        store_root=trained_run,
+        as_of=pd.Timestamp(bars.index[stub_fetcher["last"]]),
+    )
+
+    after = [row.bar_ts for row in read_signals(trained_run, _DEPLOYMENT_ID)]
+    assert after == sorted(after)
+
+
+def test_predict_backfill_idempotent_second_run_writes_nothing(
+    trained_run: Path, stub_fetcher: dict[str, int], bars: pd.DataFrame
+) -> None:
+    """
+    Re-running backfill over an already-complete span changes nothing.
+    """
+
+    _create(trained_run)
+    _predict_at(trained_run, bars, stub_fetcher, _GAP_EARLY_OFFSET)
+    stub_fetcher["last"] = _TRAIN_END_INDEX + _GAP_LATE_OFFSET
+    as_of = pd.Timestamp(bars.index[stub_fetcher["last"]])
+    first = predict_backfill(deployment_id=_DEPLOYMENT_ID, store_root=trained_run, as_of=as_of)
+    second = predict_backfill(deployment_id=_DEPLOYMENT_ID, store_root=trained_run, as_of=as_of)
+
+    assert [row.to_dict() for row in first] == [row.to_dict() for row in second]
+    assert len(read_signals(trained_run, _DEPLOYMENT_ID)) == len(first)
+
+
+def test_predict_backfill_before_train_end_raises_leakage(
+    trained_run: Path, stub_fetcher: dict[str, int], bars: pd.DataFrame
+) -> None:
+    """
+    The same anti-leakage boundary as single-bar predict: last bar must be after.
+    """
+
+    _create(trained_run)
+    stub_fetcher["last"] = _TRAIN_END_INDEX - 5
+    with pytest.raises(LeakageError, match="not strictly after train_end"):
+        predict_backfill(
+            deployment_id=_DEPLOYMENT_ID,
+            store_root=trained_run,
+            as_of=pd.Timestamp(bars.index[stub_fetcher["last"]]),
+        )
+
+
+def test_has_session_gaps_detects_missing_sessions() -> None:
+    """
+    True iff NYSE sessions span more days than are recorded.
+    """
+
+    monday = pd.Timestamp("2026-06-01")
+    tuesday = pd.Timestamp("2026-06-02")
+    wednesday = pd.Timestamp("2026-06-03")
+    thursday = pd.Timestamp("2026-06-04")
+
+    assert has_session_gaps([monday, tuesday, wednesday], Interval.DAILY) is False
+    assert has_session_gaps([monday, thursday], Interval.DAILY) is True  # Tue + Wed missing
+    assert has_session_gaps([monday], Interval.DAILY) is False
+    assert has_session_gaps([], Interval.DAILY) is False
+
+
+def test_has_session_gaps_rejects_non_daily() -> None:
+    with pytest.raises(NotImplementedError, match="daily"):
+        has_session_gaps([pd.Timestamp("2026-06-01")], Interval.HOUR)
 
 
 def test_next_signal_date_advances_to_next_session() -> None:

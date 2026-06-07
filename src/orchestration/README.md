@@ -14,7 +14,7 @@ multiple runs into cross-strategy comparison reports.
 | `load_experiment_result(run_dir)` / `load_experiment_config_from_run(run_dir)` / `resolve_run_dir(store, id)` | Reconstruct an `ExperimentResult` (or its frozen `ExperimentConfig`) from a persisted run directory; powers `compare --reuse-runs`. `resolve_run_dir` resolves a run by id under both the flat `runs/<id>` and study-nested `studies/<x>/runs/<id>` layouts (flat-first, recursive fallback), so a deployment can point at a study-internal run. |
 | `load_strategy_from_run_dir(run_dir)` | Registry-driven loader: returns a fully-trained `IStrategy` instance whose `generate_signals` works immediately. Used by the deployment layer. |
 | `strategy_supports_feature_importance(name)` | Whether a registered strategy can produce feature importance (derived from the class overriding `feature_columns`, so it can't drift). Drives the `importance` CLI / webapp's pre-launch guard and the read endpoint's `computable` flag. |
-| `create_deployment(...)` / `load_deployment(store, id)` / `predict(deployment_id, store_root, as_of=None)` / `read_signals(...)` | Live-deployment primitives: pin a trained run, generate today's signal, accumulate a signed log. Predict-only, no refit clock. |
+| `create_deployment(...)` / `load_deployment(store, id)` / `predict(deployment_id, store_root, as_of=None)` / `predict_backfill(deployment_id, store_root, as_of=None)` / `has_session_gaps(bar_timestamps, interval)` / `read_signals(...)` | Live-deployment primitives: pin a trained run, generate today's signal, accumulate a signed log. Predict-only, no refit clock. `predict` emits the latest bar only; `predict_backfill` fills every missing session from the deployment's first signal to now (sorted, idempotent); `has_session_gaps` is the cheap check that says whether a fill is needed. |
 | `next_signal_date(bar_ts, interval)` | The trading day a signal computed at `bar_ts` is *for* (next NYSE session after the last completed bar, per the engine's `t -> t+1` shift; exchange holidays + early closes included). Display-only; never a leakage boundary. |
 | `resolve_strategy_state_path(source_kind, source_id, store_root)` | Single source of truth for "where does this source's `strategy_state/` live", handling both `run` and `hpo` (Optuna best-trial lookup). |
 | `run_holdout_eval(source, out_name, store_root)` | Refit a fresh strategy on the full dev region, evaluate once on the reserved holdout. Cross-checks `data_hash` + `holdout_start` against the source manifest before fitting. |
@@ -32,7 +32,7 @@ multiple runs into cross-strategy comparison reports.
 | `experiment.py` | `Experiment` dataclass + `RunOptions`; ticker-count dispatch in `fetch_bars`; `_fetch_pair_bars` builds the wide-format `_a`/`_b` join for the 2-ticker path; persistence pipeline. |
 | `manifest.py` | `Manifest` (run-level provenance). |
 | `comparison.py` | `run_comparison` + sequential / `ProcessPoolExecutor` paths + paired stationary bootstrap. |
-| `deployment.py` | `Deployment` / `SignalRow` dataclasses + `create_deployment` / `predict` / `read_signals` / `resolve_strategy_state_path`. Live-inference layer over a frozen trained run. |
+| `deployment.py` | `Deployment` / `SignalRow` dataclasses + `create_deployment` / `predict` / `predict_backfill` / `has_session_gaps` / `read_signals` / `resolve_strategy_state_path`. Live-inference layer over a frozen trained run. |
 | `run_loader.py` | `load_experiment_result` / `load_experiment_config_from_run` / `load_strategy_from_run_dir` / `resolve_run_dir` / `strategy_supports_feature_importance` - read manifest + folds + frozen YAML back into typed objects; the strategy loader is registry-driven and powers `deployment.predict`. |
 | `holdout_eval.py` | `run_holdout_eval` (one-shot honest-OOS) + `resolve_source` (CLI source-pair resolver). Writes a `holdout_eval.json` payload with the `is_holdout_eval: true` marker - does NOT write a `Manifest` (post-hoc evaluation, not a new experiment). |
 | `study.py` | Empirical-study orchestrator: leg expansion, universe-profile composition, per-universe cross-strategy compare. |
@@ -88,6 +88,18 @@ the existing flow, then a new deployment pointed at it.
 6. `strategy.generate_signals(bars).iloc[-1]` -> today's signal.
    NaN raises `WarmupInsufficientError`.
 7. Idempotent append to `signals.jsonl` (dedup by `bar_ts`).
+
+`predict_backfill(...)` runs the same load + anti-leakage path but emits a
+row for *every* session in `[earliest recorded signal, latest bar]` that is
+missing, so a log only observed on a couple of days (a signal lands only when
+someone opens the page) is filled in end-to-end and re-sorted on disk. A
+deployment with no signals yet has no live history to fill, so it records the
+latest bar only - identical to `predict`. Backfilled rows are byte-identical
+to the row a same-day `predict` would have written (model frozen before
+`train_end`, each signal computed from data up to its own bar), so the fill is
+a faithful reconstruction, not a hindsight signal. The webapp's
+`predict-if-stale` calls this whenever the log is stale or `has_session_gaps`
+reports a hole.
 
 ## Cross-links
 

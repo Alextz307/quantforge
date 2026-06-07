@@ -19,6 +19,7 @@ import pandas as pd
 import pytest
 from fastapi.testclient import TestClient
 
+from src.core import json_io
 from src.core.config import load_experiment_config, write_frozen_yaml
 from src.core.persistence import (
     DEPLOYMENT_SIGNALS_JSONL,
@@ -28,6 +29,7 @@ from src.core.persistence import (
     RUNS_SUBDIR,
 )
 from src.core.types import Interval
+from src.orchestration.deployment import SignalRow
 from src.strategies.adaptive_bollinger import AdaptiveBollingerStrategy
 from tests.conftest import make_synthetic_ohlcv_df
 from webapp.backend.app.core.settings import get_settings
@@ -396,6 +398,62 @@ def test_predict_if_stale_idempotent_appends_one_row(
 
     signals = authed_client.get(f"{DEPLOYMENTS_PATH}/{deployment_id}/signals").json()
     assert len(signals) == 1
+
+
+def test_predict_if_stale_backfills_missing_sessions(
+    authed_client: TestClient,
+    trained_store: Path,
+    stubbed_fetcher: tuple[pd.DataFrame, pd.Timestamp],
+) -> None:
+    """
+    A log observed on only two days gets every missing session filled.
+
+    Seeds the shape sporadic observation produces - an early bar plus the
+    latest bar, with the sessions between them missing - then verifies
+    predict-if-stale fills the hole, reports the change as stale, and leaves
+    a chronological gap-free log ending at the latest bar.
+    """
+
+    bars, latest_bar_ts = stubbed_fetcher
+    created = authed_client.post(
+        DEPLOYMENTS_PATH, json={"source_kind": "run", "source_id": _RUN_ID}
+    ).json()
+    deployment_id = created["id"]
+    warmup_bars = created["warmup_bars"]
+
+    early_ts = pd.Timestamp(bars.index[_TRAIN_ROWS + 5])
+    seed = [
+        SignalRow(
+            submitted_at=early_ts,
+            bar_ts=early_ts,
+            signal=1.0,
+            warmup_fingerprint="seed",
+            source_run_id=_RUN_ID,
+            warmup_bars_used=warmup_bars,
+        ),
+        SignalRow(
+            submitted_at=latest_bar_ts,
+            bar_ts=latest_bar_ts,
+            signal=-1.0,
+            warmup_fingerprint="seed",
+            source_run_id=_RUN_ID,
+            warmup_bars_used=warmup_bars,
+        ),
+    ]
+    log_path = trained_store / DEPLOYMENTS_SUBDIR / deployment_id / DEPLOYMENT_SIGNALS_JSONL
+    json_io.write_jsonl(log_path, [row.to_dict() for row in seed])
+
+    response = authed_client.post(f"{DEPLOYMENTS_PATH}/{deployment_id}/predict-if-stale")
+    assert response.status_code == HTTPStatus.OK, response.text
+    payload = response.json()
+    assert payload["stale"] is True  # the gap fill changed the log
+    assert pd.Timestamp(payload["signal"]["bar_ts"]) == latest_bar_ts
+
+    signals = authed_client.get(f"{DEPLOYMENTS_PATH}/{deployment_id}/signals").json()
+    bar_ts_list = [pd.Timestamp(s["bar_ts"]) for s in signals]
+    expected = [pd.Timestamp(t) for t in bars.index[_TRAIN_ROWS + 5 :]]
+    assert bar_ts_list == expected  # every session from the first signal to now
+    assert bar_ts_list == sorted(bar_ts_list)
 
 
 def test_predict_if_stale_404_for_other_user(

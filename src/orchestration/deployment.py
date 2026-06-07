@@ -33,7 +33,7 @@ already validated.
 from __future__ import annotations
 
 import uuid
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from functools import cache
 from pathlib import Path
@@ -479,6 +479,168 @@ def read_signals(store_root: Path, deployment_id: str) -> tuple[SignalRow, ...]:
     return tuple(SignalRow.from_dict(d) for d in rows)
 
 
+@dataclass(frozen=True)
+class _PredictInputs:
+    """
+    Everything ``predict`` / ``predict_backfill`` need after the one-time load.
+
+    Bundling the manifest, resolved ticker, feature config, fetcher,
+    trained strategy and its metadata lets both entry points share the
+    expensive load + validation block (single-ticker + daily-cadence
+    guards) without duplicating it.
+    """
+
+    deployment: Deployment
+    ticker: str
+    features_cfg: ComponentConfig | None
+    fetcher: LiveBarFetcher
+    strategy: IStrategy
+    metadata: TrainingMetadata
+
+
+def _warmup_fetch_window(warmup_bars: int) -> pd.Timedelta:
+    """
+    Calendar span to fetch so ``warmup_bars`` sessions land in the frame.
+
+    Pads the bar count by 50% (weekends/holidays are not trading days) plus
+    a flat month so a long holiday cluster near the window edge still leaves
+    enough completed sessions for the strategy's longest indicator.
+    """
+
+    return pd.Timedelta(days=int(warmup_bars * 1.5) + 30)
+
+
+def _load_predict_inputs(
+    deployment_id: str,
+    store_root: Path,
+    strategy_loader: Callable[[Path], IStrategy],
+) -> _PredictInputs:
+    """
+    Load + validate the deployment's source once for the predict path.
+
+    Resolves the source run-dir, asserts the single-ticker / daily-cadence
+    limitations the live path supports, and loads the frozen strategy plus
+    its :class:`TrainingMetadata`.
+    """
+
+    deployment = load_deployment(store_root, deployment_id)
+    source_run_dir = resolve_strategy_state_path(
+        deployment.source_kind, deployment.source_id, store_root
+    ).parent
+    cfg = load_experiment_config_from_run(source_run_dir)
+    if len(cfg.data.tickers) != 1:
+        raise NotImplementedError(
+            f"deployment {deployment_id!r} sources a {len(cfg.data.tickers)}-ticker "
+            f"strategy; live predict for multi-ticker / pairs strategies is not "
+            f"implemented in this build."
+        )
+    strategy = strategy_loader(source_run_dir)
+    metadata = strategy.training_metadata
+    if metadata is None:
+        raise RuntimeError(
+            f"deployment {deployment_id!r} source has no training_metadata; "
+            f"the saved strategy state may be corrupt."
+        )
+    if metadata.interval is not Interval.DAILY:
+        raise NotImplementedError(
+            f"warmup window math not implemented for interval={metadata.interval}; "
+            f"daily is the only supported cadence today."
+        )
+    return _PredictInputs(
+        deployment=deployment,
+        ticker=cfg.data.tickers[0],
+        features_cfg=cfg.features,
+        fetcher=resolve_fetcher(metadata.interval),
+        strategy=strategy,
+        metadata=metadata,
+    )
+
+
+def _fetch_window_signals(
+    inp: _PredictInputs,
+    *,
+    deployment_id: str,
+    start: pd.Timestamp,
+    end: pd.Timestamp,
+) -> tuple[pd.DataFrame, pd.Series]:
+    """
+    Fetch ``[start, end]`` bars and run the frozen strategy over them.
+
+    Returns the fetched bars and the per-bar signal series aligned to them.
+    The window is allowed to overlap the training period - see the module
+    docstring; the caller enforces the ``> train_end`` boundary per bar.
+    """
+
+    bars = inp.fetcher.fetch(
+        inp.ticker, start.to_pydatetime(), end.to_pydatetime(), inp.metadata.interval
+    )
+    if bars.empty:
+        raise WarmupInsufficientError(
+            f"deployment {deployment_id!r}: live fetch returned no bars for "
+            f"{inp.ticker} over [{start}, {end}]; the vendor may have no data for "
+            f"this ticker in the requested window. Verify the ticker is listed "
+            f"and that the warmup window does not predate its first session."
+        )
+    if len(bars) < inp.deployment.warmup_bars:
+        # The fetched window spans enough calendar time for the warmup, so a
+        # shortfall here is the vendor under-delivering (the live fetcher
+        # already retried a truncated response) - not the strategy's lookback
+        # exceeding the ticker's history. Say so, rather than misdirecting the
+        # user to swap tickers.
+        raise WarmupInsufficientError(
+            f"deployment {deployment_id!r}: the data vendor returned only "
+            f"{len(bars)} bars for {inp.ticker} over [{start.date()}, {end.date()}], "
+            f"fewer than the {inp.deployment.warmup_bars} warmup bars this "
+            f"deployment needs. This is almost always a transient yfinance "
+            f"truncation - wait a moment and refresh to retry. If it persists for "
+            f"a long-listed ticker, the vendor is likely rate-limiting."
+        )
+    featured = _featurize_for_signals(
+        bars,
+        features_cfg=inp.features_cfg,
+        fetcher=inp.fetcher,
+        ticker=inp.ticker,
+        metadata=inp.metadata,
+    )
+    signals = inp.strategy.generate_signals(featured)
+    last_bar_ts = _to_naive(pd.Timestamp(bars.index[-1]))
+    signal_bar_ts = _to_naive(pd.Timestamp(signals.index[-1]))
+    if signal_bar_ts != last_bar_ts:
+        raise RuntimeError(
+            f"deployment {deployment_id!r}: signal index ends at {signal_bar_ts} "
+            f"but the fetched bars end at {last_bar_ts}. generate_signals must "
+            f"return a signal aligned to the input bars' trailing index - "
+            f"refusing to stamp this signal with a bar it was not computed at "
+            f"(an off-by-one would mislabel which session it acts on)."
+        )
+    return bars, signals
+
+
+def _warmup_insufficient_at(
+    deployment_id: str, bars: pd.DataFrame, last_bar_ts: pd.Timestamp, warmup_bars: int, ticker: str
+) -> WarmupInsufficientError:
+    vendor_first_bar = pd.Timestamp(bars.index[0])
+    return WarmupInsufficientError(
+        f"deployment {deployment_id!r}: strategy produced NaN at {last_bar_ts} "
+        f"(requested {warmup_bars} warmup bars, vendor returned "
+        f"{len(bars)}, earliest available bar {vendor_first_bar.date()}). "
+        f"The strategy's longest indicator lookback exceeds what the vendor "
+        f"could supply for {ticker}. Either pick a different ticker with "
+        f"longer history, or wait for the vendor to accumulate more bars."
+    )
+
+
+def _leakage_at(
+    deployment_id: str, last_bar_ts: pd.Timestamp, train_end: pd.Timestamp
+) -> LeakageError:
+    return LeakageError(
+        f"deployment {deployment_id!r}: last fetched bar at {last_bar_ts} is "
+        f"not strictly after train_end={train_end}; refusing to "
+        f"predict on a bar the model saw during training. Wait for the next "
+        f"completed session or train a fresher model."
+    )
+
+
 def predict(
     *,
     deployment_id: str,
@@ -510,86 +672,27 @@ def predict(
     6. **Idempotent append**: if ``signals.jsonl`` already carries a row
        for ``bars.index[-1]``, return that row unchanged. Otherwise
        append a new row and return it.
+
+    Single-bar path: emits only the latest bar's signal. To fill every
+    session since the deployment's first signal, use :func:`predict_backfill`.
     """
 
-    deployment = load_deployment(store_root, deployment_id)
-    source_run_dir = resolve_strategy_state_path(
-        deployment.source_kind, deployment.source_id, store_root
-    ).parent
-    cfg = load_experiment_config_from_run(source_run_dir)
-    if len(cfg.data.tickers) != 1:
-        raise NotImplementedError(
-            f"deployment {deployment_id!r} sources a {len(cfg.data.tickers)}-ticker "
-            f"strategy; live predict for multi-ticker / pairs strategies is not "
-            f"implemented in this build."
-        )
-    ticker = cfg.data.tickers[0]
-
-    strategy = strategy_loader(source_run_dir)
-    metadata = strategy.training_metadata
-    if metadata is None:
-        raise RuntimeError(
-            f"deployment {deployment_id!r} source has no training_metadata; "
-            f"the saved strategy state may be corrupt."
-        )
-
+    inp = _load_predict_inputs(deployment_id, store_root, strategy_loader)
     resolved_as_of = as_of if as_of is not None else pd.Timestamp.now(tz="UTC")
-    fetcher = resolve_fetcher(metadata.interval)
-    if metadata.interval is not Interval.DAILY:
-        raise NotImplementedError(
-            f"warmup window math not implemented for interval={metadata.interval}; "
-            f"daily is the only supported cadence today."
-        )
-    window = pd.Timedelta(days=int(deployment.warmup_bars * 1.5) + 30)
-    start = (resolved_as_of - window).to_pydatetime()
-    end = resolved_as_of.to_pydatetime()
-    bars = fetcher.fetch(ticker, start, end, metadata.interval)
-
-    if bars.empty:
-        raise WarmupInsufficientError(
-            f"deployment {deployment_id!r}: live fetch returned no bars for "
-            f"{ticker} over [{start}, {end}]; the vendor may have no data for "
-            f"this ticker in the requested window. Verify the ticker is listed "
-            f"and that the warmup window does not predate its first session."
-        )
+    window = _warmup_fetch_window(inp.deployment.warmup_bars)
+    bars, signals = _fetch_window_signals(
+        inp, deployment_id=deployment_id, start=resolved_as_of - window, end=resolved_as_of
+    )
 
     last_bar_ts = _to_naive(pd.Timestamp(bars.index[-1]))
-    train_end = _to_naive(metadata.train_end)
+    train_end = _to_naive(inp.metadata.train_end)
     if last_bar_ts <= train_end:
-        raise LeakageError(
-            f"deployment {deployment_id!r}: last fetched bar at {last_bar_ts} is "
-            f"not strictly after train_end={metadata.train_end}; refusing to "
-            f"predict on a bar the model saw during training. Wait for the next "
-            f"completed session or train a fresher model."
-        )
+        raise _leakage_at(deployment_id, last_bar_ts, inp.metadata.train_end)
 
-    featured = _featurize_for_signals(
-        bars,
-        features_cfg=cfg.features,
-        fetcher=fetcher,
-        ticker=ticker,
-        metadata=metadata,
-    )
-    signals = strategy.generate_signals(featured)
-    signal_bar_ts = _to_naive(pd.Timestamp(signals.index[-1]))
-    if signal_bar_ts != last_bar_ts:
-        raise RuntimeError(
-            f"deployment {deployment_id!r}: signal index ends at {signal_bar_ts} "
-            f"but the fetched bars end at {last_bar_ts}. generate_signals must "
-            f"return a signal aligned to the input bars' trailing index - "
-            f"refusing to stamp this signal with a bar it was not computed at "
-            f"(an off-by-one would mislabel which session it acts on)."
-        )
     last_signal = signals.iloc[-1]
     if pd.isna(last_signal):
-        vendor_first_bar = pd.Timestamp(bars.index[0])
-        raise WarmupInsufficientError(
-            f"deployment {deployment_id!r}: strategy produced NaN at {last_bar_ts} "
-            f"(requested {deployment.warmup_bars} warmup bars, vendor returned "
-            f"{len(bars)}, earliest available bar {vendor_first_bar.date()}). "
-            f"The strategy's longest indicator lookback exceeds what the vendor "
-            f"could supply for {ticker}. Either pick a different ticker with "
-            f"longer history, or wait for the vendor to accumulate more bars."
+        raise _warmup_insufficient_at(
+            deployment_id, bars, last_bar_ts, inp.deployment.warmup_bars, inp.ticker
         )
 
     return _append_or_recall_signal(
@@ -598,9 +701,130 @@ def predict(
         bars=bars,
         signal_value=float(last_signal),
         last_bar_ts=last_bar_ts,
-        source_run_id=deployment.source_id,
-        warmup_bars_used=deployment.warmup_bars,
+        source_run_id=inp.deployment.source_id,
+        warmup_bars_used=inp.deployment.warmup_bars,
     )
+
+
+def predict_backfill(
+    *,
+    deployment_id: str,
+    store_root: Path,
+    as_of: pd.Timestamp | None = None,
+    strategy_loader: Callable[[Path], IStrategy] = load_strategy_from_run_dir,
+) -> tuple[SignalRow, ...]:
+    """
+    Emit a signal for every missing session, then return the full span.
+
+    A deployment only observed sporadically (predict called by hand on a
+    couple of days) skips the sessions nobody asked about, leaving holes in
+    its signal log. This fills them: it computes the frozen strategy over a
+    window reaching back to the deployment's *earliest* recorded signal and
+    appends a row for every session in ``[floor, latest_bar]`` that is not
+    already on disk, where
+
+    * ``floor`` is the earliest existing signal's ``bar_ts`` (so gaps
+      *within* the recorded span are filled and the span is extended to the
+      latest completed bar), or the latest bar itself when no signal exists
+      yet (a brand-new deployment has no live history to fill - it records
+      only the current bar, exactly like :func:`predict`).
+
+    Anti-leakage is unchanged: only bars strictly after ``train_end`` are
+    emitted, each signal is computed from data up to *its own* bar against
+    the frozen model, and warmup-NaN bars (the converging head of the
+    window) are skipped. A backfilled row is therefore byte-identical to the
+    row a same-day :func:`predict` would have written - a faithful
+    reconstruction, not a hindsight signal.
+
+    The log is rewritten in ``bar_ts`` order after a backfill so downstream
+    readers (latest-signal, open->open scoring) see a chronological tape.
+    Returns every signal in ``[floor, latest_bar]`` ascending by ``bar_ts``.
+    """
+
+    inp = _load_predict_inputs(deployment_id, store_root, strategy_loader)
+    resolved_as_of = as_of if as_of is not None else pd.Timestamp.now(tz="UTC")
+    train_end = _to_naive(inp.metadata.train_end)
+    window = _warmup_fetch_window(inp.deployment.warmup_bars)
+
+    existing = read_signals(store_root, deployment_id)
+    earliest = min(_to_naive(pd.Timestamp(r.bar_ts)) for r in existing) if existing else None
+    fetch_start = (earliest - window) if earliest is not None else (resolved_as_of - window)
+    bars, signals = _fetch_window_signals(
+        inp, deployment_id=deployment_id, start=fetch_start, end=resolved_as_of
+    )
+
+    last_bar_ts = _to_naive(pd.Timestamp(bars.index[-1]))
+    if last_bar_ts <= train_end:
+        raise _leakage_at(deployment_id, last_bar_ts, inp.metadata.train_end)
+    if pd.isna(signals.iloc[-1]):
+        raise _warmup_insufficient_at(
+            deployment_id, bars, last_bar_ts, inp.deployment.warmup_bars, inp.ticker
+        )
+
+    floor = earliest if earliest is not None else last_bar_ts
+    aligned = signals.reindex(bars.index)
+    existing_ts = {_to_naive(pd.Timestamp(r.bar_ts)) for r in existing}
+    submitted_at = pd.Timestamp.now(tz="UTC")
+    new_rows: list[SignalRow] = []
+    for i, idx in enumerate(bars.index):
+        bar_ts = _to_naive(pd.Timestamp(idx))
+        if bar_ts < floor or bar_ts <= train_end or bar_ts in existing_ts:
+            continue
+        value = aligned.iloc[i]
+        if pd.isna(value):
+            continue
+        new_rows.append(
+            SignalRow(
+                submitted_at=submitted_at,
+                bar_ts=bar_ts,
+                signal=float(value),
+                warmup_fingerprint=fingerprint_bars(bars.iloc[: i + 1]),
+                source_run_id=inp.deployment.source_id,
+                warmup_bars_used=inp.deployment.warmup_bars,
+            )
+        )
+
+    all_rows: list[SignalRow] = list(existing)
+    if new_rows:
+        all_rows = sorted([*existing, *new_rows], key=lambda r: _to_naive(pd.Timestamp(r.bar_ts)))
+        path = resolve_deployment_dir(store_root, deployment_id) / DEPLOYMENT_SIGNALS_JSONL
+        json_io.write_jsonl(path, [r.to_dict() for r in all_rows])
+        _logger.info(
+            "deployment %s: backfilled %d signal(s) over [%s, %s]",
+            deployment_id,
+            len(new_rows),
+            floor.date(),
+            last_bar_ts.date(),
+        )
+
+    span = sorted(
+        (r for r in all_rows if _to_naive(pd.Timestamp(r.bar_ts)) >= floor),
+        key=lambda r: _to_naive(pd.Timestamp(r.bar_ts)),
+    )
+    return tuple(span)
+
+
+def has_session_gaps(bar_timestamps: Sequence[pd.Timestamp], interval: Interval) -> bool:
+    """
+    True when the recorded bars miss one or more NYSE sessions in their span.
+
+    Compares the count of recorded timestamps against the NYSE sessions
+    spanning ``[earliest, latest]``. A live log only observed sporadically
+    skips the sessions nobody asked about; this is the cheap test that tells
+    :func:`predict_backfill`'s caller whether a fill is needed even when the
+    latest bar is already current. Daily cadence only.
+    """
+
+    if interval is not Interval.DAILY:
+        raise NotImplementedError(
+            f"has_session_gaps not implemented for interval={interval}; daily is "
+            f"the only supported cadence today."
+        )
+    naive = sorted(_to_naive(pd.Timestamp(t)) for t in bar_timestamps)
+    if len(naive) < 2:
+        return False
+    sessions = _nyse_calendar().valid_days(start_date=naive[0].date(), end_date=naive[-1].date())
+    return len(sessions) > len(naive)
 
 
 def _featurize_for_signals(
@@ -699,9 +923,11 @@ __all__ = [
     "Deployment",
     "SignalRow",
     "create_deployment",
+    "has_session_gaps",
     "load_deployment",
     "next_signal_date",
     "predict",
+    "predict_backfill",
     "read_signals",
     "recommend_warmup_bars",
     "resolve_deployment_dir",
