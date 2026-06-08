@@ -12,7 +12,6 @@ from fastapi.testclient import TestClient
 LIST_PATH = "/api/comparisons"
 EXPECTED_NAME = "flat_compare"
 EXPECTED_STRATEGIES = {"AdaptiveBollinger", "PairsTrading"}
-EXPECTED_GIT_SHA = "abc1234"
 EXPECTED_RUN_COUNT = 1
 PLOT_NAME = "equity.png"
 
@@ -36,7 +35,6 @@ def test_detail_returns_full_payload(authed_client: TestClient, webapp_store: Pa
 
     assert response.status_code == HTTPStatus.OK
     detail = response.json()
-    assert detail["git_sha"] == EXPECTED_GIT_SHA
     assert {row["strategy"] for row in detail["per_strategy_stats"]} == EXPECTED_STRATEGIES
 
 

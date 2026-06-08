@@ -181,7 +181,6 @@ def get_consolidated(
         study_name=json_io.get_str(raw, "study_name"),
         publish_label=json_io.get_str(raw, "publish_label"),
         created_at=json_io.get_timestamp(raw, "created_at"),
-        git_sha=json_io.get_str(raw, "git_sha"),
         strategies=list(json_io.get_str_list(raw, "strategies")),
         universes=list(json_io.get_str_list(raw, "universes")),
         incomplete_leg_ids=list(json_io.get_str_list(raw, "incomplete_leg_ids")),

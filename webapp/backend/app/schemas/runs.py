@@ -61,9 +61,7 @@ class RunDetail(BaseModel):
     interval: str
     store: str
     created_at: datetime
-    git_sha: str
     seed: int
-    data_hash: str
     slippage_scenario: SlippageScenario
     holdout_start: datetime | None
     metrics: dict[str, float]

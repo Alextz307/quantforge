@@ -7,8 +7,9 @@ Comparison artifacts are produced by ``experiment compare``. The on-disk
 and ``per_strategy_stats`` (one :class:`AggregateStats` per strategy).
 
 Pairwise significance is computed in memory but **not** persisted; surfacing
-it would require a comparison-reporter change. Treat ``ComparisonDetail`` as
-a strict reflection of what the manifest carries today.
+it would require a comparison-reporter change. ``ComparisonDetail`` surfaces
+the user-facing subset of the manifest -- identity (minus the integrity-only
+``git_sha``) plus ``per_strategy_stats`` -- not the full on-disk record.
 """
 
 from __future__ import annotations
@@ -54,7 +55,6 @@ class ComparisonDetail(BaseModel):
     name: str
     store: str
     created_at: datetime
-    git_sha: str
     per_strategy_stats: list[PerStrategyStatsRow]
     plots: list[str]
     launched_by_username: str | None = None

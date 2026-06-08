@@ -76,7 +76,6 @@ def test_get_comparison_returns_full_detail(tmp_path: Path, db_conn: sqlite3.Con
     detail = get_comparison(root, NEWER_NAME, conn=db_conn, user=make_viewer_user(db_conn))
 
     assert detail.name == NEWER_NAME
-    assert detail.git_sha == "abc1234"
     assert len(detail.per_strategy_stats) == 1
     row = detail.per_strategy_stats[0]
     assert row.strategy == "A"

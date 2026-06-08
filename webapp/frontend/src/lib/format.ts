@@ -8,6 +8,11 @@ export function formatDate(iso: string): string {
 
 export function formatMetric(value: number | null | undefined, digits = 4): string {
   if (value == null || !Number.isFinite(value)) return "-";
+  // The generic metric grid and HPO param/value cells route both ratios and
+  // integer-valued entries (aggregated counts, integer hyperparameters) through
+  // this one formatter; a trailing ``.0000`` on the integers reads as spurious
+  // precision, so render exact integers without a fractional part.
+  if (Number.isInteger(value)) return String(value);
   return value.toFixed(digits);
 }
 

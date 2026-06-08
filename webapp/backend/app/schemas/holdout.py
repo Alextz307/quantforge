@@ -35,12 +35,10 @@ class HoldoutEvalDetail(BaseModel):
     name: str
     store: str
     created_at: datetime
-    git_sha: str
     source_kind: SourceKind
     source_id: str
     source_path: str
     holdout_start: datetime
-    data_hash: str
     n_dev_bars: int
     n_holdout_bars: int
     slippage_scenario: SlippageScenario

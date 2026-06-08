@@ -62,10 +62,6 @@
             "title": "Created At",
             "type": "string"
           },
-          "git_sha": {
-            "title": "Git Sha",
-            "type": "string"
-          },
           "launched_by_username": {
             "anyOf": [
               {
@@ -104,7 +100,6 @@
           "name",
           "store",
           "created_at",
-          "git_sha",
           "per_strategy_stats",
           "plots"
         ],
@@ -651,20 +646,12 @@
             "title": "Created At",
             "type": "string"
           },
-          "data_hash": {
-            "title": "Data Hash",
-            "type": "string"
-          },
           "equity_curve": {
             "items": {
               "type": "number"
             },
             "title": "Equity Curve",
             "type": "array"
-          },
-          "git_sha": {
-            "title": "Git Sha",
-            "type": "string"
           },
           "holdout_start": {
             "format": "date-time",
@@ -753,12 +740,10 @@
           "name",
           "store",
           "created_at",
-          "git_sha",
           "source_kind",
           "source_id",
           "source_path",
           "holdout_start",
-          "data_hash",
           "n_dev_bars",
           "n_holdout_bars",
           "slippage_scenario",
@@ -1699,16 +1684,8 @@
             "title": "Created At",
             "type": "string"
           },
-          "data_hash": {
-            "title": "Data Hash",
-            "type": "string"
-          },
           "experiment_id": {
             "title": "Experiment Id",
-            "type": "string"
-          },
-          "git_sha": {
-            "title": "Git Sha",
             "type": "string"
           },
           "holdout_start": {
@@ -1787,9 +1764,7 @@
           "interval",
           "store",
           "created_at",
-          "git_sha",
           "seed",
-          "data_hash",
           "slippage_scenario",
           "holdout_start",
           "metrics",
@@ -2203,10 +2178,6 @@
           "warmup_bars_used": {
             "title": "Warmup Bars Used",
             "type": "integer"
-          },
-          "warmup_fingerprint": {
-            "title": "Warmup Fingerprint",
-            "type": "string"
           }
         },
         "required": [
@@ -2214,7 +2185,6 @@
           "bar_ts",
           "signal_date",
           "signal",
-          "warmup_fingerprint",
           "source_run_id",
           "warmup_bars_used"
         ],
@@ -2345,10 +2315,6 @@
             "title": "Created At",
             "type": "string"
           },
-          "git_sha": {
-            "title": "Git Sha",
-            "type": "string"
-          },
           "incomplete_leg_ids": {
             "items": {
               "type": "string"
@@ -2405,7 +2371,6 @@
           "study_name",
           "publish_label",
           "created_at",
-          "git_sha",
           "strategies",
           "universes",
           "incomplete_leg_ids",

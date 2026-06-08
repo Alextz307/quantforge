@@ -234,7 +234,6 @@ def _signal_to_out(row: SignalRow, interval: Interval) -> SignalRowOut:
         bar_ts=row.bar_ts.to_pydatetime(),
         signal_date=next_signal_date(row.bar_ts, interval).to_pydatetime(),
         signal=row.signal,
-        warmup_fingerprint=row.warmup_fingerprint,
         source_run_id=row.source_run_id,
         warmup_bars_used=row.warmup_bars_used,
     )

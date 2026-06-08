@@ -64,7 +64,6 @@ class SignalRowOut(BaseModel):
     bar_ts: datetime
     signal_date: datetime
     signal: float
-    warmup_fingerprint: str
     source_run_id: str
     warmup_bars_used: int
 

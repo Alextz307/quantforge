@@ -113,7 +113,6 @@ def get_comparison(
         name=json_io.get_str(manifest, "out_name"),
         store=store_label(cmp_dir, root),
         created_at=json_io.get_timestamp(manifest, "created_at"),
-        git_sha=json_io.get_str(manifest, "git_sha"),
         per_strategy_stats=rows,
         plots=list_plots(cmp_dir),
         launched_by_username=usernames.get(name),

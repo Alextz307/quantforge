@@ -81,7 +81,6 @@ def test_get_holdout_eval_returns_full_detail(tmp_path: Path, db_conn: sqlite3.C
     detail = get_holdout_eval(root, NEWER_NAME, conn=db_conn, user=make_viewer_user(db_conn))
 
     assert detail.name == NEWER_NAME
-    assert detail.git_sha == "abc1234"
     assert detail.slippage_scenario == SlippageScenario.NORMAL
     assert detail.sharpe_ratio == pytest.approx(EXPECTED_SHARPE)
     assert detail.equity_curve == EXPECTED_EQUITY_CURVE

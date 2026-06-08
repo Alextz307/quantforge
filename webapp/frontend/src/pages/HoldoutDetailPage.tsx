@@ -7,7 +7,7 @@ import { DevVsHoldoutPanel } from "@/components/holdout/DevVsHoldoutPanel";
 import { MetadataField } from "@/components/MetadataField";
 import { PlotIndex } from "@/components/PlotIndex";
 import { QueryRenderer } from "@/components/QueryRenderer";
-import { formatDateTime, shortHash } from "@/lib/format";
+import { formatDateTime } from "@/lib/format";
 import { holdoutDetailPath, ROUTES, runDetailPath } from "@/lib/routes";
 import { SOURCE_KIND_RUN } from "@/lib/sourceKind";
 
@@ -20,9 +20,7 @@ function IdentityCard({ holdout }: { holdout: HoldoutEvalDetail }) {
       <CardContent className="grid grid-cols-2 md:grid-cols-3 gap-4">
         <MetadataField label="Store" value={holdout.store} />
         <MetadataField label="Created" value={formatDateTime(holdout.created_at)} />
-        <MetadataField label="Git SHA" value={shortHash(holdout.git_sha)} />
         <MetadataField label="Holdout start" value={formatDateTime(holdout.holdout_start)} />
-        <MetadataField label="Data hash" value={shortHash(holdout.data_hash)} />
         <MetadataField label="Cost tier" value={holdout.slippage_scenario} />
       </CardContent>
     </Card>

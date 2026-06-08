@@ -57,7 +57,6 @@ class StudyConsolidatedDTO(BaseModel):
     study_name: str
     publish_label: str
     created_at: datetime
-    git_sha: str
     strategies: list[str]
     universes: list[str]
     incomplete_leg_ids: list[str]

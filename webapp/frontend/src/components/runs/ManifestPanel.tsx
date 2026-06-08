@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { RunDetail } from "@/api/runs";
 import { MetadataField } from "@/components/MetadataField";
-import { formatDateTime, shortHash } from "@/lib/format";
+import { formatDateTime } from "@/lib/format";
 
 export function ManifestPanel({ run }: { run: RunDetail }) {
   return (
@@ -16,9 +16,7 @@ export function ManifestPanel({ run }: { run: RunDetail }) {
         <MetadataField label="Tickers" value={run.tickers.join(", ")} />
         <MetadataField label="Interval" value={run.interval} />
         <MetadataField label="Created" value={formatDateTime(run.created_at)} />
-        <MetadataField label="Git SHA" value={shortHash(run.git_sha)} />
         <MetadataField label="Seed" value={run.seed} />
-        <MetadataField label="Data hash" value={shortHash(run.data_hash)} />
         <MetadataField label="Cost tier" value={run.slippage_scenario} />
         <MetadataField
           label="Holdout start"

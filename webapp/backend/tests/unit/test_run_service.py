@@ -212,7 +212,6 @@ def test_get_run_returns_full_detail(tmp_path: Path, db_conn: sqlite3.Connection
     assert detail.experiment_id == NEWER_ID
     assert detail.strategy == "AdaptiveBollinger"
     assert detail.tickers == ["SPY"]
-    assert detail.git_sha == "abc1234"
     assert detail.metrics["sharpe_mean"] == pytest.approx(0.5)
     assert PLOT_FILENAME in detail.plots
 

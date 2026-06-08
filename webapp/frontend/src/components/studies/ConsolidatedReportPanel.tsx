@@ -6,7 +6,7 @@ import {
 import { MetadataField } from "@/components/MetadataField";
 import { PlotIndex } from "@/components/PlotIndex";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { formatDateTime, shortHash } from "@/lib/format";
+import { formatDateTime } from "@/lib/format";
 
 interface ConsolidatedReportPanelProps {
   dto: StudyConsolidatedDTO;
@@ -26,7 +26,6 @@ export function ConsolidatedReportPanel({ dto, studyDirName }: ConsolidatedRepor
         <CardContent className="grid grid-cols-2 md:grid-cols-3 gap-4">
           <MetadataField label="Publish label" value={dto.publish_label} />
           <MetadataField label="Generated" value={formatDateTime(dto.created_at)} />
-          <MetadataField label="Git SHA" value={shortHash(dto.git_sha)} />
           <MetadataField label="Strategies" value={dto.strategies.length} />
           <MetadataField label="Universes" value={dto.universes.length} />
           <MetadataField label="Legs with holdout" value={dto.n_legs_with_holdout} />

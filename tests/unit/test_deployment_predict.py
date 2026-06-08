@@ -164,7 +164,6 @@ def test_predict_succeeds_strictly_after_train_end(
     assert row.bar_ts == pd.Timestamp(bars.index[stub_fetcher["last"]])
     assert row.source_run_id == _RUN_ID
     assert row.warmup_bars_used == _WARMUP_BARS
-    assert row.warmup_fingerprint  # non-empty hash
 
 
 def test_predict_at_train_end_raises_leakage(

@@ -7,7 +7,7 @@ import { MetadataField } from "@/components/MetadataField";
 import { PerStrategyStatsTable } from "@/components/comparisons/PerStrategyStatsTable";
 import { PlotIndex } from "@/components/PlotIndex";
 import { QueryRenderer } from "@/components/QueryRenderer";
-import { formatDateTime, shortHash } from "@/lib/format";
+import { formatDateTime } from "@/lib/format";
 import { ROUTES } from "@/lib/routes";
 
 function IdentityCard({ comparison }: { comparison: ComparisonDetail }) {
@@ -19,7 +19,6 @@ function IdentityCard({ comparison }: { comparison: ComparisonDetail }) {
       <CardContent className="grid grid-cols-2 md:grid-cols-3 gap-4">
         <MetadataField label="Store" value={comparison.store} />
         <MetadataField label="Created" value={formatDateTime(comparison.created_at)} />
-        <MetadataField label="Git SHA" value={shortHash(comparison.git_sha)} />
         <MetadataField label="Strategies" value={comparison.per_strategy_stats.length} />
       </CardContent>
     </Card>

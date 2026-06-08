@@ -58,7 +58,6 @@ from src.core.persistence import (
 from src.core.registry import feature_registry
 from src.core.temporal import TrainingMetadata
 from src.core.types import Interval
-from src.data.fingerprint import fingerprint_bars
 from src.data.live_fetcher import LiveBarFetcher, resolve_fetcher
 from src.optimization.checkpointing import TRIAL_ARTIFACTS_SUBDIR
 from src.optimization.tuner import STUDY_DB_FILENAME, USER_ATTR_EXPERIMENT_ID, storage_url_for
@@ -156,7 +155,6 @@ class SignalRow:
     submitted_at: pd.Timestamp
     bar_ts: pd.Timestamp
     signal: float
-    warmup_fingerprint: str
     source_run_id: str
     warmup_bars_used: int
 
@@ -165,7 +163,6 @@ class SignalRow:
             "submitted_at": self.submitted_at.isoformat(),
             "bar_ts": self.bar_ts.isoformat(),
             "signal": self.signal,
-            "warmup_fingerprint": self.warmup_fingerprint,
             "source_run_id": self.source_run_id,
             "warmup_bars_used": self.warmup_bars_used,
         }
@@ -176,7 +173,6 @@ class SignalRow:
             submitted_at=json_io.get_timestamp(d, "submitted_at"),
             bar_ts=json_io.get_timestamp(d, "bar_ts"),
             signal=json_io.get_float(d, "signal"),
-            warmup_fingerprint=json_io.get_str(d, "warmup_fingerprint"),
             source_run_id=json_io.get_str(d, "source_run_id"),
             warmup_bars_used=json_io.get_int(d, "warmup_bars_used"),
         )
@@ -778,7 +774,6 @@ def predict_backfill(
                 submitted_at=submitted_at,
                 bar_ts=bar_ts,
                 signal=float(value),
-                warmup_fingerprint=fingerprint_bars(bars.iloc[: i + 1]),
                 source_run_id=inp.deployment.source_id,
                 warmup_bars_used=inp.deployment.warmup_bars,
             )
@@ -904,7 +899,6 @@ def _append_or_recall_signal(
         submitted_at=pd.Timestamp.now(tz="UTC"),
         bar_ts=last_bar_ts,
         signal=signal_value,
-        warmup_fingerprint=fingerprint_bars(bars),
         source_run_id=source_run_id,
         warmup_bars_used=warmup_bars_used,
     )
