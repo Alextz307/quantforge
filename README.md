@@ -159,9 +159,10 @@ The holdout split is reserved for the final thesis evaluation - it is never touc
 
 The orchestration layer turns a validated YAML config into a fully-wired
 `Experiment`, drives the walk-forward, and routes results to the
-matching reporter. The `experiment` CLI spans `run`, `tune`, `compare`,
-`holdout-eval`, `importance`, `study`, and `clean`; the core path is one
-config into `experiment run` and N configs into `experiment compare`.
+matching reporter. The `experiment` CLI spans the flat commands `run`, `tune`,
+`compare`, `holdout-eval`, `importance`, and `clean`, plus a `study` sub-group
+(`study run` / `study report`); the core path is one config into
+`experiment run` and N configs into `experiment compare`.
 
 ```mermaid
 graph LR
