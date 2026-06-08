@@ -16,6 +16,7 @@ jobs:
           python-version: "3.12"
       - run: pip install ruff mypy pandas-stubs pydantic numpy torch types-PyYAML types-psutil types-tqdm pytest pyarrow psutil tqdm
       - run: python scripts/check_ci_deps.py
+      - run: python scripts/check_webapp_deps.py
       - run: python scripts/check_constants_sync.py
       - run: ruff check src/ tests/ scripts/
       - run: ruff format --check src/ tests/ scripts/

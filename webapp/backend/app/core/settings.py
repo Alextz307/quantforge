@@ -37,6 +37,7 @@ class WebappSettings(BaseSettings):
     job_temp_dir: Path = Path("webapp/data/jobs")
     study_spec_uploads_dir: Path = Path("webapp/data/study_specs")
     universe_spec_uploads_dir: Path = Path("webapp/data/universe_specs")
+    frontend_dist: Path = Path("webapp/frontend/dist")
 
 
 @lru_cache

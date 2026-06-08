@@ -34,7 +34,7 @@ stubs:
 webapp-dev:
 	uvicorn webapp.backend.app.main:create_app --factory --reload --host 127.0.0.1 --port 8000
 
-webapp:
+webapp: webapp-frontend-build
 	WEBAPP_ENV=local uvicorn webapp.backend.app.main:create_app --factory --host 127.0.0.1 --port 8000
 
 webapp-test:
@@ -63,7 +63,7 @@ webapp-frontend-install:
 webapp-frontend-dev:
 	cd webapp/frontend && npm run dev
 
-webapp-frontend-build:
+webapp-frontend-build: webapp-frontend-install
 	cd webapp/frontend && npm run gen:api && npm run build
 
 webapp-frontend-test:

@@ -118,6 +118,9 @@ def _webapp_test_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterato
     monkeypatch.setenv("WEBAPP_SECRET_KEY", TEST_SECRET_KEY)
     monkeypatch.setenv("WEBAPP_DB_PATH", str(tmp_path / "webapp.sqlite"))
     monkeypatch.setenv("WEBAPP_ENV", "local")
+    # Point the frontend bundle at an absent path so create_app() never mounts a
+    # developer's locally-built dist; the static-frontend tests opt in explicitly.
+    monkeypatch.setenv("WEBAPP_FRONTEND_DIST", str(tmp_path / "no_frontend_bundle"))
     get_settings.cache_clear()
     login_limiter.reset()
     run_service._SUMMARY_CACHE.clear()
