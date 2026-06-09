@@ -20,6 +20,7 @@ pyproject, Python vs. C++ constants).
 | `validate_cam_baskets.py` | Validate the CrossAssetMomentum baskets: reads each basket (primary + feature tickers + lags) from `main_study.yaml` and the universe profiles, then prints the contemporaneous return correlation (shared structure, not near-duplicate) and the peer-momentum lead-lag table from yfinance, with a pass / flag verdict per basket. Not run in CI. |
 | `validate_pairs_candidates.py` | Screen candidate PairsTrading pairs before committing them to a study: for each economically linked candidate, fetch closes from yfinance, slice to the in-sample dev window (same holdout boundary the runner reserves), and report Engle-Granger cointegration, mean-reversion half-life, and whether the spread amplitude clears the `normal` round-turn cost wall, with a pass / flag verdict + ranked recommendation. Surfaced `v_ma` (the lone survivor of the twenty-candidate panel) for `config/study/pairs_extension.yaml`. Not run in CI. |
 | `backfill_save_markers.py` | One-time migration: re-mark model save directories persisted before the `.save_complete` marker existed so they load again. Walks the store; for each run missing markers, writes them only if the strategy then loads (the completeness oracle) - a save that fails to load is reverted and reported. Model data is never modified. Idempotent; `--dry-run` lists without writing. |
+| `plot_xgb_gain.py` | Render a tree strategy's native XGBoost-gain feature importance as a top-N horizontal bar chart, in the study report's permutation-bar style. Aggregates the `xgb_gain` entries already persisted per leg in `feature_importance.json` (mean across the strategy's legs) and writes `<study-dir>/plots/feature_importance/<Strategy>_gain.{png,svg}`. Generates the gain figure embedded in the results chapter. Not run in CI. |
 
 ## Layout
 
@@ -38,6 +39,7 @@ pyproject, Python vs. C++ constants).
 | `validate_cam_baskets.py` | Reads CrossAssetMomentum baskets via `load_study_spec` + `compose_leg_config`; fetches returns with `yfinance.download`; correlation + lead-lag diagnostics. Not run in CI. |
 | `validate_pairs_candidates.py` | Stdlib `argparse` CLI over a hard-coded candidate panel; reuses `CointegrationTester.engle_granger`, `resolve_holdout_boundary`, and the `normal` cost tier; AR(1) half-life + rolling-z-score trade-frequency proxy. Fetches closes with `yfinance.download`. Not run in CI. |
 | `backfill_save_markers.py` | Provisional-mark -> `load_strategy_from_run_dir` certify -> keep-or-revert. Pairs with `tests/unit/test_backfill_save_markers.py`. |
+| `plot_xgb_gain.py` | Click CLI; reuses `read_aggregated_importance` + the `src/visualization/plots` style constants and `save_png_and_svg`; filters the persisted importances to `ImportanceMethod.XGB_GAIN`. Not run in CI. |
 
 ## `experiment` subcommands
 
