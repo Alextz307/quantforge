@@ -59,11 +59,17 @@ tech names co-move 0.5-0.7 (one factor, no near-duplicates), and the
 cross-asset basket pairs the strongest lead-lag peers of SPY (QQQ, IWM,
 and long bonds via TLT) with gold as an orthogonal diversifier.
 
-### Pair
+### Pairs
 
-| Profile | Tickers | Windows |
-| --- | --- | --- |
-| `ivv_voo_daily_{5y,10y}.yaml` | IVV, VOO | 2021-2025 / 2016-2025 |
+| Profile | Tickers | Windows | Role |
+| --- | --- | --- | --- |
+| `ivv_voo_daily_{5y,10y}.yaml` | IVV, VOO | 2021-2025 / 2016-2025 | Incumbent main-study pair; cointegrated but spread too tight to clear cost. |
+| `v_ma_daily_10y.yaml` | V, MA | 2016-2025 | Payment-network duopoly; the one pair `scripts/validate_pairs_candidates.py` clears on per-fold cointegration *and* tradable amplitude. |
+
+`v_ma_daily_10y` is the sole survivor of the pairs screen (per-fold
+cointegration + tradable half-life + spread amplitude above the `normal` cost
+wall, over a twenty-candidate panel) and is traded by
+`config/study/pairs_extension.yaml`.
 
 ## Loading a profile
 

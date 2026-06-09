@@ -40,6 +40,12 @@ strategies sweep the 11-ticker matrix at 5y/10y (22 universes each);
 two multi-ticker baskets (each carrying a `strategy_params` override for
 its primary/feature tickers). 94 legs total.
 
+`pairs_extension.yaml` - focused follow-up that trades `PairsTrading` on
+the one pair `scripts/validate_pairs_candidates.py` clears from a
+twenty-candidate panel (V/MA at 10y) under the same strategy, HPO budget,
+cost tier, and holdout split as the main study, so the leg compares directly
+against the incumbent IVV/VOO result. Writes to `studies/pairs_extension/`.
+
 ## Loading a spec
 
 ```python

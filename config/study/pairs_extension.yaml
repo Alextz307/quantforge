@@ -1,0 +1,26 @@
+name: pairs_extension
+description: >
+  Focused pairs-trading extension to the main study. The main sweep trades
+  only the IVV / VOO pair, whose relationship is cointegrated but too tight to
+  clear the 2 bp + 2 bp cost wall. scripts/validate_pairs_candidates.py screens
+  a panel of twenty economically linked candidates on the in-sample window for
+  per-fold cointegration (stationary on every walk-forward training slice the
+  study fits on, not just the full window), a tradable mean-reversion
+  half-life, and spread amplitude above the round-turn cost. Only V / MA (the
+  payment-network duopoly) clears all three: cointegration is unstable across
+  sub-windows, so every other candidate fails the per-fold guard on at least
+  one fold, and the only other always-cointegrated pair (IVV / VOO) has a
+  spread too tight to trade. V / MA needs the 10-year window - the 5-year
+  window leaves the first walk-forward fold with ~1 year of training, too short
+  for stable cointegration. Same PairsTrading strategy, HPO budget, cost tier,
+  and holdout split as the main study, so the leg is directly comparable to the
+  incumbent IVV / VOO result.
+seed: 42
+output_dir: studies/pairs_extension
+
+legs:
+  - strategy: PairsTrading
+    strategy_config: config/strategies/pairs_trading.yaml
+    hpo_config: config/hpo/pairs_trading.yaml
+    universes:
+      - v_ma_daily_10y
