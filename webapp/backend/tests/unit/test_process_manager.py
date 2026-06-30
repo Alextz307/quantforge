@@ -27,6 +27,7 @@ from webapp.backend.app.schemas.jobs import (
 )
 
 JOB_ID = "fake-job-id"
+JOB_USER = "submitter"
 COMPLETION_TIMEOUT = 15.0
 CANCEL_SLEEP_SECONDS = 60
 
@@ -144,16 +145,24 @@ def test_build_run_command_appends_feature_importance_flag(tmp_path: Path) -> No
     config_path = tmp_path / "config.yaml"
 
     with_flag = build_run_command(
-        config_path=config_path, job_id=JOB_ID, store_root=tmp_path, feature_importance=True
+        config_path=config_path,
+        job_id=JOB_ID,
+        store_root=tmp_path,
+        username=JOB_USER,
+        feature_importance=True,
     )
     without_flag = build_run_command(
-        config_path=config_path, job_id=JOB_ID, store_root=tmp_path, feature_importance=False
+        config_path=config_path,
+        job_id=JOB_ID,
+        store_root=tmp_path,
+        username=JOB_USER,
+        feature_importance=False,
     )
 
     assert "--feature-importance" in with_flag
     assert "--feature-importance" not in without_flag
     assert without_flag == build_run_command(
-        config_path=config_path, job_id=JOB_ID, store_root=tmp_path
+        config_path=config_path, job_id=JOB_ID, store_root=tmp_path, username=JOB_USER
     )
 
 

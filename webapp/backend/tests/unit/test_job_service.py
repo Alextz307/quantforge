@@ -121,6 +121,36 @@ def test_submit_writes_yaml_and_persists_running(
     cast(AsyncMock, manager.spawn).assert_awaited_once()
 
 
+def test_submit_attributes_spawn_to_submitter(db_conn: sqlite3.Connection, tmp_path: Path) -> None:
+    """
+    The spawned CLI carries ``--user <submitter>`` so the artifact is owned by
+    the requesting user, not the OS account the backend runs as (which the CLI
+    would otherwise pick via ``getpass.getuser()``).
+    """
+
+    user = _user(db_conn, "bob")
+    manager = _stub_manager()
+    submission = JobSubmission(kind=JobKind.RUN, config_payload=make_valid_experiment_payload())
+
+    asyncio.run(
+        submit_job(
+            conn=db_conn,
+            manager=manager,
+            user=user,
+            submission=submission,
+            store_root=tmp_path / "store",
+            config_root=tmp_path / "config",
+            job_temp_dir=tmp_path / "jobs",
+            study_spec_uploads_dir=tmp_path / "uploads",
+        )
+    )
+
+    await_args = cast(AsyncMock, manager.spawn).await_args
+    assert await_args is not None
+    command: tuple[str, ...] = await_args.kwargs["command"]
+    assert ("--user", user.username) in zip(command, command[1:])
+
+
 def test_submit_auto_injects_features_for_strategies_that_need_them(
     db_conn: sqlite3.Connection, tmp_path: Path
 ) -> None:

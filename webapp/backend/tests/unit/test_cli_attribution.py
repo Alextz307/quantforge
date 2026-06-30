@@ -17,12 +17,13 @@ import pytest
 from scripts._attribution import (
     UserNotFoundNonInteractiveError,
     attribute_artifact,
+    attribute_via_username,
     resolve_or_create_attributing_user,
 )
 from webapp.backend.app.core.types import Role
 from webapp.backend.app.schemas.jobs import JobKind
 from webapp.backend.app.services.auth_service import MIN_PASSWORD_LENGTH
-from webapp.backend.app.services.user_service import create_user
+from webapp.backend.app.services.user_service import create_user, soft_delete_user
 
 _PASSWORD = "alex-password"
 _EID = "20260101_120000_strat_sha_hash"
@@ -104,6 +105,30 @@ def test_resolve_rejects_short_password(db_conn: sqlite3.Connection) -> None:
     ):
         with pytest.raises(click.ClickException, match="at least"):
             resolve_or_create_attributing_user(db_conn, "newcomer")
+
+
+def test_attribute_via_username_swallows_user_vanished_mid_run(
+    db_conn: sqlite3.Connection, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """
+    A user soft-deleted between submit and end-of-run attribution must not
+    fail the job. The artifact already landed; a propagating error would exit
+    non-zero and flip a finished job to FAILED. The wrapper warns and skips.
+    """
+
+    user_id = _seed(db_conn, "bob")
+    assert soft_delete_user(db_conn, user_id) is True
+
+    with patch("scripts._attribution.stdin_is_tty", return_value=False):
+        attribute_via_username(
+            username="bob", kind=JobKind.RUN, experiment_id=_EID, command="experiment run"
+        )
+
+    assert "failed to attribute artifact to 'bob'" in capsys.readouterr().err
+    orphaned = db_conn.execute(
+        "SELECT 1 FROM jobs WHERE experiment_id = ? LIMIT 1", (_EID,)
+    ).fetchone()
+    assert orphaned is None
 
 
 def test_attribute_artifact_inserts_jobs_row(db_conn: sqlite3.Connection) -> None:

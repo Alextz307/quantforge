@@ -505,6 +505,7 @@ class _RunHandler:
                 config_path=config_path,
                 job_id=row.id,
                 store_root=ctx.store_root,
+                username=ctx.user.username,
                 feature_importance=submission.feature_importance,
             ),
             primary_config_path=config_path,
@@ -542,6 +543,7 @@ class _TuneHandler:
                 experiment_config_path=experiment_config_path,
                 hpo_config_path=hpo_config_path,
                 store_root=ctx.store_root,
+                username=ctx.user.username,
             ),
             primary_config_path=experiment_config_path,
             configs_to_write={
@@ -579,6 +581,7 @@ class _CompareHandler:
                 write_report=payload.write_report,
                 publish_label=payload.publish_label,
                 store_root=ctx.store_root,
+                username=ctx.user.username,
             ),
             primary_config_path=config_paths[0],
             experiment_id=payload.out_name,
@@ -605,6 +608,7 @@ class _HoldoutHandler:
                 write_report=payload.write_report,
                 publish_label=payload.publish_label,
                 store_root=ctx.store_root,
+                username=ctx.user.username,
             ),
             primary_config_path=source_path,
             experiment_id=artifact_name,
@@ -650,6 +654,7 @@ class _StudyHandler:
                 skip_compares=payload.skip_compares,
                 skip_holdout_eval=payload.skip_holdout_eval,
                 store_root=ctx.store_root,
+                username=ctx.user.username,
             ),
             primary_config_path=spec_path,
             experiment_id=output_name,
@@ -751,7 +756,10 @@ class _ImportanceHandler:
         # a reproduced backfill writes no new run, so it stays None.
         return _SpawnPlan(
             command=build_importance_command(
-                run_dir=run_dir, store_root=ctx.store_root, job_id=row.id
+                run_dir=run_dir,
+                store_root=ctx.store_root,
+                job_id=row.id,
+                username=ctx.user.username,
             ),
             primary_config_path=run_dir / EXPERIMENT_CONFIG_YAML,
         )

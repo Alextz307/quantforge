@@ -54,7 +54,12 @@ class _RunningProcess:
 
 
 def build_run_command(
-    *, config_path: Path, job_id: str, store_root: Path, feature_importance: bool = False
+    *,
+    config_path: Path,
+    job_id: str,
+    store_root: Path,
+    username: str,
+    feature_importance: bool = False,
 ) -> tuple[str, ...]:
     return (
         sys.executable,
@@ -67,12 +72,16 @@ def build_run_command(
         job_id,
         "--store-root",
         str(store_root),
+        "--user",
+        username,
         "--no-progress",
         *(("--feature-importance",) if feature_importance else ()),
     )
 
 
-def build_importance_command(*, run_dir: Path, store_root: Path, job_id: str) -> tuple[str, ...]:
+def build_importance_command(
+    *, run_dir: Path, store_root: Path, job_id: str, username: str
+) -> tuple[str, ...]:
     """
     ``experiment importance`` invocation: recompute a finished run's importance.
 
@@ -93,6 +102,8 @@ def build_importance_command(*, run_dir: Path, store_root: Path, job_id: str) ->
         str(store_root),
         "--name",
         job_id,
+        "--user",
+        username,
         "--no-progress",
     )
 
@@ -102,6 +113,7 @@ def build_tune_command(
     experiment_config_path: Path,
     hpo_config_path: Path,
     store_root: Path,
+    username: str,
 ) -> tuple[str, ...]:
     return (
         sys.executable,
@@ -114,6 +126,8 @@ def build_tune_command(
         str(hpo_config_path),
         "--store-root",
         str(store_root),
+        "--user",
+        username,
         "--no-progress",
     )
 
@@ -128,6 +142,7 @@ def build_compare_command(
     write_report: bool,
     publish_label: str | None,
     store_root: Path,
+    username: str,
 ) -> tuple[str, ...]:
     """
     ``experiment compare`` invocation in ``--reuse-runs`` mode.
@@ -149,6 +164,8 @@ def build_compare_command(
         str(n_jobs),
         "--store-root",
         str(store_root),
+        "--user",
+        username,
         "--report" if write_report else "--no-report",
         "--reuse-runs",
         ",".join(str(p) for p in reuse_run_dirs),
@@ -168,6 +185,7 @@ def build_holdout_command(
     write_report: bool,
     publish_label: str | None,
     store_root: Path,
+    username: str,
 ) -> tuple[str, ...]:
     """
     ``experiment holdout-eval`` invocation; source picks ``--run-dir`` vs ``--hpo-best``.
@@ -180,6 +198,8 @@ def build_holdout_command(
         "holdout-eval",
         "--store-root",
         str(store_root),
+        "--user",
+        username,
         "--report" if write_report else "--no-report",
     ]
     if source_kind == "run":
@@ -201,6 +221,7 @@ def build_study_command(
     skip_compares: bool,
     skip_holdout_eval: bool,
     store_root: Path,
+    username: str,
 ) -> tuple[str, ...]:
     """
     ``experiment study run`` invocation; drives the cross-strategy x cross-universe sweep.
@@ -215,6 +236,8 @@ def build_study_command(
         str(spec_path),
         "--store-root",
         str(store_root),
+        "--user",
+        username,
     ]
     if force_rerun:
         cmd.append("--force-rerun")

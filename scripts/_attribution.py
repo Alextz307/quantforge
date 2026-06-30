@@ -204,8 +204,12 @@ def attribute_via_username(
     Convenience wrapper: open the webapp DB, resolve the user, stamp the row.
 
     Subcommands call this once at the end of execution. Logs but does not
-    re-raise on sqlite errors - attribution must never block the
-    artifact-producing path.
+    re-raise on attribution failures - a sqlite error, or a user that
+    vanished between submit and attribution (e.g. soft-deleted mid-run) -
+    since attribution must never block the artifact-producing path: the
+    artifact already landed, so a non-zero exit would mark a finished job
+    FAILED. The strict fail-loud on a missing user lives in
+    :func:`resolve_or_create_attributing_user` for direct callers.
 
     Silently skips when the webapp package isn't installed (the core CLI runs
     without webapp deps) or when the webapp DB doesn't exist yet: the CLI must
@@ -232,7 +236,7 @@ def attribute_via_username(
                 experiment_id=experiment_id,
                 command=command,
             )
-    except sqlite3.Error as exc:
+    except (sqlite3.Error, UserNotFoundNonInteractiveError) as exc:
         click.echo(f"warning: failed to attribute artifact to '{username}': {exc}", err=True)
 
 

@@ -45,6 +45,7 @@ from src.core.utils import (
 from src.engine.cpp_engine import CppBacktestEngine
 from src.engine.walk_forward import evaluate_walk_forward
 from src.strategies.interface import IStrategy
+from src.strategies.momentum_gatekeeper import MomentumGatekeeperStrategy
 from tests.conftest import make_synthetic_ohlcv_df
 
 if TYPE_CHECKING:
@@ -67,6 +68,13 @@ _PERFECT_VOL = 0.2
 _WORSE_VOL = 0.6
 _INTERIOR_NAN_ROW = 100
 _SIG_DUP_COL = "signal_feat_dup"
+
+_GUARD_MA_WINDOW = 20
+_GUARD_N_ESTIMATORS = 20
+_GUARD_MAX_DEPTH = 3
+_GUARD_EVAL_ROWS = 160
+_GUARD_EVAL_START = "2021-06-01"
+_GUARD_EVAL_SEED = 99
 
 
 def _direction_frame(seed: int = _SEED) -> pd.DataFrame:
@@ -680,3 +688,45 @@ def test_score_inf_serializes_as_null() -> None:
     restored = FeatureImportance.from_dict(payload)
     assert math.isnan(restored.importance)
     assert math.isnan(restored.std)
+
+
+def test_importance_scoring_does_not_refit_the_model() -> None:
+    """
+    Permutation scoring reuses the already-fitted model; it never re-fits.
+
+    Pins the anti-leakage invariant against a real XGBoost-backed strategy:
+    across every permutation pass the trained classifier stays the same
+    instance with a frozen booster (identical predict_proba output) and an
+    unchanged training-metadata slot (the sole fitted-state signal). Reading
+    the private leaf is sanctioned for invariant checks.
+    """
+
+    strategy = MomentumGatekeeperStrategy(
+        ma_window=_GUARD_MA_WINDOW,
+        n_estimators=_GUARD_N_ESTIMATORS,
+        max_depth=_GUARD_MAX_DEPTH,
+    )
+    strategy.train(make_synthetic_ohlcv_df())
+    eval_df = make_synthetic_ohlcv_df(
+        n_rows=_GUARD_EVAL_ROWS, start=_GUARD_EVAL_START, seed=_GUARD_EVAL_SEED
+    )
+
+    classifier = strategy._classifier
+    assert classifier is not None
+    metadata_before = classifier.training_metadata
+    probe = strategy.feature_importance_frame(eval_df)
+    assert probe is not None
+    proba_before = classifier.predict_proba(probe)
+
+    fold = compute_fold_importance(
+        strategy, eval_df, fold_index=0, n_repeats=_N_REPEATS, rng=np.random.default_rng(_SEED)
+    )
+
+    assert fold is not None
+    assert {s.method for s in fold.scores} == {
+        ImportanceMethod.PERMUTATION,
+        ImportanceMethod.XGB_GAIN,
+    }
+    assert strategy._classifier is classifier
+    assert classifier.training_metadata is metadata_before
+    assert classifier.predict_proba(probe).equals(proba_before)
