@@ -32,7 +32,15 @@ const SCHEMA: StrategySchema = {
       default: null,
       required: false,
       nullable: true,
-      choices: ["cpu", "cuda", "mps"],
+      choices: ["auto", "cpu", "cuda", "mps"],
+    },
+    {
+      name: "sampler",
+      kind: "enum",
+      default: null,
+      required: false,
+      nullable: true,
+      choices: ["tpe", "random"],
     },
     {
       name: "mode",
@@ -98,11 +106,23 @@ describe("StrategyParamsEditor", () => {
     render(<StrategyParamsEditor schema={SCHEMA} values={{}} onChange={() => undefined} />);
     const intervalSelect = screen.getByRole("combobox", { name: /interval/i });
     expect(intervalSelect.querySelector('option[value=""]')).toHaveTextContent(/use default/i);
-    const deviceSelect = screen.getByRole("combobox", { name: /device/i });
-    expect(deviceSelect.querySelector('option[value=""]')).toHaveTextContent(/none/i);
+    const samplerSelect = screen.getByRole("combobox", { name: /sampler/i });
+    expect(samplerSelect.querySelector('option[value=""]')).toHaveTextContent(/none/i);
     const modeSelect = screen.getByRole("combobox", { name: /mode/i });
     expect(modeSelect.querySelector('option[value=""]')).toHaveTextContent(/select/i);
     expect(modeSelect).toBeRequired();
+  });
+
+  it("device picker defaults to auto and drops the redundant none option", () => {
+    const onChange = vi.fn();
+    render(<StrategyParamsEditor schema={SCHEMA} values={{}} onChange={onChange} />);
+    const deviceSelect = screen.getByRole("combobox", { name: /device/i });
+    // No empty/none option, and "auto" is the standing default.
+    expect(deviceSelect.querySelector('option[value=""]')).toBeNull();
+    expect(deviceSelect).toHaveValue("auto");
+    // An explicit pick still propagates.
+    fireEvent.change(deviceSelect, { target: { value: "cpu" } });
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ device: "cpu" }));
   });
 
   it("str_list renders a comma-separated text input and parses on change", () => {

@@ -165,7 +165,13 @@ function ParamInput({ id, param, value, onChange, disabled }: ParamInputProps) {
           }}
         />
       );
-    case "enum":
+    case "enum": {
+      // The Device enum exposes "auto" as a real choice that resolves to the
+      // same host auto-select as null. Where it's offered, default to "auto"
+      // and drop the redundant null ("- none -") option so the device picker
+      // has one obvious default instead of two ways to spell "auto".
+      const autoEnum = (param.choices ?? []).includes("auto");
+      const selectValue = typeof value === "string" ? value : autoEnum ? "auto" : "";
       return (
         <select
           id={id}
@@ -174,12 +180,12 @@ function ParamInput({ id, param, value, onChange, disabled }: ParamInputProps) {
           className={cn(
             "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm",
           )}
-          value={typeof value === "string" ? value : ""}
+          value={selectValue}
           onChange={(e) => {
             onChange(e.target.value === "" ? undefined : e.target.value);
           }}
         >
-          <option value="">{emptyOptionLabel(param)}</option>
+          {!autoEnum && <option value="">{emptyOptionLabel(param)}</option>}
           {(param.choices ?? []).map((choice) => (
             <option key={choice} value={choice}>
               {choice}
@@ -187,6 +193,7 @@ function ParamInput({ id, param, value, onChange, disabled }: ParamInputProps) {
           ))}
         </select>
       );
+    }
     case "complex":
       return (
         <JsonInput
