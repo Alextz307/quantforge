@@ -75,6 +75,40 @@ describe("ConfigurePage", () => {
     expect((capturedBody as unknown as JobSubmission).feature_importance).toBe(true);
   });
 
+  it("reserves a 15% holdout by default in the submitted payload", async () => {
+    let capturedBody: JobSubmission | null = null;
+    server.use(
+      http.post(API_PATHS.jobs, async ({ request }) => {
+        capturedBody = (await request.json()) as JobSubmission;
+        return HttpResponse.json(JOB_COMPLETED satisfies JobRow);
+      }),
+    );
+    const user = userEvent.setup();
+    renderWithProviders(
+      <Routes>
+        <Route path={ROUTES.configure} element={<ConfigurePage />} />
+        <Route path={ROUTES.jobDetail} element={<div>job detail page</div>} />
+      </Routes>,
+      { initialEntries: [ROUTES.configure] },
+    );
+
+    await screen.findByLabelText(/Run name/i);
+    await waitFor(() => {
+      expect(screen.getByLabelText(/Strategy$/i)).not.toBeDisabled();
+    });
+
+    await fillBaseFields(user);
+    await user.click(screen.getByRole("button", { name: /Launch run/i }));
+
+    expect(await screen.findByText("job detail page")).toBeInTheDocument();
+    const payload = (
+      capturedBody as unknown as {
+        config_payload: { validation: { holdout_pct: number } };
+      }
+    ).config_payload;
+    expect(payload.validation.holdout_pct).toBe(0.15);
+  });
+
   it("blocks submit and shows inline error when a required strategy param is missing", async () => {
     const validateCalls = { count: 0 };
     server.use(

@@ -39,6 +39,13 @@ const TEST_SIZE_MIN = 10;
 const TEST_SIZE_MAX = 5000;
 const GAP_MIN = 0;
 const GAP_MAX = 500;
+// Mirrors ValidationConfig.holdout_pct (ge=0, lt=1). Defaulting to 0.15
+// reserves the last 15% of bars as an untouched out-of-sample window, so a
+// run is holdout-eval-ready by default instead of leaving the user with a run
+// no holdout can be computed for.
+const DEFAULT_HOLDOUT_PCT = 0.15;
+const HOLDOUT_PCT_MIN = 0;
+const HOLDOUT_PCT_MAX_EXCL = 1;
 
 export const parseStringList = (input: string): string[] =>
   input
@@ -72,6 +79,11 @@ export const experimentBaseSchema = z.object({
     .default(DEFAULT_TEST_SIZE),
   gap: z.coerce.number().int().min(GAP_MIN).max(GAP_MAX).default(DEFAULT_GAP),
   expanding: z.boolean().default(true),
+  holdoutPct: z.coerce
+    .number()
+    .min(HOLDOUT_PCT_MIN, "holdout_pct must be at least 0")
+    .lt(HOLDOUT_PCT_MAX_EXCL, "holdout_pct must be below 1")
+    .default(DEFAULT_HOLDOUT_PCT),
 });
 
 export const startBeforeEndRefinement = {
@@ -99,6 +111,7 @@ export const EXPERIMENT_FORM_DEFAULTS: ConfigureFormValues = {
   testSize: DEFAULT_TEST_SIZE,
   gap: DEFAULT_GAP,
   expanding: true,
+  holdoutPct: DEFAULT_HOLDOUT_PCT,
 };
 
 export interface StrategySchemaParam {
@@ -136,7 +149,13 @@ export type ExperimentPayload = Record<string, unknown> & {
     interval: string;
   };
   strategy: { name: string; params: Record<string, unknown> };
-  validation: { n_splits: number; test_size: number; gap: number; expanding: boolean };
+  validation: {
+    n_splits: number;
+    test_size: number;
+    gap: number;
+    expanding: boolean;
+    holdout_pct: number;
+  };
 };
 
 /**
@@ -164,6 +183,7 @@ export function toExperimentPayload(
       test_size: values.testSize,
       gap: values.gap,
       expanding: values.expanding,
+      holdout_pct: values.holdoutPct,
     },
   };
 }

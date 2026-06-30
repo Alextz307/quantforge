@@ -147,6 +147,21 @@ export function ExperimentFieldsSection<T extends ConfigureFormValues>({
             disabled={isSubmitting}
           />
         </ConfigField>
+        <ConfigField
+          id="holdoutPct"
+          label="holdout_pct"
+          hint="0.15 = reserve the last 15% as an untouched holdout. 0 disables it."
+          error={e.holdoutPct?.message}
+          className="col-span-2"
+        >
+          <Input
+            id="holdoutPct"
+            type="number"
+            step="0.05"
+            {...reg("holdoutPct")}
+            disabled={isSubmitting}
+          />
+        </ConfigField>
       </section>
     </>
   );
