@@ -11,16 +11,23 @@ from pydantic import BaseModel
 
 from src.analysis.feature_importance import ImportanceMethod
 from src.engine.scenarios import SlippageScenario
+from webapp.backend.app.schemas.pagination import SortOrder
+
+__all__ = [
+    "FeatureImportanceEntry",
+    "FeatureImportanceResponse",
+    "FoldRow",
+    "RunDetail",
+    "RunSortBy",
+    "RunSummary",
+    "RunsPage",
+    "SortOrder",
+]
 
 
 class RunSortBy(StrEnum):
     CREATED_AT = "created_at"
     SHARPE_MEAN = "sharpe_mean"
-
-
-class SortOrder(StrEnum):
-    ASC = "asc"
-    DESC = "desc"
 
 
 class RunSummary(BaseModel):

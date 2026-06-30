@@ -1,6 +1,12 @@
-import { useCallback, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useMe } from "@/api/auth";
-import { useHpoStudies, usePrefetchHpoStudy, type HpoSummary } from "@/api/hpo";
+import {
+  useHpoStudiesPage,
+  usePrefetchHpoStudy,
+  type HpoSortBy,
+  type HpoStudiesPage,
+  type HpoSummary,
+} from "@/api/hpo";
 import { AllUsersToggle } from "@/components/AllUsersToggle";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FilterDate } from "@/components/FilterDate";
@@ -11,69 +17,66 @@ import {
 } from "@/components/FilterableTablePage";
 import { FilterSelect } from "@/components/FilterSelect";
 import { LaunchedByCell } from "@/components/LaunchedByCell";
+import { Pagination } from "@/components/Pagination";
 import { QueryRenderer } from "@/components/QueryRenderer";
-import { ALL_OPTION, uniqSorted } from "@/lib/filters";
+import { usePaginatedSearch } from "@/hooks/usePaginatedSearch";
+import { ALL_OPTION, readValidSince, withActiveOption } from "@/lib/filters";
 import { formatDateTime, formatMetric } from "@/lib/format";
 import { hpoDetailPath } from "@/lib/routes";
 
-interface HpoFilters {
+const DEFAULT_SORT: SortState<HpoSortBy> = { sortBy: "created_at", order: "desc" };
+const SORT_KEYS: ReadonlySet<HpoSortBy> = new Set(["created_at", "best_value"]);
+const ORDER_VALUES: ReadonlySet<SortOrder> = new Set(["asc", "desc"]);
+
+interface HpoUrlState {
+  sortBy: HpoSortBy;
+  order: SortOrder;
   store: string;
   since: string;
 }
 
-type HpoSortKey = "created_at" | "best_value";
-
-const DEFAULT_SORT: SortState<HpoSortKey> = { sortBy: "created_at", order: "desc" };
-
-function applyFilters(rows: readonly HpoSummary[], f: HpoFilters): readonly HpoSummary[] {
-  const sinceMs = f.since ? new Date(f.since).getTime() : null;
-  return rows.filter((r) => {
-    if (f.store !== ALL_OPTION && r.store !== f.store) return false;
-    if (sinceMs != null && new Date(r.created_at).getTime() < sinceMs) return false;
-    return true;
-  });
-}
-
-function sortRows(
-  rows: readonly HpoSummary[],
-  state: SortState<HpoSortKey>,
-): readonly HpoSummary[] {
-  // Studies with no completed trials carry ``best_value=null``; under DESC
-  // they sink to the bottom (and under ASC they float to the top, since a
-  // null best_value is the "worst possible" reading).
-  const dir = state.order === "desc" ? -1 : 1;
-  const copied = [...rows];
-  copied.sort((a, b) => {
-    if (state.sortBy === "best_value") {
-      const av = a.best_value;
-      const bv = b.best_value;
-      if (av === null && bv === null) return 0;
-      if (av === null) return 1;
-      if (bv === null) return -1;
-      return (av - bv) * dir;
-    }
-    return (new Date(a.created_at).getTime() - new Date(b.created_at).getTime()) * dir;
-  });
-  return copied;
+function readState(params: URLSearchParams): HpoUrlState {
+  const sortBy = params.get("sort_by");
+  const order = params.get("order");
+  return {
+    sortBy:
+      sortBy && SORT_KEYS.has(sortBy as HpoSortBy) ? (sortBy as HpoSortBy) : DEFAULT_SORT.sortBy,
+    order:
+      order && ORDER_VALUES.has(order as SortOrder) ? (order as SortOrder) : DEFAULT_SORT.order,
+    store: params.get("store") ?? ALL_OPTION,
+    since: readValidSince(params.get("since")),
+  };
 }
 
 export function HpoPage() {
   const me = useMe();
   const isAdmin = me.data?.role === "admin";
   const [allUsers, setAllUsers] = useState(false);
-  const query = useHpoStudies({ allUsers: isAdmin && allUsers });
-  const [store, setStore] = useState<string>(ALL_OPTION);
-  const [since, setSince] = useState<string>("");
-  const [sortState, setSortState] = useState<SortState<HpoSortKey>>(DEFAULT_SORT);
+  const { searchParams, limit, offset, setOffset, setParams } = usePaginatedSearch();
+  const urlState = useMemo(() => readState(searchParams), [searchParams]);
+  const sortState = useMemo<SortState<HpoSortBy>>(
+    () => ({ sortBy: urlState.sortBy, order: urlState.order }),
+    [urlState.sortBy, urlState.order],
+  );
 
-  const onSortToggle = useCallback((col: HpoSortKey) => {
-    setSortState((prev) => {
-      // Re-clicking the active column flips order; switching columns starts in
-      // DESC (the natural "best first" reading for both timestamps and Sharpe).
-      const nextOrder: SortOrder = prev.sortBy === col && prev.order === "desc" ? "asc" : "desc";
-      return { sortBy: col, order: nextOrder };
+  const query = useHpoStudiesPage(
+    {
+      limit,
+      offset,
+      sortBy: urlState.sortBy,
+      order: urlState.order,
+      ...(urlState.store !== ALL_OPTION ? { store: urlState.store } : {}),
+      ...(urlState.since ? { since: new Date(urlState.since).toISOString() } : {}),
+    },
+    { allUsers: isAdmin && allUsers },
+  );
+
+  const onSortToggle = (col: HpoSortBy) => {
+    setParams({
+      sort_by: col,
+      order: urlState.sortBy === col && urlState.order === "desc" ? "asc" : "desc",
     });
-  }, []);
+  };
 
   return (
     <Card>
@@ -89,15 +92,22 @@ export function HpoPage() {
           testId="hpo-all-users-toggle"
         />
         <QueryRenderer query={query} errorTitle="Failed to load HPO studies">
-          {(rows) => (
+          {(page) => (
             <HpoBody
-              rows={rows}
-              store={store}
-              since={since}
-              onStore={setStore}
-              onSince={setSince}
+              page={page}
+              store={urlState.store}
+              since={urlState.since}
+              onStore={(v) => {
+                setParams({ store: v === ALL_OPTION ? "" : v });
+              }}
+              onSince={(v) => {
+                setParams({ since: v });
+              }}
               sortState={sortState}
               onSortToggle={onSortToggle}
+              limit={limit}
+              offset={offset}
+              onOffset={setOffset}
             />
           )}
         </QueryRenderer>
@@ -107,79 +117,99 @@ export function HpoPage() {
 }
 
 interface BodyProps {
-  rows: readonly HpoSummary[];
+  page: HpoStudiesPage;
   store: string;
   since: string;
   onStore: (v: string) => void;
   onSince: (v: string) => void;
-  sortState: SortState<HpoSortKey>;
-  onSortToggle: (col: HpoSortKey) => void;
+  sortState: SortState<HpoSortBy>;
+  onSortToggle: (col: HpoSortBy) => void;
+  limit: number;
+  offset: number;
+  onOffset: (offset: number) => void;
 }
 
-function HpoBody({ rows, store, since, onStore, onSince, sortState, onSortToggle }: BodyProps) {
-  const stores = useMemo(() => uniqSorted(rows.map((r) => r.store)), [rows]);
-  const filters = useMemo<HpoFilters>(() => ({ store, since }), [store, since]);
-  // Sort first, filter second: filtering doesn't change relative order so the
-  // result is identical either way, but sort-then-filter keeps the
-  // ``applyFilters`` signature pure (no sort plumbed through filter state).
-  const sorted = useMemo(() => sortRows(rows, sortState), [rows, sortState]);
+function HpoBody({
+  page,
+  store,
+  since,
+  onStore,
+  onSince,
+  sortState,
+  onSortToggle,
+  limit,
+  offset,
+  onOffset,
+}: BodyProps) {
+  const storeOptions = useMemo(() => withActiveOption(page.stores, store), [page.stores, store]);
   const prefetchHpo = usePrefetchHpoStudy();
 
   return (
-    <FilterableTablePage<HpoSummary, HpoFilters, HpoSortKey>
-      rows={sorted}
-      filters={filters}
-      applyFilters={applyFilters}
-      filterControls={
-        <>
-          <FilterSelect
-            id="filter-store"
-            label="Store"
-            value={store}
-            onChange={onStore}
-            allLabel="All stores"
-            options={stores}
-          />
-          <FilterDate id="filter-since" label="Since" value={since} onChange={onSince} />
-        </>
-      }
-      rowKey={(r) => r.wire_id}
-      rowName={(r) => r.name}
-      rowHref={(r) => hpoDetailPath(r.wire_id)}
-      rowOnHover={(r) => {
-        prefetchHpo(r.wire_id);
-      }}
-      tableTestId="hpo-table"
-      emptyMessage="No HPO studies match the current filters."
-      sortState={sortState}
-      onSortToggle={onSortToggle}
-      columns={[
-        { header: "Store", cellClassName: "font-mono", render: (r) => r.store },
-        { header: "Direction", cellClassName: "font-mono", render: (r) => r.direction },
-        {
-          header: "Trials",
-          align: "right",
-          cellClassName: "font-mono",
-          render: (r) => `${String(r.n_complete)} / ${String(r.n_trials)}`,
-        },
-        {
-          header: "Best",
-          align: "right",
-          cellClassName: "font-mono",
-          render: (r) => formatMetric(r.best_value),
-          sortKey: "best_value",
-        },
-        {
-          header: "Created",
-          cellClassName: "font-mono text-xs",
-          render: (r) => formatDateTime(r.created_at),
-          sortKey: "created_at",
-        },
-        {
-          header: "Launched by",
-          render: (r) => <LaunchedByCell username={r.launched_by_username} />,
-        },
-      ]}
-    />
+    <div className="flex flex-col gap-4">
+      <FilterableTablePage<HpoSummary, Record<string, never>, HpoSortBy>
+        rows={page.items}
+        filters={{}}
+        applyFilters={(rows) => rows}
+        filterControls={
+          <>
+            <FilterSelect
+              id="filter-store"
+              label="Store"
+              value={store}
+              onChange={onStore}
+              allLabel="All stores"
+              options={storeOptions}
+            />
+            <FilterDate id="filter-since" label="Since" value={since} onChange={onSince} />
+          </>
+        }
+        rowKey={(r) => r.wire_id}
+        rowName={(r) => r.name}
+        rowHref={(r) => hpoDetailPath(r.wire_id)}
+        rowOnHover={(r) => {
+          prefetchHpo(r.wire_id);
+        }}
+        tableTestId="hpo-table"
+        emptyMessage="No HPO studies match the current filters."
+        sortState={sortState}
+        onSortToggle={onSortToggle}
+        columns={[
+          { header: "Store", cellClassName: "font-mono", render: (r) => r.store },
+          { header: "Direction", cellClassName: "font-mono", render: (r) => r.direction },
+          {
+            header: "Trials",
+            align: "right",
+            cellClassName: "font-mono",
+            render: (r) => `${String(r.n_complete)} / ${String(r.n_trials)}`,
+          },
+          {
+            header: "Best",
+            align: "right",
+            cellClassName: "font-mono",
+            render: (r) => formatMetric(r.best_value),
+            sortKey: "best_value",
+          },
+          {
+            header: "Created",
+            cellClassName: "font-mono text-xs",
+            render: (r) => formatDateTime(r.created_at),
+            sortKey: "created_at",
+          },
+          {
+            header: "Launched by",
+            render: (r) => <LaunchedByCell username={r.launched_by_username} />,
+          },
+        ]}
+      />
+      {(page.items.length > 0 || offset > 0) && (
+        <Pagination
+          total={page.total}
+          limit={limit}
+          offset={offset}
+          count={page.items.length}
+          onOffset={onOffset}
+        />
+      )}
+    </div>
   );
 }

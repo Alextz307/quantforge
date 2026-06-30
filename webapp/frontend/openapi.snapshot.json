@@ -149,6 +149,46 @@
         "title": "ComparisonSummary",
         "type": "object"
       },
+      "ComparisonsPage": {
+        "description": "Paginated envelope for `/api/comparisons`.\n\n``strategies`` enumerates the distinct strategies across the full visible\nset so the strategy filter dropdown stays populated under server-side\npagination.",
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ComparisonSummary"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "limit": {
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "title": "Offset",
+            "type": "integer"
+          },
+          "strategies": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Strategies",
+            "type": "array"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset",
+          "strategies"
+        ],
+        "title": "ComparisonsPage",
+        "type": "object"
+      },
       "ConfigDetail": {
         "properties": {
           "name": {
@@ -828,6 +868,50 @@
         "title": "HoldoutEvalSummary",
         "type": "object"
       },
+      "HoldoutEvalsPage": {
+        "description": "Paginated envelope for `/api/holdout-evals`.\n\n``source_kinds`` enumerates the distinct source kinds across the full\nvisible set (independent of the current page or filters) so the filter\ndropdown stays fully populated under server-side pagination.",
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/HoldoutEvalSummary"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "limit": {
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "title": "Offset",
+            "type": "integer"
+          },
+          "source_kinds": {
+            "items": {
+              "enum": [
+                "run",
+                "hpo"
+              ],
+              "type": "string"
+            },
+            "title": "Source Kinds",
+            "type": "array"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset",
+          "source_kinds"
+        ],
+        "title": "HoldoutEvalsPage",
+        "type": "object"
+      },
       "HoldoutPayload": {
         "description": "Inputs for ``experiment holdout-eval`` (run-dir XOR hpo-best source).\n\n``source_id`` is interpreted as a run id when ``source_kind='run'``\nand as an HPO study name when ``source_kind='hpo'``. The job_service\nresolves it to an on-disk path and surfaces a 422 with structured\n``loc`` if the source is missing the required artifacts (a non-null\n``holdout_start`` for runs, ``best_config.yaml`` for HPO studies).",
         "properties": {
@@ -881,6 +965,15 @@
         ],
         "title": "HoldoutPayload",
         "type": "object"
+      },
+      "HoldoutSortBy": {
+        "enum": [
+          "created_at",
+          "holdout_start",
+          "sharpe_ratio"
+        ],
+        "title": "HoldoutSortBy",
+        "type": "string"
       },
       "HpoDetail": {
         "properties": {
@@ -981,6 +1074,54 @@
           "live_job_id"
         ],
         "title": "HpoDetail",
+        "type": "object"
+      },
+      "HpoSortBy": {
+        "enum": [
+          "created_at",
+          "best_value"
+        ],
+        "title": "HpoSortBy",
+        "type": "string"
+      },
+      "HpoStudiesPage": {
+        "description": "Paginated envelope for `/api/hpo`.\n\n``stores`` enumerates the distinct stores across the full visible set so\nthe store filter dropdown stays populated under server-side pagination.",
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/HpoSummary"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "limit": {
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "title": "Offset",
+            "type": "integer"
+          },
+          "stores": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Stores",
+            "type": "array"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset",
+          "stores"
+        ],
+        "title": "HpoStudiesPage",
         "type": "object"
       },
       "HpoSummary": {
@@ -2307,6 +2448,46 @@
         "title": "StrategySchema",
         "type": "object"
       },
+      "StudiesPage": {
+        "description": "Paginated envelope for `/api/studies`.\n\n``specs`` enumerates the distinct spec names across the full visible set so\nthe spec filter dropdown stays populated under server-side pagination.",
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/StudySummary"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "limit": {
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "title": "Offset",
+            "type": "integer"
+          },
+          "specs": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Specs",
+            "type": "array"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset",
+          "specs"
+        ],
+        "title": "StudiesPage",
+        "type": "object"
+      },
       "StudyConsolidatedDTO": {
         "description": "Read view of a study's consolidated report (tables + plots tree).",
         "properties": {
@@ -3133,6 +3314,62 @@
         "parameters": [
           {
             "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 500,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "strategy",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Strategy"
+            }
+          },
+          {
+            "in": "query",
+            "name": "since",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Since"
+            }
+          },
+          {
+            "in": "query",
             "name": "all",
             "required": false,
             "schema": {
@@ -3147,11 +3384,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/ComparisonSummary"
-                  },
-                  "title": "Response Get Comparisons Api Comparisons Get",
-                  "type": "array"
+                  "$ref": "#/components/schemas/ComparisonsPage"
                 }
               }
             },
@@ -4248,6 +4481,84 @@
         "parameters": [
           {
             "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 500,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "sort_by",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/HoldoutSortBy",
+              "default": "created_at"
+            }
+          },
+          {
+            "in": "query",
+            "name": "order",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/SortOrder",
+              "default": "desc"
+            }
+          },
+          {
+            "in": "query",
+            "name": "source_kind",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "run",
+                    "hpo"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Source Kind"
+            }
+          },
+          {
+            "in": "query",
+            "name": "since",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Since"
+            }
+          },
+          {
+            "in": "query",
             "name": "all",
             "required": false,
             "schema": {
@@ -4262,11 +4573,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/HoldoutEvalSummary"
-                  },
-                  "title": "Response Get Holdout Evals Api Holdout Evals Get",
-                  "type": "array"
+                  "$ref": "#/components/schemas/HoldoutEvalsPage"
                 }
               }
             },
@@ -4386,6 +4693,80 @@
         "parameters": [
           {
             "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 500,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "sort_by",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/HpoSortBy",
+              "default": "created_at"
+            }
+          },
+          {
+            "in": "query",
+            "name": "order",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/SortOrder",
+              "default": "desc"
+            }
+          },
+          {
+            "in": "query",
+            "name": "store",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Store"
+            }
+          },
+          {
+            "in": "query",
+            "name": "since",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Since"
+            }
+          },
+          {
+            "in": "query",
             "name": "all",
             "required": false,
             "schema": {
@@ -4400,11 +4781,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/HpoSummary"
-                  },
-                  "title": "Response Get Hpo Studies Api Hpo Get",
-                  "type": "array"
+                  "$ref": "#/components/schemas/HpoStudiesPage"
                 }
               }
             },
@@ -5191,6 +5568,62 @@
         "parameters": [
           {
             "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 500,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "spec",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Spec"
+            }
+          },
+          {
+            "in": "query",
+            "name": "since",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Since"
+            }
+          },
+          {
+            "in": "query",
             "name": "all",
             "required": false,
             "schema": {
@@ -5205,11 +5638,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/StudySummary"
-                  },
-                  "title": "Response Get Studies Api Studies Get",
-                  "type": "array"
+                  "$ref": "#/components/schemas/StudiesPage"
                 }
               }
             },

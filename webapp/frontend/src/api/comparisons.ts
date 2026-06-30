@@ -8,28 +8,43 @@ import {
   type components,
 } from "./client";
 import { API_PATHS, fillPath } from "./paths";
-import { queryKeys } from "./queryKeys";
+import { queryKeys, type ComparisonsPageParams } from "./queryKeys";
 
 export type ComparisonSummary = components["schemas"]["ComparisonSummary"];
 export type ComparisonDetail = components["schemas"]["ComparisonDetail"];
+export type ComparisonsPage = components["schemas"]["ComparisonsPage"];
 export type PerStrategyStatsRow = components["schemas"]["PerStrategyStatsRow"];
 
 const LIST_STALE_TIME = 30_000;
+// Cap cache retention; paging/sort/filter combos spawn many short-lived keys.
+const LIST_GC_TIME = 60_000;
 
 export interface ComparisonsListOptions {
   allUsers?: boolean;
 }
 
-function comparisonsConfig(opts: ComparisonsListOptions): ApiQueryOptions<ComparisonSummary[]> {
+function comparisonsPageConfig(
+  params: ComparisonsPageParams,
+  opts: ComparisonsListOptions,
+): ApiQueryOptions<ComparisonsPage> {
   const allUsers = opts.allUsers ?? false;
   return {
-    queryKey: queryKeys.comparisonsList(allUsers),
+    queryKey: queryKeys.comparisonsPage({ ...params, allUsers }),
     fetcher: () =>
-      allUsers
-        ? apiClient.GET(API_PATHS.comparisons, { params: { query: { all: true } } })
-        : apiClient.GET(API_PATHS.comparisons),
+      apiClient.GET(API_PATHS.comparisons, {
+        params: {
+          query: {
+            limit: params.limit,
+            offset: params.offset,
+            ...(params.strategy !== undefined ? { strategy: params.strategy } : {}),
+            ...(params.since !== undefined ? { since: params.since } : {}),
+            ...(allUsers ? { all: true } : {}),
+          },
+        },
+      }),
     errorMsg: "Failed to load comparisons",
     staleTime: LIST_STALE_TIME,
+    gcTime: LIST_GC_TIME,
   };
 }
 
@@ -42,10 +57,11 @@ function comparisonConfig(name: string): ApiQueryOptions<ComparisonDetail> {
   };
 }
 
-export function useComparisons(
+export function useComparisonsPage(
+  params: ComparisonsPageParams,
   opts: ComparisonsListOptions = {},
-): UseQueryResult<ComparisonSummary[]> {
-  return useApiQuery(comparisonsConfig(opts));
+): UseQueryResult<ComparisonsPage> {
+  return useApiQuery(comparisonsPageConfig(params, opts));
 }
 
 export function useComparison(name: string): UseQueryResult<ComparisonDetail> {

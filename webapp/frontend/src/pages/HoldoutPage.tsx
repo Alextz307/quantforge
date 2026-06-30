@@ -1,8 +1,14 @@
 import { useMemo, useState } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useMe } from "@/api/auth";
 import { useCreateDeployment } from "@/api/deployments";
-import { useHoldoutEvals, usePrefetchHoldoutEval, type HoldoutEvalSummary } from "@/api/holdout";
+import {
+  useHoldoutEvalsPage,
+  usePrefetchHoldoutEval,
+  type HoldoutEvalsPage,
+  type HoldoutEvalSummary,
+  type HoldoutSortBy,
+} from "@/api/holdout";
 import { AllUsersToggle } from "@/components/AllUsersToggle";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -15,17 +21,18 @@ import {
 } from "@/components/FilterableTablePage";
 import { FilterSelect } from "@/components/FilterSelect";
 import { LaunchedByCell } from "@/components/LaunchedByCell";
+import { Pagination } from "@/components/Pagination";
 import { QueryRenderer } from "@/components/QueryRenderer";
-import { ALL_OPTION, uniqSorted } from "@/lib/filters";
+import { usePaginatedSearch } from "@/hooks/usePaginatedSearch";
+import { ALL_OPTION, readValidSince, withActiveOption } from "@/lib/filters";
 import { formatDateTime, formatMetric } from "@/lib/format";
 import { deploymentDetailPath, holdoutDetailPath, ROUTES } from "@/lib/routes";
 import { SOURCE_KINDS, sourceKindLabel, type SourceKind } from "@/lib/sourceKind";
 
 type SourceKindFilter = SourceKind | typeof ALL_OPTION;
-type HoldoutSortKey = "created_at" | "holdout_start" | "sharpe_ratio";
 
-const DEFAULT_SORT: SortState<HoldoutSortKey> = { sortBy: "created_at", order: "desc" };
-const SORT_KEYS: ReadonlySet<HoldoutSortKey> = new Set([
+const DEFAULT_SORT: SortState<HoldoutSortBy> = { sortBy: "created_at", order: "desc" };
+const SORT_KEYS: ReadonlySet<HoldoutSortBy> = new Set([
   "created_at",
   "holdout_start",
   "sharpe_ratio",
@@ -36,15 +43,8 @@ function isSourceKindFilter(value: string): value is SourceKindFilter {
   return value === ALL_OPTION || (SOURCE_KINDS as readonly string[]).includes(value);
 }
 
-function readValidSince(raw: string | null): string {
-  // Drop an unparseable ?since: applyFilters compares against new Date(since),
-  // and NaN makes every comparison false - silently disabling the filter.
-  if (raw === null || raw === "") return "";
-  return Number.isNaN(new Date(raw).getTime()) ? "" : raw;
-}
-
 interface HoldoutUrlState {
-  sortBy: HoldoutSortKey;
+  sortBy: HoldoutSortBy;
   order: SortOrder;
   sourceKind: SourceKindFilter;
   since: string;
@@ -58,8 +58,8 @@ function readState(params: URLSearchParams): HoldoutUrlState {
   const sourceKind = params.get("source_kind");
   return {
     sortBy:
-      sortBy && SORT_KEYS.has(sortBy as HoldoutSortKey)
-        ? (sortBy as HoldoutSortKey)
+      sortBy && SORT_KEYS.has(sortBy as HoldoutSortBy)
+        ? (sortBy as HoldoutSortBy)
         : DEFAULT_SORT.sortBy,
     order:
       order && ORDER_VALUES.has(order as SortOrder) ? (order as SortOrder) : DEFAULT_SORT.order,
@@ -68,70 +68,34 @@ function readState(params: URLSearchParams): HoldoutUrlState {
   };
 }
 
-interface HoldoutFilters {
-  sourceKind: SourceKindFilter;
-  since: string;
-}
-
-function applyFilters(
-  rows: readonly HoldoutEvalSummary[],
-  f: HoldoutFilters,
-): readonly HoldoutEvalSummary[] {
-  const sinceMs = f.since ? new Date(f.since).getTime() : null;
-  return rows.filter((r) => {
-    if (f.sourceKind !== ALL_OPTION && r.source_kind !== f.sourceKind) return false;
-    if (sinceMs != null && new Date(r.created_at).getTime() < sinceMs) return false;
-    return true;
-  });
-}
-
-function sortRows(
-  rows: readonly HoldoutEvalSummary[],
-  state: SortState<HoldoutSortKey>,
-): readonly HoldoutEvalSummary[] {
-  // In-flight evals carry ``sharpe_ratio=null``; mirror HpoPage's policy of
-  // sinking nulls to the bottom under DESC (the "best first" reading).
-  const dir = state.order === "desc" ? -1 : 1;
-  const copied = [...rows];
-  copied.sort((a, b) => {
-    if (state.sortBy === "sharpe_ratio") {
-      const av = a.sharpe_ratio;
-      const bv = b.sharpe_ratio;
-      if (av === null && bv === null) return 0;
-      if (av === null) return 1;
-      if (bv === null) return -1;
-      return (av - bv) * dir;
-    }
-    const tsField = state.sortBy === "holdout_start" ? "holdout_start" : "created_at";
-    return (new Date(a[tsField]).getTime() - new Date(b[tsField]).getTime()) * dir;
-  });
-  return copied;
-}
-
 export function HoldoutPage() {
   const me = useMe();
   const isAdmin = me.data?.role === "admin";
   const [allUsers, setAllUsers] = useState(false);
-  const query = useHoldoutEvals({ allUsers: isAdmin && allUsers });
-  const [searchParams, setSearchParams] = useSearchParams();
+  const { searchParams, limit, offset, setOffset, setParams } = usePaginatedSearch();
   const urlState = useMemo(() => readState(searchParams), [searchParams]);
-  const sortState = useMemo<SortState<HoldoutSortKey>>(
+  const sortState = useMemo<SortState<HoldoutSortBy>>(
     () => ({ sortBy: urlState.sortBy, order: urlState.order }),
     [urlState.sortBy, urlState.order],
   );
 
-  const onSortToggle = (col: HoldoutSortKey) => {
-    const next = new URLSearchParams(searchParams);
-    next.set("sort_by", col);
-    next.set("order", urlState.sortBy === col && urlState.order === "desc" ? "asc" : "desc");
-    setSearchParams(next);
-  };
+  const query = useHoldoutEvalsPage(
+    {
+      limit,
+      offset,
+      sortBy: urlState.sortBy,
+      order: urlState.order,
+      ...(urlState.sourceKind !== ALL_OPTION ? { sourceKind: urlState.sourceKind } : {}),
+      ...(urlState.since ? { since: new Date(urlState.since).toISOString() } : {}),
+    },
+    { allUsers: isAdmin && allUsers },
+  );
 
-  const updateFilter = (key: string, value: string) => {
-    const next = new URLSearchParams(searchParams);
-    if (value === "") next.delete(key);
-    else next.set(key, value);
-    setSearchParams(next);
+  const onSortToggle = (col: HoldoutSortBy) => {
+    setParams({
+      sort_by: col,
+      order: urlState.sortBy === col && urlState.order === "desc" ? "asc" : "desc",
+    });
   };
 
   return (
@@ -153,19 +117,22 @@ export function HoldoutPage() {
           testId="holdout-all-users-toggle"
         />
         <QueryRenderer query={query} errorTitle="Failed to load holdout evaluations">
-          {(rows) => (
+          {(page) => (
             <HoldoutBody
-              rows={rows}
+              page={page}
               sourceKind={urlState.sourceKind}
               since={urlState.since}
               onSourceKind={(v) => {
-                updateFilter("source_kind", v === ALL_OPTION ? "" : v);
+                setParams({ source_kind: v === ALL_OPTION ? "" : v });
               }}
               onSince={(v) => {
-                updateFilter("since", v);
+                setParams({ since: v });
               }}
               sortState={sortState}
               onSortToggle={onSortToggle}
+              limit={limit}
+              offset={offset}
+              onOffset={setOffset}
             />
           )}
         </QueryRenderer>
@@ -175,35 +142,34 @@ export function HoldoutPage() {
 }
 
 interface BodyProps {
-  rows: readonly HoldoutEvalSummary[];
+  page: HoldoutEvalsPage;
   sourceKind: SourceKindFilter;
   since: string;
   onSourceKind: (v: SourceKindFilter) => void;
   onSince: (v: string) => void;
-  sortState: SortState<HoldoutSortKey>;
-  onSortToggle: (col: HoldoutSortKey) => void;
+  sortState: SortState<HoldoutSortBy>;
+  onSortToggle: (col: HoldoutSortBy) => void;
+  limit: number;
+  offset: number;
+  onOffset: (offset: number) => void;
 }
 
 function HoldoutBody({
-  rows,
+  page,
   sourceKind,
   since,
   onSourceKind,
   onSince,
   sortState,
   onSortToggle,
+  limit,
+  offset,
+  onOffset,
 }: BodyProps) {
-  const sourceKindOptions = useMemo<SourceKind[]>(() => {
-    const present = uniqSorted(rows.map((r) => r.source_kind)) as SourceKind[];
-    // Keep the active filter selectable even when no row carries it (e.g. a
-    // shared ?source_kind= URL), so the <select> doesn't fall back to "All".
-    if (sourceKind !== ALL_OPTION && !present.includes(sourceKind)) {
-      return uniqSorted([...present, sourceKind]) as SourceKind[];
-    }
-    return present;
-  }, [rows, sourceKind]);
-  const filters = useMemo<HoldoutFilters>(() => ({ sourceKind, since }), [sourceKind, since]);
-  const sorted = useMemo(() => sortRows(rows, sortState), [rows, sortState]);
+  const sourceKindOptions = useMemo(
+    () => withActiveOption(page.source_kinds, sourceKind),
+    [page.source_kinds, sourceKind],
+  );
   const prefetchHoldoutEval = usePrefetchHoldoutEval();
   const create = useCreateDeployment();
   const navigate = useNavigate();
@@ -226,10 +192,10 @@ function HoldoutBody({
           <AlertDescription>{create.error.message}</AlertDescription>
         </Alert>
       )}
-      <FilterableTablePage<HoldoutEvalSummary, HoldoutFilters, HoldoutSortKey>
-        rows={sorted}
-        filters={filters}
-        applyFilters={applyFilters}
+      <FilterableTablePage<HoldoutEvalSummary, Record<string, never>, HoldoutSortBy>
+        rows={page.items}
+        filters={{}}
+        applyFilters={(rows) => rows}
         filterControls={
           <>
             <FilterSelect
@@ -305,6 +271,15 @@ function HoldoutBody({
           },
         ]}
       />
+      {(page.items.length > 0 || offset > 0) && (
+        <Pagination
+          total={page.total}
+          limit={limit}
+          offset={offset}
+          count={page.items.length}
+          onOffset={onOffset}
+        />
+      )}
     </div>
   );
 }

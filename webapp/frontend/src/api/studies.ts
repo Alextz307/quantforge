@@ -9,30 +9,45 @@ import {
 } from "./client";
 import { extractApiError } from "./errors";
 import { API_PATHS, fillPath, wsUrlFor } from "./paths";
-import { queryKeys } from "./queryKeys";
+import { queryKeys, type StudiesPageParams } from "./queryKeys";
 
 export type StudySummary = components["schemas"]["StudySummary"];
 export type StudyDetail = components["schemas"]["StudyDetail"];
+export type StudiesPage = components["schemas"]["StudiesPage"];
 export type LegStateRow = components["schemas"]["LegStateRow"];
 export type StudyConsolidatedDTO = components["schemas"]["StudyConsolidatedDTO"];
 
 const LIST_STALE_TIME = 30_000;
+// Cap cache retention; paging/sort/filter combos spawn many short-lived keys.
+const LIST_GC_TIME = 60_000;
 const STUDY_DETAIL_STALE_TIME = 10_000;
 
 export interface StudiesListOptions {
   allUsers?: boolean;
 }
 
-function studiesConfig(opts: StudiesListOptions): ApiQueryOptions<StudySummary[]> {
+function studiesPageConfig(
+  params: StudiesPageParams,
+  opts: StudiesListOptions,
+): ApiQueryOptions<StudiesPage> {
   const allUsers = opts.allUsers ?? false;
   return {
-    queryKey: queryKeys.studiesList(allUsers),
+    queryKey: queryKeys.studiesPage({ ...params, allUsers }),
     fetcher: () =>
-      allUsers
-        ? apiClient.GET(API_PATHS.studies, { params: { query: { all: true } } })
-        : apiClient.GET(API_PATHS.studies),
+      apiClient.GET(API_PATHS.studies, {
+        params: {
+          query: {
+            limit: params.limit,
+            offset: params.offset,
+            ...(params.spec !== undefined ? { spec: params.spec } : {}),
+            ...(params.since !== undefined ? { since: params.since } : {}),
+            ...(allUsers ? { all: true } : {}),
+          },
+        },
+      }),
     errorMsg: "Failed to load studies",
     staleTime: LIST_STALE_TIME,
+    gcTime: LIST_GC_TIME,
   };
 }
 
@@ -54,8 +69,11 @@ function studyConsolidatedConfig(name: string): ApiQueryOptions<StudyConsolidate
   };
 }
 
-export function useStudies(opts: StudiesListOptions = {}): UseQueryResult<StudySummary[]> {
-  return useApiQuery(studiesConfig(opts));
+export function useStudiesPage(
+  params: StudiesPageParams,
+  opts: StudiesListOptions = {},
+): UseQueryResult<StudiesPage> {
+  return useApiQuery(studiesPageConfig(params, opts));
 }
 
 export function useStudy(name: string): UseQueryResult<StudyDetail> {

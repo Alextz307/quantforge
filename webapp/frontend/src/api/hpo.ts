@@ -2,21 +2,26 @@ import { useCallback } from "react";
 import { useQueryClient, type UseQueryResult } from "@tanstack/react-query";
 import {
   apiClient,
+  MAX_PAGE_LIMIT,
   prefetchApiQuery,
   useApiQuery,
   type ApiQueryOptions,
   type components,
 } from "./client";
 import { API_PATHS, wsUrlFor } from "./paths";
-import { queryKeys } from "./queryKeys";
+import { queryKeys, type HpoStudiesPageParams } from "./queryKeys";
 
 export type HpoSummary = components["schemas"]["HpoSummary"];
 export type HpoDetail = components["schemas"]["HpoDetail"];
+export type HpoStudiesPage = components["schemas"]["HpoStudiesPage"];
+export type HpoSortBy = components["schemas"]["HpoSortBy"];
 export type TrialRow = components["schemas"]["TrialRow"];
 export type StudyDirection = components["schemas"]["StudyDirection"];
 export type ParamImportanceResponse = components["schemas"]["ParamImportanceResponse"];
 
 const LIST_STALE_TIME = 30_000;
+// Cap cache retention; paging/sort/filter combos spawn many short-lived keys.
+const LIST_GC_TIME = 60_000;
 const STUDY_LIVE_REFETCH_MS = 3_000;
 const IMPORTANCE_LIVE_REFETCH_MS = 30_000;
 
@@ -24,16 +29,47 @@ export interface HpoStudiesListOptions {
   allUsers?: boolean;
 }
 
-function hpoStudiesConfig(opts: HpoStudiesListOptions): ApiQueryOptions<HpoSummary[]> {
+function hpoStudiesConfig(
+  opts: HpoStudiesListOptions,
+): ApiQueryOptions<HpoStudiesPage, HpoSummary[]> {
+  // The holdout-source picker wants the whole visible set; request the max page.
   const allUsers = opts.allUsers ?? false;
   return {
-    queryKey: queryKeys.hpoStudiesList(allUsers),
+    queryKey: queryKeys.hpoStudiesPicker({ allUsers }),
     fetcher: () =>
-      allUsers
-        ? apiClient.GET(API_PATHS.hpoStudies, { params: { query: { all: true } } })
-        : apiClient.GET(API_PATHS.hpoStudies),
+      apiClient.GET(API_PATHS.hpoStudies, {
+        params: { query: { limit: MAX_PAGE_LIMIT, ...(allUsers ? { all: true } : {}) } },
+      }),
     errorMsg: "Failed to load HPO studies",
     staleTime: LIST_STALE_TIME,
+    select: (page) => page.items,
+  };
+}
+
+function hpoStudiesPageConfig(
+  params: HpoStudiesPageParams,
+  opts: HpoStudiesListOptions,
+): ApiQueryOptions<HpoStudiesPage> {
+  const allUsers = opts.allUsers ?? false;
+  return {
+    queryKey: queryKeys.hpoStudiesPage({ ...params, allUsers }),
+    fetcher: () =>
+      apiClient.GET(API_PATHS.hpoStudies, {
+        params: {
+          query: {
+            limit: params.limit,
+            offset: params.offset,
+            sort_by: params.sortBy,
+            order: params.order,
+            ...(params.store !== undefined ? { store: params.store } : {}),
+            ...(params.since !== undefined ? { since: params.since } : {}),
+            ...(allUsers ? { all: true } : {}),
+          },
+        },
+      }),
+    errorMsg: "Failed to load HPO studies",
+    staleTime: LIST_STALE_TIME,
+    gcTime: LIST_GC_TIME,
   };
 }
 
@@ -70,6 +106,13 @@ function hpoParamImportanceConfig(
     staleTime: Infinity,
     refetchInterval: isLive ? IMPORTANCE_LIVE_REFETCH_MS : false,
   };
+}
+
+export function useHpoStudiesPage(
+  params: HpoStudiesPageParams,
+  opts: HpoStudiesListOptions = {},
+): UseQueryResult<HpoStudiesPage> {
+  return useApiQuery(hpoStudiesPageConfig(params, opts));
 }
 
 export function useHpoStudies(opts: HpoStudiesListOptions = {}): UseQueryResult<HpoSummary[]> {

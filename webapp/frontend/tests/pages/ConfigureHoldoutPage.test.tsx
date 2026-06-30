@@ -43,26 +43,32 @@ describe("ConfigureHoldoutPage", () => {
   it("filters HPO studies to those whose best_config reserves holdout", async () => {
     server.use(
       http.get(API_PATHS.hpoStudies, () =>
-        HttpResponse.json([
-          {
-            ...HPO_DEMO_SUMMARY,
-            name: "ready_for_holdout",
-            has_best_config: true,
-            best_config_reserves_holdout: true,
-          },
-          {
-            ...HPO_DEMO_SUMMARY,
-            name: "no_best_config",
-            has_best_config: false,
-            best_config_reserves_holdout: false,
-          },
-          {
-            ...HPO_DEMO_SUMMARY,
-            name: "no_holdout_reservation",
-            has_best_config: true,
-            best_config_reserves_holdout: false,
-          },
-        ]),
+        HttpResponse.json({
+          items: [
+            {
+              ...HPO_DEMO_SUMMARY,
+              name: "ready_for_holdout",
+              has_best_config: true,
+              best_config_reserves_holdout: true,
+            },
+            {
+              ...HPO_DEMO_SUMMARY,
+              name: "no_best_config",
+              has_best_config: false,
+              best_config_reserves_holdout: false,
+            },
+            {
+              ...HPO_DEMO_SUMMARY,
+              name: "no_holdout_reservation",
+              has_best_config: true,
+              best_config_reserves_holdout: false,
+            },
+          ],
+          total: 3,
+          limit: 500,
+          offset: 0,
+          stores: [HPO_DEMO_SUMMARY.store],
+        }),
       ),
     );
     const user = userEvent.setup();

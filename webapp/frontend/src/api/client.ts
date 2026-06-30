@@ -39,6 +39,11 @@ apiClient.use(redirectOn401);
 export type { paths } from "./generated/schema";
 export type { components } from "./generated/schema";
 
+// The largest page the list endpoints accept (their FastAPI ``Query(le=...)``
+// cap). Pagination clamps a user-supplied ``?limit`` to this, and the full-list
+// pickers request exactly this many rows.
+export const MAX_PAGE_LIMIT = 500;
+
 interface ApiResponse<T> {
   data?: T;
   error?: unknown;
@@ -55,7 +60,7 @@ async function runFetch<T>(fetcher: Fetcher<T>, errorMsg: string): Promise<T> {
 
 type RefetchIntervalFn<T> = (query: Query<T, DefaultError, T>) => number | false | undefined;
 
-export interface ApiQueryOptions<T> {
+export interface ApiQueryOptions<T, S = T> {
   queryKey: QueryKey;
   fetcher: Fetcher<T>;
   errorMsg: string;
@@ -63,12 +68,16 @@ export interface ApiQueryOptions<T> {
   gcTime?: number;
   refetchInterval?: number | false | RefetchIntervalFn<T>;
   enabled?: boolean;
+  // Post-fetch transform (React Query ``select``). Lets a paginated endpoint
+  // back a full-list convenience hook by projecting the page down to its items.
+  select?: (data: T) => S;
 }
 
-export function useApiQuery<T>(opts: ApiQueryOptions<T>): UseQueryResult<T> {
-  return useQuery({
+export function useApiQuery<T, S = T>(opts: ApiQueryOptions<T, S>): UseQueryResult<S> {
+  return useQuery<T, DefaultError, S>({
     queryKey: opts.queryKey,
     queryFn: () => runFetch(opts.fetcher, opts.errorMsg),
+    ...(opts.select !== undefined ? { select: opts.select } : {}),
     ...(opts.staleTime !== undefined ? { staleTime: opts.staleTime } : {}),
     ...(opts.gcTime !== undefined ? { gcTime: opts.gcTime } : {}),
     ...(opts.refetchInterval !== undefined ? { refetchInterval: opts.refetchInterval } : {}),

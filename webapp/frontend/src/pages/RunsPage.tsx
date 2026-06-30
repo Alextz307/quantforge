@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { Link, useLocation, useSearchParams } from "react-router-dom";
 import { useMe } from "@/api/auth";
+import { MAX_PAGE_LIMIT } from "@/api/client";
 import {
   usePrefetchRun,
   useRunsPage,
@@ -9,12 +10,12 @@ import {
   type SortOrder,
 } from "@/api/runs";
 import { AllUsersToggle } from "@/components/AllUsersToggle";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FilterDate } from "@/components/FilterDate";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { LaunchedByCell } from "@/components/LaunchedByCell";
+import { Pagination } from "@/components/Pagination";
 import { QueryRenderer } from "@/components/QueryRenderer";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { formatDateTime, formatMetric } from "@/lib/format";
@@ -44,7 +45,7 @@ function readState(params: URLSearchParams): RunsPageState {
   const sortBy = params.get("sort_by");
   const order = params.get("order");
   return {
-    limit: Number.isFinite(limit) && limit > 0 ? limit : DEFAULT_LIMIT,
+    limit: Number.isFinite(limit) && limit > 0 ? Math.min(limit, MAX_PAGE_LIMIT) : DEFAULT_LIMIT,
     offset: Number.isFinite(offset) && offset >= 0 ? offset : 0,
     sortBy:
       sortBy && SORT_BY_VALUES.has(sortBy as RunSortBy) ? (sortBy as RunSortBy) : "created_at",
@@ -158,11 +159,8 @@ export function RunsPage() {
               page={page}
               state={state}
               onToggleSort={toggleSort}
-              onPrev={() => {
-                updateParam("offset", String(Math.max(0, state.offset - state.limit)));
-              }}
-              onNext={() => {
-                updateParam("offset", String(state.offset + state.limit));
+              onOffset={(next) => {
+                updateParam("offset", String(next));
               }}
             />
           )}
@@ -176,95 +174,88 @@ interface RunsBodyProps {
   page: RunsPage;
   state: RunsPageState;
   onToggleSort: (col: RunSortBy) => void;
-  onPrev: () => void;
-  onNext: () => void;
+  onOffset: (offset: number) => void;
 }
 
-function RunsBody({ page, state, onToggleSort, onPrev, onNext }: RunsBodyProps) {
+function RunsBody({ page, state, onToggleSort, onOffset }: RunsBodyProps) {
   const prefetchRun = usePrefetchRun();
   const location = useLocation();
   const fromUrl = location.pathname + location.search;
   const { items, total, offset } = page;
-  const start = total === 0 ? 0 : offset + 1;
-  const end = Math.min(total, offset + items.length);
-  const hasPrev = offset > 0;
-  const hasNext = offset + items.length < total;
-
-  if (items.length === 0) {
-    return <p className="text-sm text-muted-foreground">No runs match the current filters.</p>;
-  }
 
   return (
     <>
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm" data-testid="runs-table">
-          <thead>
-            <tr className="border-b text-left text-muted-foreground">
-              <th className="py-2 pr-4">Name</th>
-              <th className="py-2 pr-4 font-mono">Strategy</th>
-              <th className="py-2 pr-4 font-mono">Tickers</th>
-              <th className="py-2 pr-4 font-mono">Interval</th>
-              <SortableHeader
-                label="Created"
-                col="created_at"
-                state={state}
-                onToggle={onToggleSort}
-              />
-              <SortableHeader
-                label="Sharpe"
-                col="sharpe_mean"
-                state={state}
-                onToggle={onToggleSort}
-                align="right"
-              />
-              <th className="py-2 pr-0">Launched by</th>
-            </tr>
-          </thead>
-          <tbody>
-            {items.map((r) => (
-              <tr
-                key={r.experiment_id}
-                className="border-b last:border-0"
-                onMouseEnter={() => {
-                  prefetchRun(r.experiment_id);
-                }}
-              >
-                <td className="py-2 pr-4">
-                  <Link
-                    to={runDetailPath(r.experiment_id)}
-                    state={{ from: fromUrl }}
-                    className="text-primary hover:underline"
-                  >
-                    {r.name}
-                  </Link>
-                </td>
-                <td className="py-2 pr-4 font-mono">{r.strategy}</td>
-                <td className="py-2 pr-4 font-mono">{r.tickers.join(", ")}</td>
-                <td className="py-2 pr-4 font-mono">{r.interval}</td>
-                <td className="py-2 pr-4 font-mono text-xs">{formatDateTime(r.created_at)}</td>
-                <td className="py-2 pr-4 text-right font-mono">{formatMetric(r.sharpe_mean, 3)}</td>
-                <td className="py-2 pr-0">
-                  <LaunchedByCell username={r.launched_by_username} />
-                </td>
+      {items.length === 0 ? (
+        <p className="text-sm text-muted-foreground">No runs match the current filters.</p>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm" data-testid="runs-table">
+            <thead>
+              <tr className="border-b text-left text-muted-foreground">
+                <th className="py-2 pr-4">Name</th>
+                <th className="py-2 pr-4 font-mono">Strategy</th>
+                <th className="py-2 pr-4 font-mono">Tickers</th>
+                <th className="py-2 pr-4 font-mono">Interval</th>
+                <SortableHeader
+                  label="Created"
+                  col="created_at"
+                  state={state}
+                  onToggle={onToggleSort}
+                />
+                <SortableHeader
+                  label="Sharpe"
+                  col="sharpe_mean"
+                  state={state}
+                  onToggle={onToggleSort}
+                  align="right"
+                />
+                <th className="py-2 pr-0">Launched by</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      <div className="flex items-center justify-between text-sm text-muted-foreground">
-        <span>
-          Showing {start}-{end} of {total}
-        </span>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" disabled={!hasPrev} onClick={onPrev}>
-            Previous
-          </Button>
-          <Button variant="outline" size="sm" disabled={!hasNext} onClick={onNext}>
-            Next
-          </Button>
+            </thead>
+            <tbody>
+              {items.map((r) => (
+                <tr
+                  key={r.experiment_id}
+                  className="border-b last:border-0"
+                  onMouseEnter={() => {
+                    prefetchRun(r.experiment_id);
+                  }}
+                >
+                  <td className="py-2 pr-4">
+                    <Link
+                      to={runDetailPath(r.experiment_id)}
+                      state={{ from: fromUrl }}
+                      className="text-primary hover:underline"
+                    >
+                      {r.name}
+                    </Link>
+                  </td>
+                  <td className="py-2 pr-4 font-mono">{r.strategy}</td>
+                  <td className="py-2 pr-4 font-mono">{r.tickers.join(", ")}</td>
+                  <td className="py-2 pr-4 font-mono">{r.interval}</td>
+                  <td className="py-2 pr-4 font-mono text-xs">{formatDateTime(r.created_at)}</td>
+                  <td className="py-2 pr-4 text-right font-mono">
+                    {formatMetric(r.sharpe_mean, 3)}
+                  </td>
+                  <td className="py-2 pr-0">
+                    <LaunchedByCell username={r.launched_by_username} />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
-      </div>
+      )}
+
+      {(items.length > 0 || offset > 0) && (
+        <Pagination
+          total={total}
+          limit={state.limit}
+          offset={offset}
+          count={items.length}
+          onOffset={onOffset}
+        />
+      )}
     </>
   );
 }

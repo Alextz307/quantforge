@@ -17,6 +17,9 @@ EXPECTED_HPO_COUNT = 1
 EXPECTED_N_TRIALS = 3
 EXPECTED_DIRECTION = "maximize"
 AFTER_TRIAL_FILTER = 0
+OFFSET_BEYOND_RANGE = 100
+LIMIT_ABOVE_CAP = 501
+FUTURE_SINCE = "2099-01-01T00:00:00Z"
 
 
 def test_list_requires_auth(client: TestClient, webapp_store: Path) -> None:
@@ -28,11 +31,40 @@ def test_list_returns_hpo_summary(authed_client: TestClient, webapp_store: Path)
 
     assert response.status_code == HTTPStatus.OK
     payload = response.json()
-    assert len(payload) == EXPECTED_HPO_COUNT
-    assert payload[0]["name"] == EXPECTED_NAME
-    assert payload[0]["store"] == EXPECTED_STORE
-    assert payload[0]["n_trials"] == EXPECTED_N_TRIALS
-    assert payload[0]["direction"] == EXPECTED_DIRECTION
+    items = payload["items"]
+    assert len(items) == EXPECTED_HPO_COUNT
+    assert payload["total"] == EXPECTED_HPO_COUNT
+    assert payload["stores"] == [EXPECTED_STORE]
+    assert items[0]["name"] == EXPECTED_NAME
+    assert items[0]["store"] == EXPECTED_STORE
+    assert items[0]["n_trials"] == EXPECTED_N_TRIALS
+    assert items[0]["direction"] == EXPECTED_DIRECTION
+
+
+def test_list_offset_beyond_range_returns_empty(
+    authed_client: TestClient, webapp_store: Path
+) -> None:
+    response = authed_client.get(LIST_PATH, params={"offset": OFFSET_BEYOND_RANGE})
+
+    assert response.status_code == HTTPStatus.OK
+    payload = response.json()
+    assert payload["items"] == []
+    assert payload["total"] == EXPECTED_HPO_COUNT
+
+
+def test_list_rejects_limit_above_cap(authed_client: TestClient, webapp_store: Path) -> None:
+    response = authed_client.get(LIST_PATH, params={"limit": LIMIT_ABOVE_CAP})
+
+    assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+
+
+def test_list_future_since_excludes_all(authed_client: TestClient, webapp_store: Path) -> None:
+    response = authed_client.get(LIST_PATH, params={"since": FUTURE_SINCE})
+
+    assert response.status_code == HTTPStatus.OK
+    payload = response.json()
+    assert payload["items"] == []
+    assert payload["total"] == 0
 
 
 def test_detail_returns_best_config(authed_client: TestClient, webapp_store: Path) -> None:

@@ -5,32 +5,46 @@ Read-only HTTP endpoints over persisted comparisons.
 from __future__ import annotations
 
 import sqlite3
+from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import FileResponse
 
 from webapp.backend.app.core.deps import get_current_user, get_db
 from webapp.backend.app.core.settings import get_settings
-from webapp.backend.app.schemas.comparisons import ComparisonDetail, ComparisonSummary
+from webapp.backend.app.schemas.comparisons import ComparisonDetail, ComparisonsPage
 from webapp.backend.app.schemas.users import UserPublic
 from webapp.backend.app.services.comparison_service import (
     ComparisonNotFoundError,
     PlotNotFoundError,
     get_comparison,
-    list_comparisons,
+    list_comparisons_page,
     resolve_plot,
 )
 
 router = APIRouter(prefix="/comparisons", tags=["comparisons"])
 
 
-@router.get("", response_model=list[ComparisonSummary])
+@router.get("", response_model=ComparisonsPage)
 def get_comparisons(
+    limit: int = Query(50, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+    strategy: str | None = Query(None),
+    since: datetime | None = Query(None),
     all_users: bool = Query(False, alias="all"),
     user: UserPublic = Depends(get_current_user),
     conn: sqlite3.Connection = Depends(get_db),
-) -> list[ComparisonSummary]:
-    return list_comparisons(get_settings().store_root, conn=conn, user=user, all_users=all_users)
+) -> ComparisonsPage:
+    return list_comparisons_page(
+        get_settings().store_root,
+        conn=conn,
+        user=user,
+        all_users=all_users,
+        limit=limit,
+        offset=offset,
+        strategy=strategy,
+        since=since,
+    )
 
 
 @router.get("/{name}", response_model=ComparisonDetail)

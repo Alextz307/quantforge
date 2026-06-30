@@ -1,7 +1,12 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useMe } from "@/api/auth";
-import { useComparisons, usePrefetchComparison, type ComparisonSummary } from "@/api/comparisons";
+import {
+  useComparisonsPage,
+  usePrefetchComparison,
+  type ComparisonsPage as ComparisonsPageDto,
+  type ComparisonSummary,
+} from "@/api/comparisons";
 import { AllUsersToggle } from "@/components/AllUsersToggle";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,35 +14,41 @@ import { FilterDate } from "@/components/FilterDate";
 import { FilterableTablePage } from "@/components/FilterableTablePage";
 import { FilterSelect } from "@/components/FilterSelect";
 import { LaunchedByCell } from "@/components/LaunchedByCell";
+import { Pagination } from "@/components/Pagination";
 import { QueryRenderer } from "@/components/QueryRenderer";
-import { ALL_OPTION, uniqSorted } from "@/lib/filters";
+import { usePaginatedSearch } from "@/hooks/usePaginatedSearch";
+import { ALL_OPTION, readValidSince, withActiveOption } from "@/lib/filters";
 import { formatDateTime } from "@/lib/format";
 import { comparisonDetailPath, ROUTES } from "@/lib/routes";
 
-interface ComparisonsFilters {
+interface ComparisonsUrlState {
   strategy: string;
   since: string;
 }
 
-function applyFilters(
-  rows: readonly ComparisonSummary[],
-  f: ComparisonsFilters,
-): readonly ComparisonSummary[] {
-  const sinceMs = f.since ? new Date(f.since).getTime() : null;
-  return rows.filter((r) => {
-    if (f.strategy !== ALL_OPTION && !r.strategies.includes(f.strategy)) return false;
-    if (sinceMs != null && new Date(r.created_at).getTime() < sinceMs) return false;
-    return true;
-  });
+function readState(params: URLSearchParams): ComparisonsUrlState {
+  return {
+    strategy: params.get("strategy") ?? ALL_OPTION,
+    since: readValidSince(params.get("since")),
+  };
 }
 
 export function ComparisonsPage() {
   const me = useMe();
   const isAdmin = me.data?.role === "admin";
   const [allUsers, setAllUsers] = useState(false);
-  const query = useComparisons({ allUsers: isAdmin && allUsers });
-  const [strategy, setStrategy] = useState<string>(ALL_OPTION);
-  const [since, setSince] = useState<string>("");
+  const { searchParams, limit, offset, setOffset, setParams } = usePaginatedSearch();
+  const urlState = useMemo(() => readState(searchParams), [searchParams]);
+
+  const query = useComparisonsPage(
+    {
+      limit,
+      offset,
+      ...(urlState.strategy !== ALL_OPTION ? { strategy: urlState.strategy } : {}),
+      ...(urlState.since ? { since: new Date(urlState.since).toISOString() } : {}),
+    },
+    { allUsers: isAdmin && allUsers },
+  );
 
   return (
     <Card>
@@ -58,13 +69,20 @@ export function ComparisonsPage() {
           testId="comparisons-all-users-toggle"
         />
         <QueryRenderer query={query} errorTitle="Failed to load comparisons">
-          {(rows) => (
+          {(page) => (
             <ComparisonsBody
-              rows={rows}
-              strategy={strategy}
-              since={since}
-              onStrategy={setStrategy}
-              onSince={setSince}
+              page={page}
+              strategy={urlState.strategy}
+              since={urlState.since}
+              onStrategy={(v) => {
+                setParams({ strategy: v === ALL_OPTION ? "" : v });
+              }}
+              onSince={(v) => {
+                setParams({ since: v });
+              }}
+              limit={limit}
+              offset={offset}
+              onOffset={setOffset}
             />
           )}
         </QueryRenderer>
@@ -74,61 +92,86 @@ export function ComparisonsPage() {
 }
 
 interface BodyProps {
-  rows: readonly ComparisonSummary[];
+  page: ComparisonsPageDto;
   strategy: string;
   since: string;
   onStrategy: (v: string) => void;
   onSince: (v: string) => void;
+  limit: number;
+  offset: number;
+  onOffset: (offset: number) => void;
 }
 
-function ComparisonsBody({ rows, strategy, since, onStrategy, onSince }: BodyProps) {
-  const strategies = useMemo(() => uniqSorted(rows.flatMap((r) => r.strategies)), [rows]);
-  const filters = useMemo<ComparisonsFilters>(() => ({ strategy, since }), [strategy, since]);
+function ComparisonsBody({
+  page,
+  strategy,
+  since,
+  onStrategy,
+  onSince,
+  limit,
+  offset,
+  onOffset,
+}: BodyProps) {
+  const strategyOptions = useMemo(
+    () => withActiveOption(page.strategies, strategy),
+    [page.strategies, strategy],
+  );
   const prefetchComparison = usePrefetchComparison();
 
   return (
-    <FilterableTablePage<ComparisonSummary, ComparisonsFilters>
-      rows={rows}
-      filters={filters}
-      applyFilters={applyFilters}
-      filterControls={
-        <>
-          <FilterSelect
-            id="filter-strategy"
-            label="Strategy"
-            value={strategy}
-            onChange={onStrategy}
-            allLabel="All strategies"
-            options={strategies}
-          />
-          <FilterDate id="filter-since" label="Since" value={since} onChange={onSince} />
-        </>
-      }
-      rowKey={(r) => r.name}
-      rowName={(r) => r.name}
-      rowHref={(r) => comparisonDetailPath(r.name)}
-      rowOnHover={(r) => {
-        prefetchComparison(r.name);
-      }}
-      tableTestId="comparisons-table"
-      emptyMessage="No comparisons match the current filters."
-      columns={[
-        { header: "Store", cellClassName: "font-mono", render: (r) => r.store },
-        {
-          header: "Strategies",
-          cellClassName: "font-mono",
-          render: (r) => r.strategies.join(", "),
-        },
-        {
-          header: "Created",
-          cellClassName: "font-mono text-xs",
-          render: (r) => formatDateTime(r.created_at),
-        },
-        {
-          header: "Launched by",
-          render: (r) => <LaunchedByCell username={r.launched_by_username} />,
-        },
-      ]}
-    />
+    <div className="flex flex-col gap-4">
+      <FilterableTablePage<ComparisonSummary, Record<string, never>>
+        rows={page.items}
+        filters={{}}
+        applyFilters={(rows) => rows}
+        filterControls={
+          <>
+            <FilterSelect
+              id="filter-strategy"
+              label="Strategy"
+              value={strategy}
+              onChange={onStrategy}
+              allLabel="All strategies"
+              options={strategyOptions}
+            />
+            <FilterDate id="filter-since" label="Since" value={since} onChange={onSince} />
+          </>
+        }
+        rowKey={(r) => r.name}
+        rowName={(r) => r.name}
+        rowHref={(r) => comparisonDetailPath(r.name)}
+        rowOnHover={(r) => {
+          prefetchComparison(r.name);
+        }}
+        tableTestId="comparisons-table"
+        emptyMessage="No comparisons match the current filters."
+        columns={[
+          { header: "Store", cellClassName: "font-mono", render: (r) => r.store },
+          {
+            header: "Strategies",
+            cellClassName: "font-mono",
+            render: (r) => r.strategies.join(", "),
+          },
+          {
+            header: "Created",
+            cellClassName: "font-mono text-xs",
+            render: (r) => formatDateTime(r.created_at),
+          },
+          {
+            header: "Launched by",
+            render: (r) => <LaunchedByCell username={r.launched_by_username} />,
+          },
+        ]}
+      />
+      {(page.items.length > 0 || offset > 0) && (
+        <Pagination
+          total={page.total}
+          limit={limit}
+          offset={offset}
+          count={page.items.length}
+          onOffset={onOffset}
+        />
+      )}
+    </div>
   );
 }

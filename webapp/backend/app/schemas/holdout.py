@@ -10,11 +10,18 @@ single-pass metrics, and the holdout equity curve.
 from __future__ import annotations
 
 from datetime import datetime
+from enum import StrEnum
 
 from pydantic import BaseModel
 
 from src.engine.scenarios import SlippageScenario
 from src.orchestration.holdout_eval import SourceKind
+
+
+class HoldoutSortBy(StrEnum):
+    CREATED_AT = "created_at"
+    HOLDOUT_START = "holdout_start"
+    SHARPE_RATIO = "sharpe_ratio"
 
 
 class HoldoutEvalSummary(BaseModel):
@@ -53,3 +60,19 @@ class HoldoutEvalDetail(BaseModel):
     equity_curve: list[float]
     plots: list[str]
     launched_by_username: str | None = None
+
+
+class HoldoutEvalsPage(BaseModel):
+    """
+    Paginated envelope for `/api/holdout-evals`.
+
+    ``source_kinds`` enumerates the distinct source kinds across the full
+    visible set (independent of the current page or filters) so the filter
+    dropdown stays fully populated under server-side pagination.
+    """
+
+    items: list[HoldoutEvalSummary]
+    total: int
+    limit: int
+    offset: int
+    source_kinds: list[SourceKind]

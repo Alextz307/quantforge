@@ -42,7 +42,15 @@ describe("DeploymentsPage", () => {
       sharpe_ratio: null,
     };
     server.use(
-      http.get(API_PATHS.holdoutEvals, () => HttpResponse.json([NULL_EVAL, HOLDOUT_DEMO_SUMMARY])),
+      http.get(API_PATHS.holdoutEvals, () =>
+        HttpResponse.json({
+          items: [NULL_EVAL, HOLDOUT_DEMO_SUMMARY],
+          total: 2,
+          limit: 500,
+          offset: 0,
+          source_kinds: ["hpo", "run"],
+        }),
+      ),
     );
     const user = userEvent.setup();
     renderWithProviders(<Tree />, { initialEntries: [ROUTES.deployments] });

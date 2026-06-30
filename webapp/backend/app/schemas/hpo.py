@@ -11,6 +11,11 @@ from typing import Literal
 from pydantic import BaseModel
 
 
+class HpoSortBy(StrEnum):
+    CREATED_AT = "created_at"
+    BEST_VALUE = "best_value"
+
+
 class StudyDirection(StrEnum):
     """
     Optimization direction surfaced from the Optuna study.
@@ -72,6 +77,21 @@ class HpoDetail(BaseModel):
     best_config_reserves_holdout: bool
     live_job_id: str | None
     launched_by_username: str | None = None
+
+
+class HpoStudiesPage(BaseModel):
+    """
+    Paginated envelope for `/api/hpo`.
+
+    ``stores`` enumerates the distinct stores across the full visible set so
+    the store filter dropdown stays populated under server-side pagination.
+    """
+
+    items: list[HpoSummary]
+    total: int
+    limit: int
+    offset: int
+    stores: list[str]
 
 
 class TrialFrame(BaseModel):

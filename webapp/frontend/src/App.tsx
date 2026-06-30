@@ -4,18 +4,29 @@ import { useMe } from "@/api/auth";
 import { AppShell } from "@/components/layout/AppShell";
 import { RequireAdmin } from "@/components/auth/RequireAdmin";
 import { RequireAuth } from "@/components/auth/RequireAuth";
-import { AdminPage } from "@/pages/AdminPage";
-import { ComparisonsPage } from "@/pages/ComparisonsPage";
-import { DeploymentsPage } from "@/pages/DeploymentsPage";
-import { HoldoutPage } from "@/pages/HoldoutPage";
 import { HomePage } from "@/pages/HomePage";
-import { HpoPage } from "@/pages/HpoPage";
-import { JobsPage } from "@/pages/JobsPage";
 import { LoginPage } from "@/pages/LoginPage";
 import { NotFoundPage } from "@/pages/NotFoundPage";
-import { RunsPage } from "@/pages/RunsPage";
-import { StudiesPage } from "@/pages/StudiesPage";
 import { ROUTES } from "@/lib/routes";
+
+// List pages are lazy so their bundles load on navigation rather than weighing
+// down the initial paint of the home/login routes.
+const RunsPage = lazy(() => import("@/pages/RunsPage").then((m) => ({ default: m.RunsPage })));
+const ComparisonsPage = lazy(() =>
+  import("@/pages/ComparisonsPage").then((m) => ({ default: m.ComparisonsPage })),
+);
+const HoldoutPage = lazy(() =>
+  import("@/pages/HoldoutPage").then((m) => ({ default: m.HoldoutPage })),
+);
+const HpoPage = lazy(() => import("@/pages/HpoPage").then((m) => ({ default: m.HpoPage })));
+const StudiesPage = lazy(() =>
+  import("@/pages/StudiesPage").then((m) => ({ default: m.StudiesPage })),
+);
+const DeploymentsPage = lazy(() =>
+  import("@/pages/DeploymentsPage").then((m) => ({ default: m.DeploymentsPage })),
+);
+const JobsPage = lazy(() => import("@/pages/JobsPage").then((m) => ({ default: m.JobsPage })));
+const AdminPage = lazy(() => import("@/pages/AdminPage").then((m) => ({ default: m.AdminPage })));
 
 const RunDetailPage = lazy(() =>
   import("@/pages/RunDetailPage").then((m) => ({ default: m.RunDetailPage })),
@@ -138,7 +149,14 @@ export function App() {
             </Suspense>
           }
         />
-        <Route path={ROUTES.jobs} element={<JobsPage />} />
+        <Route
+          path={ROUTES.jobs}
+          element={
+            <Suspense fallback={<ChartFallback />}>
+              <JobsPage />
+            </Suspense>
+          }
+        />
         <Route
           path={ROUTES.jobDetail}
           element={
@@ -147,7 +165,14 @@ export function App() {
             </Suspense>
           }
         />
-        <Route path={ROUTES.runs} element={<RunsPage />} />
+        <Route
+          path={ROUTES.runs}
+          element={
+            <Suspense fallback={<ChartFallback />}>
+              <RunsPage />
+            </Suspense>
+          }
+        />
         <Route
           path={ROUTES.runDetail}
           element={
@@ -156,7 +181,14 @@ export function App() {
             </Suspense>
           }
         />
-        <Route path={ROUTES.comparisons} element={<ComparisonsPage />} />
+        <Route
+          path={ROUTES.comparisons}
+          element={
+            <Suspense fallback={<ChartFallback />}>
+              <ComparisonsPage />
+            </Suspense>
+          }
+        />
         <Route
           path={ROUTES.comparisonDetail}
           element={
@@ -165,7 +197,14 @@ export function App() {
             </Suspense>
           }
         />
-        <Route path={ROUTES.holdout} element={<HoldoutPage />} />
+        <Route
+          path={ROUTES.holdout}
+          element={
+            <Suspense fallback={<ChartFallback />}>
+              <HoldoutPage />
+            </Suspense>
+          }
+        />
         <Route
           path={ROUTES.holdoutDetail}
           element={
@@ -174,7 +213,14 @@ export function App() {
             </Suspense>
           }
         />
-        <Route path={ROUTES.studies} element={<StudiesPage />} />
+        <Route
+          path={ROUTES.studies}
+          element={
+            <Suspense fallback={<ChartFallback />}>
+              <StudiesPage />
+            </Suspense>
+          }
+        />
         <Route
           path={ROUTES.studyDetail}
           element={
@@ -183,7 +229,14 @@ export function App() {
             </Suspense>
           }
         />
-        <Route path={ROUTES.hpo} element={<HpoPage />} />
+        <Route
+          path={ROUTES.hpo}
+          element={
+            <Suspense fallback={<ChartFallback />}>
+              <HpoPage />
+            </Suspense>
+          }
+        />
         <Route
           path={ROUTES.hpoDetail}
           element={
@@ -192,7 +245,14 @@ export function App() {
             </Suspense>
           }
         />
-        <Route path={ROUTES.deployments} element={<DeploymentsPage />} />
+        <Route
+          path={ROUTES.deployments}
+          element={
+            <Suspense fallback={<ChartFallback />}>
+              <DeploymentsPage />
+            </Suspense>
+          }
+        />
         <Route
           path={ROUTES.deploymentDetail}
           element={
@@ -205,7 +265,9 @@ export function App() {
           path={ROUTES.admin}
           element={
             <RequireAdmin>
-              <AdminPage />
+              <Suspense fallback={<ChartFallback />}>
+                <AdminPage />
+              </Suspense>
             </RequireAdmin>
           }
         />

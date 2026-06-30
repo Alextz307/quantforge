@@ -58,3 +58,19 @@ class ComparisonDetail(BaseModel):
     per_strategy_stats: list[PerStrategyStatsRow]
     plots: list[str]
     launched_by_username: str | None = None
+
+
+class ComparisonsPage(BaseModel):
+    """
+    Paginated envelope for `/api/comparisons`.
+
+    ``strategies`` enumerates the distinct strategies across the full visible
+    set so the strategy filter dropdown stays populated under server-side
+    pagination.
+    """
+
+    items: list[ComparisonSummary]
+    total: int
+    limit: int
+    offset: int
+    strategies: list[str]

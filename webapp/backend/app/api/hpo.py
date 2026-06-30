@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import asyncio
 import sqlite3
+from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, WebSocketDisconnect, status
 from starlette.websockets import WebSocketState
@@ -20,17 +21,19 @@ from webapp.backend.app.core.settings import get_settings
 from webapp.backend.app.infrastructure.store import find_hpo_study_dir_by_wire_id
 from webapp.backend.app.schemas.hpo import (
     HpoDetail,
-    HpoSummary,
+    HpoSortBy,
+    HpoStudiesPage,
     ParamImportanceResponse,
     TrialRow,
 )
+from webapp.backend.app.schemas.pagination import SortOrder
 from webapp.backend.app.schemas.users import UserPublic
 from webapp.backend.app.services.hpo_service import (
     HpoStudyNotFoundError,
     find_live_job_for,
     get_hpo_study,
     get_param_importance,
-    list_hpo_studies,
+    list_hpo_studies_page,
     list_trials,
 )
 from webapp.backend.app.services.hpo_stream import tail_hpo_trials
@@ -40,13 +43,30 @@ from webapp.backend.app.services.hpo_stream import tail_hpo_trials
 router = APIRouter(prefix="/hpo", tags=["hpo"])
 
 
-@router.get("", response_model=list[HpoSummary])
+@router.get("", response_model=HpoStudiesPage)
 def get_hpo_studies(
+    limit: int = Query(50, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+    sort_by: HpoSortBy = Query(HpoSortBy.CREATED_AT),
+    order: SortOrder = Query(SortOrder.DESC),
+    store: str | None = Query(None),
+    since: datetime | None = Query(None),
     all_users: bool = Query(False, alias="all"),
     user: UserPublic = Depends(get_current_user),
     conn: sqlite3.Connection = Depends(get_db),
-) -> list[HpoSummary]:
-    return list_hpo_studies(get_settings().store_root, conn=conn, user=user, all_users=all_users)
+) -> HpoStudiesPage:
+    return list_hpo_studies_page(
+        get_settings().store_root,
+        conn=conn,
+        user=user,
+        all_users=all_users,
+        limit=limit,
+        offset=offset,
+        sort_by=sort_by,
+        order=order,
+        store=store,
+        since=since,
+    )
 
 
 @router.get("/{wire_id}", response_model=HpoDetail)

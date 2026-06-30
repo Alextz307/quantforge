@@ -1,4 +1,4 @@
-import { screen, within } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import { Route, Routes } from "react-router-dom";
@@ -29,11 +29,13 @@ describe("ComparisonsPage", () => {
     renderWithProviders(<Tree />, { initialEntries: [ROUTES.comparisons] });
 
     await screen.findByRole("link", { name: COMPARISON_DEMO_SUMMARY.name });
-    const table = screen.getByTestId("comparisons-table");
-    expect(within(table).getByText(COMPARISON_DEMO_SUMMARY.name)).toBeInTheDocument();
-
     await user.selectOptions(screen.getByLabelText(/strategy/i), RUN_IVV_VOO.strategy);
-    expect(within(table).getByText(COMPARISON_DEMO_SUMMARY.name)).toBeInTheDocument();
+
+    // The table re-renders on the filtered refetch, so re-query it fresh.
+    await waitFor(() => {
+      const table = screen.getByTestId("comparisons-table");
+      expect(within(table).getByText(COMPARISON_DEMO_SUMMARY.name)).toBeInTheDocument();
+    });
   });
 
   it("navigates to the detail page when a row link is clicked", async () => {

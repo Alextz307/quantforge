@@ -49,6 +49,21 @@ class StudyDetail(BaseModel):
     launched_by_username: str | None = None
 
 
+class StudiesPage(BaseModel):
+    """
+    Paginated envelope for `/api/studies`.
+
+    ``specs`` enumerates the distinct spec names across the full visible set so
+    the spec filter dropdown stays populated under server-side pagination.
+    """
+
+    items: list[StudySummary]
+    total: int
+    limit: int
+    offset: int
+    specs: list[str]
+
+
 class StudyConsolidatedDTO(BaseModel):
     """
     Read view of a study's consolidated report (tables + plots tree).

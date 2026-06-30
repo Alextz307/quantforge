@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import asyncio
 import sqlite3
+from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, WebSocketDisconnect, status
 from fastapi.concurrency import run_in_threadpool
@@ -21,9 +22,9 @@ from webapp.backend.app.core.deps import get_current_user, get_db
 from webapp.backend.app.core.settings import get_settings
 from webapp.backend.app.infrastructure.store import find_study_dir
 from webapp.backend.app.schemas.studies import (
+    StudiesPage,
     StudyConsolidatedDTO,
     StudyDetail,
-    StudySummary,
 )
 from webapp.backend.app.schemas.users import UserPublic
 from webapp.backend.app.services.study_service import (
@@ -34,7 +35,7 @@ from webapp.backend.app.services.study_service import (
     generate_consolidated,
     get_consolidated,
     get_study,
-    list_studies,
+    list_studies_page,
     resolve_consolidated_plot,
     resolve_consolidated_table,
 )
@@ -43,13 +44,26 @@ from webapp.backend.app.services.study_stream import tail_study_state
 router = APIRouter(prefix="/studies", tags=["studies"])
 
 
-@router.get("", response_model=list[StudySummary])
+@router.get("", response_model=StudiesPage)
 def get_studies(
+    limit: int = Query(50, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+    spec: str | None = Query(None),
+    since: datetime | None = Query(None),
     all_users: bool = Query(False, alias="all"),
     user: UserPublic = Depends(get_current_user),
     conn: sqlite3.Connection = Depends(get_db),
-) -> list[StudySummary]:
-    return list_studies(get_settings().store_root, conn=conn, user=user, all_users=all_users)
+) -> StudiesPage:
+    return list_studies_page(
+        get_settings().store_root,
+        conn=conn,
+        user=user,
+        all_users=all_users,
+        limit=limit,
+        offset=offset,
+        spec=spec,
+        since=since,
+    )
 
 
 @router.get("/{name}", response_model=StudyDetail)

@@ -25,12 +25,15 @@ from webapp.backend.app.infrastructure.store import (
 )
 from webapp.backend.app.schemas.hpo import (
     HpoDetail,
+    HpoSortBy,
+    HpoStudiesPage,
     HpoSummary,
     ParamImportanceResponse,
     StudyDirection,
     TrialRow,
 )
 from webapp.backend.app.schemas.jobs import TERMINAL_STATUSES, JobKind
+from webapp.backend.app.schemas.pagination import SortOrder
 from webapp.backend.app.schemas.users import UserPublic
 from webapp.backend.app.services._dir_cache import cached_artifact_dirs
 from webapp.backend.app.services.ownership import (
@@ -48,6 +51,7 @@ __all__ = [
     "get_hpo_study",
     "get_param_importance",
     "list_hpo_studies",
+    "list_hpo_studies_page",
     "list_trials",
     "trial_row_from_record",
 ]
@@ -59,6 +63,26 @@ _NEEDS_MORE_TRIALS_MESSAGE = (
     f"Importance available after at least {_MIN_TRIALS_FOR_IMPORTANCE} completed trials."
 )
 _DB_MISSING_MESSAGE = "Importance unavailable: optuna study DB not yet written."
+
+
+def _scoped_summaries(
+    root: Path,
+    *,
+    conn: sqlite3.Connection,
+    user: UserPublic,
+    all_users: bool,
+) -> list[HpoSummary]:
+    summaries: list[HpoSummary] = []
+    for study_dir in cached_artifact_dirs(root, "hpo", iter_hpo_study_dirs):
+        trials = json_io.read_jsonl(study_dir / TRIALS_JSONL_NAME)
+        summaries.append(_summary_from_trials(study_dir, trials, root))
+    return scope_and_stamp_summaries(
+        summaries,
+        key_fn=lambda s: _top_level_basename(s.wire_id),
+        conn=conn,
+        user=user,
+        all_users=all_users,
+    )
 
 
 def list_hpo_studies(
@@ -76,19 +100,63 @@ def list_hpo_studies(
     have no per-leg TUNE row and are always visible (ownerless = shared).
     """
 
-    summaries: list[HpoSummary] = []
-    for study_dir in cached_artifact_dirs(root, "hpo", iter_hpo_study_dirs):
-        trials = json_io.read_jsonl(study_dir / TRIALS_JSONL_NAME)
-        summaries.append(_summary_from_trials(study_dir, trials, root))
-    scoped = scope_and_stamp_summaries(
-        summaries,
-        key_fn=lambda s: _top_level_basename(s.wire_id),
-        conn=conn,
-        user=user,
-        all_users=all_users,
-    )
+    scoped = _scoped_summaries(root, conn=conn, user=user, all_users=all_users)
     scoped.sort(key=lambda s: s.created_at, reverse=True)
     return scoped
+
+
+def list_hpo_studies_page(
+    root: Path,
+    *,
+    conn: sqlite3.Connection,
+    user: UserPublic,
+    all_users: bool,
+    limit: int,
+    offset: int,
+    sort_by: HpoSortBy,
+    order: SortOrder,
+    store: str | None = None,
+    since: datetime | None = None,
+) -> HpoStudiesPage:
+    """
+    Paginated + sorted + filtered HPO-study listing.
+
+    ``stores`` is computed over the full visible set before filtering so the
+    dropdown can offer every store regardless of the current page.
+    """
+
+    scoped = _scoped_summaries(root, conn=conn, user=user, all_users=all_users)
+    stores = sorted({s.store for s in scoped})
+    filtered = [s for s in scoped if _matches(s, store, since)]
+    _sort(filtered, sort_by, order)
+    page = filtered[offset : offset + limit]
+    return HpoStudiesPage(
+        items=page, total=len(filtered), limit=limit, offset=offset, stores=stores
+    )
+
+
+def _matches(row: HpoSummary, store: str | None, since: datetime | None) -> bool:
+    if store is not None and row.store != store:
+        return False
+    if since is not None and row.created_at < since:
+        return False
+    return True
+
+
+def _sort(rows: list[HpoSummary], sort_by: HpoSortBy, order: SortOrder) -> None:
+    reverse = order is SortOrder.DESC
+    if sort_by is HpoSortBy.CREATED_AT:
+        rows.sort(key=lambda r: r.created_at, reverse=reverse)
+        return
+    # Studies with no completed trials carry ``best_value=None``; sink them last
+    # under BOTH directions by folding direction into the value sign.
+    sign = -1.0 if reverse else 1.0
+    rows.sort(
+        key=lambda r: (
+            r.best_value is None,
+            sign * r.best_value if r.best_value is not None else 0.0,
+        )
+    )
 
 
 def get_hpo_study(

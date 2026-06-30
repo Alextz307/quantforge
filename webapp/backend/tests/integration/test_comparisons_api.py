@@ -14,6 +14,9 @@ EXPECTED_NAME = "flat_compare"
 EXPECTED_STRATEGIES = {"AdaptiveBollinger", "PairsTrading"}
 EXPECTED_RUN_COUNT = 1
 PLOT_NAME = "equity.png"
+OFFSET_BEYOND_RANGE = 100
+LIMIT_ABOVE_CAP = 501
+FUTURE_SINCE = "2099-01-01T00:00:00Z"
 
 
 def test_list_requires_auth(client: TestClient, webapp_store: Path) -> None:
@@ -25,9 +28,38 @@ def test_list_returns_comparison_summary(authed_client: TestClient, webapp_store
 
     assert response.status_code == HTTPStatus.OK
     payload = response.json()
-    assert len(payload) == EXPECTED_RUN_COUNT
-    assert payload[0]["name"] == EXPECTED_NAME
-    assert set(payload[0]["strategies"]) == EXPECTED_STRATEGIES
+    items = payload["items"]
+    assert len(items) == EXPECTED_RUN_COUNT
+    assert payload["total"] == EXPECTED_RUN_COUNT
+    assert set(payload["strategies"]) == EXPECTED_STRATEGIES
+    assert items[0]["name"] == EXPECTED_NAME
+    assert set(items[0]["strategies"]) == EXPECTED_STRATEGIES
+
+
+def test_list_offset_beyond_range_returns_empty(
+    authed_client: TestClient, webapp_store: Path
+) -> None:
+    response = authed_client.get(LIST_PATH, params={"offset": OFFSET_BEYOND_RANGE})
+
+    assert response.status_code == HTTPStatus.OK
+    payload = response.json()
+    assert payload["items"] == []
+    assert payload["total"] == EXPECTED_RUN_COUNT
+
+
+def test_list_rejects_limit_above_cap(authed_client: TestClient, webapp_store: Path) -> None:
+    response = authed_client.get(LIST_PATH, params={"limit": LIMIT_ABOVE_CAP})
+
+    assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+
+
+def test_list_future_since_excludes_all(authed_client: TestClient, webapp_store: Path) -> None:
+    response = authed_client.get(LIST_PATH, params={"since": FUTURE_SINCE})
+
+    assert response.status_code == HTTPStatus.OK
+    payload = response.json()
+    assert payload["items"] == []
+    assert payload["total"] == 0
 
 
 def test_detail_returns_full_payload(authed_client: TestClient, webapp_store: Path) -> None:

@@ -579,6 +579,29 @@ function isKnownDeployment(id: unknown): boolean {
   return id === DEPLOY_SPY.id || id === DEPLOY_NEW_ID;
 }
 
+function uniqueSorted(values: readonly string[]): string[] {
+  return Array.from(new Set(values)).sort();
+}
+
+// Mirror the backend list envelope: filter/sort happen in the handler, ``items``
+// is the requested page slice, and ``total`` plus the facet lists describe the
+// full (pre-page) set so the frontend dropdowns stay populated.
+function pageEnvelope(
+  rows: readonly unknown[],
+  url: URL,
+  facets: Record<string, readonly string[]>,
+): Response {
+  const limit = Number.parseInt(url.searchParams.get("limit") ?? "50", 10);
+  const offset = Number.parseInt(url.searchParams.get("offset") ?? "0", 10);
+  return HttpResponse.json({
+    items: rows.slice(offset, offset + limit),
+    total: rows.length,
+    limit,
+    offset,
+    ...facets,
+  });
+}
+
 export const handlers = [
   http.get("/api/auth/me", () => HttpResponse.json(ADMIN_USER)),
   http.post("/api/auth/login", () => HttpResponse.json(ADMIN_USER)),
@@ -620,18 +643,39 @@ export const handlers = [
       return HttpResponse.json(RUN_FEATURE_IMPORTANCE_EMPTY);
     return new HttpResponse(null, { status: 404 });
   }),
-  http.get(API_PATHS.comparisons, () => HttpResponse.json(SEED_COMPARISONS)),
+  http.get(API_PATHS.comparisons, ({ request }) => {
+    const url = new URL(request.url);
+    const strategy = url.searchParams.get("strategy");
+    const strategies = uniqueSorted(SEED_COMPARISONS.flatMap((r) => r.strategies));
+    let rows = [...SEED_COMPARISONS];
+    if (strategy) rows = rows.filter((r) => r.strategies.includes(strategy));
+    return pageEnvelope(rows, url, { strategies });
+  }),
   http.get(toMswPath(API_PATHS.comparison), ({ params }) => {
     if (params.name === COMPARISON_DEMO_SUMMARY.name)
       return HttpResponse.json(COMPARISON_DEMO_DETAIL);
     return new HttpResponse(null, { status: 404 });
   }),
-  http.get(API_PATHS.holdoutEvals, () => HttpResponse.json(SEED_HOLDOUT_EVALS)),
+  http.get(API_PATHS.holdoutEvals, ({ request }) => {
+    const url = new URL(request.url);
+    const sourceKind = url.searchParams.get("source_kind");
+    const source_kinds = uniqueSorted(SEED_HOLDOUT_EVALS.map((r) => r.source_kind));
+    let rows = [...SEED_HOLDOUT_EVALS];
+    if (sourceKind) rows = rows.filter((r) => r.source_kind === sourceKind);
+    return pageEnvelope(rows, url, { source_kinds });
+  }),
   http.get(toMswPath(API_PATHS.holdoutEval), ({ params }) => {
     if (params.name === HOLDOUT_DEMO_SUMMARY.name) return HttpResponse.json(HOLDOUT_DEMO_DETAIL);
     return new HttpResponse(null, { status: 404 });
   }),
-  http.get(API_PATHS.studies, () => HttpResponse.json(SEED_STUDIES)),
+  http.get(API_PATHS.studies, ({ request }) => {
+    const url = new URL(request.url);
+    const spec = url.searchParams.get("spec");
+    const specs = uniqueSorted(SEED_STUDIES.map((r) => r.spec_name));
+    let rows = [...SEED_STUDIES];
+    if (spec) rows = rows.filter((r) => r.spec_name === spec);
+    return pageEnvelope(rows, url, { specs });
+  }),
   http.get(toMswPath(API_PATHS.study), ({ params }) => {
     if (params.name === STUDY_DEMO_SUMMARY.name) return HttpResponse.json(STUDY_DEMO_DETAIL);
     return new HttpResponse(null, { status: 404 });
@@ -640,7 +684,14 @@ export const handlers = [
     if (params.name === STUDY_DEMO_SUMMARY.name) return HttpResponse.json(STUDY_CONSOLIDATED_DEMO);
     return new HttpResponse(null, { status: 404 });
   }),
-  http.get(API_PATHS.hpoStudies, () => HttpResponse.json(SEED_HPO_STUDIES)),
+  http.get(API_PATHS.hpoStudies, ({ request }) => {
+    const url = new URL(request.url);
+    const store = url.searchParams.get("store");
+    const stores = uniqueSorted(SEED_HPO_STUDIES.map((r) => r.store));
+    let rows = [...SEED_HPO_STUDIES];
+    if (store) rows = rows.filter((r) => r.store === store);
+    return pageEnvelope(rows, url, { stores });
+  }),
   http.get(toMswPath(API_PATHS.hpoStudy), ({ params }) => {
     if (params.wire_id === HPO_DEMO_SUMMARY.wire_id) return HttpResponse.json(HPO_DEMO_DETAIL);
     return new HttpResponse(null, { status: 404 });

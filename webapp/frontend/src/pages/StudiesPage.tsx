@@ -1,38 +1,52 @@
 import { useMemo, useState } from "react";
 import { useMe } from "@/api/auth";
-import { useStudies, usePrefetchStudy, type StudySummary } from "@/api/studies";
+import {
+  useStudiesPage,
+  usePrefetchStudy,
+  type StudiesPage as StudiesPageDto,
+  type StudySummary,
+} from "@/api/studies";
 import { AllUsersToggle } from "@/components/AllUsersToggle";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FilterDate } from "@/components/FilterDate";
 import { FilterableTablePage } from "@/components/FilterableTablePage";
 import { FilterSelect } from "@/components/FilterSelect";
 import { LaunchedByCell } from "@/components/LaunchedByCell";
+import { Pagination } from "@/components/Pagination";
 import { QueryRenderer } from "@/components/QueryRenderer";
-import { ALL_OPTION, uniqSorted } from "@/lib/filters";
+import { usePaginatedSearch } from "@/hooks/usePaginatedSearch";
+import { ALL_OPTION, readValidSince, withActiveOption } from "@/lib/filters";
 import { formatDateTime, formatPercent } from "@/lib/format";
 import { studyDetailPath } from "@/lib/routes";
 
-interface StudiesFilters {
+interface StudiesUrlState {
   spec: string;
   since: string;
 }
 
-function applyFilters(rows: readonly StudySummary[], f: StudiesFilters): readonly StudySummary[] {
-  const sinceMs = f.since ? new Date(f.since).getTime() : null;
-  return rows.filter((r) => {
-    if (f.spec !== ALL_OPTION && r.spec_name !== f.spec) return false;
-    if (sinceMs != null && new Date(r.started_at).getTime() < sinceMs) return false;
-    return true;
-  });
+function readState(params: URLSearchParams): StudiesUrlState {
+  return {
+    spec: params.get("spec") ?? ALL_OPTION,
+    since: readValidSince(params.get("since")),
+  };
 }
 
 export function StudiesPage() {
   const me = useMe();
   const isAdmin = me.data?.role === "admin";
   const [allUsers, setAllUsers] = useState(false);
-  const query = useStudies({ allUsers: isAdmin && allUsers });
-  const [spec, setSpec] = useState<string>(ALL_OPTION);
-  const [since, setSince] = useState<string>("");
+  const { searchParams, limit, offset, setOffset, setParams } = usePaginatedSearch();
+  const urlState = useMemo(() => readState(searchParams), [searchParams]);
+
+  const query = useStudiesPage(
+    {
+      limit,
+      offset,
+      ...(urlState.spec !== ALL_OPTION ? { spec: urlState.spec } : {}),
+      ...(urlState.since ? { since: new Date(urlState.since).toISOString() } : {}),
+    },
+    { allUsers: isAdmin && allUsers },
+  );
 
   return (
     <Card>
@@ -48,13 +62,20 @@ export function StudiesPage() {
           testId="studies-all-users-toggle"
         />
         <QueryRenderer query={query} errorTitle="Failed to load studies">
-          {(rows) => (
+          {(page) => (
             <StudiesBody
-              rows={rows}
-              spec={spec}
-              since={since}
-              onSpec={setSpec}
-              onSince={setSince}
+              page={page}
+              spec={urlState.spec}
+              since={urlState.since}
+              onSpec={(v) => {
+                setParams({ spec: v === ALL_OPTION ? "" : v });
+              }}
+              onSince={(v) => {
+                setParams({ since: v });
+              }}
+              limit={limit}
+              offset={offset}
+              onOffset={setOffset}
             />
           )}
         </QueryRenderer>
@@ -64,68 +85,81 @@ export function StudiesPage() {
 }
 
 interface BodyProps {
-  rows: readonly StudySummary[];
+  page: StudiesPageDto;
   spec: string;
   since: string;
   onSpec: (v: string) => void;
   onSince: (v: string) => void;
+  limit: number;
+  offset: number;
+  onOffset: (offset: number) => void;
 }
 
-function StudiesBody({ rows, spec, since, onSpec, onSince }: BodyProps) {
-  const specs = useMemo(() => uniqSorted(rows.map((r) => r.spec_name)), [rows]);
-  const filters = useMemo<StudiesFilters>(() => ({ spec, since }), [spec, since]);
+function StudiesBody({ page, spec, since, onSpec, onSince, limit, offset, onOffset }: BodyProps) {
+  const specOptions = useMemo(() => withActiveOption(page.specs, spec), [page.specs, spec]);
   const prefetchStudy = usePrefetchStudy();
 
   return (
-    <FilterableTablePage<StudySummary, StudiesFilters>
-      rows={rows}
-      filters={filters}
-      applyFilters={applyFilters}
-      filterControls={
-        <>
-          <FilterSelect
-            id="filter-spec"
-            label="Spec"
-            value={spec}
-            onChange={onSpec}
-            allLabel="All specs"
-            options={specs}
-          />
-          <FilterDate id="filter-since" label="Started since" value={since} onChange={onSince} />
-        </>
-      }
-      rowKey={(r) => r.name}
-      rowName={(r) => r.name}
-      rowHref={(r) => studyDetailPath(r.name)}
-      rowOnHover={(r) => {
-        prefetchStudy(r.name);
-      }}
-      tableTestId="studies-table"
-      emptyMessage="No studies match the current filters."
-      columns={[
-        { header: "Spec", cellClassName: "font-mono", render: (r) => r.spec_name },
-        {
-          header: "Legs",
-          align: "right",
-          cellClassName: "font-mono",
-          render: (r) => `${String(r.completed_legs)} / ${String(r.total_legs)}`,
-        },
-        {
-          header: "Completion",
-          align: "right",
-          cellClassName: "font-mono",
-          render: (r) => formatPercent(r.completion_pct / 100),
-        },
-        {
-          header: "Started",
-          cellClassName: "font-mono text-xs",
-          render: (r) => formatDateTime(r.started_at),
-        },
-        {
-          header: "Launched by",
-          render: (r) => <LaunchedByCell username={r.launched_by_username} />,
-        },
-      ]}
-    />
+    <div className="flex flex-col gap-4">
+      <FilterableTablePage<StudySummary, Record<string, never>>
+        rows={page.items}
+        filters={{}}
+        applyFilters={(rows) => rows}
+        filterControls={
+          <>
+            <FilterSelect
+              id="filter-spec"
+              label="Spec"
+              value={spec}
+              onChange={onSpec}
+              allLabel="All specs"
+              options={specOptions}
+            />
+            <FilterDate id="filter-since" label="Started since" value={since} onChange={onSince} />
+          </>
+        }
+        rowKey={(r) => r.name}
+        rowName={(r) => r.name}
+        rowHref={(r) => studyDetailPath(r.name)}
+        rowOnHover={(r) => {
+          prefetchStudy(r.name);
+        }}
+        tableTestId="studies-table"
+        emptyMessage="No studies match the current filters."
+        columns={[
+          { header: "Spec", cellClassName: "font-mono", render: (r) => r.spec_name },
+          {
+            header: "Legs",
+            align: "right",
+            cellClassName: "font-mono",
+            render: (r) => `${String(r.completed_legs)} / ${String(r.total_legs)}`,
+          },
+          {
+            header: "Completion",
+            align: "right",
+            cellClassName: "font-mono",
+            render: (r) => formatPercent(r.completion_pct / 100),
+          },
+          {
+            header: "Started",
+            cellClassName: "font-mono text-xs",
+            render: (r) => formatDateTime(r.started_at),
+          },
+          {
+            header: "Launched by",
+            render: (r) => <LaunchedByCell username={r.launched_by_username} />,
+          },
+        ]}
+      />
+      {(page.items.length > 0 || offset > 0) && (
+        <Pagination
+          total={page.total}
+          limit={limit}
+          offset={offset}
+          count={page.items.length}
+          onOffset={onOffset}
+        />
+      )}
+    </div>
   );
 }
