@@ -45,11 +45,13 @@ describe("DeploymentDetailPage", () => {
     expect(within(perf).getByText("1 / 3")).toBeInTheDocument(); // scored count
   });
 
-  it("shows gross and net cumulative with a cost-tier selector", async () => {
+  it("shows gross, net, and cost-drag cumulative with a cost-tier selector", async () => {
     renderDetail();
     const perf = await screen.findByTestId("signal-performance");
     expect(within(perf).getByText("1.20%")).toBeInTheDocument(); // gross cumulative
     expect(within(perf).getByText("1.16%")).toBeInTheDocument(); // net of costs
+    expect(within(perf).getByText("Cost drag")).toBeInTheDocument();
+    expect(within(perf).getByText("0.040%")).toBeInTheDocument(); // gross 1.20% - net 1.16%
     expect(screen.getByTestId("cost-tier-selector")).toBeInTheDocument();
   });
 

@@ -136,8 +136,8 @@ function Stat({ label, value }: { label: string; value: string }) {
   );
 }
 
-function pctOrDash(value: number | null): string {
-  return value === null ? "-" : formatPercent(value);
+function pctOrDash(value: number | null, digits = 2): string {
+  return value === null ? "-" : formatPercent(value, digits);
 }
 
 const COST_TIERS: readonly { value: CostScenario; label: string }[] = [
@@ -190,17 +190,29 @@ function SignalPerformanceBody({ evaluation }: { evaluation: SignalEvaluationOut
     );
   }
 
+  // Shown at finer precision than the gross/net headlines, which round the
+  // small, turnover-scaled delta away.
+  const costDrag =
+    evaluation.cumulative_return !== null && evaluation.net_cumulative_return !== null
+      ? evaluation.cumulative_return - evaluation.net_cumulative_return
+      : null;
+
   return (
     <div className="flex flex-col gap-4" data-testid="signal-performance">
       <div className="flex flex-wrap gap-x-8 gap-y-3">
         <Stat label="Hit rate" value={pctOrDash(evaluation.hit_rate)} />
         <Stat label="Cumulative (gross)" value={pctOrDash(evaluation.cumulative_return)} />
         <Stat label="Cumulative (net)" value={pctOrDash(evaluation.net_cumulative_return)} />
+        <Stat label="Cost drag" value={pctOrDash(costDrag, 3)} />
         <Stat
           label="Scored"
           value={`${String(evaluation.n_scored)} / ${String(evaluation.n_signals)}`}
         />
       </div>
+      <p className="text-xs text-muted-foreground">
+        Cost drag is the cumulative return given up to trading costs (gross minus net) at the
+        selected tier.
+      </p>
       <EquityChart
         traces={[
           { name: "Gross", equity: grossEquity },
