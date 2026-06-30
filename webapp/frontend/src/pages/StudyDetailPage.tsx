@@ -52,8 +52,7 @@ function ConsolidatedSection({ name, hasReport }: { name: string; hasReport: boo
         <CardContent className="flex flex-col gap-3">
           <p className="text-sm text-muted-foreground">
             Not yet generated. This consolidates per-leg runs, holdout evaluations, and pairwise
-            comparisons into cross-leg rankings, a strategy x universe heatmap, and a dev-vs-holdout
-            scatter.
+            comparisons into cross-leg rankings and a dev-vs-holdout scatter.
           </p>
           <div className="flex items-center gap-3">
             <Button

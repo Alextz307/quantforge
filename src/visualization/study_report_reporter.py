@@ -2,8 +2,8 @@
 Render a :class:`ConsolidatedStudyReport` to disk.
 
 Produces the cross-leg artifact tree required by the empirical-study
-writeup (master ranking, holdout-vs-dev scatter, strategy x universe
-heatmap, etc.). Output goes directly under the study directory the
+writeup (master ranking, holdout-vs-dev scatter, etc.). Output goes
+directly under the study directory the
 consolidator was pointed at - alongside the existing ``runs/`` /
 ``holdout_evals/`` / ``comparisons/`` per-leg trees the orchestrator
 wrote, NOT into a nested subdirectory. Callers commit only the
@@ -55,7 +55,6 @@ from src.visualization.plots import (
     MANIFEST_FILENAME,
     PLOTS_SUBDIR,
     TABLES_SUBDIR,
-    render_value_heatmap,
     save_png_and_svg,
 )
 
@@ -68,9 +67,7 @@ _FLOOR_BIND_FILENAME = "floor_bind_by_leg"
 _PAIRWISE_LONG_CSV_FILENAME = "pairwise_significance.csv"
 _PAIRWISE_PER_UNIVERSE_SUBDIR = "pairwise_significance"
 
-_STRATEGY_X_UNIVERSE_HEATMAP_FILENAME = "strategy_x_universe_heatmap.png"
 _HOLDOUT_DEV_SCATTER_FILENAME = "holdout_dev_scatter.png"
-_FEATURE_IMPORTANCE_HEATMAP_FILENAME = "feature_importance_heatmap.png"
 
 _EQUITY_OVERLAYS_SUBDIR = "per_universe_equity_overlays"
 _HOLDOUT_EQUITY_CURVES_SUBDIR = "holdout_equity_curves"
@@ -101,6 +98,7 @@ class StudyReportReporter:
 
         out_dir.mkdir(parents=True, exist_ok=True)
         plots_dir = out_dir / PLOTS_SUBDIR
+        plots_dir.mkdir(parents=True, exist_ok=True)
         tables_dir = out_dir / TABLES_SUBDIR
 
         slug = (
@@ -128,7 +126,6 @@ class StudyReportReporter:
         self._write_floor_bind_by_leg(report, tables_dir, slug=slug)
         self._write_pairwise_significance(report, tables_dir, slug=slug)
 
-        self._plot_strategy_x_universe_heatmap(report, plots_dir)
         self._plot_holdout_dev_scatter(report, plots_dir)
         self._plot_feature_importance(report, plots_dir)
         self._plot_asset_importance(report, plots_dir)
@@ -261,33 +258,6 @@ class StudyReportReporter:
                 label=f"tab:pairwise_{slug}_{universe}",
             )
 
-    def _plot_strategy_x_universe_heatmap(
-        self, report: ConsolidatedStudyReport, plots_dir: Path
-    ) -> None:
-        if not report.per_leg_aggregate:
-            return
-
-        strategies = report.strategies
-        universes = report.universes
-        matrix = np.full((len(strategies), len(universes)), np.nan, dtype=np.float64)
-        for i, strategy in enumerate(strategies):
-            for j, universe in enumerate(universes):
-                stats = report.per_leg_aggregate.get((strategy, universe))
-                if stats is None or stats.n_folds == 0:
-                    continue
-                matrix[i, j] = stats.sharpe_pooled
-
-        render_value_heatmap(
-            matrix,
-            row_labels=strategies,
-            col_labels=universes,
-            out_path=plots_dir / _STRATEGY_X_UNIVERSE_HEATMAP_FILENAME,
-            title="strategy x universe (pooled OOS Sharpe)",
-            xlabel="universe",
-            ylabel="strategy",
-            placeholder_log_label="strategy x universe",
-        )
-
     def _plot_holdout_dev_scatter(self, report: ConsolidatedStudyReport, plots_dir: Path) -> None:
         if not report.per_leg_holdout:
             return
@@ -345,7 +315,7 @@ class StudyReportReporter:
 
     def _plot_feature_importance(self, report: ConsolidatedStudyReport, plots_dir: Path) -> None:
         """
-        Per-strategy permutation-importance bars + a feature x strategy heatmap.
+        Per-strategy permutation-importance bars.
 
         Uses permutation importance (the model-agnostic method shared by every
         feature-consuming strategy) averaged across each strategy's universes.
@@ -387,25 +357,6 @@ class StudyReportReporter:
                 save_png_and_svg(fig, bars_dir / f"{strategy}.png")
             finally:
                 plt.close(fig)
-
-        strategies = sorted(per_strategy)
-        features = sorted({feature for means in per_strategy.values() for feature in means})
-        matrix = np.full((len(features), len(strategies)), np.nan, dtype=np.float64)
-        for j, strategy in enumerate(strategies):
-            for i, feature in enumerate(features):
-                value = per_strategy[strategy].get(feature)
-                if value is not None:
-                    matrix[i, j] = value
-        render_value_heatmap(
-            matrix,
-            row_labels=features,
-            col_labels=strategies,
-            out_path=plots_dir / _FEATURE_IMPORTANCE_HEATMAP_FILENAME,
-            title="feature x strategy (mean permutation importance)",
-            xlabel="strategy",
-            ylabel="feature",
-            placeholder_log_label="feature x strategy importance",
-        )
 
     def _plot_asset_importance(self, report: ConsolidatedStudyReport, plots_dir: Path) -> None:
         """

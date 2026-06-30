@@ -31,6 +31,13 @@ def param_importances(study: optuna.Study) -> dict[str, float]:
     here at call time rather than at module load - importing this module
     therefore costs neither Optuna nor scikit-learn until an importance is
     actually requested.
+
+    Raises:
+        Exception: propagated from Optuna's evaluator. A degenerate study
+            whose COMPLETE trials all share one objective value gives fANOVA
+            no variance to attribute and raises ``RuntimeError``. Both callers
+            rely on this: the report renderer skips the figure, and the webapp
+            renders an "Importance unavailable" message.
     """
 
     from optuna.importance import FanovaImportanceEvaluator, get_param_importances

@@ -173,9 +173,9 @@ def report_cmd(study_dir: Path, publish_label: str | None) -> None:
 
     Reads ``runs/``, ``holdout_evals/``, and ``comparisons/`` under
     ``--study-dir``; writes ``<study-dir>/{manifest.json,tables/,plots/}``
-    with cross-leg rankings, heatmaps, and per-universe equity / holdout
-    plot copies. Read-only with respect to the per-leg tree - safe to
-    rerun.
+    with cross-leg rankings, a dev-vs-holdout scatter, and per-universe
+    equity / holdout plot copies. Read-only with respect to the per-leg
+    tree - safe to rerun.
     """
 
     with attach_cli_log_file(study_dir, "study_report") as log_path:

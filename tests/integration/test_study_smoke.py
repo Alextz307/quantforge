@@ -124,7 +124,6 @@ def _write_hpo(path: Path) -> None:
         "n_jobs": 1,
         "sampler": "tpe",
         "pruner": "median",
-        "objective": "sharpe",
         "seed": 42,
     }
     path.write_text(yaml.safe_dump(payload, default_flow_style=False))
@@ -300,7 +299,7 @@ def test_study_report_consolidates_completed_run(
     assert (study_dir / "tables" / "master_ranking.tex").is_file()
     assert (study_dir / "tables" / "master_ranking.csv").is_file()
     assert (study_dir / "tables" / "holdout_results.csv").is_file()
-    assert (study_dir / "plots" / "strategy_x_universe_heatmap.png").is_file()
+    assert (study_dir / "plots" / "holdout_dev_scatter.png").is_file()
     holdout_curves_dir = study_dir / "plots" / "holdout_equity_curves"
     assert holdout_curves_dir.is_dir()
     assert any(p.suffix == ".png" for p in holdout_curves_dir.iterdir())

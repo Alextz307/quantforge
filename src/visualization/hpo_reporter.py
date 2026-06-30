@@ -9,8 +9,9 @@ under ``<study_dir>/plots/`` + ``<study_dir>/tables/``:
   quickly did it find the best region".
 * ``plots/param_importance.png/svg`` - horizontal bar chart of seeded
   fANOVA importances (computed over COMPLETE trials only; the seed makes
-  the figure reproducible across report runs). Skipped (with an info log)
-  for studies with <2 completed trials where the computation is undefined.
+  the figure reproducible across report runs). Skipped for studies with
+  <2 completed trials (with an info log), and for degenerate studies whose
+  trials share one objective value, where fANOVA has no variance to attribute.
 * ``tables/top_trials.tex`` - booktabs LaTeX ranking the top-N trials
   by objective value, one row per trial with number + value + key
   params. Row count capped at :data:`_TOP_TRIALS_N`.
@@ -89,8 +90,9 @@ class HPOReporter:
         return out_dir
 
     def _plot_convergence(self, completed: list[optuna.trial.FrozenTrial], path: Path) -> None:
-        trial_numbers = [t.number for t in completed]
-        values = [t.value for t in completed if t.value is not None]
+        scored = [(t.number, t.value) for t in completed if t.value is not None]
+        trial_numbers = [number for number, _ in scored]
+        values = [value for _, value in scored]
         best_so_far: list[float] = []
         running_best = float("-inf")
         for v in values:
@@ -116,7 +118,13 @@ class HPOReporter:
         plt.close(fig)
 
     def _plot_param_importance(self, study: optuna.Study, path: Path) -> None:
-        importances = param_importances(study)
+        try:
+            importances = param_importances(study)
+        except Exception as exc:  # noqa: BLE001 - Optuna's evaluator raises on a degenerate study
+            # Skip the figure rather than fail the report, but log so a real failure
+            # (e.g. a missing dependency) is not mistaken for the degenerate-study case.
+            _logger.warning("skipping param-importance plot: %s", exc)
+            return
         if not importances:
             return
         names = list(importances.keys())

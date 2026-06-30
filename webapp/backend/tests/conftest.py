@@ -534,7 +534,7 @@ def make_synthetic_study(
 
 
 CONSOLIDATED_TABLE_FILENAME = "master_ranking.tex"
-CONSOLIDATED_PLOT_FILENAME = "strategy_x_universe_heatmap.png"
+CONSOLIDATED_PLOT_FILENAME = "holdout_dev_scatter.png"
 
 
 def make_synthetic_consolidated_report(

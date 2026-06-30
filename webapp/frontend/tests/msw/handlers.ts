@@ -304,7 +304,7 @@ export const STUDY_CONSOLIDATED_DEMO: StudyConsolidatedDTO = {
   n_legs_with_holdout: 1,
   n_universes_with_pairwise: 1,
   tables: ["master_ranking.tex"],
-  plots: ["strategy_x_universe_heatmap.png", "holdout_dev_scatter.png"],
+  plots: ["holdout_dev_scatter.png"],
 };
 
 export const SEED_STUDIES: StudySummary[] = [STUDY_DEMO_SUMMARY];

@@ -219,11 +219,7 @@ def test_generate_full_report_writes_full_tree(tmp_path: Path) -> None:
     assert (tables / "pairwise_significance" / "uni1.tex").is_file()
 
     plots = tmp_path / PLOTS_SUBDIR
-    for stem in (
-        "strategy_x_universe_heatmap",
-        "holdout_dev_scatter",
-        "feature_importance_heatmap",
-    ):
+    for stem in ("holdout_dev_scatter",):
         assert (plots / f"{stem}.png").is_file(), stem
         assert (plots / f"{stem}.svg").is_file(), stem
 
@@ -379,7 +375,6 @@ def test_skips_sections_when_no_input_data(tmp_path: Path) -> None:
     assert not (tables / "holdout_results.tex").exists()
     assert not (tables / "pairwise_significance.csv").exists()
     plots = tmp_path / PLOTS_SUBDIR
-    assert not (plots / "feature_importance_heatmap.png").exists()
     assert not (plots / "feature_importance").exists()
     assert not (plots / "asset_importance").exists()
 
