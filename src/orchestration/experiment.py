@@ -238,6 +238,11 @@ class RunOptions:
     ``publish_label`` is forwarded to the strategy reporter so thesis-prose
     citations stay stable across reruns; ``None`` keeps the legacy
     ``experiment_id``-based caption + label.
+
+    ``run_tag`` is an opaque correlation id recorded in the manifest's
+    ``job_tag`` field. The webapp passes its job id so it can resolve which
+    run a job produced without overriding the user-facing ``name``; ``None``
+    for CLI runs.
     """
 
     store_root: Path | None = None
@@ -246,6 +251,7 @@ class RunOptions:
     checkpoint: bool = False
     publish_label: str | None = None
     compute_feature_importance: bool = False
+    run_tag: str | None = None
 
 
 @dataclass(frozen=True)
@@ -340,6 +346,7 @@ class Experiment:
             interval=self.config.data.interval,
             risk_free_rate=self.config.risk_free_rate,
             holdout_start=boundary,
+            job_tag=opts.run_tag,
         )
 
         ensure_model_dir(run_dir)

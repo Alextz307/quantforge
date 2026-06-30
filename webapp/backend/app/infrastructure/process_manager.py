@@ -68,7 +68,7 @@ def build_run_command(
         "run",
         "--config",
         str(config_path),
-        "--name",
+        "--run-tag",
         job_id,
         "--store-root",
         str(store_root),
@@ -85,10 +85,11 @@ def build_importance_command(
     """
     ``experiment importance`` invocation: recompute a finished run's importance.
 
-    ``--name job_id`` makes a diverged re-run's ``manifest.name`` equal the job
-    id, so :func:`_resolve_run_experiment_id` resolves the job to that new run
-    (a reproduced backfill writes no new run, leaving experiment_id unresolved -
-    the frontend then sees importance attached to the original run).
+    ``--run-tag job_id`` writes the job id into a diverged re-run's
+    ``manifest.job_tag``, so :func:`_resolve_run_experiment_id` resolves the job
+    to that new run (a reproduced backfill writes no new run, leaving
+    experiment_id unresolved - the frontend then sees importance attached to the
+    original run).
     """
 
     return (
@@ -100,7 +101,7 @@ def build_importance_command(
         str(run_dir),
         "--store-root",
         str(store_root),
-        "--name",
+        "--run-tag",
         job_id,
         "--user",
         username,
@@ -252,7 +253,12 @@ def build_study_command(
 
 def _resolve_run_experiment_id(store_root: Path, job_id: str) -> str | None:
     """
-    Scan run manifests for ``manifest.name == job_id``.
+    Scan run manifests for the run this job produced.
+
+    Matches the manifest's ``job_tag`` (the correlation id the webapp passes via
+    ``--run-tag``) so the user-facing ``name`` stays the typed name. Falls back
+    to the legacy ``name == job_id`` match for runs written before the
+    ``job_tag`` field existed.
     """
 
     for run_dir in iter_run_dirs(store_root):
@@ -260,7 +266,7 @@ def _resolve_run_experiment_id(store_root: Path, job_id: str) -> str | None:
             manifest = json_io.read_dict(run_dir / EXPERIMENT_MANIFEST_JSON)
         except FileNotFoundError:
             continue
-        if manifest.get("name") == job_id:
+        if manifest.get("job_tag") == job_id or manifest.get("name") == job_id:
             return run_dir.name
     return None
 

@@ -166,7 +166,39 @@ def test_build_run_command_appends_feature_importance_flag(tmp_path: Path) -> No
     )
 
 
-def test_resolve_experiment_id_finds_run_by_name(tmp_path: Path) -> None:
+def test_build_run_command_tags_job_without_overriding_name(tmp_path: Path) -> None:
+    # The job id rides on --run-tag (the manifest join key); --name is never
+    # passed, so the config's user-typed name survives into the run listing.
+    argv = build_run_command(
+        config_path=tmp_path / "config.yaml",
+        job_id=JOB_ID,
+        store_root=tmp_path,
+        username=JOB_USER,
+    )
+
+    assert ("--run-tag", JOB_ID) in list(zip(argv, argv[1:]))
+    assert "--name" not in argv
+
+
+def test_resolve_experiment_id_finds_run_by_job_tag(tmp_path: Path) -> None:
+    # The job is resolved by the manifest's job_tag, so the user-facing name
+    # is free to be the operator's typed label and is NOT the join key.
+    runs_dir = tmp_path / RUNS_SUBDIR
+    expected_id = "20260101_120000_TestStrategy_abc1234_deadbeef"
+    run_dir = runs_dir / expected_id
+    run_dir.mkdir(parents=True)
+    json_io.write(
+        run_dir / EXPERIMENT_MANIFEST_JSON,
+        {"job_tag": JOB_ID, "name": "my typed run name", "experiment_id": expected_id},
+    )
+
+    assert _resolve_experiment_id(JobKind.RUN, tmp_path, JOB_ID, None) == expected_id
+    assert _resolve_experiment_id(JobKind.RUN, tmp_path, "other-job", None) is None
+
+
+def test_resolve_experiment_id_falls_back_to_legacy_name_match(tmp_path: Path) -> None:
+    # Runs written before the job_tag field carry name == job_id; resolution
+    # must still find them so an in-flight legacy job links to its run.
     runs_dir = tmp_path / RUNS_SUBDIR
     expected_id = "20260101_120000_TestStrategy_abc1234_deadbeef"
     run_dir = runs_dir / expected_id

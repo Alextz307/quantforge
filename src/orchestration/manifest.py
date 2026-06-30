@@ -29,6 +29,10 @@ Rationale for each field:
 * ``risk_free_rate``   - the rate subtracted when computing Sharpe, so a
                          recomputed pooled Sharpe stays on the same scale as
                          the persisted per-fold metrics.
+* ``job_tag``          - opaque webapp job-correlation id (``None`` for CLI
+                         runs). Lets the webapp resolve which job produced
+                         this run without overloading the user-facing
+                         ``name``; absent on manifests predating the field.
 """
 
 from __future__ import annotations
@@ -59,6 +63,7 @@ class Manifest:
     interval: Interval
     risk_free_rate: float
     holdout_start: pd.Timestamp | None = None
+    job_tag: str | None = None
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -74,6 +79,7 @@ class Manifest:
             "holdout_start": (
                 self.holdout_start.isoformat() if self.holdout_start is not None else None
             ),
+            "job_tag": self.job_tag,
         }
 
     @classmethod
@@ -90,6 +96,7 @@ class Manifest:
             interval=_read_interval(d),
             risk_free_rate=_read_risk_free_rate(d),
             holdout_start=holdout,
+            job_tag=json_io.get_optional_str(d, "job_tag"),
         )
 
 

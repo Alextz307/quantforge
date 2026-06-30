@@ -31,6 +31,7 @@ _DATA_HASH = "deadbeef" * 8
 _HOLDOUT_ISO = "2023-06-30T00:00:00"
 _INTERVAL = Interval.HOUR
 _RISK_FREE_RATE = 0.02
+_JOB_TAG = "fake-job-id-abc123"
 
 
 def _make(holdout: pd.Timestamp | None = pd.Timestamp(_HOLDOUT_ISO)) -> Manifest:
@@ -45,6 +46,7 @@ def _make(holdout: pd.Timestamp | None = pd.Timestamp(_HOLDOUT_ISO)) -> Manifest
         interval=_INTERVAL,
         risk_free_rate=_RISK_FREE_RATE,
         holdout_start=holdout,
+        job_tag=_JOB_TAG,
     )
 
 
@@ -62,6 +64,7 @@ class TestManifestRoundTrip:
             "interval",
             "risk_free_rate",
             "holdout_start",
+            "job_tag",
         }
         assert set(d.keys()) == expected_keys
 
@@ -91,6 +94,16 @@ class TestManifestRoundTrip:
         revived = Manifest.from_dict(d)
         assert revived.interval == Interval.DAILY
         assert revived.risk_free_rate == 0.0
+
+    def test_legacy_manifest_without_job_tag_defaults_to_none(self) -> None:
+        """
+        A CLI run (or any manifest predating the field) carries no ``job_tag``;
+        ``from_dict`` must default it to ``None`` rather than raise.
+        """
+
+        d = _make().to_dict()
+        del d["job_tag"]
+        assert Manifest.from_dict(d).job_tag is None
 
     def test_roundtrip_preserves_every_field(self) -> None:
         original = _make()

@@ -101,6 +101,16 @@ def cli(log_level: str) -> None:
     help="Override the config's `name` field (does not affect experiment_id).",
 )
 @click.option(
+    "--run-tag",
+    "run_tag",
+    default=None,
+    help=(
+        "Opaque correlation id written to the manifest's `job_tag` field. The "
+        "webapp passes its job id here so it can resolve which run a job "
+        "produced without overriding the user-facing `name`."
+    ),
+)
+@click.option(
     "--seed",
     default=None,
     type=int,
@@ -179,6 +189,7 @@ def cli(log_level: str) -> None:
 def run_cmd(
     config_path: Path,
     name: str | None,
+    run_tag: str | None,
     seed: int | None,
     store_root: Path,
     write_report: bool,
@@ -221,6 +232,7 @@ def run_cmd(
                     checkpoint=checkpoint,
                     publish_label=publish_label,
                     compute_feature_importance=feature_importance,
+                    run_tag=run_tag,
                 )
             )
         except LeakageError as e:
@@ -702,9 +714,16 @@ def holdout_eval_cmd(
 @click.option(
     "--name",
     default=None,
+    help="Override the re-run's `name` field (does not affect experiment_id).",
+)
+@click.option(
+    "--run-tag",
+    "run_tag",
+    default=None,
     help=(
-        "Override the re-run's `name` field. The webapp passes the job id so a "
-        "diverged re-run's manifest.name resolves the job back to its new run."
+        "Opaque correlation id written to a diverged re-run's `job_tag` field. "
+        "The webapp passes its job id so it can resolve the job back to the new "
+        "run (a reproduced backfill writes no new run, leaving it unresolved)."
     ),
 )
 @click.option(
@@ -723,6 +742,7 @@ def importance_cmd(
     run_dir: Path,
     store_root: Path,
     name: str | None,
+    run_tag: str | None,
     progress: bool,
     username: str | None,
 ) -> None:
@@ -786,6 +806,7 @@ def importance_cmd(
                         write_report=False,
                         progress=progress,
                         compute_feature_importance=True,
+                        run_tag=run_tag,
                     )
                 )
             except LeakageError as e:
