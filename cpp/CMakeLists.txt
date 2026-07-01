@@ -18,9 +18,6 @@ elseif(CMAKE_BUILD_TYPE STREQUAL "PGO_OPTIMIZE")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fprofile-instr-use=default.profdata")
 endif()
 
-# -- Compiler warnings as errors --
-add_compile_options(-Wall -Wextra -Wpedantic -Werror -Wshadow -Wnon-virtual-dtor)
-
 # -- Include paths --
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
 
@@ -42,6 +39,15 @@ FetchContent_Declare(
 )
 
 FetchContent_MakeAvailable(googletest pybind11)
+
+# -- Compiler warnings as errors (our targets only) --
+# Declared AFTER FetchContent so the fetched third-party targets (googletest,
+# pybind11) do NOT inherit our -Werror. A newer compiler that emits a fresh
+# warning inside their own code must not fail our build - e.g. macOS Clang
+# raising -Wcharacter-conversion on gtest-printers.h's char8_t/char32_t cast.
+# Only quant_core / quant_engine and the test targets (created below and under
+# tests/) inherit these strict flags.
+add_compile_options(-Wall -Wextra -Wpedantic -Werror -Wshadow -Wnon-virtual-dtor)
 
 # -- Core static library --
 add_library(quant_core STATIC
