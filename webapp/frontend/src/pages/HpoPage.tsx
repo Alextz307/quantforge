@@ -20,13 +20,18 @@ import { LaunchedByCell } from "@/components/LaunchedByCell";
 import { Pagination } from "@/components/Pagination";
 import { QueryRenderer } from "@/components/QueryRenderer";
 import { usePaginatedSearch } from "@/hooks/usePaginatedSearch";
-import { ALL_OPTION, readValidSince, withActiveOption } from "@/lib/filters";
+import {
+  ALL_OPTION,
+  readSortState,
+  readValidSince,
+  toggleSortParams,
+  withActiveOption,
+} from "@/lib/filters";
 import { formatDateTime, formatMetric } from "@/lib/format";
 import { hpoDetailPath } from "@/lib/routes";
 
 const DEFAULT_SORT: SortState<HpoSortBy> = { sortBy: "created_at", order: "desc" };
 const SORT_KEYS: ReadonlySet<HpoSortBy> = new Set(["created_at", "best_value"]);
-const ORDER_VALUES: ReadonlySet<SortOrder> = new Set(["asc", "desc"]);
 
 interface HpoUrlState {
   sortBy: HpoSortBy;
@@ -36,13 +41,8 @@ interface HpoUrlState {
 }
 
 function readState(params: URLSearchParams): HpoUrlState {
-  const sortBy = params.get("sort_by");
-  const order = params.get("order");
   return {
-    sortBy:
-      sortBy && SORT_KEYS.has(sortBy as HpoSortBy) ? (sortBy as HpoSortBy) : DEFAULT_SORT.sortBy,
-    order:
-      order && ORDER_VALUES.has(order as SortOrder) ? (order as SortOrder) : DEFAULT_SORT.order,
+    ...readSortState(params, SORT_KEYS, DEFAULT_SORT),
     store: params.get("store") ?? ALL_OPTION,
     since: readValidSince(params.get("since")),
   };
@@ -72,10 +72,7 @@ export function HpoPage() {
   );
 
   const onSortToggle = (col: HpoSortBy) => {
-    setParams({
-      sort_by: col,
-      order: urlState.sortBy === col && urlState.order === "desc" ? "asc" : "desc",
-    });
+    setParams(toggleSortParams(sortState, col));
   };
 
   return (
@@ -106,7 +103,6 @@ export function HpoPage() {
               sortState={sortState}
               onSortToggle={onSortToggle}
               limit={limit}
-              offset={offset}
               onOffset={setOffset}
             />
           )}
@@ -125,7 +121,6 @@ interface BodyProps {
   sortState: SortState<HpoSortBy>;
   onSortToggle: (col: HpoSortBy) => void;
   limit: number;
-  offset: number;
   onOffset: (offset: number) => void;
 }
 
@@ -138,7 +133,6 @@ function HpoBody({
   sortState,
   onSortToggle,
   limit,
-  offset,
   onOffset,
 }: BodyProps) {
   const storeOptions = useMemo(() => withActiveOption(page.stores, store), [page.stores, store]);
@@ -148,8 +142,6 @@ function HpoBody({
     <div className="flex flex-col gap-4">
       <FilterableTablePage<HpoSummary, Record<string, never>, HpoSortBy>
         rows={page.items}
-        filters={{}}
-        applyFilters={(rows) => rows}
         filterControls={
           <>
             <FilterSelect
@@ -201,15 +193,7 @@ function HpoBody({
           },
         ]}
       />
-      {(page.items.length > 0 || offset > 0) && (
-        <Pagination
-          total={page.total}
-          limit={limit}
-          offset={offset}
-          count={page.items.length}
-          onOffset={onOffset}
-        />
-      )}
+      <Pagination total={page.total} limit={limit} offset={page.offset} onOffset={onOffset} />
     </div>
   );
 }

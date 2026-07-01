@@ -2,6 +2,7 @@ import { useCallback } from "react";
 import { useQueryClient, type UseQueryResult } from "@tanstack/react-query";
 import {
   apiClient,
+  listPageConfig,
   prefetchApiQuery,
   useApiQuery,
   type ApiQueryOptions,
@@ -20,39 +21,37 @@ export type FeatureImportanceResponse = components["schemas"]["FeatureImportance
 export type FeatureImportanceEntry = components["schemas"]["FeatureImportanceEntry"];
 export type ImportanceMethod = components["schemas"]["ImportanceMethod"];
 
-const LIST_STALE_TIME = 30_000;
-// Free-form filter inputs spawn one query key per debounced state. Cap
-// gcTime so stale entries (e.g. abandoned mid-search keys) don't pin the
-// React Query cache; the default 5min is too generous for unbounded keys.
-const LIST_GC_TIME = 60_000;
-
 export interface RunsListOptions {
   allUsers?: boolean;
+  // Gate the fetch (React Query ``enabled``). Used by the holdout-source picker
+  // so the runs list isn't fetched while the HPO source tab is selected.
+  enabled?: boolean;
 }
 
 function runsPageConfig(params: RunsPageParams, opts: RunsListOptions): ApiQueryOptions<RunsPage> {
   const allUsers = opts.allUsers ?? false;
-  return {
+  return listPageConfig({
     queryKey: queryKeys.runsPage({ ...params, allUsers }),
     fetcher: () =>
       apiClient.GET(API_PATHS.runs, {
         params: {
           query: {
+            // openapi-fetch omits null/undefined query values; `?? null` keeps
+            // exactOptionalPropertyTypes satisfied while dropping absent filters.
             limit: params.limit,
             offset: params.offset,
             sort_by: params.sortBy,
             order: params.order,
-            ...(params.strategy !== undefined ? { strategy: params.strategy } : {}),
-            ...(params.ticker !== undefined ? { ticker: params.ticker } : {}),
-            ...(params.since !== undefined ? { since: params.since } : {}),
+            strategy: params.strategy ?? null,
+            ticker: params.ticker ?? null,
+            since: params.since ?? null,
             ...(allUsers ? { all: true } : {}),
           },
         },
       }),
     errorMsg: "Failed to load runs",
-    staleTime: LIST_STALE_TIME,
-    gcTime: LIST_GC_TIME,
-  };
+    ...(opts.enabled !== undefined ? { enabled: opts.enabled } : {}),
+  });
 }
 
 function runConfig(experimentId: string): ApiQueryOptions<RunDetail> {

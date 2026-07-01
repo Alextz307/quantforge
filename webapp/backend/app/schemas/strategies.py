@@ -34,6 +34,13 @@ class StrategyParam(BaseModel):
     nullable: bool = False
     default: object | None = None
     choices: list[str] | None = None
+    # True when ``default`` already stands in for ``None`` - a nullable param
+    # whose null the backend auto-resolves to a concrete sentinel (Device's
+    # ``None`` -> ``"auto"``). The form drops the redundant "- none -" option
+    # only for these, rather than inferring it from "nullable + string default"
+    # (which would wrongly hide null for a future nullable enum that has a real
+    # non-None default yet still accepts null).
+    default_subsumes_null: bool = False
 
 
 class StrategySchema(BaseModel):

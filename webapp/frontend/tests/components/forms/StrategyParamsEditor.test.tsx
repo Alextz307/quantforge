@@ -7,9 +7,33 @@ const SCHEMA: StrategySchema = {
   name: "Demo",
   qualname: "src.strategies.demo.Demo",
   params: [
-    { name: "window", kind: "int", default: 20, required: false, nullable: false, choices: null },
-    { name: "k", kind: "float", default: 2, required: false, nullable: false, choices: null },
-    { name: "label", kind: "str", default: null, required: true, nullable: false, choices: null },
+    {
+      name: "window",
+      kind: "int",
+      default: 20,
+      required: false,
+      nullable: false,
+      choices: null,
+      default_subsumes_null: false,
+    },
+    {
+      name: "k",
+      kind: "float",
+      default: 2,
+      required: false,
+      nullable: false,
+      choices: null,
+      default_subsumes_null: false,
+    },
+    {
+      name: "label",
+      kind: "str",
+      default: null,
+      required: true,
+      nullable: false,
+      choices: null,
+      default_subsumes_null: false,
+    },
     {
       name: "verbose",
       kind: "bool",
@@ -17,6 +41,7 @@ const SCHEMA: StrategySchema = {
       required: false,
       nullable: false,
       choices: null,
+      default_subsumes_null: false,
     },
     {
       name: "interval",
@@ -25,14 +50,16 @@ const SCHEMA: StrategySchema = {
       required: false,
       nullable: false,
       choices: ["daily", "hour"],
+      default_subsumes_null: false,
     },
     {
       name: "device",
       kind: "enum",
-      default: null,
+      default: "auto",
       required: false,
       nullable: true,
       choices: ["auto", "cpu", "cuda", "mps"],
+      default_subsumes_null: true,
     },
     {
       name: "sampler",
@@ -41,6 +68,16 @@ const SCHEMA: StrategySchema = {
       required: false,
       nullable: true,
       choices: ["tpe", "random"],
+      default_subsumes_null: false,
+    },
+    {
+      name: "scheduler",
+      kind: "enum",
+      default: "cron",
+      required: false,
+      nullable: true,
+      choices: ["cron", "interval"],
+      default_subsumes_null: false,
     },
     {
       name: "mode",
@@ -49,6 +86,7 @@ const SCHEMA: StrategySchema = {
       required: true,
       nullable: false,
       choices: ["fast", "slow"],
+      default_subsumes_null: false,
     },
     {
       name: "weights",
@@ -57,6 +95,7 @@ const SCHEMA: StrategySchema = {
       required: false,
       nullable: false,
       choices: null,
+      default_subsumes_null: false,
     },
     {
       name: "feature_columns",
@@ -65,6 +104,7 @@ const SCHEMA: StrategySchema = {
       required: true,
       nullable: false,
       choices: null,
+      default_subsumes_null: false,
     },
     {
       name: "feature_tickers",
@@ -73,6 +113,7 @@ const SCHEMA: StrategySchema = {
       required: true,
       nullable: false,
       choices: null,
+      default_subsumes_null: false,
     },
   ],
 };
@@ -123,6 +164,14 @@ describe("StrategyParamsEditor", () => {
     // An explicit pick still propagates.
     fireEvent.change(deviceSelect, { target: { value: "cpu" } });
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ device: "cpu" }));
+  });
+
+  it("keeps the none option for a nullable enum whose string default does not subsume null", () => {
+    render(<StrategyParamsEditor schema={SCHEMA} values={{}} onChange={() => undefined} />);
+    const schedulerSelect = screen.getByRole("combobox", { name: /scheduler/i });
+    // default_subsumes_null is false, so the null option survives even though the
+    // default ("cron") is a string - only Device's auto-sentinel drops it.
+    expect(schedulerSelect.querySelector('option[value=""]')).toHaveTextContent(/none/i);
   });
 
   it("str_list renders a comma-separated text input and parses on change", () => {

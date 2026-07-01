@@ -23,13 +23,12 @@ from src.core.persistence import (
     FEATURE_IMPORTANCE_JSON,
 )
 from webapp.backend.app.infrastructure.store import RunNotFoundError
-from webapp.backend.app.schemas.runs import RunSortBy, SortOrder
+from webapp.backend.app.schemas.runs import RunSortBy, RunSummary, SortOrder
 from webapp.backend.app.services.run_service import (
     PlotNotFoundError,
     get_feature_importance,
     get_folds,
     get_run,
-    list_runs,
     list_runs_page,
     resolve_plot,
 )
@@ -47,6 +46,26 @@ _EXPECTED_ENTRY_COUNT = 4
 _EXPECTED_PERMUTATION_COUNT = 2
 _RSI_PERMUTATION_MEAN = 0.45
 _RSI_PERMUTATION_STD = 0.0707106781
+# Larger than any per-test seed, so page 0 holds every visible row.
+_PAGE_LIMIT = 50
+
+
+def _all_runs(root: Path, conn: sqlite3.Connection) -> list[RunSummary]:
+    """
+    Every visible run as a viewer, newest-first - the default list page.
+    """
+
+    return list_runs_page(
+        root,
+        conn=conn,
+        user=make_viewer_user(conn),
+        all_users=False,
+        limit=_PAGE_LIMIT,
+        offset=0,
+        sort_by=RunSortBy.CREATED_AT,
+        order=SortOrder.DESC,
+    ).items
+
 
 _BOTH_METHOD_FOLDS = (
     FoldImportance(
@@ -122,7 +141,7 @@ def test_list_runs_sorts_newest_first(tmp_path: Path, db_conn: sqlite3.Connectio
     make_synthetic_run(runs, experiment_id=OLDER_ID, created_at=OLDER_TS)
     make_synthetic_run(runs, experiment_id=NEWER_ID, created_at=NEWER_TS)
 
-    summaries = list_runs(root, conn=db_conn, user=make_viewer_user(db_conn), all_users=False)
+    summaries = _all_runs(root, db_conn)
 
     assert [s.experiment_id for s in summaries] == [NEWER_ID, OLDER_ID]
 
@@ -138,7 +157,7 @@ def test_list_runs_populates_strategy_and_universe_from_config(
         tickers=["IVV", "VOO"],
     )
 
-    summary = list_runs(root, conn=db_conn, user=make_viewer_user(db_conn), all_users=False)[0]
+    summary = _all_runs(root, db_conn)[0]
 
     assert summary.strategy == "PairsTrading"
     assert summary.tickers == ["IVV", "VOO"]
@@ -150,7 +169,7 @@ def test_list_runs_skips_runs_missing_config(tmp_path: Path, db_conn: sqlite3.Co
     make_synthetic_run(root / "flat_store" / "runs", experiment_id=NEWER_ID)
     make_synthetic_run(root / "flat_store" / "runs", experiment_id=OLDER_ID, write_config=False)
 
-    summaries = list_runs(root, conn=db_conn, user=make_viewer_user(db_conn), all_users=False)
+    summaries = _all_runs(root, db_conn)
 
     assert [s.experiment_id for s in summaries] == [NEWER_ID]
 
@@ -159,7 +178,7 @@ def test_list_runs_tolerates_missing_metrics(tmp_path: Path, db_conn: sqlite3.Co
     root = tmp_path / "experiment_results"
     make_synthetic_run(root / "flat_store" / "runs", experiment_id=NEWER_ID, write_metrics=False)
 
-    summary = list_runs(root, conn=db_conn, user=make_viewer_user(db_conn), all_users=False)[0]
+    summary = _all_runs(root, db_conn)[0]
 
     assert summary.sharpe_mean is None
 

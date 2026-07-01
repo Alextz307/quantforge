@@ -2385,6 +2385,11 @@
             ],
             "title": "Default"
           },
+          "default_subsumes_null": {
+            "default": false,
+            "title": "Default Subsumes Null",
+            "type": "boolean"
+          },
           "kind": {
             "$ref": "#/components/schemas/ParamKind"
           },

@@ -21,6 +21,7 @@ from webapp.backend.app.api._ws_auth import (
 from webapp.backend.app.core.deps import get_current_user, get_db
 from webapp.backend.app.core.settings import get_settings
 from webapp.backend.app.infrastructure.store import find_study_dir
+from webapp.backend.app.schemas.pagination import DEFAULT_PAGE_LIMIT, MAX_PAGE_LIMIT
 from webapp.backend.app.schemas.studies import (
     StudiesPage,
     StudyConsolidatedDTO,
@@ -46,7 +47,7 @@ router = APIRouter(prefix="/studies", tags=["studies"])
 
 @router.get("", response_model=StudiesPage)
 def get_studies(
-    limit: int = Query(50, ge=1, le=500),
+    limit: int = Query(DEFAULT_PAGE_LIMIT, ge=1, le=MAX_PAGE_LIMIT),
     offset: int = Query(0, ge=0),
     spec: str | None = Query(None),
     since: datetime | None = Query(None),

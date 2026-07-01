@@ -9,6 +9,9 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 
+from src.core.persistence import HPO_SUBDIR
+from webapp.backend.tests.conftest import make_synthetic_hpo_study
+
 LIST_PATH = "/api/hpo"
 EXPECTED_NAME = "AdaptiveBollinger__spy_daily_5y"
 EXPECTED_WIRE_ID = "studies~main~hpo~AdaptiveBollinger__spy_daily_5y"
@@ -19,6 +22,8 @@ EXPECTED_DIRECTION = "maximize"
 AFTER_TRIAL_FILTER = 0
 OFFSET_BEYOND_RANGE = 100
 LIMIT_ABOVE_CAP = 501
+PAGE_LIMIT_ONE = 1
+SEEDED_TOTAL = 2
 FUTURE_SINCE = "2099-01-01T00:00:00Z"
 
 
@@ -56,6 +61,22 @@ def test_list_rejects_limit_above_cap(authed_client: TestClient, webapp_store: P
     response = authed_client.get(LIST_PATH, params={"limit": LIMIT_ABOVE_CAP})
 
     assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+
+
+def test_list_truncates_page_to_limit(authed_client: TestClient, webapp_store: Path) -> None:
+    # Seed a second HPO study so the total exceeds a limit of one; the page must
+    # clip to `limit` while `total` reports the full count. Catches a limit/offset
+    # arg swapped into paginate() that the single-row fixture can't.
+    make_synthetic_hpo_study(
+        webapp_store / "studies" / "main" / HPO_SUBDIR, name="SecondStrategy__spy_daily_5y"
+    )
+
+    response = authed_client.get(LIST_PATH, params={"limit": PAGE_LIMIT_ONE})
+
+    assert response.status_code == HTTPStatus.OK
+    payload = response.json()
+    assert len(payload["items"]) == PAGE_LIMIT_ONE
+    assert payload["total"] == SEEDED_TOTAL
 
 
 def test_list_future_since_excludes_all(authed_client: TestClient, webapp_store: Path) -> None:

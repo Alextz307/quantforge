@@ -26,7 +26,7 @@ from webapp.backend.app.schemas.hpo import (
     ParamImportanceResponse,
     TrialRow,
 )
-from webapp.backend.app.schemas.pagination import SortOrder
+from webapp.backend.app.schemas.pagination import DEFAULT_PAGE_LIMIT, MAX_PAGE_LIMIT, SortOrder
 from webapp.backend.app.schemas.users import UserPublic
 from webapp.backend.app.services.hpo_service import (
     HpoStudyNotFoundError,
@@ -45,7 +45,7 @@ router = APIRouter(prefix="/hpo", tags=["hpo"])
 
 @router.get("", response_model=HpoStudiesPage)
 def get_hpo_studies(
-    limit: int = Query(50, ge=1, le=500),
+    limit: int = Query(DEFAULT_PAGE_LIMIT, ge=1, le=MAX_PAGE_LIMIT),
     offset: int = Query(0, ge=0),
     sort_by: HpoSortBy = Query(HpoSortBy.CREATED_AT),
     order: SortOrder = Query(SortOrder.DESC),

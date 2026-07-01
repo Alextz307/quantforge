@@ -24,7 +24,13 @@ import { LaunchedByCell } from "@/components/LaunchedByCell";
 import { Pagination } from "@/components/Pagination";
 import { QueryRenderer } from "@/components/QueryRenderer";
 import { usePaginatedSearch } from "@/hooks/usePaginatedSearch";
-import { ALL_OPTION, readValidSince, withActiveOption } from "@/lib/filters";
+import {
+  ALL_OPTION,
+  readSortState,
+  readValidSince,
+  toggleSortParams,
+  withActiveOption,
+} from "@/lib/filters";
 import { formatDateTime, formatMetric } from "@/lib/format";
 import { deploymentDetailPath, holdoutDetailPath, ROUTES } from "@/lib/routes";
 import { SOURCE_KINDS, sourceKindLabel, type SourceKind } from "@/lib/sourceKind";
@@ -37,7 +43,6 @@ const SORT_KEYS: ReadonlySet<HoldoutSortBy> = new Set([
   "holdout_start",
   "sharpe_ratio",
 ]);
-const ORDER_VALUES: ReadonlySet<SortOrder> = new Set(["asc", "desc"]);
 
 function isSourceKindFilter(value: string): value is SourceKindFilter {
   return value === ALL_OPTION || (SOURCE_KINDS as readonly string[]).includes(value);
@@ -53,16 +58,9 @@ interface HoldoutUrlState {
 // Sort + filters live in the URL so they survive a round-trip into a detail and
 // back; allUsers stays component-local, matching the runs page.
 function readState(params: URLSearchParams): HoldoutUrlState {
-  const sortBy = params.get("sort_by");
-  const order = params.get("order");
   const sourceKind = params.get("source_kind");
   return {
-    sortBy:
-      sortBy && SORT_KEYS.has(sortBy as HoldoutSortBy)
-        ? (sortBy as HoldoutSortBy)
-        : DEFAULT_SORT.sortBy,
-    order:
-      order && ORDER_VALUES.has(order as SortOrder) ? (order as SortOrder) : DEFAULT_SORT.order,
+    ...readSortState(params, SORT_KEYS, DEFAULT_SORT),
     sourceKind: sourceKind && isSourceKindFilter(sourceKind) ? sourceKind : ALL_OPTION,
     since: readValidSince(params.get("since")),
   };
@@ -92,10 +90,7 @@ export function HoldoutPage() {
   );
 
   const onSortToggle = (col: HoldoutSortBy) => {
-    setParams({
-      sort_by: col,
-      order: urlState.sortBy === col && urlState.order === "desc" ? "asc" : "desc",
-    });
+    setParams(toggleSortParams(sortState, col));
   };
 
   return (
@@ -131,7 +126,6 @@ export function HoldoutPage() {
               sortState={sortState}
               onSortToggle={onSortToggle}
               limit={limit}
-              offset={offset}
               onOffset={setOffset}
             />
           )}
@@ -150,7 +144,6 @@ interface BodyProps {
   sortState: SortState<HoldoutSortBy>;
   onSortToggle: (col: HoldoutSortBy) => void;
   limit: number;
-  offset: number;
   onOffset: (offset: number) => void;
 }
 
@@ -163,7 +156,6 @@ function HoldoutBody({
   sortState,
   onSortToggle,
   limit,
-  offset,
   onOffset,
 }: BodyProps) {
   const sourceKindOptions = useMemo(
@@ -194,8 +186,6 @@ function HoldoutBody({
       )}
       <FilterableTablePage<HoldoutEvalSummary, Record<string, never>, HoldoutSortBy>
         rows={page.items}
-        filters={{}}
-        applyFilters={(rows) => rows}
         filterControls={
           <>
             <FilterSelect
@@ -271,15 +261,7 @@ function HoldoutBody({
           },
         ]}
       />
-      {(page.items.length > 0 || offset > 0) && (
-        <Pagination
-          total={page.total}
-          limit={limit}
-          offset={offset}
-          count={page.items.length}
-          onOffset={onOffset}
-        />
-      )}
+      <Pagination total={page.total} limit={limit} offset={page.offset} onOffset={onOffset} />
     </div>
   );
 }

@@ -18,7 +18,7 @@ from webapp.backend.app.schemas.holdout import (
     HoldoutEvalsPage,
     HoldoutSortBy,
 )
-from webapp.backend.app.schemas.pagination import SortOrder
+from webapp.backend.app.schemas.pagination import DEFAULT_PAGE_LIMIT, MAX_PAGE_LIMIT, SortOrder
 from webapp.backend.app.schemas.users import UserPublic
 from webapp.backend.app.services.holdout_service import (
     HoldoutEvalNotFoundError,
@@ -33,7 +33,7 @@ router = APIRouter(prefix="/holdout-evals", tags=["holdout"])
 
 @router.get("", response_model=HoldoutEvalsPage)
 def get_holdout_evals(
-    limit: int = Query(50, ge=1, le=500),
+    limit: int = Query(DEFAULT_PAGE_LIMIT, ge=1, le=MAX_PAGE_LIMIT),
     offset: int = Query(0, ge=0),
     sort_by: HoldoutSortBy = Query(HoldoutSortBy.CREATED_AT),
     order: SortOrder = Query(SortOrder.DESC),

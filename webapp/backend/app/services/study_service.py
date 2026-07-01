@@ -4,7 +4,6 @@ Read-only services for the persisted studies tree.
 
 from __future__ import annotations
 
-import logging
 import sqlite3
 from datetime import datetime
 from pathlib import Path
@@ -30,11 +29,13 @@ from webapp.backend.app.schemas.studies import (
 )
 from webapp.backend.app.schemas.users import UserPublic
 from webapp.backend.app.services._dir_cache import cached_artifact_dirs
+from webapp.backend.app.services._pagination import matches_since, paginate
 from webapp.backend.app.services.ownership import (
     ArtifactAccessDeniedError,
     check_artifact_access,
     resolve_owner_usernames,
-    scope_and_stamp_summaries,
+    scoped_cached_summaries,
+    stamp_summaries,
 )
 from webapp.backend.app.services.plots import (
     PLOTS_DIRNAME,
@@ -43,8 +44,6 @@ from webapp.backend.app.services.plots import (
     list_files_under,
     resolve_file_under,
 )
-
-logger = logging.getLogger(__name__)
 
 __all__ = [
     "ArtifactAccessDeniedError",
@@ -57,7 +56,6 @@ __all__ = [
     "generate_consolidated",
     "get_consolidated",
     "get_study",
-    "list_studies",
     "list_studies_page",
     "resolve_consolidated_plot",
     "resolve_consolidated_table",
@@ -76,40 +74,14 @@ class StudyConsolidationError(ValueError):
     """
 
 
-def _scoped_summaries(
-    root: Path,
-    *,
-    conn: sqlite3.Connection,
-    user: UserPublic,
-    all_users: bool,
-) -> list[StudySummary]:
-    summaries: list[StudySummary] = []
-    for study_dir in cached_artifact_dirs(root, "study", iter_study_dirs):
-        try:
-            state = read_study_state(study_dir / STUDY_STATE_FILENAME)
-        except Exception as exc:  # noqa: BLE001 - one bad study must not 500 the whole listing
-            logger.warning("skipping unreadable study at %s: %s", study_dir, exc)
-            continue
-        summaries.append(_summary_from_state(study_dir.name, state))
-    return scope_and_stamp_summaries(
-        summaries, key_fn=lambda s: s.name, conn=conn, user=user, all_users=all_users
-    )
+# Cache StudySummary by (study_dir, study_state.json mtime_ns) so successive
+# page/sort/filter requests reparse only studies whose state advanced since.
+_SUMMARY_CACHE: dict[str, tuple[int, StudySummary | None]] = {}
 
 
-def list_studies(
-    root: Path,
-    *,
-    conn: sqlite3.Connection,
-    user: UserPublic,
-    all_users: bool,
-) -> list[StudySummary]:
-    """
-    List every study under ``root`` visible to ``user``, newest first.
-    """
-
-    scoped = _scoped_summaries(root, conn=conn, user=user, all_users=all_users)
-    scoped.sort(key=lambda s: s.started_at, reverse=True)
-    return scoped
+def _summarize(study_dir: Path) -> StudySummary:
+    state = read_study_state(study_dir / STUDY_STATE_FILENAME)
+    return _summary_from_state(study_dir.name, state)
 
 
 def list_studies_page(
@@ -130,22 +102,28 @@ def list_studies_page(
     dropdown can offer every spec regardless of the current page.
     """
 
-    scoped = _scoped_summaries(root, conn=conn, user=user, all_users=all_users)
-    specs = sorted({s.spec_name for s in scoped})
-    filtered = [s for s in scoped if _matches(s, spec, since)]
-    filtered.sort(key=lambda s: s.started_at, reverse=True)
-    page = filtered[offset : offset + limit]
-    return StudiesPage(
-        items=page, total=len(filtered), limit=limit, offset=offset, specs=specs
+    visible, usernames = scoped_cached_summaries(
+        cached_artifact_dirs(root, "study", iter_study_dirs),
+        mtime_sources=(STUDY_STATE_FILENAME,),
+        summarize=_summarize,
+        cache=_SUMMARY_CACHE,
+        key_fn=lambda s: s.name,
+        conn=conn,
+        user=user,
+        all_users=all_users,
     )
+    specs = sorted({s.spec_name for s in visible})
+    filtered = [s for s in visible if _matches(s, spec, since)]
+    filtered.sort(key=lambda s: s.started_at, reverse=True)
+    page, total = paginate(filtered, limit=limit, offset=offset)
+    items = stamp_summaries(page, key_fn=lambda s: s.name, usernames=usernames)
+    return StudiesPage(items=items, total=total, limit=limit, offset=offset, specs=specs)
 
 
 def _matches(row: StudySummary, spec: str | None, since: datetime | None) -> bool:
     if spec is not None and row.spec_name != spec:
         return False
-    if since is not None and row.started_at < since:
-        return False
-    return True
+    return matches_since(row.started_at, since)
 
 
 def get_study(

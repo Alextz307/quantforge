@@ -74,7 +74,6 @@ export function StudiesPage() {
                 setParams({ since: v });
               }}
               limit={limit}
-              offset={offset}
               onOffset={setOffset}
             />
           )}
@@ -91,20 +90,17 @@ interface BodyProps {
   onSpec: (v: string) => void;
   onSince: (v: string) => void;
   limit: number;
-  offset: number;
   onOffset: (offset: number) => void;
 }
 
-function StudiesBody({ page, spec, since, onSpec, onSince, limit, offset, onOffset }: BodyProps) {
+function StudiesBody({ page, spec, since, onSpec, onSince, limit, onOffset }: BodyProps) {
   const specOptions = useMemo(() => withActiveOption(page.specs, spec), [page.specs, spec]);
   const prefetchStudy = usePrefetchStudy();
 
   return (
     <div className="flex flex-col gap-4">
-      <FilterableTablePage<StudySummary, Record<string, never>>
+      <FilterableTablePage<StudySummary>
         rows={page.items}
-        filters={{}}
-        applyFilters={(rows) => rows}
         filterControls={
           <>
             <FilterSelect
@@ -151,15 +147,7 @@ function StudiesBody({ page, spec, since, onSpec, onSince, limit, offset, onOffs
           },
         ]}
       />
-      {(page.items.length > 0 || offset > 0) && (
-        <Pagination
-          total={page.total}
-          limit={limit}
-          offset={offset}
-          count={page.items.length}
-          onOffset={onOffset}
-        />
-      )}
+      <Pagination total={page.total} limit={limit} offset={page.offset} onOffset={onOffset} />
     </div>
   );
 }

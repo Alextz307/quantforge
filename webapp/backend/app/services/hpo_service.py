@@ -36,11 +36,13 @@ from webapp.backend.app.schemas.jobs import TERMINAL_STATUSES, JobKind
 from webapp.backend.app.schemas.pagination import SortOrder
 from webapp.backend.app.schemas.users import UserPublic
 from webapp.backend.app.services._dir_cache import cached_artifact_dirs
+from webapp.backend.app.services._pagination import matches_since, paginate, sort_by_optional
 from webapp.backend.app.services.ownership import (
     ArtifactAccessDeniedError,
     check_artifact_access,
     resolve_owner_usernames,
-    scope_and_stamp_summaries,
+    scoped_cached_summaries,
+    stamp_summaries,
 )
 
 __all__ = [
@@ -50,7 +52,6 @@ __all__ = [
     "find_live_job_for",
     "get_hpo_study",
     "get_param_importance",
-    "list_hpo_studies",
     "list_hpo_studies_page",
     "list_trials",
     "trial_row_from_record",
@@ -65,44 +66,18 @@ _NEEDS_MORE_TRIALS_MESSAGE = (
 _DB_MISSING_MESSAGE = "Importance unavailable: optuna study DB not yet written."
 
 
-def _scoped_summaries(
-    root: Path,
-    *,
-    conn: sqlite3.Connection,
-    user: UserPublic,
-    all_users: bool,
-) -> list[HpoSummary]:
-    summaries: list[HpoSummary] = []
-    for study_dir in cached_artifact_dirs(root, "hpo", iter_hpo_study_dirs):
-        trials = json_io.read_jsonl(study_dir / TRIALS_JSONL_NAME)
-        summaries.append(_summary_from_trials(study_dir, trials, root))
-    return scope_and_stamp_summaries(
-        summaries,
-        key_fn=lambda s: _top_level_basename(s.wire_id),
-        conn=conn,
-        user=user,
-        all_users=all_users,
-    )
+# Cache HpoSummary by (study_dir, max mtime over trials.jsonl + best_config.yaml).
+# Every trial appends to trials.jsonl (its mtime bumps per trial), but
+# best_config.yaml is written *after* the final trial's append when that trial
+# is the best - keying on trials.jsonl alone would pin a stale
+# ``has_best_config=False`` summary forever, so best_config.yaml's mtime is
+# folded in to invalidate the moment it lands.
+_SUMMARY_CACHE: dict[str, tuple[int, HpoSummary | None]] = {}
 
 
-def list_hpo_studies(
-    root: Path,
-    *,
-    conn: sqlite3.Connection,
-    user: UserPublic,
-    all_users: bool,
-) -> list[HpoSummary]:
-    """
-    List every HPO study under ``root`` visible to ``user``, newest first.
-
-    Top-level studies (``hpo/<basename>``) are scoped via the jobs table
-    using basename as the join key; nested studies (``studies/<x>/hpo/...``)
-    have no per-leg TUNE row and are always visible (ownerless = shared).
-    """
-
-    scoped = _scoped_summaries(root, conn=conn, user=user, all_users=all_users)
-    scoped.sort(key=lambda s: s.created_at, reverse=True)
-    return scoped
+def _summarize(study_dir: Path, root: Path) -> HpoSummary:
+    trials = json_io.read_jsonl(study_dir / TRIALS_JSONL_NAME)
+    return _summary_from_trials(study_dir, trials, root)
 
 
 def list_hpo_studies_page(
@@ -125,22 +100,30 @@ def list_hpo_studies_page(
     dropdown can offer every store regardless of the current page.
     """
 
-    scoped = _scoped_summaries(root, conn=conn, user=user, all_users=all_users)
-    stores = sorted({s.store for s in scoped})
-    filtered = [s for s in scoped if _matches(s, store, since)]
-    _sort(filtered, sort_by, order)
-    page = filtered[offset : offset + limit]
-    return HpoStudiesPage(
-        items=page, total=len(filtered), limit=limit, offset=offset, stores=stores
+    visible, usernames = scoped_cached_summaries(
+        cached_artifact_dirs(root, "hpo", iter_hpo_study_dirs),
+        mtime_sources=(TRIALS_JSONL_NAME, BEST_CONFIG_YAML_NAME),
+        summarize=lambda d: _summarize(d, root),
+        cache=_SUMMARY_CACHE,
+        key_fn=lambda s: _top_level_basename(s.wire_id),
+        conn=conn,
+        user=user,
+        all_users=all_users,
     )
+    stores = sorted({s.store for s in visible})
+    filtered = [s for s in visible if _matches(s, store, since)]
+    _sort(filtered, sort_by, order)
+    page, total = paginate(filtered, limit=limit, offset=offset)
+    items = stamp_summaries(
+        page, key_fn=lambda s: _top_level_basename(s.wire_id), usernames=usernames
+    )
+    return HpoStudiesPage(items=items, total=total, limit=limit, offset=offset, stores=stores)
 
 
 def _matches(row: HpoSummary, store: str | None, since: datetime | None) -> bool:
     if store is not None and row.store != store:
         return False
-    if since is not None and row.created_at < since:
-        return False
-    return True
+    return matches_since(row.created_at, since)
 
 
 def _sort(rows: list[HpoSummary], sort_by: HpoSortBy, order: SortOrder) -> None:
@@ -149,14 +132,8 @@ def _sort(rows: list[HpoSummary], sort_by: HpoSortBy, order: SortOrder) -> None:
         rows.sort(key=lambda r: r.created_at, reverse=reverse)
         return
     # Studies with no completed trials carry ``best_value=None``; sink them last
-    # under BOTH directions by folding direction into the value sign.
-    sign = -1.0 if reverse else 1.0
-    rows.sort(
-        key=lambda r: (
-            r.best_value is None,
-            sign * r.best_value if r.best_value is not None else 0.0,
-        )
-    )
+    # under BOTH directions (see sort_by_optional).
+    sort_by_optional(rows, lambda r: r.best_value, order=order)
 
 
 def get_hpo_study(

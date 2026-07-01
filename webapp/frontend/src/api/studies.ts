@@ -2,6 +2,7 @@ import { useCallback } from "react";
 import { useMutation, useQueryClient, type UseQueryResult } from "@tanstack/react-query";
 import {
   apiClient,
+  listPageConfig,
   prefetchApiQuery,
   useApiQuery,
   type ApiQueryOptions,
@@ -17,9 +18,6 @@ export type StudiesPage = components["schemas"]["StudiesPage"];
 export type LegStateRow = components["schemas"]["LegStateRow"];
 export type StudyConsolidatedDTO = components["schemas"]["StudyConsolidatedDTO"];
 
-const LIST_STALE_TIME = 30_000;
-// Cap cache retention; paging/sort/filter combos spawn many short-lived keys.
-const LIST_GC_TIME = 60_000;
 const STUDY_DETAIL_STALE_TIME = 10_000;
 
 export interface StudiesListOptions {
@@ -31,24 +29,24 @@ function studiesPageConfig(
   opts: StudiesListOptions,
 ): ApiQueryOptions<StudiesPage> {
   const allUsers = opts.allUsers ?? false;
-  return {
+  return listPageConfig({
     queryKey: queryKeys.studiesPage({ ...params, allUsers }),
     fetcher: () =>
       apiClient.GET(API_PATHS.studies, {
         params: {
           query: {
+            // openapi-fetch omits null/undefined query values; `?? null` keeps
+            // exactOptionalPropertyTypes satisfied while dropping absent filters.
             limit: params.limit,
             offset: params.offset,
-            ...(params.spec !== undefined ? { spec: params.spec } : {}),
-            ...(params.since !== undefined ? { since: params.since } : {}),
+            spec: params.spec ?? null,
+            since: params.since ?? null,
             ...(allUsers ? { all: true } : {}),
           },
         },
       }),
     errorMsg: "Failed to load studies",
-    staleTime: LIST_STALE_TIME,
-    gcTime: LIST_GC_TIME,
-  };
+  });
 }
 
 function studyConfig(name: string): ApiQueryOptions<StudyDetail> {

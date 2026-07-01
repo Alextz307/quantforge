@@ -13,6 +13,7 @@ import type { HoldoutEvalDetail, HoldoutEvalSummary } from "@/api/holdout";
 import type { HpoDetail, HpoSummary, ParamImportanceResponse, TrialRow } from "@/api/hpo";
 import type { JobRow, JobSubmission } from "@/api/jobs";
 import { API_PATHS, toMswPath } from "@/api/paths";
+import { uniqSorted } from "@/lib/filters";
 import type { FeatureImportanceResponse, FoldRow, RunDetail, RunSummary } from "@/api/runs";
 import type { RegistryEntry, StrategySchema } from "@/api/strategies";
 import type { StudyConsolidatedDTO, StudyDetail, StudySummary } from "@/api/studies";
@@ -384,8 +385,24 @@ export const STRATEGY_SCHEMA_AB: StrategySchema = {
   name: "AdaptiveBollinger",
   qualname: "src.strategies.adaptive.AdaptiveBollinger",
   params: [
-    { name: "window", kind: "int", default: 20, required: false, nullable: false, choices: null },
-    { name: "k", kind: "float", default: 2.0, required: false, nullable: false, choices: null },
+    {
+      name: "window",
+      kind: "int",
+      default: 20,
+      required: false,
+      nullable: false,
+      choices: null,
+      default_subsumes_null: false,
+    },
+    {
+      name: "k",
+      kind: "float",
+      default: 2.0,
+      required: false,
+      nullable: false,
+      choices: null,
+      default_subsumes_null: false,
+    },
     {
       name: "interval",
       kind: "enum",
@@ -393,6 +410,7 @@ export const STRATEGY_SCHEMA_AB: StrategySchema = {
       required: false,
       nullable: false,
       choices: ["daily", "hour"],
+      default_subsumes_null: false,
     },
   ],
 };
@@ -579,10 +597,6 @@ function isKnownDeployment(id: unknown): boolean {
   return id === DEPLOY_SPY.id || id === DEPLOY_NEW_ID;
 }
 
-function uniqueSorted(values: readonly string[]): string[] {
-  return Array.from(new Set(values)).sort();
-}
-
 // Mirror the backend list envelope: filter/sort happen in the handler, ``items``
 // is the requested page slice, and ``total`` plus the facet lists describe the
 // full (pre-page) set so the frontend dropdowns stay populated.
@@ -646,7 +660,7 @@ export const handlers = [
   http.get(API_PATHS.comparisons, ({ request }) => {
     const url = new URL(request.url);
     const strategy = url.searchParams.get("strategy");
-    const strategies = uniqueSorted(SEED_COMPARISONS.flatMap((r) => r.strategies));
+    const strategies = uniqSorted(SEED_COMPARISONS.flatMap((r) => r.strategies));
     let rows = [...SEED_COMPARISONS];
     if (strategy) rows = rows.filter((r) => r.strategies.includes(strategy));
     return pageEnvelope(rows, url, { strategies });
@@ -659,7 +673,7 @@ export const handlers = [
   http.get(API_PATHS.holdoutEvals, ({ request }) => {
     const url = new URL(request.url);
     const sourceKind = url.searchParams.get("source_kind");
-    const source_kinds = uniqueSorted(SEED_HOLDOUT_EVALS.map((r) => r.source_kind));
+    const source_kinds = uniqSorted(SEED_HOLDOUT_EVALS.map((r) => r.source_kind));
     let rows = [...SEED_HOLDOUT_EVALS];
     if (sourceKind) rows = rows.filter((r) => r.source_kind === sourceKind);
     return pageEnvelope(rows, url, { source_kinds });
@@ -671,7 +685,7 @@ export const handlers = [
   http.get(API_PATHS.studies, ({ request }) => {
     const url = new URL(request.url);
     const spec = url.searchParams.get("spec");
-    const specs = uniqueSorted(SEED_STUDIES.map((r) => r.spec_name));
+    const specs = uniqSorted(SEED_STUDIES.map((r) => r.spec_name));
     let rows = [...SEED_STUDIES];
     if (spec) rows = rows.filter((r) => r.spec_name === spec);
     return pageEnvelope(rows, url, { specs });
@@ -687,7 +701,7 @@ export const handlers = [
   http.get(API_PATHS.hpoStudies, ({ request }) => {
     const url = new URL(request.url);
     const store = url.searchParams.get("store");
-    const stores = uniqueSorted(SEED_HPO_STUDIES.map((r) => r.store));
+    const stores = uniqSorted(SEED_HPO_STUDIES.map((r) => r.store));
     let rows = [...SEED_HPO_STUDIES];
     if (store) rows = rows.filter((r) => r.store === store);
     return pageEnvelope(rows, url, { stores });

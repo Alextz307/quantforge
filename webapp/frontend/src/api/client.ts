@@ -1,5 +1,6 @@
 import createClient, { type Middleware } from "openapi-fetch";
 import {
+  keepPreviousData,
   useQuery,
   type DefaultError,
   type Query,
@@ -44,13 +45,27 @@ export type { components } from "./generated/schema";
 // pickers request exactly this many rows.
 export const MAX_PAGE_LIMIT = 500;
 
+// Cache tuning shared by every list endpoint: a short stale window keeps
+// paginated lists fresh, and capped GC retention bounds the many short-lived
+// keys that paging/sort/filter combinations spawn.
+export const LIST_STALE_TIME = 30_000;
+export const LIST_GC_TIME = 60_000;
+
+// A list endpoint's page projected to the rows a full-list picker renders plus
+// the pre-slice total, so a picker can flag when its MAX_PAGE_LIMIT window
+// truncates the set (total > items.length).
+export interface PickerPage<T> {
+  items: T[];
+  total: number;
+}
+
 interface ApiResponse<T> {
   data?: T;
   error?: unknown;
   response: { ok: boolean };
 }
 
-type Fetcher<T> = () => Promise<ApiResponse<T>>;
+export type Fetcher<T> = () => Promise<ApiResponse<T>>;
 
 async function runFetch<T>(fetcher: Fetcher<T>, errorMsg: string): Promise<T> {
   const { data, error, response } = await fetcher();
@@ -71,6 +86,10 @@ export interface ApiQueryOptions<T, S = T> {
   // Post-fetch transform (React Query ``select``). Lets a paginated endpoint
   // back a full-list convenience hook by projecting the page down to its items.
   select?: (data: T) => S;
+  // Keep the previous page's data rendered while the next page/sort/filter
+  // request is in flight, instead of dropping to the loading fallback and
+  // flashing an empty table on every interaction.
+  keepPreviousPage?: boolean;
 }
 
 export function useApiQuery<T, S = T>(opts: ApiQueryOptions<T, S>): UseQueryResult<S> {
@@ -82,7 +101,30 @@ export function useApiQuery<T, S = T>(opts: ApiQueryOptions<T, S>): UseQueryResu
     ...(opts.gcTime !== undefined ? { gcTime: opts.gcTime } : {}),
     ...(opts.refetchInterval !== undefined ? { refetchInterval: opts.refetchInterval } : {}),
     ...(opts.enabled !== undefined ? { enabled: opts.enabled } : {}),
+    ...(opts.keepPreviousPage ? { placeholderData: keepPreviousData } : {}),
   });
+}
+
+// Shared shape for every paginated list-page query: the short-stale/capped-GC
+// cache tuning plus keepPreviousPage, so each ``*PageConfig`` builder supplies
+// only what differs (query key, typed fetcher, error message, optional enable
+// gate). The picker configs deliberately opt out - they use ``select`` + an
+// infinite-ish stale window, not this.
+export function listPageConfig<TPage>(opts: {
+  queryKey: QueryKey;
+  fetcher: Fetcher<TPage>;
+  errorMsg: string;
+  enabled?: boolean;
+}): ApiQueryOptions<TPage> {
+  return {
+    queryKey: opts.queryKey,
+    fetcher: opts.fetcher,
+    errorMsg: opts.errorMsg,
+    staleTime: LIST_STALE_TIME,
+    gcTime: LIST_GC_TIME,
+    keepPreviousPage: true,
+    ...(opts.enabled !== undefined ? { enabled: opts.enabled } : {}),
+  };
 }
 
 export function prefetchApiQuery<T>(

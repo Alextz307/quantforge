@@ -11,7 +11,7 @@ from pathlib import Path
 import pytest
 
 from webapp.backend.app.infrastructure.store import StudyNotFoundError
-from webapp.backend.app.services.study_service import get_study, list_studies
+from webapp.backend.app.services.study_service import get_study, list_studies_page
 from webapp.backend.tests.conftest import make_synthetic_study, make_viewer_user
 
 NEWER_NAME = "study_newer"
@@ -21,6 +21,8 @@ OLDER_TS = datetime(2026, 2, 1, tzinfo=UTC)
 EXPECTED_TOTAL_LEGS = 3
 EXPECTED_COMPLETED_LEGS = 2
 EXPECTED_COMPLETION_PCT = pytest.approx(EXPECTED_COMPLETED_LEGS / EXPECTED_TOTAL_LEGS * 100.0)
+# Larger than any per-test seed, so page 0 holds every visible row.
+PAGE_LIMIT = 50
 
 
 def test_list_studies_sorts_newest_first(tmp_path: Path, db_conn: sqlite3.Connection) -> None:
@@ -29,7 +31,14 @@ def test_list_studies_sorts_newest_first(tmp_path: Path, db_conn: sqlite3.Connec
     make_synthetic_study(parent, name=OLDER_NAME, started_at=OLDER_TS)
     make_synthetic_study(parent, name=NEWER_NAME, started_at=NEWER_TS)
 
-    summaries = list_studies(root, conn=db_conn, user=make_viewer_user(db_conn), all_users=False)
+    summaries = list_studies_page(
+        root,
+        conn=db_conn,
+        user=make_viewer_user(db_conn),
+        all_users=False,
+        limit=PAGE_LIMIT,
+        offset=0,
+    ).items
 
     assert [s.name for s in summaries] == [NEWER_NAME, OLDER_NAME]
 
@@ -46,7 +55,14 @@ def test_list_studies_surfaces_completion(tmp_path: Path, db_conn: sqlite3.Conne
         ),
     )
 
-    summary = list_studies(root, conn=db_conn, user=make_viewer_user(db_conn), all_users=False)[0]
+    summary = list_studies_page(
+        root,
+        conn=db_conn,
+        user=make_viewer_user(db_conn),
+        all_users=False,
+        limit=PAGE_LIMIT,
+        offset=0,
+    ).items[0]
 
     assert summary.total_legs == EXPECTED_TOTAL_LEGS
     assert summary.completed_legs == EXPECTED_COMPLETED_LEGS

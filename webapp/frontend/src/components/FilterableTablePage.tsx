@@ -18,10 +18,13 @@ export interface FilterableTableColumn<TRow, K extends string = string> {
   sortKey?: K;
 }
 
-export interface FilterableTablePageProps<TRow, TFilters, K extends string = string> {
+export interface FilterableTablePageProps<TRow, TFilters = unknown, K extends string = string> {
   rows: readonly TRow[];
-  filters: TFilters;
-  applyFilters: (rows: readonly TRow[], filters: TFilters) => readonly TRow[];
+  // Optional client-side filtering. Server-paginated pages omit both (the
+  // server already filtered/sorted the page); only pages that filter in the
+  // browser (e.g. Jobs) supply them. When omitted, ``rows`` render as-is.
+  filters?: TFilters;
+  applyFilters?: (rows: readonly TRow[], filters: TFilters) => readonly TRow[];
   filterControls: ReactNode;
   filterGridClassName?: string;
   rowKey: (row: TRow) => string;
@@ -75,7 +78,7 @@ function SortableHeader<K extends string>({
   );
 }
 
-export function FilterableTablePage<TRow, TFilters, K extends string = string>({
+export function FilterableTablePage<TRow, TFilters = unknown, K extends string = string>({
   rows,
   filters,
   applyFilters,
@@ -92,7 +95,10 @@ export function FilterableTablePage<TRow, TFilters, K extends string = string>({
   sortState,
   onSortToggle,
 }: FilterableTablePageProps<TRow, TFilters, K>) {
-  const filtered = useMemo(() => applyFilters(rows, filters), [rows, filters, applyFilters]);
+  const filtered = useMemo(
+    () => (applyFilters ? applyFilters(rows, filters as TFilters) : rows),
+    [rows, filters, applyFilters],
+  );
   const nameIsLast = columns.length === 0;
   // Stash the current list URL (sort + filters live in the query string) so the
   // detail page's BackLink returns here exactly, not to the bare list route.

@@ -7,7 +7,7 @@ from __future__ import annotations
 import logging
 import os
 import sqlite3
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Protocol
 
@@ -505,7 +505,6 @@ class _RunHandler:
                 config_path=config_path,
                 job_id=row.id,
                 store_root=ctx.store_root,
-                username=ctx.user.username,
                 feature_importance=submission.feature_importance,
             ),
             primary_config_path=config_path,
@@ -543,7 +542,6 @@ class _TuneHandler:
                 experiment_config_path=experiment_config_path,
                 hpo_config_path=hpo_config_path,
                 store_root=ctx.store_root,
-                username=ctx.user.username,
             ),
             primary_config_path=experiment_config_path,
             configs_to_write={
@@ -581,7 +579,6 @@ class _CompareHandler:
                 write_report=payload.write_report,
                 publish_label=payload.publish_label,
                 store_root=ctx.store_root,
-                username=ctx.user.username,
             ),
             primary_config_path=config_paths[0],
             experiment_id=payload.out_name,
@@ -608,7 +605,6 @@ class _HoldoutHandler:
                 write_report=payload.write_report,
                 publish_label=payload.publish_label,
                 store_root=ctx.store_root,
-                username=ctx.user.username,
             ),
             primary_config_path=source_path,
             experiment_id=artifact_name,
@@ -654,7 +650,6 @@ class _StudyHandler:
                 skip_compares=payload.skip_compares,
                 skip_holdout_eval=payload.skip_holdout_eval,
                 store_root=ctx.store_root,
-                username=ctx.user.username,
             ),
             primary_config_path=spec_path,
             experiment_id=output_name,
@@ -759,7 +754,6 @@ class _ImportanceHandler:
                 run_dir=run_dir,
                 store_root=ctx.store_root,
                 job_id=row.id,
-                username=ctx.user.username,
             ),
             primary_config_path=run_dir / EXPERIMENT_CONFIG_YAML,
         )
@@ -824,6 +818,10 @@ async def submit_job(
     )
     log_path = _log_path(job_temp_dir, row.id)
     plan = handler.plan(submission, row, job_temp_dir, ctx)
+    # Attribute every spawned CLI job to the submitter once, at the spawn
+    # boundary, rather than in each build_*_command - a new kind can't forget
+    # the flag, and every experiment subcommand accepts --user.
+    plan = replace(plan, command=(*plan.command, "--user", user.username))
     return await _persist_and_spawn(
         conn=conn,
         manager=manager,

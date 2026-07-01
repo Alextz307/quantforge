@@ -28,11 +28,13 @@ from webapp.backend.app.schemas.holdout import (
 from webapp.backend.app.schemas.pagination import SortOrder
 from webapp.backend.app.schemas.users import UserPublic
 from webapp.backend.app.services._dir_cache import cached_artifact_dirs
+from webapp.backend.app.services._pagination import matches_since, paginate, sort_by_optional
 from webapp.backend.app.services.ownership import (
     ArtifactAccessDeniedError,
     check_artifact_access,
     resolve_owner_usernames,
-    scope_and_stamp_summaries,
+    scoped_cached_summaries,
+    stamp_summaries,
 )
 from webapp.backend.app.services.plots import (
     PlotNotFoundError,
@@ -45,7 +47,6 @@ __all__ = [
     "HoldoutEvalNotFoundError",
     "PlotNotFoundError",
     "get_holdout_eval",
-    "list_holdout_evals",
     "list_holdout_evals_page",
     "resolve_plot",
 ]
@@ -64,47 +65,22 @@ def _optional_metric(metrics: object, key: str) -> float | None:
     return float(value)
 
 
-def _scoped_summaries(
-    root: Path,
-    *,
-    conn: sqlite3.Connection,
-    user: UserPublic,
-    all_users: bool,
-) -> list[HoldoutEvalSummary]:
-    summaries: list[HoldoutEvalSummary] = []
-    for eval_dir in cached_artifact_dirs(root, "holdout", iter_holdout_eval_dirs):
-        payload = json_io.read_dict(eval_dir / HOLDOUT_EVAL_JSON)
-        sharpe = _optional_metric(payload.get("metrics"), "sharpe_ratio")
-        summaries.append(
-            HoldoutEvalSummary(
-                name=json_io.get_str(payload, "out_name"),
-                store=store_label(eval_dir, root),
-                created_at=json_io.get_timestamp(payload, "created_at"),
-                source_kind=cast(SourceKind, json_io.get_str(payload, "source_kind")),
-                source_id=json_io.get_str(payload, "source_id"),
-                holdout_start=json_io.get_timestamp(payload, "holdout_start"),
-                sharpe_ratio=sharpe,
-            )
-        )
-    return scope_and_stamp_summaries(
-        summaries, key_fn=lambda s: s.name, conn=conn, user=user, all_users=all_users
+# Cache HoldoutEvalSummary by (eval_dir, holdout_eval.json mtime_ns) so
+# successive page/sort/filter requests reparse only evals written since.
+_SUMMARY_CACHE: dict[str, tuple[int, HoldoutEvalSummary | None]] = {}
+
+
+def _summarize(eval_dir: Path, root: Path) -> HoldoutEvalSummary:
+    payload = json_io.read_dict(eval_dir / HOLDOUT_EVAL_JSON)
+    return HoldoutEvalSummary(
+        name=json_io.get_str(payload, "out_name"),
+        store=store_label(eval_dir, root),
+        created_at=json_io.get_timestamp(payload, "created_at"),
+        source_kind=cast(SourceKind, json_io.get_str(payload, "source_kind")),
+        source_id=json_io.get_str(payload, "source_id"),
+        holdout_start=json_io.get_timestamp(payload, "holdout_start"),
+        sharpe_ratio=_optional_metric(payload.get("metrics"), "sharpe_ratio"),
     )
-
-
-def list_holdout_evals(
-    root: Path,
-    *,
-    conn: sqlite3.Connection,
-    user: UserPublic,
-    all_users: bool,
-) -> list[HoldoutEvalSummary]:
-    """
-    List every holdout eval under ``root`` visible to ``user``, newest first.
-    """
-
-    scoped = _scoped_summaries(root, conn=conn, user=user, all_users=all_users)
-    scoped.sort(key=lambda s: s.created_at, reverse=True)
-    return scoped
 
 
 def list_holdout_evals_page(
@@ -127,14 +103,24 @@ def list_holdout_evals_page(
     the dropdown can offer every kind regardless of the current page.
     """
 
-    scoped = _scoped_summaries(root, conn=conn, user=user, all_users=all_users)
-    source_kinds = sorted({s.source_kind for s in scoped})
-    filtered = [s for s in scoped if _matches(s, source_kind, since)]
+    visible, usernames = scoped_cached_summaries(
+        cached_artifact_dirs(root, "holdout", iter_holdout_eval_dirs),
+        mtime_sources=(HOLDOUT_EVAL_JSON,),
+        summarize=lambda d: _summarize(d, root),
+        cache=_SUMMARY_CACHE,
+        key_fn=lambda s: s.name,
+        conn=conn,
+        user=user,
+        all_users=all_users,
+    )
+    source_kinds = sorted({s.source_kind for s in visible})
+    filtered = [s for s in visible if _matches(s, source_kind, since)]
     _sort(filtered, sort_by, order)
-    page = filtered[offset : offset + limit]
+    page, total = paginate(filtered, limit=limit, offset=offset)
+    items = stamp_summaries(page, key_fn=lambda s: s.name, usernames=usernames)
     return HoldoutEvalsPage(
-        items=page,
-        total=len(filtered),
+        items=items,
+        total=total,
         limit=limit,
         offset=offset,
         source_kinds=source_kinds,
@@ -146,9 +132,7 @@ def _matches(
 ) -> bool:
     if source_kind is not None and row.source_kind != source_kind:
         return False
-    if since is not None and row.created_at < since:
-        return False
-    return True
+    return matches_since(row.created_at, since)
 
 
 def _sort(rows: list[HoldoutEvalSummary], sort_by: HoldoutSortBy, order: SortOrder) -> None:
@@ -160,15 +144,8 @@ def _sort(rows: list[HoldoutEvalSummary], sort_by: HoldoutSortBy, order: SortOrd
         rows.sort(key=lambda r: r.holdout_start, reverse=reverse)
         return
     # In-flight evals carry ``sharpe_ratio=None``; sink them last under BOTH
-    # directions (mirrors run_service) by folding direction into the value sign
-    # rather than ``reverse=`` so the null-last primary key is never flipped.
-    sign = -1.0 if reverse else 1.0
-    rows.sort(
-        key=lambda r: (
-            r.sharpe_ratio is None,
-            sign * r.sharpe_ratio if r.sharpe_ratio is not None else 0.0,
-        )
-    )
+    # directions (see sort_by_optional).
+    sort_by_optional(rows, lambda r: r.sharpe_ratio, order=order)
 
 
 def get_holdout_eval(

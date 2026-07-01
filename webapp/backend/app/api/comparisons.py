@@ -13,6 +13,7 @@ from fastapi.responses import FileResponse
 from webapp.backend.app.core.deps import get_current_user, get_db
 from webapp.backend.app.core.settings import get_settings
 from webapp.backend.app.schemas.comparisons import ComparisonDetail, ComparisonsPage
+from webapp.backend.app.schemas.pagination import DEFAULT_PAGE_LIMIT, MAX_PAGE_LIMIT
 from webapp.backend.app.schemas.users import UserPublic
 from webapp.backend.app.services.comparison_service import (
     ComparisonNotFoundError,
@@ -27,7 +28,7 @@ router = APIRouter(prefix="/comparisons", tags=["comparisons"])
 
 @router.get("", response_model=ComparisonsPage)
 def get_comparisons(
-    limit: int = Query(50, ge=1, le=500),
+    limit: int = Query(DEFAULT_PAGE_LIMIT, ge=1, le=MAX_PAGE_LIMIT),
     offset: int = Query(0, ge=0),
     strategy: str | None = Query(None),
     since: datetime | None = Query(None),

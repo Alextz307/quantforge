@@ -9,6 +9,7 @@ import { SubmitFailureAlert } from "@/components/forms/SubmitFailureAlert";
 import { SubmitJobError, useSubmitJob, type ValidationErrorItem } from "@/api/jobs";
 import { useHpoStudies, type HpoSummary } from "@/api/hpo";
 import { useRunsPage, type RunSummary } from "@/api/runs";
+import { PickerTruncationNotice } from "@/components/PickerTruncationNotice";
 import { QueryRenderer } from "@/components/QueryRenderer";
 import { formatDateTime, formatMetric } from "@/lib/format";
 import { jobDetailPath } from "@/lib/routes";
@@ -41,13 +42,12 @@ export function ConfigureHoldoutPage() {
   const [serverErrors, setServerErrors] = useState<readonly ValidationErrorItem[]>([]);
   const [clientErrors, setClientErrors] = useState<readonly ValidationErrorItem[]>([]);
 
-  const runsQuery = useRunsPage({
-    limit: PICKER_PAGE_LIMIT,
-    offset: 0,
-    sortBy: "created_at",
-    order: "desc",
-  });
-  const hpoQuery = useHpoStudies();
+  // Only the selected source's picker fetches; switching tabs enables the other.
+  const runsQuery = useRunsPage(
+    { limit: PICKER_PAGE_LIMIT, offset: 0, sortBy: "created_at", order: "desc" },
+    { enabled: sourceKind === SOURCE_KIND_RUN },
+  );
+  const hpoQuery = useHpoStudies({ enabled: sourceKind === SOURCE_KIND_HPO });
 
   const inlineErrors = useMemo(
     () => [...clientErrors, ...serverErrors],
@@ -158,13 +158,19 @@ export function ConfigureHoldoutPage() {
           {sourceKind === SOURCE_KIND_RUN ? (
             <QueryRenderer query={runsQuery} errorTitle="Failed to load runs">
               {(page) => (
-                <RunSourcePicker rows={page.items} selectedId={sourceId} onSelect={setSourceId} />
+                <>
+                  <RunSourcePicker rows={page.items} selectedId={sourceId} onSelect={setSourceId} />
+                  <PickerTruncationNotice total={page.total} limit={PICKER_PAGE_LIMIT} />
+                </>
               )}
             </QueryRenderer>
           ) : (
             <QueryRenderer query={hpoQuery} errorTitle="Failed to load HPO studies">
-              {(rows) => (
-                <HpoSourcePicker rows={rows} selectedId={sourceId} onSelect={setSourceId} />
+              {({ items, total }) => (
+                <>
+                  <HpoSourcePicker rows={items} selectedId={sourceId} onSelect={setSourceId} />
+                  <PickerTruncationNotice total={total} />
+                </>
               )}
             </QueryRenderer>
           )}

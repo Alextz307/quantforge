@@ -24,11 +24,13 @@ from webapp.backend.app.schemas.comparisons import (
 )
 from webapp.backend.app.schemas.users import UserPublic
 from webapp.backend.app.services._dir_cache import cached_artifact_dirs
+from webapp.backend.app.services._pagination import matches_since, paginate
 from webapp.backend.app.services.ownership import (
     ArtifactAccessDeniedError,
     check_artifact_access,
     resolve_owner_usernames,
-    scope_and_stamp_summaries,
+    scoped_cached_summaries,
+    stamp_summaries,
 )
 from webapp.backend.app.services.plots import (
     PlotNotFoundError,
@@ -41,50 +43,25 @@ __all__ = [
     "ComparisonNotFoundError",
     "PlotNotFoundError",
     "get_comparison",
-    "list_comparisons",
     "list_comparisons_page",
     "resolve_plot",
 ]
 
 
-def _scoped_summaries(
-    root: Path,
-    *,
-    conn: sqlite3.Connection,
-    user: UserPublic,
-    all_users: bool,
-) -> list[ComparisonSummary]:
-    summaries: list[ComparisonSummary] = []
-    for cmp_dir in cached_artifact_dirs(root, "comparison", iter_comparison_dirs):
-        manifest = json_io.read_dict(cmp_dir / EXPERIMENT_MANIFEST_JSON)
-        per_strategy = json_io.get_dict(manifest, "per_strategy_experiment_id")
-        summaries.append(
-            ComparisonSummary(
-                name=json_io.get_str(manifest, "out_name"),
-                store=store_label(cmp_dir, root),
-                created_at=json_io.get_timestamp(manifest, "created_at"),
-                strategies=sorted(per_strategy.keys()),
-            )
-        )
-    return scope_and_stamp_summaries(
-        summaries, key_fn=lambda s: s.name, conn=conn, user=user, all_users=all_users
+# Cache ComparisonSummary by (cmp_dir, manifest_mtime_ns) so successive
+# page/sort/filter requests reparse only comparisons written since.
+_SUMMARY_CACHE: dict[str, tuple[int, ComparisonSummary | None]] = {}
+
+
+def _summarize(cmp_dir: Path, root: Path) -> ComparisonSummary:
+    manifest = json_io.read_dict(cmp_dir / EXPERIMENT_MANIFEST_JSON)
+    per_strategy = json_io.get_dict(manifest, "per_strategy_experiment_id")
+    return ComparisonSummary(
+        name=json_io.get_str(manifest, "out_name"),
+        store=store_label(cmp_dir, root),
+        created_at=json_io.get_timestamp(manifest, "created_at"),
+        strategies=sorted(per_strategy.keys()),
     )
-
-
-def list_comparisons(
-    root: Path,
-    *,
-    conn: sqlite3.Connection,
-    user: UserPublic,
-    all_users: bool,
-) -> list[ComparisonSummary]:
-    """
-    List every comparison under ``root`` visible to ``user``, newest first.
-    """
-
-    scoped = _scoped_summaries(root, conn=conn, user=user, all_users=all_users)
-    scoped.sort(key=lambda s: s.created_at, reverse=True)
-    return scoped
 
 
 def list_comparisons_page(
@@ -105,22 +82,30 @@ def list_comparisons_page(
     the dropdown can offer every strategy regardless of the current page.
     """
 
-    scoped = _scoped_summaries(root, conn=conn, user=user, all_users=all_users)
-    strategies = sorted({s for row in scoped for s in row.strategies})
-    filtered = [row for row in scoped if _matches(row, strategy, since)]
+    visible, usernames = scoped_cached_summaries(
+        cached_artifact_dirs(root, "comparison", iter_comparison_dirs),
+        mtime_sources=(EXPERIMENT_MANIFEST_JSON,),
+        summarize=lambda d: _summarize(d, root),
+        cache=_SUMMARY_CACHE,
+        key_fn=lambda s: s.name,
+        conn=conn,
+        user=user,
+        all_users=all_users,
+    )
+    strategies = sorted({s for row in visible for s in row.strategies})
+    filtered = [row for row in visible if _matches(row, strategy, since)]
     filtered.sort(key=lambda s: s.created_at, reverse=True)
-    page = filtered[offset : offset + limit]
+    page, total = paginate(filtered, limit=limit, offset=offset)
+    items = stamp_summaries(page, key_fn=lambda s: s.name, usernames=usernames)
     return ComparisonsPage(
-        items=page, total=len(filtered), limit=limit, offset=offset, strategies=strategies
+        items=items, total=total, limit=limit, offset=offset, strategies=strategies
     )
 
 
 def _matches(row: ComparisonSummary, strategy: str | None, since: datetime | None) -> bool:
     if strategy is not None and strategy not in row.strategies:
         return False
-    if since is not None and row.created_at < since:
-        return False
-    return True
+    return matches_since(row.created_at, since)
 
 
 def get_comparison(

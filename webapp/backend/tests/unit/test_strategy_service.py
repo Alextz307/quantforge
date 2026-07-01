@@ -73,6 +73,9 @@ def test_optional_enum_unwraps_to_typed_dropdown() -> None:
     assert by_name["lstm_device"].required is False
     assert by_name["lstm_device"].choices is not None
     assert "cpu" in by_name["lstm_device"].choices
+    # A null Device resolves to auto-select; the schema surfaces that sentinel
+    # as the default so the form need not special-case it.
+    assert by_name["lstm_device"].default == "auto"
 
 
 def test_device_choices_pruned_to_host_availability(

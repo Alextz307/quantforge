@@ -2,6 +2,7 @@ import { useCallback } from "react";
 import { useQueryClient, type UseQueryResult } from "@tanstack/react-query";
 import {
   apiClient,
+  listPageConfig,
   prefetchApiQuery,
   useApiQuery,
   type ApiQueryOptions,
@@ -15,10 +16,6 @@ export type ComparisonDetail = components["schemas"]["ComparisonDetail"];
 export type ComparisonsPage = components["schemas"]["ComparisonsPage"];
 export type PerStrategyStatsRow = components["schemas"]["PerStrategyStatsRow"];
 
-const LIST_STALE_TIME = 30_000;
-// Cap cache retention; paging/sort/filter combos spawn many short-lived keys.
-const LIST_GC_TIME = 60_000;
-
 export interface ComparisonsListOptions {
   allUsers?: boolean;
 }
@@ -28,24 +25,24 @@ function comparisonsPageConfig(
   opts: ComparisonsListOptions,
 ): ApiQueryOptions<ComparisonsPage> {
   const allUsers = opts.allUsers ?? false;
-  return {
+  return listPageConfig({
     queryKey: queryKeys.comparisonsPage({ ...params, allUsers }),
     fetcher: () =>
       apiClient.GET(API_PATHS.comparisons, {
         params: {
           query: {
+            // openapi-fetch omits null/undefined query values; `?? null` keeps
+            // exactOptionalPropertyTypes satisfied while dropping absent filters.
             limit: params.limit,
             offset: params.offset,
-            ...(params.strategy !== undefined ? { strategy: params.strategy } : {}),
-            ...(params.since !== undefined ? { since: params.since } : {}),
+            strategy: params.strategy ?? null,
+            since: params.since ?? null,
             ...(allUsers ? { all: true } : {}),
           },
         },
       }),
     errorMsg: "Failed to load comparisons",
-    staleTime: LIST_STALE_TIME,
-    gcTime: LIST_GC_TIME,
-  };
+  });
 }
 
 function comparisonConfig(name: string): ApiQueryOptions<ComparisonDetail> {

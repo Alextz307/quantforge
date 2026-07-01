@@ -15,7 +15,7 @@ from webapp.backend.app.infrastructure.store import ComparisonNotFoundError
 from webapp.backend.app.services.comparison_service import (
     PlotNotFoundError,
     get_comparison,
-    list_comparisons,
+    list_comparisons_page,
     resolve_plot,
 )
 from webapp.backend.tests.conftest import (
@@ -31,6 +31,8 @@ NEWER_TS = datetime(2026, 4, 1, tzinfo=UTC)
 OLDER_TS = datetime(2026, 1, 1, tzinfo=UTC)
 EXPECTED_SHARPE = 0.5
 EXPECTED_STRATEGY_COUNT = 2
+# Larger than any per-test seed, so page 0 holds every visible row.
+PAGE_LIMIT = 50
 
 
 def test_list_comparisons_sorts_newest_first(tmp_path: Path, db_conn: sqlite3.Connection) -> None:
@@ -39,9 +41,14 @@ def test_list_comparisons_sorts_newest_first(tmp_path: Path, db_conn: sqlite3.Co
     make_synthetic_comparison(parent, name=OLDER_NAME, created_at=OLDER_TS)
     make_synthetic_comparison(parent, name=NEWER_NAME, created_at=NEWER_TS)
 
-    summaries = list_comparisons(
-        root, conn=db_conn, user=make_viewer_user(db_conn), all_users=False
-    )
+    summaries = list_comparisons_page(
+        root,
+        conn=db_conn,
+        user=make_viewer_user(db_conn),
+        all_users=False,
+        limit=PAGE_LIMIT,
+        offset=0,
+    ).items
 
     assert [s.name for s in summaries] == [NEWER_NAME, OLDER_NAME]
 
@@ -56,9 +63,14 @@ def test_list_comparisons_surfaces_strategies_and_store(
         strategies={"A": "id_a", "B": "id_b"},
     )
 
-    summary = list_comparisons(root, conn=db_conn, user=make_viewer_user(db_conn), all_users=False)[
-        0
-    ]
+    summary = list_comparisons_page(
+        root,
+        conn=db_conn,
+        user=make_viewer_user(db_conn),
+        all_users=False,
+        limit=PAGE_LIMIT,
+        offset=0,
+    ).items[0]
 
     assert summary.strategies == ["A", "B"]
     assert len(summary.strategies) == EXPECTED_STRATEGY_COUNT

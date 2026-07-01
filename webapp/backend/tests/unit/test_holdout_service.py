@@ -13,10 +13,12 @@ import pytest
 from src.core.persistence import HOLDOUT_EVALS_SUBDIR
 from src.engine.scenarios import SlippageScenario
 from webapp.backend.app.infrastructure.store import HoldoutEvalNotFoundError
+from webapp.backend.app.schemas.holdout import HoldoutSortBy
+from webapp.backend.app.schemas.pagination import SortOrder
 from webapp.backend.app.services.holdout_service import (
     PlotNotFoundError,
     get_holdout_eval,
-    list_holdout_evals,
+    list_holdout_evals_page,
     resolve_plot,
 )
 from webapp.backend.tests.conftest import (
@@ -33,6 +35,8 @@ OLDER_TS = datetime(2026, 1, 3, tzinfo=UTC)
 HOLDOUT_BOUNDARY = datetime(2024, 1, 1, tzinfo=UTC)
 EXPECTED_SHARPE = 0.6
 EXPECTED_EQUITY_CURVE = [10000.0, 10100.0, 10500.0]
+# Larger than any per-test seed, so page 0 holds every visible row.
+PAGE_LIMIT = 50
 
 
 def test_list_holdout_evals_sorts_newest_first(tmp_path: Path, db_conn: sqlite3.Connection) -> None:
@@ -41,9 +45,16 @@ def test_list_holdout_evals_sorts_newest_first(tmp_path: Path, db_conn: sqlite3.
     make_synthetic_holdout_eval(parent, name=OLDER_NAME, created_at=OLDER_TS)
     make_synthetic_holdout_eval(parent, name=NEWER_NAME, created_at=NEWER_TS)
 
-    summaries = list_holdout_evals(
-        root, conn=db_conn, user=make_viewer_user(db_conn), all_users=False
-    )
+    summaries = list_holdout_evals_page(
+        root,
+        conn=db_conn,
+        user=make_viewer_user(db_conn),
+        all_users=False,
+        limit=PAGE_LIMIT,
+        offset=0,
+        sort_by=HoldoutSortBy.CREATED_AT,
+        order=SortOrder.DESC,
+    ).items
 
     assert [s.name for s in summaries] == [NEWER_NAME, OLDER_NAME]
 
@@ -60,9 +71,16 @@ def test_list_holdout_evals_surfaces_source_and_store(
         holdout_start=HOLDOUT_BOUNDARY,
     )
 
-    summary = list_holdout_evals(
-        root, conn=db_conn, user=make_viewer_user(db_conn), all_users=False
-    )[0]
+    summary = list_holdout_evals_page(
+        root,
+        conn=db_conn,
+        user=make_viewer_user(db_conn),
+        all_users=False,
+        limit=PAGE_LIMIT,
+        offset=0,
+        sort_by=HoldoutSortBy.CREATED_AT,
+        order=SortOrder.DESC,
+    ).items[0]
 
     assert summary.source_kind == "hpo"
     assert summary.source_id == "some_hpo_study"

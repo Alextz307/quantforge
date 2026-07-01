@@ -81,7 +81,6 @@ export function ComparisonsPage() {
                 setParams({ since: v });
               }}
               limit={limit}
-              offset={offset}
               onOffset={setOffset}
             />
           )}
@@ -98,7 +97,6 @@ interface BodyProps {
   onStrategy: (v: string) => void;
   onSince: (v: string) => void;
   limit: number;
-  offset: number;
   onOffset: (offset: number) => void;
 }
 
@@ -109,7 +107,6 @@ function ComparisonsBody({
   onStrategy,
   onSince,
   limit,
-  offset,
   onOffset,
 }: BodyProps) {
   const strategyOptions = useMemo(
@@ -120,10 +117,8 @@ function ComparisonsBody({
 
   return (
     <div className="flex flex-col gap-4">
-      <FilterableTablePage<ComparisonSummary, Record<string, never>>
+      <FilterableTablePage<ComparisonSummary>
         rows={page.items}
-        filters={{}}
-        applyFilters={(rows) => rows}
         filterControls={
           <>
             <FilterSelect
@@ -163,15 +158,7 @@ function ComparisonsBody({
           },
         ]}
       />
-      {(page.items.length > 0 || offset > 0) && (
-        <Pagination
-          total={page.total}
-          limit={limit}
-          offset={offset}
-          count={page.items.length}
-          onOffset={onOffset}
-        />
-      )}
+      <Pagination total={page.total} limit={limit} offset={page.offset} onOffset={onOffset} />
     </div>
   );
 }

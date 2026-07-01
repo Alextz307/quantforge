@@ -16,12 +16,14 @@ from webapp.backend.app.core.types import Role
 from webapp.backend.app.infrastructure.db import bootstrap_schema, get_connection
 from webapp.backend.app.infrastructure.job_store import NewJob, insert_job, mark_running
 from webapp.backend.app.infrastructure.store import HpoStudyNotFoundError
+from webapp.backend.app.schemas.hpo import HpoSortBy
 from webapp.backend.app.schemas.jobs import JobKind
+from webapp.backend.app.schemas.pagination import SortOrder
 from webapp.backend.app.services.hpo_service import (
     find_live_job_for,
     get_hpo_study,
     get_param_importance,
-    list_hpo_studies,
+    list_hpo_studies_page,
     list_trials,
 )
 from webapp.backend.app.services.user_service import create_user
@@ -36,6 +38,8 @@ EXPECTED_BEST_TRIAL_NUMBER = 2
 EXPECTED_N_TRIALS = 4
 EXPECTED_N_COMPLETE = 3
 AFTER_TRIAL_FILTER = 1
+# Larger than any per-test seed, so page 0 holds every visible row.
+PAGE_LIMIT = 50
 
 
 def test_list_hpo_studies_sorts_newest_first(tmp_path: Path, db_conn: sqlite3.Connection) -> None:
@@ -44,9 +48,16 @@ def test_list_hpo_studies_sorts_newest_first(tmp_path: Path, db_conn: sqlite3.Co
     make_synthetic_hpo_study(parent, name=OLDER_NAME, created_at=OLDER_TS)
     make_synthetic_hpo_study(parent, name=NEWER_NAME, created_at=NEWER_TS)
 
-    summaries = list_hpo_studies(
-        root, conn=db_conn, user=make_viewer_user(db_conn), all_users=False
-    )
+    summaries = list_hpo_studies_page(
+        root,
+        conn=db_conn,
+        user=make_viewer_user(db_conn),
+        all_users=False,
+        limit=PAGE_LIMIT,
+        offset=0,
+        sort_by=HpoSortBy.CREATED_AT,
+        order=SortOrder.DESC,
+    ).items
 
     assert [s.name for s in summaries] == [NEWER_NAME, OLDER_NAME]
 
@@ -64,9 +75,16 @@ def test_list_hpo_studies_surfaces_best_and_store(
         best_trial_number=EXPECTED_BEST_TRIAL_NUMBER,
     )
 
-    summary = list_hpo_studies(root, conn=db_conn, user=make_viewer_user(db_conn), all_users=False)[
-        0
-    ]
+    summary = list_hpo_studies_page(
+        root,
+        conn=db_conn,
+        user=make_viewer_user(db_conn),
+        all_users=False,
+        limit=PAGE_LIMIT,
+        offset=0,
+        sort_by=HpoSortBy.CREATED_AT,
+        order=SortOrder.DESC,
+    ).items[0]
 
     assert summary.n_trials == EXPECTED_N_TRIALS
     assert summary.n_complete == EXPECTED_N_COMPLETE

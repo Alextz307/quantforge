@@ -2,11 +2,14 @@ import { useCallback } from "react";
 import { useQueryClient, type UseQueryResult } from "@tanstack/react-query";
 import {
   apiClient,
+  listPageConfig,
+  LIST_STALE_TIME,
   MAX_PAGE_LIMIT,
   prefetchApiQuery,
   useApiQuery,
   type ApiQueryOptions,
   type components,
+  type PickerPage,
 } from "./client";
 import { API_PATHS, wsUrlFor } from "./paths";
 import { queryKeys, type HpoStudiesPageParams } from "./queryKeys";
@@ -19,20 +22,21 @@ export type TrialRow = components["schemas"]["TrialRow"];
 export type StudyDirection = components["schemas"]["StudyDirection"];
 export type ParamImportanceResponse = components["schemas"]["ParamImportanceResponse"];
 
-const LIST_STALE_TIME = 30_000;
-// Cap cache retention; paging/sort/filter combos spawn many short-lived keys.
-const LIST_GC_TIME = 60_000;
 const STUDY_LIVE_REFETCH_MS = 3_000;
 const IMPORTANCE_LIVE_REFETCH_MS = 30_000;
 
 export interface HpoStudiesListOptions {
   allUsers?: boolean;
+  // Gate the fetch (React Query ``enabled``). Used by the holdout-source picker
+  // so the HPO list isn't fetched while the run source tab is selected.
+  enabled?: boolean;
 }
 
 function hpoStudiesConfig(
   opts: HpoStudiesListOptions,
-): ApiQueryOptions<HpoStudiesPage, HpoSummary[]> {
-  // The holdout-source picker wants the whole visible set; request the max page.
+): ApiQueryOptions<HpoStudiesPage, PickerPage<HpoSummary>> {
+  // The holdout-source picker wants the whole visible set; request the max page
+  // and keep ``total`` so it can flag a set larger than that window.
   const allUsers = opts.allUsers ?? false;
   return {
     queryKey: queryKeys.hpoStudiesPicker({ allUsers }),
@@ -42,7 +46,8 @@ function hpoStudiesConfig(
       }),
     errorMsg: "Failed to load HPO studies",
     staleTime: LIST_STALE_TIME,
-    select: (page) => page.items,
+    select: (page) => ({ items: page.items, total: page.total }),
+    ...(opts.enabled !== undefined ? { enabled: opts.enabled } : {}),
   };
 }
 
@@ -51,26 +56,26 @@ function hpoStudiesPageConfig(
   opts: HpoStudiesListOptions,
 ): ApiQueryOptions<HpoStudiesPage> {
   const allUsers = opts.allUsers ?? false;
-  return {
+  return listPageConfig({
     queryKey: queryKeys.hpoStudiesPage({ ...params, allUsers }),
     fetcher: () =>
       apiClient.GET(API_PATHS.hpoStudies, {
         params: {
           query: {
+            // openapi-fetch omits null/undefined query values; `?? null` keeps
+            // exactOptionalPropertyTypes satisfied while dropping absent filters.
             limit: params.limit,
             offset: params.offset,
             sort_by: params.sortBy,
             order: params.order,
-            ...(params.store !== undefined ? { store: params.store } : {}),
-            ...(params.since !== undefined ? { since: params.since } : {}),
+            store: params.store ?? null,
+            since: params.since ?? null,
             ...(allUsers ? { all: true } : {}),
           },
         },
       }),
     errorMsg: "Failed to load HPO studies",
-    staleTime: LIST_STALE_TIME,
-    gcTime: LIST_GC_TIME,
-  };
+  });
 }
 
 function hpoStudyConfig(wireId: string, livePoll: boolean): ApiQueryOptions<HpoDetail> {
@@ -115,7 +120,9 @@ export function useHpoStudiesPage(
   return useApiQuery(hpoStudiesPageConfig(params, opts));
 }
 
-export function useHpoStudies(opts: HpoStudiesListOptions = {}): UseQueryResult<HpoSummary[]> {
+export function useHpoStudies(
+  opts: HpoStudiesListOptions = {},
+): UseQueryResult<PickerPage<HpoSummary>> {
   return useApiQuery(hpoStudiesConfig(opts));
 }
 

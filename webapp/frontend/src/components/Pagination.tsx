@@ -4,15 +4,24 @@ export interface PaginationProps {
   total: number;
   limit: number;
   offset: number;
-  // Rows actually on the current page; drives the "Showing x-y" range and lets
-  // a short final page (count < limit) disable Next once offset + count == total.
-  count: number;
   onOffset: (offset: number) => void;
 }
 
-export function Pagination({ total, limit, offset, count, onOffset }: PaginationProps) {
-  const start = total === 0 ? 0 : offset + 1;
-  const end = Math.min(total, offset + count);
+export function Pagination({ total, limit, offset, onOffset }: PaginationProps) {
+  // Nothing to page through on an empty first page; an out-of-range offset
+  // (offset > 0, e.g. paged past a shrunken total) still renders so Previous
+  // can walk back into range.
+  if (total === 0 && offset === 0) return null;
+
+  // Rows on the current page are a pure slice of the filtered set, so the count
+  // is derivable: a short final page (or an offset past the total) yields fewer
+  // than ``limit`` and disables Next.
+  const count = Math.max(0, Math.min(limit, total - offset));
+  // An offset past the total (e.g. a bookmarked deep page after rows were
+  // deleted) yields count 0; show "0-0" rather than a reversed "offset+1-total"
+  // range. Previous still walks back into range.
+  const start = count === 0 ? 0 : offset + 1;
+  const end = count === 0 ? 0 : offset + count;
   const hasPrev = offset > 0;
   const hasNext = offset + count < total;
 

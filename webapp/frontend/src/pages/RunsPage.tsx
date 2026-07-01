@@ -1,7 +1,6 @@
 import { useMemo, useState } from "react";
-import { Link, useLocation, useSearchParams } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { useMe } from "@/api/auth";
-import { MAX_PAGE_LIMIT } from "@/api/client";
 import {
   usePrefetchRun,
   useRunsPage,
@@ -18,20 +17,22 @@ import { LaunchedByCell } from "@/components/LaunchedByCell";
 import { Pagination } from "@/components/Pagination";
 import { QueryRenderer } from "@/components/QueryRenderer";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
+import { usePaginatedSearch } from "@/hooks/usePaginatedSearch";
+import { readSortState, readValidSince, toggleSortParams } from "@/lib/filters";
 import { formatDateTime, formatMetric } from "@/lib/format";
 import { runDetailPath } from "@/lib/routes";
 
-const DEFAULT_LIMIT = 50;
 // Free-text inputs commit to the URL instantly (snappy + shareable) but the
 // query/fetch waits for the input to settle so the server isn't hit per
 // keystroke and the React Query cache cannot accumulate unbounded keys.
 const FILTER_DEBOUNCE_MS = 300;
-const SORT_BY_VALUES: ReadonlySet<RunSortBy> = new Set(["created_at", "sharpe_mean"]);
-const ORDER_VALUES: ReadonlySet<SortOrder> = new Set(["asc", "desc"]);
+const SORT_KEYS: ReadonlySet<RunSortBy> = new Set(["created_at", "sharpe_mean"]);
+const DEFAULT_SORT: { sortBy: RunSortBy; order: "asc" | "desc" } = {
+  sortBy: "created_at",
+  order: "desc",
+};
 
-interface RunsPageState {
-  limit: number;
-  offset: number;
+interface RunsFilters {
   sortBy: RunSortBy;
   order: SortOrder;
   strategy: string;
@@ -39,46 +40,40 @@ interface RunsPageState {
   since: string;
 }
 
-function readState(params: URLSearchParams): RunsPageState {
-  const limit = Number.parseInt(params.get("limit") ?? "", 10);
-  const offset = Number.parseInt(params.get("offset") ?? "", 10);
-  const sortBy = params.get("sort_by");
-  const order = params.get("order");
-  return {
-    limit: Number.isFinite(limit) && limit > 0 ? Math.min(limit, MAX_PAGE_LIMIT) : DEFAULT_LIMIT,
-    offset: Number.isFinite(offset) && offset >= 0 ? offset : 0,
-    sortBy:
-      sortBy && SORT_BY_VALUES.has(sortBy as RunSortBy) ? (sortBy as RunSortBy) : "created_at",
-    order: order && ORDER_VALUES.has(order as SortOrder) ? (order as SortOrder) : "desc",
-    strategy: params.get("strategy") ?? "",
-    ticker: params.get("ticker") ?? "",
-    since: params.get("since") ?? "",
-  };
+interface RunsPageState extends RunsFilters {
+  limit: number;
+  offset: number;
 }
 
-function setParam(params: URLSearchParams, key: string, value: string): URLSearchParams {
-  const next = new URLSearchParams(params);
-  if (value === "") next.delete(key);
-  else next.set(key, value);
-  return next;
+function readFilters(params: URLSearchParams): RunsFilters {
+  return {
+    ...readSortState(params, SORT_KEYS, DEFAULT_SORT),
+    strategy: params.get("strategy") ?? "",
+    ticker: params.get("ticker") ?? "",
+    since: readValidSince(params.get("since")),
+  };
 }
 
 export function RunsPage() {
   const me = useMe();
   const isAdmin = me.data?.role === "admin";
   const [allUsers, setAllUsers] = useState(false);
-  const [searchParams, setSearchParams] = useSearchParams();
-  const state = useMemo(() => readState(searchParams), [searchParams]);
-  const debouncedStrategy = useDebouncedValue(state.strategy, FILTER_DEBOUNCE_MS);
-  const debouncedTicker = useDebouncedValue(state.ticker, FILTER_DEBOUNCE_MS);
-  const debouncedSince = useDebouncedValue(state.since, FILTER_DEBOUNCE_MS);
+  const { searchParams, limit, offset, setOffset, setParams } = usePaginatedSearch();
+  const filters = useMemo(() => readFilters(searchParams), [searchParams]);
+  const state: RunsPageState = useMemo(
+    () => ({ limit, offset, ...filters }),
+    [limit, offset, filters],
+  );
+  const debouncedStrategy = useDebouncedValue(filters.strategy, FILTER_DEBOUNCE_MS);
+  const debouncedTicker = useDebouncedValue(filters.ticker, FILTER_DEBOUNCE_MS);
+  const debouncedSince = useDebouncedValue(filters.since, FILTER_DEBOUNCE_MS);
 
   const query = useRunsPage(
     {
-      limit: state.limit,
-      offset: state.offset,
-      sortBy: state.sortBy,
-      order: state.order,
+      limit,
+      offset,
+      sortBy: filters.sortBy,
+      order: filters.order,
       ...(debouncedStrategy ? { strategy: debouncedStrategy } : {}),
       ...(debouncedTicker ? { ticker: debouncedTicker } : {}),
       ...(debouncedSince ? { since: new Date(debouncedSince).toISOString() } : {}),
@@ -86,25 +81,12 @@ export function RunsPage() {
     { allUsers: isAdmin && allUsers },
   );
 
-  const updateParam = (key: string, value: string) => {
-    setSearchParams(setParam(searchParams, key, value));
-  };
-
   const updateFilter = (key: "strategy" | "ticker" | "since", value: string) => {
-    const next = new URLSearchParams(searchParams);
-    if (value === "") next.delete(key);
-    else next.set(key, value);
-    next.delete("offset");
-    setSearchParams(next);
+    setParams({ [key]: value });
   };
 
   const toggleSort = (col: RunSortBy) => {
-    const next = new URLSearchParams(searchParams);
-    const sameCol = state.sortBy === col;
-    next.set("sort_by", col);
-    next.set("order", sameCol && state.order === "desc" ? "asc" : "desc");
-    next.delete("offset");
-    setSearchParams(next);
+    setParams(toggleSortParams(filters, col));
   };
 
   return (
@@ -155,14 +137,7 @@ export function RunsPage() {
 
         <QueryRenderer query={query} errorTitle="Failed to load runs">
           {(page) => (
-            <RunsBody
-              page={page}
-              state={state}
-              onToggleSort={toggleSort}
-              onOffset={(next) => {
-                updateParam("offset", String(next));
-              }}
-            />
+            <RunsBody page={page} state={state} onToggleSort={toggleSort} onOffset={setOffset} />
           )}
         </QueryRenderer>
       </CardContent>
@@ -247,15 +222,7 @@ function RunsBody({ page, state, onToggleSort, onOffset }: RunsBodyProps) {
         </div>
       )}
 
-      {(items.length > 0 || offset > 0) && (
-        <Pagination
-          total={total}
-          limit={state.limit}
-          offset={offset}
-          count={items.length}
-          onOffset={onOffset}
-        />
-      )}
+      <Pagination total={total} limit={state.limit} offset={offset} onOffset={onOffset} />
     </>
   );
 }

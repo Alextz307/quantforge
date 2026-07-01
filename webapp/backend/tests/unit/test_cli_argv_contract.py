@@ -41,6 +41,16 @@ _DUMMY_JOB = "job-id"
 _DUMMY_USER = "submitter"
 
 
+def _spawned(argv: tuple[str, ...]) -> tuple[str, ...]:
+    """
+    The argv the webapp actually spawns: ``submit_job`` appends ``--user`` once
+    at the spawn boundary (not per builder), so the contract checks that full
+    form against the live CLI.
+    """
+
+    return (*argv, "--user", _DUMMY_USER)
+
+
 @dataclass(frozen=True)
 class _Case:
     command_path: tuple[str, ...]
@@ -60,16 +70,13 @@ _CASES: dict[str, _Case] = {
             config_path=_DUMMY_PATH,
             job_id=_DUMMY_JOB,
             store_root=_DUMMY_PATH,
-            username=_DUMMY_USER,
             feature_importance=True,
         ),
         build_run_command.__name__,
     ),
     "importance": _Case(
         ("importance",),
-        build_importance_command(
-            run_dir=_DUMMY_PATH, store_root=_DUMMY_PATH, job_id=_DUMMY_JOB, username=_DUMMY_USER
-        ),
+        build_importance_command(run_dir=_DUMMY_PATH, store_root=_DUMMY_PATH, job_id=_DUMMY_JOB),
         build_importance_command.__name__,
     ),
     "tune": _Case(
@@ -78,7 +85,6 @@ _CASES: dict[str, _Case] = {
             experiment_config_path=_DUMMY_PATH,
             hpo_config_path=_DUMMY_PATH,
             store_root=_DUMMY_PATH,
-            username=_DUMMY_USER,
         ),
         build_tune_command.__name__,
     ),
@@ -93,7 +99,6 @@ _CASES: dict[str, _Case] = {
             write_report=True,
             publish_label="label",
             store_root=_DUMMY_PATH,
-            username=_DUMMY_USER,
         ),
         build_compare_command.__name__,
     ),
@@ -106,7 +111,6 @@ _CASES: dict[str, _Case] = {
             write_report=True,
             publish_label="label",
             store_root=_DUMMY_PATH,
-            username=_DUMMY_USER,
         ),
         build_holdout_command.__name__,
     ),
@@ -119,7 +123,6 @@ _CASES: dict[str, _Case] = {
             write_report=False,
             publish_label=None,
             store_root=_DUMMY_PATH,
-            username=_DUMMY_USER,
         ),
         build_holdout_command.__name__,
     ),
@@ -132,7 +135,6 @@ _CASES: dict[str, _Case] = {
             skip_compares=True,
             skip_holdout_eval=True,
             store_root=_DUMMY_PATH,
-            username=_DUMMY_USER,
         ),
         build_study_command.__name__,
     ),
@@ -203,7 +205,7 @@ def test_every_builder_command_has_a_case() -> None:
 @pytest.mark.parametrize("case", list(_CASES.values()), ids=list(_CASES.keys()))
 def test_builder_emits_only_declared_flags(case: _Case) -> None:
     command = _resolve_command(case.command_path)
-    emitted = _emitted_flags(_flag_region(case.argv, case.command_path))
+    emitted = _emitted_flags(_flag_region(_spawned(case.argv), case.command_path))
     unknown = emitted - _declared_flags(command)
     assert not unknown, f"{' '.join(case.command_path)} emits undeclared flags: {sorted(unknown)}"
 
@@ -211,14 +213,6 @@ def test_builder_emits_only_declared_flags(case: _Case) -> None:
 @pytest.mark.parametrize("case", list(_CASES.values()), ids=list(_CASES.keys()))
 def test_builder_supplies_every_required_option(case: _Case) -> None:
     command = _resolve_command(case.command_path)
-    emitted = _emitted_flags(_flag_region(case.argv, case.command_path))
+    emitted = _emitted_flags(_flag_region(_spawned(case.argv), case.command_path))
     missing = _required_option_flags(command) - emitted
     assert not missing, f"{' '.join(case.command_path)} omits required options: {sorted(missing)}"
-
-
-@pytest.mark.parametrize("case", list(_CASES.values()), ids=list(_CASES.keys()))
-def test_builder_attributes_to_submitter(case: _Case) -> None:
-    # Every spawned subprocess must carry --user <submitter> so the artifact is
-    # attributed to the requesting webapp user, not the OS account the backend
-    # runs as (which defaults via getpass.getuser()).
-    assert ("--user", _DUMMY_USER) in zip(case.argv, case.argv[1:])

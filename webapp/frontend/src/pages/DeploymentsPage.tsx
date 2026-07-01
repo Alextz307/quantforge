@@ -13,6 +13,7 @@ import { useHoldoutEvals, type HoldoutEvalSummary } from "@/api/holdout";
 import { AllUsersToggle } from "@/components/AllUsersToggle";
 import { FilterableTablePage } from "@/components/FilterableTablePage";
 import { LaunchedByCell } from "@/components/LaunchedByCell";
+import { PickerTruncationNotice } from "@/components/PickerTruncationNotice";
 import { QueryRenderer } from "@/components/QueryRenderer";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -101,10 +102,8 @@ function DeploymentsTable({ rows, onDelete, deleting }: TableProps) {
   );
 
   return (
-    <FilterableTablePage<DeploymentSummary, Record<string, never>>
+    <FilterableTablePage<DeploymentSummary>
       rows={sorted}
-      filters={{}}
-      applyFilters={(r) => r}
       filterControls={null}
       rowKey={(r) => r.id}
       rowName={(r) => r.name}
@@ -188,8 +187,11 @@ function NewDeploymentPicker({ allUsers, onCreated }: PickerProps) {
           </Alert>
         )}
         <QueryRenderer query={holdoutsQuery} errorTitle="Failed to load holdout evaluations">
-          {(holdouts) => (
-            <PickerTable holdouts={holdouts} onDeploy={deploy} deploying={create.isPending} />
+          {({ items, total }) => (
+            <>
+              <PickerTable holdouts={items} onDeploy={deploy} deploying={create.isPending} />
+              <PickerTruncationNotice total={total} />
+            </>
           )}
         </QueryRenderer>
       </CardContent>

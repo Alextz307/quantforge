@@ -196,6 +196,18 @@ def describe_strategy(name: str) -> StrategySchema:
                 choices = [c for c in choices if c != Device.MPS.value]
         required = parameter.default is inspect.Parameter.empty
         default = None if required else _default_for_wire(parameter.default, kind)
+        default_subsumes_null = (
+            not required
+            and kind is ParamKind.ENUM
+            and default is None
+            and choices is not None
+            and Device.AUTO.value in choices
+        )
+        if default_subsumes_null:
+            # A nullable Device param defaults to None = "auto-select"; surface
+            # the resolved sentinel so the form defaults to it, and flag that the
+            # sentinel already means null so the form drops the "- none -" option.
+            default = Device.AUTO.value
         params.append(
             StrategyParam(
                 name=pname,
@@ -204,6 +216,7 @@ def describe_strategy(name: str) -> StrategySchema:
                 nullable=nullable,
                 default=default,
                 choices=choices,
+                default_subsumes_null=default_subsumes_null,
             )
         )
 

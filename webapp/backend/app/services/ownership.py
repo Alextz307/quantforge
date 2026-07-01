@@ -27,12 +27,14 @@ of someone else's artifact.
 from __future__ import annotations
 
 import sqlite3
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterable, Iterator, Sequence
+from pathlib import Path
 
 from pydantic import BaseModel
 
 from webapp.backend.app.core.types import Role
 from webapp.backend.app.schemas.users import UserPublic
+from webapp.backend.app.services._summary_cache import cached_summaries
 
 # Conservative cap on the IN-clause arity. SQLite's
 # ``SQLITE_LIMIT_VARIABLE_NUMBER`` was 999 in pre-3.32 builds and 32766
@@ -164,30 +166,31 @@ def resolve_owner_usernames(
     return result
 
 
-def scope_and_stamp_summaries[SummaryT: BaseModel](
+def scope_summaries[SummaryT: BaseModel](
     summaries: list[SummaryT],
     *,
     key_fn: Callable[[SummaryT], str | None],
     conn: sqlite3.Connection,
     user: UserPublic,
     all_users: bool,
-) -> list[SummaryT]:
+) -> tuple[list[SummaryT], dict[str, str | None]]:
     """
-    Filter a summary list to ``user``-visible artifacts and stamp ``launched_by_username``.
+    Drop the summaries ``user`` may not see; return them plus an owner-username map.
 
-    Standard epilogue for every list endpoint: take the unsorted full
-    summary list, drop the entries the caller may not see, attach the
-    owner's username on the survivors via ``model_copy``.
+    First half of every list endpoint's epilogue, split from the stamping
+    (:func:`stamp_summaries`) so the caller can filter + sort + slice the
+    visible set *before* the launched-by ``model_copy`` runs. That keeps the
+    per-request copy count at O(page) instead of O(all-visible).
 
     ``key_fn(summary)`` returns the ``experiment_id`` used as the ownership
-    lookup key, or ``None`` for summaries that are inherently ownerless
-    (e.g. nested HPO studies under ``studies/<x>/hpo/...`` inherit their
-    parent study's visibility and have no per-leg jobs row). ``None``
-    entries always appear in the result, unstamped - the frontend's
-    ``"system"`` fallback handles the display.
+    lookup key, or ``None`` for summaries that are inherently ownerless (e.g.
+    nested HPO studies under ``studies/<x>/hpo/...`` inherit their parent
+    study's visibility and have no per-leg jobs row). ``None``-key summaries
+    are always visible and never stamped. The returned map is
+    ``{experiment_id: username|None}`` for every key with a jobs row;
+    :func:`stamp_summaries` reads it back through ``key_fn`` on each page row.
 
-    The caller is responsible for the final sort; this helper preserves
-    input order for survivors.
+    Input order is preserved for survivors; the caller owns the final sort.
     """
 
     keys_per_summary = [key_fn(s) for s in summaries]
@@ -206,20 +209,78 @@ def scope_and_stamp_summaries[SummaryT: BaseModel](
                 str(row["username"]) if row["username"] is not None else None,
             )
     admin_all = user.role is Role.ADMIN and all_users
-    scoped: list[SummaryT] = []
+    visible: list[SummaryT] = []
+    usernames: dict[str, str | None] = {}
     for summary, key in zip(summaries, keys_per_summary, strict=True):
         if key is None:
-            scoped.append(summary)
+            visible.append(summary)
             continue
         owner = owners.get(key)
         if owner is None:
-            scoped.append(summary)
+            visible.append(summary)
             continue
         owner_id, owner_username = owner
         if not admin_all and owner_id != user.id:
             continue
-        scoped.append(summary.model_copy(update={"launched_by_username": owner_username}))
-    return scoped
+        visible.append(summary)
+        usernames[key] = owner_username
+    return visible, usernames
+
+
+def stamp_summaries[SummaryT: BaseModel](
+    page: list[SummaryT],
+    *,
+    key_fn: Callable[[SummaryT], str | None],
+    usernames: dict[str, str | None],
+) -> list[SummaryT]:
+    """
+    Stamp ``launched_by_username`` on one already-sliced page via ``model_copy``.
+
+    Second half of the epilogue: the caller filtered + sliced the full visible
+    set (from :func:`scope_summaries`) first, so only the returned page is
+    copied. Rows whose ``key_fn`` is ``None`` or absent from ``usernames``
+    (ownerless) pass through unstamped - the frontend's ``"system"`` fallback
+    renders them.
+
+    Copying (not mutating in place) is load-bearing: the summaries come from a
+    process-wide cache shared across users, so an in-place stamp would leak one
+    caller's owner name into another's response.
+    """
+
+    stamped: list[SummaryT] = []
+    for row in page:
+        key = key_fn(row)
+        if key is not None and key in usernames:
+            stamped.append(row.model_copy(update={"launched_by_username": usernames[key]}))
+        else:
+            stamped.append(row)
+    return stamped
+
+
+def scoped_cached_summaries[SummaryT: BaseModel](
+    dirs: Iterable[Path],
+    *,
+    mtime_sources: Sequence[str],
+    summarize: Callable[[Path], SummaryT],
+    cache: dict[str, tuple[int, SummaryT | None]],
+    key_fn: Callable[[SummaryT], str | None],
+    conn: sqlite3.Connection,
+    user: UserPublic,
+    all_users: bool,
+) -> tuple[list[SummaryT], dict[str, str | None]]:
+    """
+    Cache-summarize ``dirs`` then scope the result to ``user`` in one call.
+
+    Shared front half of every ``list_*_page`` service: the mtime-invalidated
+    :func:`~webapp.backend.app.services._summary_cache.cached_summaries` feeds
+    :func:`scope_summaries`. Returns the visible summaries plus the owner-username
+    map the caller passes to :func:`stamp_summaries` after slicing.
+    """
+
+    summaries = cached_summaries(
+        dirs, mtime_sources=mtime_sources, summarize=summarize, cache=cache
+    )
+    return scope_summaries(summaries, key_fn=key_fn, conn=conn, user=user, all_users=all_users)
 
 
 __all__ = [
@@ -228,5 +289,7 @@ __all__ = [
     "filter_visible_experiment_ids",
     "resolve_artifact_owner",
     "resolve_owner_usernames",
-    "scope_and_stamp_summaries",
+    "scope_summaries",
+    "scoped_cached_summaries",
+    "stamp_summaries",
 ]

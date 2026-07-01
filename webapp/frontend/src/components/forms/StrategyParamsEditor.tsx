@@ -166,12 +166,15 @@ function ParamInput({ id, param, value, onChange, disabled }: ParamInputProps) {
         />
       );
     case "enum": {
-      // The Device enum exposes "auto" as a real choice that resolves to the
-      // same host auto-select as null. Where it's offered, default to "auto"
-      // and drop the redundant null ("- none -") option so the device picker
-      // has one obvious default instead of two ways to spell "auto".
-      const autoEnum = (param.choices ?? []).includes("auto");
-      const selectValue = typeof value === "string" ? value : autoEnum ? "auto" : "";
+      // When the backend flags that the default already stands in for null
+      // (Device resolves null -> "auto"), show that default and drop the
+      // redundant null ("- none -") option, so the picker has one obvious
+      // default instead of two ways to spell it. Gating on the explicit flag
+      // (not "nullable + string default") keeps the none option for a future
+      // nullable enum that has a real non-None default yet still accepts null.
+      const sentinelDefault =
+        param.default_subsumes_null && typeof param.default === "string" ? param.default : null;
+      const selectValue = typeof value === "string" ? value : (sentinelDefault ?? "");
       return (
         <select
           id={id}
@@ -185,7 +188,7 @@ function ParamInput({ id, param, value, onChange, disabled }: ParamInputProps) {
             onChange(e.target.value === "" ? undefined : e.target.value);
           }}
         >
-          {!autoEnum && <option value="">{emptyOptionLabel(param)}</option>}
+          {sentinelDefault === null && <option value="">{emptyOptionLabel(param)}</option>}
           {(param.choices ?? []).map((choice) => (
             <option key={choice} value={choice}>
               {choice}

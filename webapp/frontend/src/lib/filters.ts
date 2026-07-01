@@ -23,3 +23,29 @@ export function readValidSince(raw: string | null): string {
   if (raw === null || raw === "") return "";
   return Number.isNaN(new Date(raw).getTime()) ? "" : raw;
 }
+
+// Read + validate ``?sort_by``/``?order`` from the URL, falling back to
+// ``fallback`` for an unknown column or order. Shared by every sortable list
+// page so the validation lives once.
+export function readSortState<K extends string>(
+  params: URLSearchParams,
+  keys: ReadonlySet<K>,
+  fallback: { sortBy: K; order: "asc" | "desc" },
+): { sortBy: K; order: "asc" | "desc" } {
+  const sortBy = params.get("sort_by");
+  const order = params.get("order");
+  return {
+    sortBy: sortBy !== null && keys.has(sortBy as K) ? (sortBy as K) : fallback.sortBy,
+    order: order === "asc" || order === "desc" ? order : fallback.order,
+  };
+}
+
+// The ``setParams`` update for clicking a sortable header: the active column
+// flips desc<->asc (starting desc), a different column starts desc.
+export function toggleSortParams<K extends string>(
+  current: { sortBy: K; order: "asc" | "desc" },
+  col: K,
+): Record<string, string> {
+  const order = current.sortBy === col && current.order === "desc" ? "asc" : "desc";
+  return { sort_by: col, order };
+}

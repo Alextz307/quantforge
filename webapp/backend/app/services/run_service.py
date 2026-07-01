@@ -4,10 +4,8 @@ Read-only services for the persisted run tree.
 
 from __future__ import annotations
 
-import logging
 import math
 import sqlite3
-from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from pathlib import Path
 
@@ -61,11 +59,13 @@ from webapp.backend.app.services._dir_cache import (
     cached_artifact_index,
     warm_index,
 )
+from webapp.backend.app.services._pagination import matches_since, paginate, sort_by_optional
 from webapp.backend.app.services.ownership import (
     ArtifactAccessDeniedError,
     check_artifact_access,
     resolve_owner_usernames,
-    scope_and_stamp_summaries,
+    scoped_cached_summaries,
+    stamp_summaries,
 )
 from webapp.backend.app.services.plots import (
     PLOTS_DIRNAME,
@@ -74,13 +74,14 @@ from webapp.backend.app.services.plots import (
     resolve_plot_path,
 )
 
-logger = logging.getLogger(__name__)
-
-# Cache RunSummary by (run_dir_str, manifest_mtime_ns) to skip the expensive
-# per-run config.yaml + metrics.json reads on every list call. Once a manifest
-# has been written it's effectively immutable, so mtime invalidation catches
-# the only legitimate rewrites (holdout-eval metric back-writes).
-_SUMMARY_CACHE: dict[str, tuple[int, RunSummary]] = {}
+# Cache RunSummary by (run_dir_str, max mtime over manifest.json + metrics.json)
+# to skip the expensive per-run config.yaml + metrics.json reads on every list
+# call. An in-flight run lands manifest.json first and metrics.json only after
+# the walk-forward completes, so keying on the manifest alone would pin the
+# empty-metrics (null-Sharpe) summary until the manifest is rewritten - which
+# never happens. Folding metrics.json's mtime in invalidates the moment the
+# metrics land (and still catches holdout-eval metric back-writes).
+_SUMMARY_CACHE: dict[str, tuple[int, RunSummary | None]] = {}
 
 _RUN_KIND = "run"
 
@@ -92,70 +93,11 @@ __all__ = [
     "get_feature_importance",
     "get_folds",
     "get_run",
-    "list_runs",
     "list_runs_page",
     "resolve_plot",
 ]
 
 _FEATURE_IMPORTANCE_NOT_COMPUTED_MESSAGE = "Feature importance was not computed for this run."
-
-
-# Per-run summarization is dominated by file I/O (manifest + metrics + config).
-# A small thread pool overlaps the syscall-bound portions; raising the count
-# beyond 4 hurts because YAML/JSON parsing itself is CPU-bound and contends
-# for the GIL.
-_LIST_WORKER_COUNT = 4
-
-
-def list_runs(
-    root: Path,
-    *,
-    conn: sqlite3.Connection,
-    user: UserPublic,
-    all_users: bool,
-) -> list[RunSummary]:
-    """
-    List every run under ``root`` visible to ``user``, newest first.
-
-    Runs missing ``config.yaml`` are skipped (they cannot populate the
-    strategy/tickers/interval columns); runs missing ``metrics.json``
-    surface with ``None`` aggregates. The walker keys on
-    ``manifest.json``, so partial runs without one never appear at all.
-    """
-
-    summaries = scope_and_stamp_summaries(
-        _summarize_all(root),
-        key_fn=lambda s: s.experiment_id,
-        conn=conn,
-        user=user,
-        all_users=all_users,
-    )
-    summaries.sort(key=lambda s: s.created_at, reverse=True)
-    return summaries
-
-
-def _summarize_all(root: Path) -> list[RunSummary]:
-    """
-    All summaries, unsorted. Sort is the caller's job.
-
-    Per-run summarization runs in a thread pool - the work is dominated by
-    blocking file reads (manifest + metrics + config), which release the GIL,
-    so threading gives a near-linear speedup on the cold pass over thousands
-    of runs.
-    """
-
-    run_dirs, _ = cached_artifact_index(root, _RUN_KIND, iter_run_dirs)
-    with ThreadPoolExecutor(max_workers=_LIST_WORKER_COUNT) as pool:
-        results = pool.map(lambda d: _safe_summarize(d, root), run_dirs)
-    return [s for s in results if s is not None]
-
-
-def _safe_summarize(run_dir: Path, root: Path) -> RunSummary | None:
-    try:
-        return _cached_summarize(run_dir, root)
-    except Exception as exc:  # noqa: BLE001 - one bad run must not 500 the whole listing
-        logger.warning("skipping unreadable run at %s: %s", run_dir, exc)
-        return None
 
 
 def _lookup_run_dir(root: Path, experiment_id: str) -> Path:
@@ -174,28 +116,6 @@ def _lookup_run_dir(root: Path, experiment_id: str) -> Path:
     resolved = find_run_dir(root, experiment_id)
     warm_index(root, _RUN_KIND, experiment_id, resolved)
     return resolved
-
-
-def _cached_summarize(run_dir: Path, root: Path) -> RunSummary:
-    """
-    ``_summarize`` with manifest-mtime invalidation.
-
-    A run dir is identified by its absolute path; once the manifest has been
-    written it's effectively immutable, so any change in mtime invalidates the
-    cached summary (covers re-runs that reuse a directory, or metrics being
-    rewritten after a holdout eval). New runs always miss the cache on first
-    visit.
-    """
-
-    manifest_path = run_dir / EXPERIMENT_MANIFEST_JSON
-    key = str(run_dir)
-    mtime = manifest_path.stat().st_mtime_ns
-    cached = _SUMMARY_CACHE.get(key)
-    if cached is not None and cached[0] == mtime:
-        return cached[1]
-    summary = _summarize(run_dir, root)
-    _SUMMARY_CACHE[key] = (mtime, summary)
-    return summary
 
 
 def list_runs_page(
@@ -221,18 +141,23 @@ def list_runs_page(
     pick the page that is returned to the client.
     """
 
-    all_rows = scope_and_stamp_summaries(
-        _summarize_all(root),
+    run_dirs, _ = cached_artifact_index(root, _RUN_KIND, iter_run_dirs)
+    visible, usernames = scoped_cached_summaries(
+        run_dirs,
+        mtime_sources=(EXPERIMENT_MANIFEST_JSON, EXPERIMENT_METRICS_JSON),
+        summarize=lambda d: _summarize(d, root),
+        cache=_SUMMARY_CACHE,
         key_fn=lambda s: s.experiment_id,
         conn=conn,
         user=user,
         all_users=all_users,
     )
-    filtered = [r for r in all_rows if _matches_filters(r, strategy, ticker, since)]
+    filtered = [r for r in visible if _matches_filters(r, strategy, ticker, since)]
     _sort_runs(filtered, sort_by, order)
 
-    page = filtered[offset : offset + limit]
-    return RunsPage(items=page, total=len(filtered), limit=limit, offset=offset)
+    page, total = paginate(filtered, limit=limit, offset=offset)
+    items = stamp_summaries(page, key_fn=lambda s: s.experiment_id, usernames=usernames)
+    return RunsPage(items=items, total=total, limit=limit, offset=offset)
 
 
 def _matches_filters(
@@ -246,9 +171,7 @@ def _matches_filters(
         ticker.strip().casefold() in t.casefold() for t in row.tickers
     ):
         return False
-    if since is not None and row.created_at < since:
-        return False
-    return True
+    return matches_since(row.created_at, since)
 
 
 def _sort_runs(filtered: list[RunSummary], sort_by: RunSortBy, order: SortOrder) -> None:
@@ -256,17 +179,10 @@ def _sort_runs(filtered: list[RunSummary], sort_by: RunSortBy, order: SortOrder)
     if sort_by is RunSortBy.CREATED_AT:
         filtered.sort(key=lambda r: r.created_at, reverse=reverse)
         return
-    # A missing Sharpe sinks to the bottom under BOTH directions (mirrors the
-    # holdout list), so ascending-by-Sharpe surfaces the weakest real results
-    # first instead of a wall of null runs. Direction is folded into the value
-    # sign rather than `reverse=` so the null-last primary key is not flipped.
-    sign = -1.0 if reverse else 1.0
-    filtered.sort(
-        key=lambda r: (
-            r.sharpe_mean is None,
-            sign * r.sharpe_mean if r.sharpe_mean is not None else 0.0,
-        )
-    )
+    # A missing Sharpe sinks to the bottom under BOTH directions, so
+    # ascending-by-Sharpe surfaces the weakest real results first instead of a
+    # wall of null runs (see sort_by_optional).
+    sort_by_optional(filtered, lambda r: r.sharpe_mean, order=order)
 
 
 def _ensure_plots(run_dir: Path) -> None:
