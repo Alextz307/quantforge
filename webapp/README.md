@@ -39,6 +39,9 @@ Admin (role=admin):
 - `GET /api/users`, `POST /api/users`, `DELETE /api/users/{id}` - user CRUD (soft delete).
 
 Read-only artifact API (auth-gated, all `GET`):
+
+The five artifact-list endpoints (`/api/runs`, `/api/comparisons`, `/api/holdout-evals`, `/api/studies`, `/api/hpo`) paginate + filter server-side: `?limit` (1-500, default 50) `&offset`, a `?since` (ISO-8601; a tz-naive value is read as UTC) cutoff, per-endpoint value filters (free-text `strategy`/`ticker` on runs; exact `source_kind`/`store`/`spec` elsewhere), and `?sort_by` + `?order` where a sortable metric exists (`sharpe_mean` on runs, `best_value` on HPO, `holdout_start`/`sharpe_ratio` on holdout). Each returns `{items, total, limit, offset}`; the four faceted lists also carry the distinct filter values for their dropdown (`strategies` / `stores` / `specs` / `source_kinds`). Per-artifact summaries are cached by source-file mtime and the result is scoped to the caller before the page is sliced.
+
 - `/api/strategies`, `/api/strategies/{name}/schema`, `/api/models` - registry introspection + per-strategy ctor schema for the Configure form.
 - `/api/runs`, `/api/runs/{id}`, `/api/runs/{id}/folds`, `/api/runs/{id}/feature-importance`, `/api/runs/{id}/plots/{plot_name}` - persisted runs.
 - `/api/runs/{id}/feature-importance` - cross-fold out-of-sample feature importance for feature-consuming strategies: permutation (mean score drop +/- across-fold std) plus XGBoost native gain where available. Returns `{entries, message, computable}` with `entries=[]` plus a `message` (still 200) when the run carries no artifact - importance is opt-in per run, off during HPO trials, and never emitted by rule-based strategies. `computable` is whether the run's strategy can produce importance at all; the SPA offers an on-demand compute action only when `computable` is true and `entries` is empty. Non-finite aggregates serialize as `null`.

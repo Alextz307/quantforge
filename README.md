@@ -50,13 +50,7 @@ graph TB
     end
 
     wforch --> numpy
-    numpy --> backtest
-    numpy --> indicators
-    numpy --> voles
-    numpy --> filters
-    numpy --> smach
-    numpy --> spreadc
-    numpy --> cppstrat
+    numpy --> cpp
     metrics --> numpy
     numpy --> hpo
 
@@ -254,8 +248,9 @@ End-to-end capabilities:
   frame channel (`{type:"log"|"status"}`); the HPO monitor uses the
   same pattern (`{type:"trial"}` frames as Optuna writes them).
 - **Artifact browsers** for runs / comparisons / holdout evals /
-  studies / HPO studies, each with detail + plot routes; admins can
-  pass `?all=1` for a cross-user view.
+  studies / HPO studies, each server-side paginated, sorted, and
+  filtered, with detail + plot routes; admins can pass `?all=1` for a
+  cross-user view.
 - **Ownership-aware queries** on every read; non-owners receive 404
   (not 403) so artifact existence is not disclosed.
 - **Soft-delete on users** with a regression test pinning
