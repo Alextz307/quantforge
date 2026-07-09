@@ -79,6 +79,7 @@ def create_app() -> FastAPI:
         secret_key=settings.secret_key,
         max_age_seconds=settings.session_ttl_minutes * SECONDS_PER_MINUTE,
     )
+
     app = FastAPI(
         title=APP_TITLE,
         version=APP_VERSION,

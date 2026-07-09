@@ -26,6 +26,7 @@ export function AllUsersToggle({
   testId,
 }: AllUsersToggleProps): ReactElement | null {
   if (!isAdmin) return null;
+
   return (
     <label className="flex items-center gap-2 text-sm" data-testid={testId}>
       <input

@@ -248,6 +248,7 @@ function SortableHeader({
   const indicator = active ? (state.order === "desc" ? " v" : " ^") : "";
   const padRight = isLast ? "pr-0" : "pr-4";
   const alignCls = align === "right" ? "text-right" : "text-left";
+
   return (
     <th className={`py-2 ${padRight} ${alignCls}`}>
       <button

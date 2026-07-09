@@ -42,6 +42,7 @@ void Parkinson::compute(
         double log_hl = std::log(high[i] / low[i]);
         pk_daily[i] = kPKCoeff * log_hl * log_hl;
     }
+
     detail::annualize_rolling_variance(pk_daily, window_, out);
 }
 

@@ -83,12 +83,14 @@ export function ConfigureHoldoutPage() {
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setServerErrors([]);
+
     const local = validate();
     if (local.length > 0) {
       setClientErrors(local);
       return;
     }
     setClientErrors([]);
+
     try {
       const job = await submit.mutateAsync({
         kind: "holdout",
@@ -240,6 +242,7 @@ interface RunSourcePickerProps {
 
 function RunSourcePicker({ rows, selectedId, onSelect }: RunSourcePickerProps) {
   const eligible = useMemo(() => rows.filter((r) => r.has_holdout), [rows]);
+
   if (eligible.length === 0) {
     return (
       <p className="text-sm text-muted-foreground">
@@ -248,6 +251,7 @@ function RunSourcePicker({ rows, selectedId, onSelect }: RunSourcePickerProps) {
       </p>
     );
   }
+
   return (
     <div className="max-h-72 overflow-y-auto rounded-md border" data-testid="holdout-run-picker">
       <table className="w-full text-sm">
@@ -305,6 +309,7 @@ function HpoSourcePicker({ rows, selectedId, onSelect }: HpoSourcePickerProps) {
     () => rows.filter((r) => r.has_best_config && r.best_config_reserves_holdout),
     [rows],
   );
+
   if (eligible.length === 0) {
     return (
       <p className="text-sm text-muted-foreground">
@@ -314,6 +319,7 @@ function HpoSourcePicker({ rows, selectedId, onSelect }: HpoSourcePickerProps) {
       </p>
     );
   }
+
   return (
     <div className="max-h-72 overflow-y-auto rounded-md border" data-testid="holdout-hpo-picker">
       <table className="w-full text-sm">

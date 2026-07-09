@@ -79,6 +79,7 @@ interface JobsBodyProps {
 
 function JobsBody({ rows, status, onStatus, isAdmin, allUsers, onAllUsers }: JobsBodyProps) {
   const filters = useMemo<JobFilters>(() => ({ status }), [status]);
+
   return (
     <>
       <AllUsersToggle

@@ -55,12 +55,14 @@ export function ConfigurePage() {
         return;
       }
     }
+
     const payload = toExperimentPayload(values, strategyParams);
     const validation = await validate.mutateAsync({ kind: "experiment", payload });
     if (!validation.valid) {
       setServerErrors(validation.errors);
       return;
     }
+
     try {
       const job = await submit.mutateAsync({
         kind: "run",

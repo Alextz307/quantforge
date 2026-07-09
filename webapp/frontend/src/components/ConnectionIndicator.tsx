@@ -15,6 +15,7 @@ interface ConnectionIndicatorProps {
 
 export function ConnectionIndicator({ state, className }: ConnectionIndicatorProps) {
   const meta = STATE_META[state];
+
   return (
     <div className={cn("flex items-center gap-2 text-xs text-muted-foreground", className)}>
       <span

@@ -68,6 +68,7 @@ function serveComputableEmpty(): void {
 beforeEach(() => {
   sessionStorage.clear();
 });
+
 afterEach(() => {
   sessionStorage.clear();
 });
@@ -98,6 +99,7 @@ describe("RunDetailPage", () => {
 
   it("shows the 'Run holdout eval' CTA when the manifest has a holdout boundary", async () => {
     renderWithProviders(<Tree />, { initialEntries: [runDetailPath(RUN_SPY.experiment_id)] });
+
     const cta = await screen.findByTestId("run-detail-holdout-cta");
     expect(cta).toHaveAttribute(
       "href",
@@ -116,6 +118,7 @@ describe("RunDetailPage", () => {
       ),
     );
     renderWithProviders(<Tree />, { initialEntries: [runDetailPath(RUN_SPY.experiment_id)] });
+
     await screen.findByText(RUN_SPY_DETAIL.name);
     expect(screen.queryByTestId("run-detail-holdout-cta")).not.toBeInTheDocument();
   });
@@ -131,13 +134,16 @@ describe("RunDetailPage", () => {
       ),
     );
     renderWithProviders(<Tree />, { initialEntries: [runDetailPath(RUN_SPY.experiment_id)] });
+
     expect(await screen.findByText("No holdout evaluation")).toBeInTheDocument();
   });
 
   it("deploys the run and navigates to the new deployment", async () => {
     const user = userEvent.setup();
     renderWithProviders(<Tree />, { initialEntries: [runDetailPath(RUN_SPY.experiment_id)] });
+
     await user.click(await screen.findByTestId("run-detail-deploy-cta"));
+
     expect(await screen.findByText("deployment detail")).toBeInTheDocument();
   });
 });

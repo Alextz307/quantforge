@@ -184,6 +184,7 @@ function flattenStudySpecSchema(schema: Record<string, unknown>): FieldRow[] {
       description: (prop["description"] as string | undefined) ?? "",
     });
   }
+
   const legDef = defs?.["StudyLeg"];
   if (legDef) {
     const legProps = (legDef["properties"] ?? {}) as Record<string, Record<string, unknown>>;
@@ -198,6 +199,7 @@ function flattenStudySpecSchema(schema: Record<string, unknown>): FieldRow[] {
       });
     }
   }
+
   return rows;
 }
 
@@ -210,16 +212,19 @@ function renderType(prop: Record<string, unknown>): string {
     }
     return prop["type"];
   }
+
   const refValue = prop["$ref"];
   if (typeof refValue === "string") {
     return refValue.split("/").pop() ?? "object";
   }
+
   if (Array.isArray(prop["anyOf"])) {
     const types = (prop["anyOf"] as Record<string, unknown>[])
       .map(renderType)
       .filter((t) => t !== "null");
     return types.join(" | ") || "any";
   }
+
   return "any";
 }
 

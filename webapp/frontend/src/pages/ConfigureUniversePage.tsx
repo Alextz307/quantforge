@@ -83,6 +83,7 @@ export function ConfigureUniversePage() {
   const onSave = async (e: FormEvent) => {
     e.preventDefault();
     setServerErrors([]);
+
     if (mode !== "new") return;
     if (!SLUG_PATTERN.test(newSlug)) {
       setClientErrors([SLUG_FORMAT_ERROR]);
@@ -95,6 +96,7 @@ export function ConfigureUniversePage() {
       return;
     }
     setClientErrors([]);
+
     try {
       const detail = await saveUpload.mutateAsync({ slug: newSlug, yaml: editorYaml });
       // Switch the picker to the new upload so the user can verify it landed.
@@ -121,6 +123,7 @@ export function ConfigureUniversePage() {
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file) return;
+
     if (file.size > MAX_YAML_BYTES) {
       setClientErrors([
         {
@@ -131,6 +134,7 @@ export function ConfigureUniversePage() {
       ]);
       return;
     }
+
     const reader = new FileReader();
     reader.onload = () => {
       const text = typeof reader.result === "string" ? reader.result : "";
@@ -281,6 +285,7 @@ function SourceModeTabs({ mode, onChange }: SourceModeTabsProps) {
     { value: "uploads", label: "Your uploads" },
     { value: "new", label: "New spec" },
   ];
+
   return (
     <div className="flex gap-2 border-b" role="tablist">
       {tabs.map((tab) => {
@@ -320,6 +325,7 @@ function UploadPicker({ uploads, value, onChange }: UploadPickerProps) {
       </p>
     );
   }
+
   return (
     <select
       id="universe-upload"

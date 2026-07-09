@@ -57,6 +57,7 @@ def resolve_file_under(artifact_dir: Path, subdir: str, name: str) -> Path:
 
     if _is_retired(name):
         raise PlotNotFoundError(f"file not found: {artifact_dir.name}/{subdir}/{name}")
+
     base = (artifact_dir / subdir).resolve()
     candidate = (base / name).resolve()
     if not candidate.is_relative_to(base) or not candidate.is_file():

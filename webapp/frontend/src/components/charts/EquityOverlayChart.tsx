@@ -24,6 +24,7 @@ interface OverlayProps {
 // would mislead the eye.
 function chainFolds(folds: readonly FoldRow[]): number[] {
   const sorted = [...folds].sort((a, b) => a.fold_index - b.fold_index);
+
   const out: number[] = [];
   let running = 1;
   for (const fold of sorted) {
@@ -34,6 +35,7 @@ function chainFolds(folds: readonly FoldRow[]): number[] {
     const last = fold.equity_curve[fold.equity_curve.length - 1];
     if (last !== undefined) running = running * (last / start);
   }
+
   return out;
 }
 
@@ -53,6 +55,7 @@ export function EquityOverlayChart({ specs, height = 420 }: OverlayProps) {
   });
 
   const anyPending = queries.some((q) => q.isPending);
+
   // dataUpdatedAt advances only on real fetches, so this memo recomputes on
   // genuine data change but skips parent re-renders that don't touch the queries.
   const queryStamps = queries.map((q) => q.dataUpdatedAt).join("|");

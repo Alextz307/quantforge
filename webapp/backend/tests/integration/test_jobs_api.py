@@ -265,6 +265,7 @@ def test_get_log_for_unstarted_log_returns_empty(
         log_path=Path("/nonexistent/job.log"),
     )
     job = insert_job(db_conn, placeholder)
+
     resp = authed_jobs_client.get(f"{JOBS_PATH}/{job.id}/log")
     assert resp.status_code == HTTPStatus.OK
     assert resp.text == ""

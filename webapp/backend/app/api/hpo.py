@@ -139,12 +139,14 @@ async def stream_hpo(
     if user is None:
         await websocket.close(code=WS_CLOSE_UNAUTHORIZED)
         return
+
     settings = get_settings()
     try:
         study_dir = find_hpo_study_dir_by_wire_id(settings.store_root, wire_id)
     except HpoStudyNotFoundError:
         await websocket.close(code=WS_CLOSE_NOT_FOUND)
         return
+
     await websocket.accept()
     stop = asyncio.Event()
     try:

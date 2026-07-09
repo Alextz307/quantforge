@@ -104,6 +104,7 @@ template <typename Fn>
             "timestamps, open, high, low, close, volume must all have the same length"
         );
     }
+
     std::vector<quant::Bar> bars;
     bars.reserve(static_cast<size_t>(n));
     const auto* ts_p = timestamps.data();

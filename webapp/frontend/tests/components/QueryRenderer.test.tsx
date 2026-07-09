@@ -6,6 +6,7 @@ import { QueryRenderer } from "@/components/QueryRenderer";
 function pending(): UseQueryResult<string> {
   return { isPending: true, isError: false, data: undefined } as unknown as UseQueryResult<string>;
 }
+
 function failure(message: string): UseQueryResult<string> {
   return {
     isPending: false,
@@ -14,6 +15,7 @@ function failure(message: string): UseQueryResult<string> {
     data: undefined,
   } as unknown as UseQueryResult<string>;
 }
+
 function success(value: string): UseQueryResult<string> {
   return { isPending: false, isError: false, data: value } as unknown as UseQueryResult<string>;
 }

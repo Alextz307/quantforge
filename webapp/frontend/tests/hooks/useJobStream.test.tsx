@@ -35,6 +35,7 @@ function wrapper({ children }: { children: ReactNode }) {
     log_path: "/tmp/job-x.log",
     pid: 1,
   });
+
   return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
 }
 
@@ -61,6 +62,7 @@ describe("useJobStream", () => {
   it("backfills logs from the persisted file when the job is already terminal", async () => {
     mockLogResponse("first line\nsecond line\n");
     const { result } = renderHook(() => useJobStream("job-x", "completed"), { wrapper });
+
     expect(result.current.connection).toBe("closed");
     expect(MockWebSocket.instances.length).toBe(0);
     await waitFor(() => {
@@ -75,10 +77,12 @@ describe("useJobStream", () => {
     });
     const ws = MockWebSocket.instances[0];
     if (!ws) throw new Error("WebSocket was never opened");
+
     act(() => {
       ws.triggerOpen();
       ws.triggerMessage({ type: "status", status: "completed", experiment_id: "exp_x" });
     });
+
     expect(ws.readyState).toBe(3);
   });
 });

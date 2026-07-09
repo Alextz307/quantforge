@@ -102,6 +102,7 @@ describe("HpoDetailPage", () => {
     renderWithProviders(<Tree />, {
       initialEntries: [`/hpo/${HPO_DEMO_SUMMARY.wire_id}`],
     });
+
     const cta = await screen.findByTestId("hpo-detail-holdout-cta");
     expect(cta).toHaveAttribute(
       "href",
@@ -118,6 +119,7 @@ describe("HpoDetailPage", () => {
     renderWithProviders(<Tree />, {
       initialEntries: [`/hpo/${HPO_DEMO_SUMMARY.wire_id}`],
     });
+
     await screen.findByTestId("hpo-convergence");
     expect(screen.queryByTestId("hpo-detail-holdout-cta")).not.toBeInTheDocument();
   });

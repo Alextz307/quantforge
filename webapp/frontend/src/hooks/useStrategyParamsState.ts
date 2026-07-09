@@ -17,9 +17,11 @@ export function useStrategyParamsState(
 ): StrategyParamsState {
   const [params, setParams] = useState<Record<string, unknown>>({});
   const schemaQualname = schemaData?.qualname;
+
   useEffect(() => {
     setParams({ ...(schemaData?.canonical_params ?? {}) });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [strategyName, schemaQualname]);
+
   return [params, setParams];
 }

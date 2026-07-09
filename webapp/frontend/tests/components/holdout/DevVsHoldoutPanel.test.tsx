@@ -27,6 +27,7 @@ describe("DevVsHoldoutPanel", () => {
       source_kind: "hpo" as const,
       source_id: "trial_42",
     };
+
     render(
       <MemoryRouter future={ROUTER_FUTURE_FLAGS}>
         <DevVsHoldoutPanel holdout={hpoSourced} />

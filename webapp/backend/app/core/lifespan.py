@@ -47,6 +47,7 @@ async def _persist_terminal_status(
             )
         except IllegalStatusTransitionError:
             logger.warning("on_complete: job %s already terminal, skipping update", job_id)
+
     # A finished job may have written a new run dir. Clear the listing cache
     # before the WS status frame fires, so the SPA's completion refetch sees the
     # fresh listing instead of a stale snapshot.

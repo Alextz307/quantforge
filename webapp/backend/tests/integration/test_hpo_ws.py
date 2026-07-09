@@ -70,6 +70,7 @@ def test_stream_forwards_appended_trial(authed_client: TestClient, webapp_store:
         "datetime_complete": None,
         "user_attrs": {},
     }
+
     with authed_client.websocket_connect(STREAM_PATH) as ws:
         # Drain the replay phase so the next frame is guaranteed live.
         _drain_replay(ws, EXPECTED_TRIALS)
@@ -77,5 +78,6 @@ def test_stream_forwards_appended_trial(authed_client: TestClient, webapp_store:
         with trials_path.open("a", encoding="utf-8") as f:
             f.write(json.dumps(live_record) + "\n")
         frame = TrialFrame.model_validate(ws.receive_json())
+
     assert frame.type == "trial"
     assert frame.trial.number == LIVE_TRIAL_NUMBER

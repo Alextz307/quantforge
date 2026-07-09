@@ -37,10 +37,12 @@ def authenticate(
         "WHERE username = ? AND deleted_at IS NULL",
         (username,),
     ).fetchone()
+
     if row is None:
         return None
     if not verify_password(password, str(row["password_hash"])):
         return None
+
     return AuthenticatedUser(
         id=int(row["id"]),
         username=str(row["username"]),

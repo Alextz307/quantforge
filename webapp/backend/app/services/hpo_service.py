@@ -110,9 +110,11 @@ def list_hpo_studies_page(
         user=user,
         all_users=all_users,
     )
+
     stores = sorted({s.store for s in visible})
     filtered = [s for s in visible if _matches(s, store, since)]
     _sort(filtered, sort_by, order)
+
     page, total = paginate(filtered, limit=limit, offset=offset)
     items = stamp_summaries(
         page, key_fn=lambda s: _top_level_basename(s.wire_id), usernames=usernames
@@ -155,13 +157,16 @@ def get_hpo_study(
     key = _top_level_basename(wire_id)
     if key is not None:
         check_artifact_access(conn, experiment_id=key, user=user)
+
     study_dir = find_hpo_study_dir_by_wire_id(root, wire_id)
     trials = json_io.read_jsonl(study_dir / TRIALS_JSONL_NAME)
     summary = _summary_from_trials(study_dir, trials, root)
+
     launched_by: str | None = None
     if key is not None:
         usernames = resolve_owner_usernames(conn, experiment_ids=[key])
         launched_by = usernames.get(key)
+
     return HpoDetail(
         wire_id=summary.wire_id,
         name=summary.name,
@@ -194,8 +199,10 @@ def list_trials(
     key = _top_level_basename(wire_id)
     if key is not None:
         check_artifact_access(conn, experiment_id=key, user=user)
+
     study_dir = find_hpo_study_dir_by_wire_id(root, wire_id)
     trials = json_io.read_jsonl(study_dir / TRIALS_JSONL_NAME)
+
     rows = [trial_row_from_record(t) for t in trials]
     if after_trial is not None:
         rows = [r for r in rows if r.number > after_trial]
@@ -227,11 +234,14 @@ def get_param_importance(
     key = _top_level_basename(wire_id)
     if key is not None:
         check_artifact_access(conn, experiment_id=key, user=user)
+
     study_dir = find_hpo_study_dir_by_wire_id(root, wire_id)
     trials = json_io.read_jsonl(study_dir / TRIALS_JSONL_NAME)
     n_complete = sum(1 for t in trials if json_io.get_str(t, "state") == _COMPLETE_STATE)
+
     if n_complete < _MIN_TRIALS_FOR_IMPORTANCE:
         return ParamImportanceResponse(importance={}, message=_NEEDS_MORE_TRIALS_MESSAGE)
+
     # Pre-flight check before optuna.load_study(): SQLite opens-or-creates,
     # so passing a missing path would silently materialise an empty DB on disk.
     if not (study_dir / STUDY_DB_FILENAME).resolve().exists():
@@ -263,6 +273,7 @@ def find_live_job_for(conn: sqlite3.Connection, wire_id: str) -> str | None:
     basename = _top_level_basename(wire_id)
     if basename is None:
         return None
+
     terminal = tuple(s.value for s in TERMINAL_STATUSES)
     placeholders = ",".join("?" * len(terminal))
     row = conn.execute(
@@ -271,6 +282,7 @@ def find_live_job_for(conn: sqlite3.Connection, wire_id: str) -> str | None:
         f"ORDER BY id DESC LIMIT 1",
         (JobKind.TUNE.value, basename, *terminal),
     ).fetchone()
+
     if row is None:
         return None
     return str(row["id"])
@@ -305,6 +317,7 @@ def trial_row_from_record(trial: dict[str, object]) -> TrialRow:
     user_attrs_raw = trial.get("user_attrs")
     user_attrs: dict[str, object] = user_attrs_raw if isinstance(user_attrs_raw, dict) else {}
     experiment_id = user_attrs.get("experiment_id")
+
     return TrialRow(
         number=json_io.get_int(trial, "number"),
         state=json_io.get_str(trial, "state"),
@@ -369,15 +382,18 @@ def best_config_reserves_holdout(study_dir: Path) -> bool:
         text = path.read_text(encoding="utf-8")
     except FileNotFoundError:
         return False
+
     try:
         raw = yaml.safe_load(text)
     except yaml.YAMLError:
         return False
     if not isinstance(raw, dict):
         return False
+
     validation = raw.get("validation")
     if not isinstance(validation, dict):
         return False
+
     holdout_pct = validation.get("holdout_pct")
     if isinstance(holdout_pct, (int, float)) and holdout_pct > 0:
         return True
@@ -394,6 +410,7 @@ def _read_best_config(study_dir: Path) -> dict[str, object]:
         text = path.read_text(encoding="utf-8")
     except FileNotFoundError:
         return {}
+
     raw = yaml.safe_load(text)
     if not isinstance(raw, dict):
         raise ValueError(f"{path} must contain a YAML mapping, got {type(raw).__name__}")

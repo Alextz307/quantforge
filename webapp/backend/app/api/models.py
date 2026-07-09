@@ -34,5 +34,6 @@ def get_models() -> list[ModelRegistryEntry]:
                 kind=ModelKind.CLASSIFIER,
             )
         )
+
     entries.sort(key=lambda e: (e.kind.value, e.name))
     return entries

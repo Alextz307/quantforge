@@ -39,11 +39,13 @@ async def tail_study_state(
 
     state_path = study_dir / STUDY_STATE_FILENAME
     last_mtime: float | None = None
+
     while not stop.is_set():
         try:
             mtime = state_path.stat().st_mtime
         except FileNotFoundError:
             mtime = None
+
         if mtime is not None and mtime != last_mtime:
             try:
                 detail = build_study_detail(study_dir)
@@ -54,6 +56,7 @@ async def tail_study_state(
             else:
                 last_mtime = mtime
                 yield detail
+
         try:
             await asyncio.wait_for(stop.wait(), timeout=poll_interval)
         except TimeoutError:

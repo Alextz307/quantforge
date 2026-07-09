@@ -17,6 +17,7 @@ export function Pagination({ total, limit, offset, onOffset }: PaginationProps) 
   // is derivable: a short final page (or an offset past the total) yields fewer
   // than ``limit`` and disables Next.
   const count = Math.max(0, Math.min(limit, total - offset));
+
   // An offset past the total (e.g. a bookmarked deep page after rows were
   // deleted) yields count 0; show "0-0" rather than a reversed "offset+1-total"
   // range. Previous still walks back into range.

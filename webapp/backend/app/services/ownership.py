@@ -121,6 +121,7 @@ def filter_visible_experiment_ids(
         return set()
     if user.role is Role.ADMIN and all_users:
         return set(experiment_ids)
+
     owner_by_id: dict[str, int] = {}
     for chunk in _chunks(experiment_ids, _MAX_IN_PARAMS):
         rows = conn.execute(
@@ -129,6 +130,7 @@ def filter_visible_experiment_ids(
             chunk,
         ).fetchall()
         owner_by_id.update({str(row["experiment_id"]): int(row["user_id"]) for row in rows})
+
     visible: set[str] = set()
     for eid in experiment_ids:
         owner = owner_by_id.get(eid)
@@ -154,6 +156,7 @@ def resolve_owner_usernames(
 
     if not experiment_ids:
         return {}
+
     result: dict[str, str] = {}
     for chunk in _chunks(experiment_ids, _MAX_IN_PARAMS):
         rows = conn.execute(
@@ -195,6 +198,7 @@ def scope_summaries[SummaryT: BaseModel](
 
     keys_per_summary = [key_fn(s) for s in summaries]
     keys_to_query = [k for k in keys_per_summary if k is not None]
+
     owners: dict[str, tuple[int, str | None]] = {}
     for chunk in _chunks(keys_to_query, _MAX_IN_PARAMS):
         rows = conn.execute(
@@ -208,6 +212,7 @@ def scope_summaries[SummaryT: BaseModel](
                 int(row["user_id"]),
                 str(row["username"]) if row["username"] is not None else None,
             )
+
     admin_all = user.role is Role.ADMIN and all_users
     visible: list[SummaryT] = []
     usernames: dict[str, str | None] = {}

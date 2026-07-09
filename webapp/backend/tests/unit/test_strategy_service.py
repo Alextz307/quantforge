@@ -141,7 +141,9 @@ def test_canonical_params_loads_from_yaml(tmp_path: Path) -> None:
         "    window: 25\n    k: 1.5\n    interval: hour\n",
         encoding="utf-8",
     )
+
     params = get_canonical_strategy_params(tmp_path, "AdaptiveBollinger")
+
     assert params == {"window": 25, "k": 1.5}
 
 
@@ -157,7 +159,9 @@ def test_canonical_params_handles_camel_case_strategy_name(tmp_path: Path) -> No
         "    primary_ticker: SPY\n    feature_tickers: [QQQ, TLT]\n",
         encoding="utf-8",
     )
+
     params = get_canonical_strategy_params(tmp_path, "CrossAssetMomentum")
+
     assert params is not None
     assert params["primary_ticker"] == "SPY"
     assert params["feature_tickers"] == ["QQQ", "TLT"]

@@ -16,6 +16,7 @@ function fakeMatchMedia(prefersDark = false) {
     removeEventListener: () => undefined,
     dispatchEvent: () => true,
   });
+
   vi.stubGlobal("matchMedia", factory);
 }
 

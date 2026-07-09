@@ -12,6 +12,7 @@ const PROTECTED_TEXT = "admin content";
 function Tree() {
   const { data } = useMe();
   if (!data) return null;
+
   return (
     <RequireAdmin>
       <div>{PROTECTED_TEXT}</div>

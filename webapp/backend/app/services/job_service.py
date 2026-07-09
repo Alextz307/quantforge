@@ -154,10 +154,12 @@ def _maybe_inject_standard_features(payload: dict[str, object]) -> None:
     name = strategy.get("name")
     if not isinstance(name, str):
         return
+
     try:
         schema = describe_strategy(name)
     except KeyError:
         return
+
     needs_features = any(p.required and p.name == "feature_columns" for p in schema.params)
     if needs_features:
         payload["features"] = dict(_STANDARD_FEATURES_BLOCK)
@@ -241,6 +243,7 @@ def _extract_study_name(hpo_payload: dict[str, object]) -> str:
                 )
             ]
         )
+
     return raw
 
 
@@ -280,8 +283,10 @@ def _resolve_compare_inputs(
             continue
         config_paths.append(config_path)
         reuse_run_dirs.append(run_dir)
+
     if errors:
         raise JobConfigInvalidError(errors)
+
     return tuple(config_paths), tuple(reuse_run_dirs)
 
 
@@ -295,6 +300,7 @@ def _resolve_holdout_source(payload: HoldoutPayload, store_root: Path) -> tuple[
     """
 
     loc = ["holdout_payload", "source_id"]
+
     if payload.source_kind == "run":
         try:
             source_path = find_run_dir(store_root, payload.source_id)
@@ -374,6 +380,7 @@ def _resolve_holdout_source(payload: HoldoutPayload, store_root: Path) -> tuple[
                     )
                 ]
             )
+
     artifact_name = payload.out_name if payload.out_name is not None else source_path.name
     return source_path, artifact_name
 
@@ -427,6 +434,7 @@ def _resolve_study_spec(payload: StudyPayload, ctx: _HandlerCtx) -> tuple[StudyS
                 )
             ]
         ) from exc
+
     try:
         parsed = yaml.safe_load(raw)
     except yaml.YAMLError as exc:
@@ -439,6 +447,7 @@ def _resolve_study_spec(payload: StudyPayload, ctx: _HandlerCtx) -> tuple[StudyS
                 )
             ]
         ) from exc
+
     if not isinstance(parsed, dict):
         raise JobConfigInvalidError(
             [
@@ -449,6 +458,7 @@ def _resolve_study_spec(payload: StudyPayload, ctx: _HandlerCtx) -> tuple[StudyS
                 )
             ]
         )
+
     result = validate_config(ConfigKind.STUDY, parsed)
     if not result.valid:
         raise JobConfigInvalidError(
@@ -461,6 +471,7 @@ def _resolve_study_spec(payload: StudyPayload, ctx: _HandlerCtx) -> tuple[StudyS
                 for err in result.errors
             ]
         )
+
     return StudySpec.model_validate(parsed), spec_path
 
 
@@ -471,9 +482,11 @@ def _validate_only_legs(only_legs: list[str], spec_legs: list[StudyLeg]) -> None
 
     if not only_legs:
         return
+
     valid_ids: set[str] = {
         make_leg_id(leg.strategy, universe) for leg in spec_legs for universe in leg.universes
     }
+
     errors: list[ValidationErrorItem] = []
     for idx, leg_id in enumerate(only_legs):
         if leg_id not in valid_ids:
@@ -484,6 +497,7 @@ def _validate_only_legs(only_legs: list[str], spec_legs: list[StudyLeg]) -> None
                     type="value_error",
                 )
             )
+
     if errors:
         raise JobConfigInvalidError(errors)
 
@@ -516,9 +530,11 @@ class _TuneHandler:
     def validate(self, submission: JobSubmission, ctx: _HandlerCtx) -> None:
         assert submission.config_payload is not None
         assert submission.hpo_payload is not None
+
         exp_result = validate_config(ConfigKind.EXPERIMENT, submission.config_payload)
         if not exp_result.valid:
             raise JobConfigInvalidError(exp_result.errors)
+
         hpo_result = validate_config(ConfigKind.HPO, submission.hpo_payload)
         if not hpo_result.valid:
             raise JobConfigInvalidError(
@@ -527,6 +543,7 @@ class _TuneHandler:
                     for err in hpo_result.errors
                 ]
             )
+
         _extract_study_name(submission.hpo_payload)
 
     def plan(
@@ -534,9 +551,11 @@ class _TuneHandler:
     ) -> _SpawnPlan:
         assert submission.config_payload is not None
         assert submission.hpo_payload is not None
+
         experiment_config_path = _experiment_config_path(job_temp_dir, row.id)
         hpo_config_path = _hpo_config_path(job_temp_dir, row.id)
         study_name = _extract_study_name(submission.hpo_payload)
+
         return _SpawnPlan(
             command=build_tune_command(
                 experiment_config_path=experiment_config_path,
@@ -566,6 +585,7 @@ class _CompareHandler:
         assert submission.compare_payload is not None
         payload = submission.compare_payload
         config_paths, reuse_run_dirs = _resolve_compare_inputs(payload, ctx.store_root)
+
         # No webapp-written temp YAMLs: the CLI consumes each run's frozen
         # config.yaml directly so --config and --reuse-runs stay in matching
         # positional order.
@@ -597,6 +617,7 @@ class _HoldoutHandler:
         assert submission.holdout_payload is not None
         payload = submission.holdout_payload
         source_path, artifact_name = _resolve_holdout_source(payload, ctx.store_root)
+
         return _SpawnPlan(
             command=build_holdout_command(
                 source_kind=payload.source_kind,
@@ -616,8 +637,10 @@ class _StudyHandler:
     def validate(self, submission: JobSubmission, ctx: _HandlerCtx) -> None:
         assert submission.study_payload is not None
         payload = submission.study_payload
+
         spec, _ = _resolve_study_spec(payload, ctx)
         _validate_only_legs(payload.only_legs, spec.legs)
+
         output_name = spec.output_dir.name
         live = find_live_study_job_for(ctx.conn, output_name)
         if live is not None:
@@ -642,6 +665,7 @@ class _StudyHandler:
         payload = submission.study_payload
         spec, spec_path = _resolve_study_spec(payload, ctx)
         output_name = spec.output_dir.name
+
         return _SpawnPlan(
             command=build_study_command(
                 spec_path=spec_path,
@@ -674,6 +698,7 @@ def _find_live_importance_job(conn: sqlite3.Connection, config_path: str) -> str
         f"ORDER BY id DESC LIMIT 1",
         (JobKind.IMPORTANCE.value, config_path, *terminal),
     ).fetchone()
+
     if row is None:
         return None
     return str(row["id"])
@@ -699,33 +724,41 @@ def _resolve_importance_run(payload: ImportancePayload, ctx: _HandlerCtx) -> Pat
         run_dir = find_run_dir(ctx.store_root, payload.run_id)
     except RunNotFoundError as exc:
         raise reject(f"run not found: {payload.run_id}") from exc
+
     try:
         check_artifact_access(ctx.conn, experiment_id=payload.run_id, user=ctx.user)
     except ArtifactAccessDeniedError as exc:
         raise reject(f"run not found: {payload.run_id}") from exc
+
     if not (run_dir / EXPERIMENT_CONFIG_YAML).is_file():
         raise reject(f"run is missing config.yaml: {payload.run_id}")
+
     # The re-run needs the original's metrics to decide where importance lands,
     # so reject upfront when they're absent instead of failing late.
     for required in (EXPERIMENT_METRICS_JSON, EXPERIMENT_MANIFEST_JSON):
         if not (run_dir / required).is_file():
             raise reject(f"run is missing {required}: {payload.run_id}")
+
     strategy_name = load_experiment_config_from_run(run_dir).strategy.name
     if not strategy_supports_feature_importance(strategy_name):
         raise reject(
             f"strategy {strategy_name!r} consumes no engineered features, so it "
             f"produces no feature importance; nothing to compute for this run."
         )
+
     if (run_dir / FEATURE_IMPORTANCE_JSON).is_file():
         raise reject(f"run {payload.run_id} already has feature importance.")
+
     return run_dir
 
 
 class _ImportanceHandler:
     def validate(self, submission: JobSubmission, ctx: _HandlerCtx) -> None:
         assert submission.importance_payload is not None
+
         run_dir = _resolve_importance_run(submission.importance_payload, ctx)
         live = _find_live_importance_job(ctx.conn, str(run_dir / EXPERIMENT_CONFIG_YAML))
+
         if live is not None:
             raise JobConfigInvalidError(
                 [
@@ -746,6 +779,7 @@ class _ImportanceHandler:
     ) -> _SpawnPlan:
         assert submission.importance_payload is not None
         run_dir = _resolve_importance_run(submission.importance_payload, ctx)
+
         # experiment_id is outcome-dependent, resolved post-completion via the
         # manifest scan: a diverged re-run saves under manifest.name == row.id;
         # a reproduced backfill writes no new run, so it stays None.
@@ -797,10 +831,13 @@ async def submit_job(
     )
     handler = _HANDLERS[submission.kind]
     handler.validate(submission, ctx)
+
     if submission.kind in (JobKind.RUN, JobKind.TUNE):
         assert submission.config_payload is not None
         _maybe_inject_standard_features(submission.config_payload)
+
     job_temp_dir.mkdir(parents=True, exist_ok=True)
+
     # Two-phase: insert with placeholders, then UPDATE with paths derived from
     # the row id once we have it. Lifespan reconcile recovers a crash here.
     placeholder_command = ("placeholder",)
@@ -816,12 +853,15 @@ async def submit_job(
             log_path=placeholder_log,
         ),
     )
+
     log_path = _log_path(job_temp_dir, row.id)
     plan = handler.plan(submission, row, job_temp_dir, ctx)
+
     # Attribute every spawned CLI job to the submitter once, at the spawn
     # boundary, rather than in each build_*_command - a new kind can't forget
     # the flag, and every experiment subcommand accepts --user.
     plan = replace(plan, command=(*plan.command, "--user", user.username))
+
     return await _persist_and_spawn(
         conn=conn,
         manager=manager,
@@ -963,6 +1003,7 @@ def reconcile_orphans(conn: sqlite3.Connection) -> int:
             except IllegalStatusTransitionError:
                 continue
             orphans += 1
+
     if orphans:
         logger.warning("reconciled %d orphaned RUNNING job(s)", orphans)
     return orphans

@@ -10,6 +10,7 @@ interface HeaderProps {
 
 export function Header({ user }: HeaderProps) {
   const logout = useLogout();
+
   return (
     <header className="flex h-16 items-center justify-end border-b bg-card px-6">
       <div className="flex items-center gap-4">

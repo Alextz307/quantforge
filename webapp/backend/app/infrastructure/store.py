@@ -274,9 +274,11 @@ def find_hpo_study_dir_by_wire_id(root: Path, wire_id: str) -> Path:
         # Reject leaked slashes - wire ids must use the encoded form so
         # routing stays single-segment.
         raise HpoStudyNotFoundError(f"hpo study not found: {wire_id}")
+
     relative = wire_id.replace(HPO_WIRE_DELIMITER, "/")
     candidate = (root / relative).resolve()
     root_resolved = root.resolve()
+
     if root_resolved not in candidate.parents and candidate != root_resolved:
         raise HpoStudyNotFoundError(f"hpo study not found: {wire_id}")
     if not (candidate / TRIALS_JSONL_NAME).is_file():

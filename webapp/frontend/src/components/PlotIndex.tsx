@@ -12,6 +12,7 @@ export function PlotIndex({
   if (plots.length === 0) {
     return <p className="text-sm text-muted-foreground">{emptyMessage}</p>;
   }
+
   return (
     <ul className="flex flex-col gap-2" data-testid="plot-index">
       {plots.map((name) => (

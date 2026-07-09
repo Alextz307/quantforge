@@ -59,11 +59,13 @@ describe("useEventStream", () => {
     });
     const ws = MockWebSocket.instances[0];
     if (!ws) throw new Error("WebSocket was never opened");
+
     act(() => {
       ws.triggerOpen();
       ws.triggerMessage({ type: "ping", seq: 1 });
       ws.triggerMessage({ type: "ping", seq: 1 });
     });
+
     expect(onFrame).toHaveBeenCalledTimes(2);
   });
 
@@ -80,11 +82,13 @@ describe("useEventStream", () => {
     });
     const ws = MockWebSocket.instances[0];
     if (!ws) throw new Error("WebSocket was never opened");
+
     act(() => {
       ws.triggerOpen();
       ws.triggerMessage({ type: "ping", seq: 1 });
       ws.triggerMessage({ type: "ping", seq: 2 });
     });
+
     expect(ws.readyState).toBe(3);
     await waitFor(() => {
       expect(result.current.connection).toBe("closed");

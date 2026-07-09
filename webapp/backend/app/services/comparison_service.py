@@ -92,9 +92,11 @@ def list_comparisons_page(
         user=user,
         all_users=all_users,
     )
+
     strategies = sorted({s for row in visible for s in row.strategies})
     filtered = [row for row in visible if _matches(row, strategy, since)]
     filtered.sort(key=lambda s: s.created_at, reverse=True)
+
     page, total = paginate(filtered, limit=limit, offset=offset)
     items = stamp_summaries(page, key_fn=lambda s: s.name, usernames=usernames)
     return ComparisonsPage(
@@ -128,6 +130,7 @@ def get_comparison(
     manifest = json_io.read_dict(cmp_dir / EXPERIMENT_MANIFEST_JSON)
     per_strategy_stats = json_io.get_dict(manifest, "per_strategy_stats")
     per_strategy_eid = json_io.get_dict(manifest, "per_strategy_experiment_id")
+
     rows = sorted(
         (
             PerStrategyStatsRow.model_validate(
@@ -141,6 +144,7 @@ def get_comparison(
         ),
         key=lambda r: r.strategy,
     )
+
     usernames = resolve_owner_usernames(conn, experiment_ids=[name])
     return ComparisonDetail(
         name=json_io.get_str(manifest, "out_name"),

@@ -121,12 +121,15 @@ def _webapp_test_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterato
     # Point the frontend bundle at an absent path so create_app() never mounts a
     # developer's locally-built dist; the static-frontend tests opt in explicitly.
     monkeypatch.setenv("WEBAPP_FRONTEND_DIST", str(tmp_path / "no_frontend_bundle"))
+
     get_settings.cache_clear()
     login_limiter.reset()
     run_service._SUMMARY_CACHE.clear()
     _dir_cache.clear()
     deployment_service._clear_caches_for_tests()
+
     yield
+
     get_settings.cache_clear()
     login_limiter.reset()
     run_service._SUMMARY_CACHE.clear()
@@ -509,6 +512,7 @@ def make_synthetic_study(
     study_dir = parent_studies_dir / name
     study_dir.mkdir(parents=True, exist_ok=True)
     ts = started_at or datetime(2026, 4, 1, tzinfo=UTC)
+
     leg_states: list[LegState] = []
     for strategy, universe, is_complete in legs:
         base = LegState.initial(f"{strategy}__{universe}", strategy, universe)
@@ -522,6 +526,7 @@ def make_synthetic_study(
                 run_experiment_id=f"20260101_120000_{strategy}_abc1234_deadbeef",
             )
         leg_states.append(base)
+
     state = StudyState(
         spec_name=spec_name,
         spec_hash=spec_hash,
@@ -562,6 +567,7 @@ def make_synthetic_consolidated_report(
     tables_dir.mkdir(parents=True, exist_ok=True)
     (plots_dir / CONSOLIDATED_PLOT_FILENAME).write_bytes(PLOT_BYTES)
     (tables_dir / CONSOLIDATED_TABLE_FILENAME).write_text("% latex table stub", encoding="utf-8")
+
     ts = created_at or datetime(2026, 4, 5, tzinfo=UTC)
     manifest = {
         "study_name": study_name,
@@ -605,6 +611,7 @@ def make_synthetic_hpo_study(
         n_complete = n_trials
     if best_trial_number is None:
         best_trial_number = max(0, n_complete - 1)
+
     study_dir = parent_hpo_dir / name
     study_dir.mkdir(parents=True, exist_ok=True)
     ts = (created_at or datetime(2026, 4, 1, tzinfo=UTC)).isoformat()
@@ -656,6 +663,7 @@ def webapp_store(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     root = tmp_path / "experiment_results"
     flat_runs = root / "flat_store" / "runs"
     study_runs = root / "studies" / "main" / "runs"
+
     make_synthetic_run(
         flat_runs,
         experiment_id="20260101_120000_AdaptiveBollinger_abc1234_deadbeef",
@@ -689,6 +697,7 @@ def webapp_store(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
         root / "studies" / "main" / HPO_SUBDIR,
         name="AdaptiveBollinger__spy_daily_5y",
     )
+
     monkeypatch.setenv("WEBAPP_STORE_ROOT", str(root))
     get_settings.cache_clear()
     return root

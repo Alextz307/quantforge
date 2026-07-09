@@ -47,6 +47,7 @@ void GarmanKlass::compute(
         double log_co = std::log(close[i] / open[i]);
         gk_daily[i] = 0.5 * log_hl * log_hl - kGKCoeff * log_co * log_co;
     }
+
     detail::annualize_rolling_variance(gk_daily, window_, out);
 }
 

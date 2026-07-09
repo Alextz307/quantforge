@@ -6,6 +6,7 @@ export interface BestConfigCardProps {
 
 export function BestConfigCard({ config }: BestConfigCardProps) {
   const isEmpty = Object.keys(config).length === 0;
+
   return (
     <Card>
       <CardHeader>

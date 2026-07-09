@@ -14,6 +14,7 @@ export interface JobArtifactLink {
 
 export function jobArtifactLink(job: JobRow): JobArtifactLink | null {
   if (job.status !== "completed" || job.experiment_id === null) return null;
+
   switch (job.kind) {
     case "tune":
       return { to: hpoDetailPath(job.experiment_id), label: "View study ->" };

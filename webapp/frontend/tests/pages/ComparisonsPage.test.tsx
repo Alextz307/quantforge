@@ -44,6 +44,7 @@ describe("ComparisonsPage", () => {
 
     const link = await screen.findByRole("link", { name: COMPARISON_DEMO_SUMMARY.name });
     await user.click(link);
+
     expect(await screen.findByText("comparison detail")).toBeInTheDocument();
   });
 });

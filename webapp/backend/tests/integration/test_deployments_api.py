@@ -108,6 +108,7 @@ def trained_store(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[P
 
     store = tmp_path / "store"
     _materialise_run(store, _RUN_ID)
+
     monkeypatch.setenv("WEBAPP_STORE_ROOT", str(store))
     get_settings.cache_clear()
     yield store

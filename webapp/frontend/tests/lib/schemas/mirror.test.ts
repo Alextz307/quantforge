@@ -26,6 +26,7 @@ function shapeOf(schema: z.ZodObject<z.ZodRawShape>): ModelShape {
   for (const [name, field] of Object.entries(schema.shape)) {
     out[name] = describeField(field);
   }
+
   return out;
 }
 
@@ -71,6 +72,7 @@ function describeField(field: z.ZodTypeAny): FieldShape {
 
 function zodTypeName(field: z.ZodTypeAny): string {
   const def = field._def as { typeName?: string; values?: readonly string[] };
+
   if (def.typeName === "ZodString") return "string";
   if (def.typeName === "ZodNumber") return "number";
   if (def.typeName === "ZodBoolean") return "boolean";

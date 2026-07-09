@@ -19,6 +19,7 @@ export function JobArtifactLink({
 }: JobArtifactLinkProps) {
   const link = jobArtifactLink(job);
   if (!link) return <>{fallback}</>;
+
   return (
     <Link
       to={link.to}

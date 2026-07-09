@@ -71,6 +71,7 @@ void PairsTradingStrategy::generate_signals(
     const auto n = prices_a.size();
     scratch.spread.resize(n);
     scratch.zscore.resize(n);
+
     statistics::SpreadCalculator::compute_spread(
         prices_a, prices_b, coint.hedge_ratio, scratch.spread);
     statistics::SpreadCalculator::compute_zscore(

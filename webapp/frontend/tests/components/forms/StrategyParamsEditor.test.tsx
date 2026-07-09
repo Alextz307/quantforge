@@ -138,6 +138,7 @@ describe("StrategyParamsEditor", () => {
   it("dispatches onChange with parsed numeric value for int params", () => {
     const onChange = vi.fn();
     render(<StrategyParamsEditor schema={SCHEMA} values={{}} onChange={onChange} />);
+
     fireEvent.change(screen.getByLabelText(/window/i), { target: { value: "42" } });
 
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ window: 42 }));

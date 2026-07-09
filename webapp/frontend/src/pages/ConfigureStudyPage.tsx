@@ -158,12 +158,14 @@ export function ConfigureStudyPage() {
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setServerErrors([]);
+
     const local = validateClient();
     if (local.length > 0) {
       setClientErrors(local);
       return;
     }
     setClientErrors([]);
+
     try {
       if (mode === "new") {
         const detail = await saveUpload.mutateAsync({ slug: newSlug, yaml: editorYaml });
@@ -187,11 +189,13 @@ export function ConfigureStudyPage() {
   const onSaveOnly = async () => {
     setServerErrors([]);
     setClientErrors([]);
+
     if (mode !== "new") return;
     if (!SLUG_PATTERN.test(newSlug)) {
       setClientErrors([SLUG_FORMAT_ERROR]);
       return;
     }
+
     try {
       await saveUpload.mutateAsync({ slug: newSlug, yaml: editorYaml });
       // Stay on the page - switch the picker to the saved upload so the user
@@ -224,6 +228,7 @@ export function ConfigureStudyPage() {
     // Reset the input synchronously so re-picking the same filename re-fires onChange.
     e.target.value = "";
     if (!file) return;
+
     if (file.size > MAX_YAML_BYTES) {
       setClientErrors([
         {
@@ -234,6 +239,7 @@ export function ConfigureStudyPage() {
       ]);
       return;
     }
+
     const reader = new FileReader();
     reader.onload = () => {
       const text = typeof reader.result === "string" ? reader.result : "";
@@ -410,6 +416,7 @@ function SourceModeTabs({ mode, onChange }: SourceModeTabsProps) {
     { id: "uploads", label: "My uploads" },
     { id: "new", label: "New spec" },
   ];
+
   return (
     <div className="flex gap-1 border-b border-input pb-2" role="tablist">
       {tabs.map((t) => (
@@ -449,6 +456,7 @@ function SpecPicker({ specs, value, onChange }: SpecPickerProps) {
       </p>
     );
   }
+
   return (
     <select
       id="study-spec"
@@ -482,6 +490,7 @@ function UploadPicker({ uploads, value, onChange }: UploadPickerProps) {
       </p>
     );
   }
+
   return (
     <select
       id="study-upload"
@@ -540,9 +549,11 @@ function ValidationStatus({ pending, errors }: ValidationStatusProps) {
   if (pending) {
     return <p className="text-xs text-muted-foreground">Validating...</p>;
   }
+
   if (errors.length === 0) {
     return <p className="text-xs text-emerald-700 dark:text-emerald-400">No validation errors.</p>;
   }
+
   return (
     <details className="text-xs">
       <summary className="cursor-pointer text-destructive">

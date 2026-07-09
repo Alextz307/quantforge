@@ -19,6 +19,7 @@ function computeConvergence(
     .filter((t) => t.state === TRIAL_STATE_COMPLETE && t.value !== null)
     .map((t) => ({ number: t.number, value: t.value as number }))
     .sort((a, b) => a.number - b.number);
+
   const out: ConvergencePoint[] = [];
   let best: number | null = null;
   for (const c of completed) {
@@ -31,6 +32,7 @@ function computeConvergence(
     }
     out.push({ number: c.number, value: c.value, best });
   }
+
   return out;
 }
 

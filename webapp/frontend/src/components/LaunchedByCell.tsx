@@ -20,5 +20,6 @@ export function LaunchedByCell({ username }: LaunchedByCellProps): ReactElement 
   if (username === null || username === undefined) {
     return <span className="text-muted-foreground italic">{SYSTEM_FALLBACK_LABEL}</span>;
   }
+
   return <span>{username}</span>;
 }

@@ -33,6 +33,7 @@ def study_config_root(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     (root / "hpo" / "adaptive_bollinger.yaml").write_text("body\n")
     (root / "universes" / "spy_daily_5y.yaml").write_text("body\n")
     (root / "study" / "library_only.yaml").write_text("body\n")
+
     monkeypatch.setenv("WEBAPP_CONFIG_ROOT", str(root))
     get_settings.cache_clear()
     return root

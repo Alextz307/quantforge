@@ -97,12 +97,14 @@ export function ConfigureComparePage() {
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setServerErrors([]);
+
     const local = validate();
     if (local.length > 0) {
       setClientErrors(local);
       return;
     }
     setClientErrors([]);
+
     try {
       const job = await submit.mutateAsync({
         kind: "compare",
@@ -276,7 +278,9 @@ function RunPicker({ rows, selectedIds, onToggle, maxSelected, lockedDataHash }:
       </p>
     );
   }
+
   const selectedSet = new Set(selectedIds);
+
   return (
     <div className="space-y-1">
       {lockedDataHash !== null && (

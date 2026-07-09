@@ -64,6 +64,7 @@ export function ConfigureTunePage() {
         return;
       }
     }
+
     const experimentPayload = toExperimentPayload(values, strategyParams);
     const hpoPayload = toHpoPayload(values);
 

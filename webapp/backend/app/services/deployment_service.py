@@ -121,6 +121,7 @@ def _load_strategy_cached(run_dir: Path) -> IStrategy:
         if cached is not None:
             _strategy_cache.move_to_end(key)
             return cached
+
     strategy = load_strategy_from_run_dir(run_dir)
     with _strategy_cache_lock:
         _strategy_cache[key] = strategy
@@ -179,6 +180,7 @@ def _probe_latest_bar_ts(ticker: str, interval: Interval) -> pd.Timestamp:
     start = (now - pd.Timedelta(days=window_days)).to_pydatetime()
     end = now.to_pydatetime()
     bars = fetcher.fetch(ticker, start, end, interval)
+
     if bars.empty:
         raise DeploymentSourceInvalidError(
             f"vendor returned no bars for {ticker!r} over the last "
@@ -201,6 +203,7 @@ def _latest_available_bar_ts_cached(ticker: str, interval: Interval) -> pd.Times
         cached = _bar_ts_cache.get(key)
         if cached is not None and cached[1] > now:
             return cached[0]
+
     bar_ts = _probe_latest_bar_ts(ticker, interval)
     with _bar_ts_cache_lock:
         _bar_ts_cache[key] = (bar_ts, now + _BAR_TS_CACHE_TTL_SECONDS)
@@ -281,6 +284,7 @@ def _validate_source_for_predict(
     state_path = resolve_strategy_state_path(source_kind, source_id, store_root)
     run_dir = state_path.parent
     cfg = load_experiment_config_from_run(run_dir)
+
     if len(cfg.data.tickers) != 1:
         raise DeploymentSourceInvalidError(
             f"source {source_kind}:{source_id} trains a "
@@ -288,12 +292,14 @@ def _validate_source_for_predict(
             f"only supports single-asset strategies today. Pick a single-ticker "
             f"source or wait for the pairs / multi-feature live-fetch impl."
         )
+
     if cfg.data.interval is not Interval.DAILY:
         raise DeploymentSourceInvalidError(
             f"source {source_kind}:{source_id} trains on {cfg.data.interval.value} "
             f"bars; the live-inference path only supports the daily cadence "
             f"today. Pick a daily source or wait for the intraday fetcher impl."
         )
+
     strategy = _load_strategy_cached(run_dir)
     metadata = strategy.training_metadata
     if metadata is None:
@@ -302,6 +308,7 @@ def _validate_source_for_predict(
             f"its persisted strategy state; the source may be corrupt or "
             f"was trained by an older framework version."
         )
+
     return (
         cfg.data.tickers[0],
         cfg.strategy.name,
@@ -331,6 +338,7 @@ def create_deployment(
     ticker, strategy_name, interval, train_end = _validate_source_for_predict(
         source_kind, source_id, store_root
     )
+
     deployment_id = uuid.uuid4().hex
     deployment = framework_create_deployment(
         source_kind=source_kind,
@@ -340,6 +348,7 @@ def create_deployment(
         warmup_bars=warmup_bars,
         deployment_id=deployment_id,
     )
+
     conn.execute(
         """
         INSERT INTO deployments (
@@ -363,6 +372,7 @@ def create_deployment(
         ),
     )
     conn.commit()
+
     row = _fetch_row(conn, deployment.deployment_id)
     assert row is not None
     return DeploymentDetail(
@@ -395,6 +405,7 @@ def list_deployments(
             "ORDER BY d.created_at DESC",
             (user.id,),
         ).fetchall()
+
     return [_row_to_summary(row, row["owner_username"] or _OWNERLESS_USERNAME) for row in rows]
 
 
@@ -409,8 +420,10 @@ def get_deployment(
     if row is None:
         raise DeploymentNotFoundError(deployment_id)
     _enforce_access(row, user)
+
     last = _last_signal(store_root, deployment_id)
     summary = _row_to_summary(row, _resolve_username(conn, row["user_id"]))
+
     return DeploymentDetail(
         **summary.model_dump(),
         latest_signal=_signal_to_out(last, summary.interval) if last is not None else None,
@@ -437,6 +450,7 @@ def rename_deployment(
     if row is None:
         raise DeploymentNotFoundError(deployment_id)
     _enforce_access(row, user)
+
     conn.execute("UPDATE deployments SET name = ? WHERE id = ?", (new_name, deployment_id))
     conn.commit()
     return get_deployment(conn, store_root=store_root, user=user, deployment_id=deployment_id)
@@ -453,10 +467,12 @@ def delete_deployment(
     if row is None:
         raise DeploymentNotFoundError(deployment_id)
     _enforce_access(row, user)
+
     dep_dir = resolve_deployment_dir(store_root, deployment_id)
     # disk teardown before DB delete: a failed rmtree leaves a retryable orphan row
     if dep_dir.is_dir():
         shutil.rmtree(dep_dir)
+
     conn.execute("DELETE FROM deployments WHERE id = ?", (deployment_id,))
     conn.commit()
 
@@ -473,6 +489,7 @@ def read_signal_log(
     if row is None:
         raise DeploymentNotFoundError(deployment_id)
     _enforce_access(row, user)
+
     interval = Interval(row["interval"])
     signals = read_signals(store_root, deployment_id)
     tail = signals if limit is None else signals[-limit:]
@@ -521,6 +538,7 @@ def _evaluation_to_out(
         )
         for row in evaluation.rows
     ]
+
     return SignalEvaluationOut(
         rows=rows,
         n_signals=evaluation.n_signals,
@@ -572,6 +590,7 @@ def evaluate_signal_log(
             net_mean_return=None,
             cost_scenario=cost_scenario,
         )
+
     opens = _fetch_opens(row["ticker"], Interval(row["interval"]), signals)
     evaluation = evaluate_signals(
         [s.bar_ts for s in signals],

@@ -19,6 +19,7 @@ export interface StudyStreamSnapshot {
  */
 export function useStudyStream(name: string, enabled: boolean = true): StudyStreamSnapshot {
   const qc = useQueryClient();
+
   const { connection } = useEventStream<StudyDetail>({
     url: studyStreamUrl(name),
     parseFrame,

@@ -18,6 +18,7 @@ export function QueryRenderer<T>({
   if (query.isPending) {
     return <p className="text-sm text-muted-foreground">{loadingMessage}</p>;
   }
+
   if (query.isError) {
     return (
       <Alert variant="destructive">
@@ -26,5 +27,6 @@ export function QueryRenderer<T>({
       </Alert>
     );
   }
+
   return <>{children(query.data)}</>;
 }

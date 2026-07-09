@@ -24,6 +24,7 @@ describe("HomePage", () => {
       ROUTES.holdout,
       ROUTES.deployments,
     ];
+
     for (const href of expected) {
       expect(hrefs).toContain(href);
     }

@@ -242,6 +242,7 @@ class SpecUploadStore[SummaryT: BaseModel, DetailT: BaseModel]:
     ) -> list[SummaryT]:
         if all_users and user.role is not Role.ADMIN:
             raise PermissionError("only admins can list all users' uploads")
+
         if all_users:
             rows = conn.execute(self._summary_select() + " ORDER BY u.updated_at DESC").fetchall()
         else:

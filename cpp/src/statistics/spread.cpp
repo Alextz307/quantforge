@@ -38,6 +38,7 @@ void SpreadCalculator::compute_spread(
             "SpreadCalculator::compute_spread: a and b must have the same length");
     }
     detail::check_out_size(a.size(), out.size(), "SpreadCalculator::compute_spread");
+
     const auto n = a.size();
     for (std::size_t i = 0; i < n; ++i) {
         out[i] = a[i] - hedge_ratio * b[i];
@@ -65,6 +66,7 @@ void SpreadCalculator::compute_zscore(
             "SpreadCalculator::compute_zscore: window must be >= 2");
     }
     detail::check_out_size(spread.size(), out.size(), "SpreadCalculator::compute_zscore");
+
     const auto n = spread.size();
     std::fill(out.begin(), out.end(), kNaN);
     if (static_cast<int>(n) < window) {
@@ -82,6 +84,7 @@ void SpreadCalculator::compute_zscore(
         w_mean += delta / (i + 1);
         m2 += delta * (spread[i] - w_mean);
     }
+
     {
         const double mean = sum / window;
         const double var = m2 / denom;

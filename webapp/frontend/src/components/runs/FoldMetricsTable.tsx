@@ -5,6 +5,7 @@ export function FoldMetricsTable({ folds }: { folds: readonly FoldRow[] }) {
   if (folds.length === 0) {
     return <p className="text-sm text-muted-foreground">No fold metrics available.</p>;
   }
+
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-sm" data-testid="fold-metrics-table">

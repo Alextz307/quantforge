@@ -67,6 +67,7 @@ interface ParamFieldProps {
 
 function ParamField({ param, value, onChange, errorMsg, disabled }: ParamFieldProps) {
   const id = useId();
+
   return (
     <div className="space-y-1.5">
       <Label htmlFor={id} className="flex items-center gap-2">
@@ -92,6 +93,7 @@ interface ParamInputProps {
 
 function ParamInput({ id, param, value, onChange, disabled }: ParamInputProps) {
   const placeholder = describeDefault(param);
+
   switch (param.kind) {
     case "int":
       return (
@@ -224,6 +226,7 @@ interface JsonInputProps {
 function JsonInput({ id, value, onChange, placeholder, disabled }: JsonInputProps) {
   const [text, setText] = useState(() => (value === undefined ? "" : JSON.stringify(value)));
   const [parseError, setParseError] = useState<string | null>(null);
+
   return (
     <div className="space-y-1">
       <textarea

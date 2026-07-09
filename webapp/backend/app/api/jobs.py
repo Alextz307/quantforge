@@ -157,6 +157,7 @@ async def stream_job(
     if user is None:
         await websocket.close(code=WS_CLOSE_UNAUTHORIZED)
         return
+
     with open_db() as conn:
         try:
             job = get_job_for(conn, user=user, job_id=job_id)

@@ -8,6 +8,7 @@ export function ThemeToggle() {
   const next = isDark ? "light" : "dark";
   const label = `Switch to ${next} theme`;
   const Icon = isDark ? Moon : Sun;
+
   return (
     <Button
       type="button"

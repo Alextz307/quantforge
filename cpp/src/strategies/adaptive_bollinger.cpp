@@ -74,6 +74,7 @@ void AdaptiveBollingerStrategy::generate_signals(
     scratch.trend_ma.resize(n);
     scratch.upper.resize(n);
     scratch.lower.resize(n);
+
     detail::rolling_mean(close, config_.band_window, scratch.mid);
     detail::rolling_mean(close, config_.trend_window, scratch.trend_ma);
 
@@ -88,6 +89,7 @@ void AdaptiveBollingerStrategy::generate_signals(
             scratch.lower[i] = m - half;
         }
     }
+
     run_mean_reversion_state_machine(
         close, scratch.mid, scratch.upper, scratch.lower, scratch.trend_ma, out);
 }

@@ -41,5 +41,6 @@ def get_strategy_schema(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"unknown strategy: {name}",
         ) from exc
+
     schema.canonical_params = get_canonical_strategy_params(settings.config_root, name)
     return schema

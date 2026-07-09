@@ -70,10 +70,12 @@ describe("useHpoTrialStream", () => {
     });
     const ws = MockWebSocket.instances[0];
     if (!ws) throw new Error("WebSocket was never opened");
+
     act(() => {
       ws.triggerOpen();
       ws.triggerMessage({ type: "trial", trial: makeTrial(TRIAL_NUMBER_FIRST) });
     });
+
     const cached = qc.getQueryData<TrialRow[]>(queryKeys.hpoTrials(STUDY_NAME));
     expect(cached?.map((t) => t.number)).toEqual([TRIAL_NUMBER_FIRST]);
   });
@@ -88,11 +90,13 @@ describe("useHpoTrialStream", () => {
     });
     const ws = MockWebSocket.instances[0];
     if (!ws) throw new Error("WebSocket was never opened");
+
     act(() => {
       ws.triggerOpen();
       ws.triggerMessage({ type: "log", line: "not a trial" });
       ws.triggerMessage({ type: "trial", trial: { partial: "no number" } });
     });
+
     expect(result.current.trials).toEqual([]);
   });
 });

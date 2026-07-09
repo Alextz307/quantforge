@@ -117,10 +117,12 @@ def read_config(config_root: Path, kind: ConfigKind, name: str) -> ConfigDetail:
         raw = path.read_text(encoding="utf-8")
     except FileNotFoundError as exc:
         raise ConfigNotFoundError(f"config not found: {path}") from exc
+
     try:
         parsed = yaml.safe_load(raw)
     except yaml.YAMLError as exc:
         return ConfigDetail(name=name, raw=raw, parsed=None, parse_error=str(exc))
+
     if parsed is None:
         return ConfigDetail(name=name, raw=raw, parsed=None, parse_error="empty YAML")
     if not isinstance(parsed, dict):
@@ -130,6 +132,7 @@ def read_config(config_root: Path, kind: ConfigKind, name: str) -> ConfigDetail:
             parsed=None,
             parse_error=f"top-level YAML must be a mapping, got {type(parsed).__name__}",
         )
+
     return ConfigDetail(name=name, raw=raw, parsed=parsed, parse_error=None)
 
 
@@ -152,6 +155,7 @@ def validate(kind: ConfigKind, payload: dict[str, object]) -> ValidateResponse:
     model_cls = _KIND_TO_MODEL[kind]
     if model_cls is None:
         return ValidateResponse(valid=True, errors=[])
+
     try:
         model_cls.model_validate(payload)
     except ValidationError as exc:
@@ -166,10 +170,12 @@ def validate(kind: ConfigKind, payload: dict[str, object]) -> ValidateResponse:
                 for err in exc.errors()
             ],
         )
+
     if kind is ConfigKind.EXPERIMENT:
         sig_errors = _strategy_param_completeness_errors(payload)
         if sig_errors:
             return ValidateResponse(valid=False, errors=sig_errors)
+
     return ValidateResponse(valid=True, errors=[])
 
 
@@ -190,13 +196,16 @@ def _strategy_param_completeness_errors(
     name = strategy.get("name")
     if not isinstance(name, str):
         return []
+
     try:
         schema = describe_strategy(name)
     except KeyError:
         return []
+
     params = strategy.get("params") or {}
     if not isinstance(params, dict):
         return []
+
     errors: list[ValidationErrorItem] = []
     for param in schema.params:
         if not param.required:

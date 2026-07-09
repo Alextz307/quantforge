@@ -36,6 +36,7 @@ export function TrialTable({ trials, bestTrialNumber }: TrialTableProps) {
   if (trials.length === 0) {
     return <p className="text-sm text-muted-foreground">No trials recorded.</p>;
   }
+
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-sm" data-testid="trial-table">

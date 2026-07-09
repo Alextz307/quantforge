@@ -44,6 +44,7 @@ def _insert_user(
         "VALUES (?, ?, ?, ?, ?)",
         (username, password_hash, role.value, created_at, auto_created_at),
     )
+
     user_id = cursor.lastrowid
     if user_id is None:
         raise RuntimeError("INSERT returned no lastrowid")
@@ -75,9 +76,11 @@ def create_user(
     existing = conn.execute(
         "SELECT id, deleted_at FROM users WHERE username = ?", (username,)
     ).fetchone()
+
     password_hash = hash_password(password)
     now = _now_iso()
     auto_created_at = now if auto_created else None
+
     if existing is not None:
         if existing["deleted_at"] is None:
             raise UsernameAlreadyExistsError(f"username '{username}' already exists")
@@ -96,6 +99,7 @@ def create_user(
             created_at=now,
             auto_created_at=auto_created_at,
         )
+
     conn.commit()
     return UserPublic(id=user_id, username=username, role=role, auto_created_at=auto_created_at)
 
@@ -109,6 +113,7 @@ def upsert_user(
 
     existing = conn.execute("SELECT id FROM users WHERE username = ?", (username,)).fetchone()
     password_hash = hash_password(password)
+
     if existing is None:
         user_id = _insert_user(
             conn,
@@ -124,6 +129,7 @@ def upsert_user(
             "UPDATE users SET password_hash = ?, role = ?, deleted_at = NULL WHERE id = ?",
             (password_hash, role.value, user_id),
         )
+
     conn.commit()
     return UserPublic(id=user_id, username=username, role=role)
 

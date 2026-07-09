@@ -14,12 +14,14 @@ export function RequireAuth({ children }: RequireAuthProps) {
   if (isLoading) {
     return <FullscreenSpinner />;
   }
+
   if (!user) {
     const from = location.pathname + location.search;
     return (
       <Navigate to={`${ROUTES.login}?${FROM_QUERY_PARAM}=${encodeURIComponent(from)}`} replace />
     );
   }
+
   return <>{children}</>;
 }
 

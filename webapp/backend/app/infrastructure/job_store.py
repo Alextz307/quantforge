@@ -63,6 +63,7 @@ def _row_to_job(row: sqlite3.Row) -> JobRow:
 def insert_job(conn: sqlite3.Connection, new_job: NewJob) -> JobRow:
     job_id = uuid.uuid4().hex
     command_str = " ".join(new_job.command)
+
     conn.execute(
         "INSERT INTO jobs (id, user_id, kind, command, config_path, log_path, status) "
         "VALUES (?, ?, ?, ?, ?, ?, ?)",
@@ -126,6 +127,7 @@ def mark_running(conn: sqlite3.Connection, job_id: str, pid: int) -> JobRow:
         raise IllegalStatusTransitionError(
             f"cannot mark job {job_id} running from status {job.status.value}"
         )
+
     conn.execute(
         "UPDATE jobs SET status = ?, pid = ?, started_at = ? WHERE id = ?",
         (JobStatus.RUNNING.value, pid, _now_iso(), job_id),

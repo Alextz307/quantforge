@@ -107,12 +107,14 @@ def test_filter_visible_scopes_to_caller(db_conn: sqlite3.Connection) -> None:
     bob = _user(db_conn, "bob")
     _seed_job(db_conn, user=alice, experiment_id=_ALICE_EID)
     _seed_job(db_conn, user=bob, experiment_id=_BOB_EID)
+
     visible = filter_visible_experiment_ids(
         db_conn,
         experiment_ids=[_ALICE_EID, _BOB_EID, _LEGACY_EID],
         user=alice,
         all_users=False,
     )
+
     assert visible == {_ALICE_EID, _LEGACY_EID}
 
 
@@ -124,12 +126,14 @@ def test_filter_visible_admin_with_all_returns_everything(
     admin = _user(db_conn, "admin", role=Role.ADMIN)
     _seed_job(db_conn, user=alice, experiment_id=_ALICE_EID)
     _seed_job(db_conn, user=bob, experiment_id=_BOB_EID)
+
     visible = filter_visible_experiment_ids(
         db_conn,
         experiment_ids=[_ALICE_EID, _BOB_EID, _LEGACY_EID],
         user=admin,
         all_users=True,
     )
+
     assert visible == {_ALICE_EID, _BOB_EID, _LEGACY_EID}
 
 

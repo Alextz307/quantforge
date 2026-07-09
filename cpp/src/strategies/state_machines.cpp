@@ -49,6 +49,7 @@ void run_mean_reversion_state_machine(
     detail::check_out_size(n, out.size(), "run_mean_reversion_state_machine");
 
     std::fill(out.begin(), out.end(), kNaN);
+
     double position = 0.0;
     for (std::size_t t = 0; t < n; ++t) {
         if (any_nan(mid[t], upper[t], lower[t], trend_ma[t])) {

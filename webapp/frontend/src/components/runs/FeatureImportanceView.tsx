@@ -45,6 +45,7 @@ export function FeatureImportanceView({
   if (response.entries.length > 0) {
     return <FeatureImportanceChart response={response} />;
   }
+
   if (!response.computable) {
     return (
       <div
@@ -59,6 +60,7 @@ export function FeatureImportanceView({
       </div>
     );
   }
+
   return (
     <ComputeImportance
       experimentId={experimentId}
@@ -237,6 +239,7 @@ function ImportanceJobWatcher({
     if (divergedRunId !== null) {
       return <DivergedNotice runId={divergedRunId} fromExperimentId={experimentId} />;
     }
+
     return (
       <div
         data-testid="feature-importance-backfilled"

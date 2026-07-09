@@ -14,6 +14,7 @@ interface SubmitFailureAlertProps {
 export function SubmitFailureAlert({ mutation }: SubmitFailureAlertProps): ReactNode {
   if (!mutation.isError) return null;
   if (mutation.error instanceof SubmitJobError) return null;
+
   const message = mutation.error?.message ?? "Failed to submit job";
   return (
     <Alert variant="destructive">

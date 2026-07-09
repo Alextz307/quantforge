@@ -73,9 +73,11 @@ function ConsolidatedSection({ name, hasReport }: { name: string; hasReport: boo
       </Card>
     );
   }
+
   if (query.isPending) {
     return <p className="text-sm text-muted-foreground">Loading consolidated report...</p>;
   }
+
   if (query.isError) {
     return (
       <p className="text-sm text-destructive">
@@ -83,6 +85,7 @@ function ConsolidatedSection({ name, hasReport }: { name: string; hasReport: boo
       </p>
     );
   }
+
   return (
     <div className="flex flex-col gap-2">
       <ConsolidatedReportPanel dto={query.data} studyDirName={name} />

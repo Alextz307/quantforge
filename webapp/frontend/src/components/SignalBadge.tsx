@@ -44,9 +44,11 @@ function describe(signal: number | null, loading: boolean, kind: SignalKind): Si
       icon: <Loader2 className={cn(ICON_CLASS, "animate-spin")} />,
     };
   }
+
   if (signal === null || !Number.isFinite(signal)) {
     return { state: "unknown", label: "-", icon: <Minus className={ICON_CLASS} /> };
   }
+
   if (signal === 0) {
     return {
       state: "flat",
@@ -55,6 +57,7 @@ function describe(signal: number | null, loading: boolean, kind: SignalKind): Si
       title: signal.toFixed(4),
     };
   }
+
   // Directional strategies emit +/-1, so the magnitude carries no information -
   // show the word alone. Leverage strategies emit a position-size multiplier,
   // so surface it explicitly as "1.39x".

@@ -28,6 +28,7 @@ describe("StudiesPage", () => {
 
     const link = await screen.findByRole("link", { name: STUDY_DEMO_SUMMARY.name });
     await user.click(link);
+
     expect(await screen.findByText("study detail")).toBeInTheDocument();
   });
 });

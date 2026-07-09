@@ -113,9 +113,11 @@ def list_holdout_evals_page(
         user=user,
         all_users=all_users,
     )
+
     source_kinds = sorted({s.source_kind for s in visible})
     filtered = [s for s in visible if _matches(s, source_kind, since)]
     _sort(filtered, sort_by, order)
+
     page, total = paginate(filtered, limit=limit, offset=offset)
     items = stamp_summaries(page, key_fn=lambda s: s.name, usernames=usernames)
     return HoldoutEvalsPage(
@@ -167,6 +169,7 @@ def get_holdout_eval(
     payload = json_io.read_dict(eval_dir / HOLDOUT_EVAL_JSON)
     metrics = json_io.get_dict(payload, "metrics")
     usernames = resolve_owner_usernames(conn, experiment_ids=[name])
+
     return HoldoutEvalDetail(
         name=json_io.get_str(payload, "out_name"),
         store=store_label(eval_dir, root),

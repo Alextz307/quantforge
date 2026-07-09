@@ -55,9 +55,11 @@ def validate_study_spec_text(yaml_text: str, *, config_root: Path) -> ValidateRe
     parsed, parse_errors = parse_yaml_mapping(yaml_text)
     if parsed is None:
         return ValidateResponse(valid=False, errors=parse_errors)
+
     schema_errors = validate_against_pydantic(parsed, StudySpec)
     if schema_errors:
         return ValidateResponse(valid=False, errors=schema_errors)
+
     spec = StudySpec.model_validate(parsed)
     path_errors = _check_referenced_paths(spec, config_root)
     return ValidateResponse(valid=not path_errors, errors=path_errors)
@@ -74,6 +76,7 @@ def _check_referenced_paths(spec: StudySpec, config_root: Path) -> list[Validati
 
     errors: list[ValidationErrorItem] = []
     universes_dir = config_root / "universes"
+
     for leg_idx, leg in enumerate(spec.legs):
         if not Path(leg.strategy_config).is_file():
             errors.append(

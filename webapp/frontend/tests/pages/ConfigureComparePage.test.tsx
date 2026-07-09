@@ -80,6 +80,7 @@ describe("ConfigureComparePage", () => {
     expect(screen.getByTestId("compare-data-hash-lock-notice")).toBeInTheDocument();
 
     await user.click(screen.getByLabelText(`Select ${RUN_SPY.name}`));
+
     expect(screen.queryByTestId("compare-data-hash-lock-notice")).not.toBeInTheDocument();
     expect(screen.getByLabelText(`Select ${RUN_IVV_VOO.name}`)).not.toBeDisabled();
   });
@@ -137,6 +138,7 @@ describe("ConfigureComparePage", () => {
     for (let i = 0; i < 8; i += 1) {
       await user.click(screen.getByLabelText(`Select run_${String(i)}`));
     }
+
     const ninth = screen.getByLabelText("Select run_8");
     await waitFor(() => {
       expect(ninth).toBeDisabled();

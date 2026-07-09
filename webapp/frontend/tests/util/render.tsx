@@ -23,6 +23,7 @@ export function renderWithProviders(
   { initialEntries = ["/"], ...options }: ProviderOptions & RenderOptions = {},
 ) {
   const client = makeClient();
+
   function Wrapper({ children }: { children: ReactNode }) {
     return (
       <ThemeProvider>
@@ -34,5 +35,6 @@ export function renderWithProviders(
       </ThemeProvider>
     );
   }
+
   return { ...render(ui, { wrapper: Wrapper, ...options }), queryClient: client };
 }

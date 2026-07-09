@@ -27,9 +27,11 @@ function MetricsGrid({ metrics }: { metrics: Record<string, number> }) {
     () => Object.entries(metrics).sort(([a], [b]) => a.localeCompare(b)),
     [metrics],
   );
+
   if (entries.length === 0) {
     return <p className="text-sm text-muted-foreground">No aggregated metrics recorded.</p>;
   }
+
   return (
     <div className="grid grid-cols-2 md:grid-cols-4 gap-4" data-testid="metrics-grid">
       {entries.map(([k, v]) => (

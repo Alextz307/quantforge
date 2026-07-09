@@ -64,6 +64,7 @@ function SortableHeader<K extends string>({
 }: SortableHeaderProps<K>): ReactNode {
   const active = state.sortBy === sortKey;
   const indicator = active ? (state.order === "desc" ? " v" : " ^") : "";
+
   return (
     <button
       type="button"

@@ -143,7 +143,9 @@ TEST(BacktestEngineTest, ShortProfitsOnPriceDrop) {
         make_bar(2, kPriceAt80, kPriceAt80, kPriceAt80, kPriceAt80),
     };
     const std::vector<double> signals{-1.0, -1.0, -1.0};
+
     const auto result = engine.run(bars, signals);
+
     EXPECT_GT(result.equity_curve.back(), kInitialCapital);
     // Rebalancing to maintain leverage is equity-neutral at the instant of
     // fill, so MTM gain at bar 2 close = shares * (entry - close).
@@ -160,7 +162,9 @@ TEST(BacktestEngineTest, AlwaysLongTracksPrice) {
         make_bar(1, kPriceAt110, kPriceAt120, kPriceAt110, kPriceAt120),
     };
     const std::vector<double> signals{1.0, 1.0};
+
     const auto result = engine.run(bars, signals);
+
     const double expected_shares = kInitialCapital / kPriceAt110;
     const double expected_equity = expected_shares * kPriceAt120;
     EXPECT_NEAR(result.equity_curve.back(), expected_equity, kFloatTolerance);
@@ -187,7 +191,9 @@ TEST(BacktestEngineTest, FixedSlippageRaisesBuyFillPrice) {
         make_bar(1, kPriceAt110, kPriceAt110, kPriceAt110, kPriceAt110),
     };
     const std::vector<double> signals{1.0, 0.0};
+
     const auto result = engine.run(bars, signals);
+
     const double bps_fraction = kFixedSlippageBps / kBpsPerUnit;
     const double expected_equity = kInitialCapital * (1.0 - bps_fraction);
     EXPECT_NEAR(result.equity_curve.back(), expected_equity, kFloatTolerance);
@@ -208,8 +214,10 @@ TEST(BacktestEngineTest, VolumeScaledSlippageIncreasesWithOrderSize) {
     BacktestEngine engine(make_config(
         kZeroFeeRate,
         SlippageConfig{SlippageModel::VolumeScaled, 0.0, kVolumeImpactCoeff}));
+
     const auto result_large = engine.run(bars_large_volume, signals);
     const auto result_small = engine.run(bars_small_volume, signals);
+
     EXPECT_LT(result_small.equity_curve.back(), result_large.equity_curve.back());
 }
 
@@ -294,7 +302,9 @@ TEST(BacktestEngineRunPairsTest, ConvergingSpreadProfitsBothLegs) {
         make_bar(2, kPriceAt90, kPriceAt90, kPriceAt90, kPriceAt90),
     };
     const std::vector<double> signals{1.0, 1.0, 1.0};
+
     const auto result = engine.run_pairs(bars_a, bars_b, signals, 1.0);
+
     EXPECT_EQ(result.trade_count, 2);
     const double shares_a_expected = kInitialCapital / kPriceAt100;
     const double shares_b_expected = kInitialCapital / kPriceAt100;
@@ -316,10 +326,12 @@ TEST(BacktestEngineRunPairsTest, NegativeSignalReversesLegSigns) {
         make_bar(1, kPriceAt100, kPriceAt100, kPriceAt100, kPriceAt100),
         make_bar(2, kPriceAt90, kPriceAt90, kPriceAt90, kPriceAt90),
     };
+
     const auto pos = engine.run_pairs(
         bars_a, bars_b, std::vector<double>{1.0, 1.0, 1.0}, 1.0);
     const auto neg = engine.run_pairs(
         bars_a, bars_b, std::vector<double>{-1.0, -1.0, -1.0}, 1.0);
+
     EXPECT_NEAR(
         pos.equity_curve.back() - kInitialCapital,
         kInitialCapital - neg.equity_curve.back(),
@@ -339,8 +351,10 @@ TEST(BacktestEngineRunPairsTest, HedgeRatioScalesLegBExposure) {
     };
     const std::vector<double> signals{1.0, 1.0, 1.0};
     BacktestEngine engine(zero_friction_config());
+
     const auto baseline = engine.run_pairs(bars_a, bars_b, signals, 1.0);
     const auto wider   = engine.run_pairs(bars_a, bars_b, signals, 2.0);
+
     EXPECT_GT(wider.equity_curve.back(), baseline.equity_curve.back());
 }
 

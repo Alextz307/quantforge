@@ -13,17 +13,21 @@ export class MockWebSocket {
     this.url = url;
     MockWebSocket.instances.push(this);
   }
+
   triggerOpen(): void {
     this.readyState = 1;
     this.onopen?.(new Event("open"));
   }
+
   triggerMessage(payload: object): void {
     this.onmessage?.(new MessageEvent("message", { data: JSON.stringify(payload) }));
   }
+
   triggerClose(): void {
     this.readyState = 3;
     this.onclose?.(new CloseEvent("close"));
   }
+
   close(): void {
     this.triggerClose();
   }
@@ -31,6 +35,7 @@ export class MockWebSocket {
 
 export function installMockWebSocket(): void {
   const real = globalThis.WebSocket;
+
   beforeAll(() => {
     Object.defineProperty(globalThis, "WebSocket", {
       value: MockWebSocket,
@@ -38,6 +43,7 @@ export function installMockWebSocket(): void {
       configurable: true,
     });
   });
+
   afterAll(() => {
     Object.defineProperty(globalThis, "WebSocket", {
       value: real,
@@ -45,6 +51,7 @@ export function installMockWebSocket(): void {
       configurable: true,
     });
   });
+
   afterEach(() => {
     MockWebSocket.instances = [];
   });

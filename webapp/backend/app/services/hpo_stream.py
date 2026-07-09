@@ -42,6 +42,7 @@ async def tail_hpo_trials(
     """
 
     trial_jsonl_path = study_dir / TRIALS_JSONL_NAME
+
     # Defer the import: hpo_service pulls in optuna + reporters transitively
     # and the WS endpoint is hit far less often than the main HTTP routes.
     from webapp.backend.app.services.hpo_service import trial_row_from_record

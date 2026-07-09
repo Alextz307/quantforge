@@ -30,6 +30,7 @@ type Snapshot = {
 // numeric filters.
 function listLimitSchemas(): { maximum?: number; default?: number }[] {
   const snapshot = JSON.parse(fs.readFileSync(SNAPSHOT_PATH, "utf-8")) as Snapshot;
+
   const schemas: { maximum?: number; default?: number }[] = [];
   for (const operations of Object.values(snapshot.paths)) {
     for (const operation of Object.values(operations)) {
@@ -40,6 +41,7 @@ function listLimitSchemas(): { maximum?: number; default?: number }[] {
       }
     }
   }
+
   return schemas;
 }
 
@@ -48,6 +50,7 @@ describe("page-limit constants", () => {
     const maxima = listLimitSchemas()
       .map((s) => s.maximum)
       .filter((m): m is number => typeof m === "number");
+
     expect(maxima.length).toBeGreaterThan(0);
     for (const max of maxima) {
       expect(max).toBe(MAX_PAGE_LIMIT);
@@ -58,6 +61,7 @@ describe("page-limit constants", () => {
     const defaults = listLimitSchemas()
       .map((s) => s.default)
       .filter((d): d is number => typeof d === "number");
+
     expect(defaults.length).toBeGreaterThan(0);
     for (const dflt of defaults) {
       expect(dflt).toBe(DEFAULT_PAGE_LIMIT);

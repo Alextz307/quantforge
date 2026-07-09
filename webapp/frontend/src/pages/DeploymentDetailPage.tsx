@@ -311,12 +311,14 @@ function ReturnCell({ value }: { value: number | null | undefined }) {
   if (value === null || value === undefined || !Number.isFinite(value)) {
     return <span className="text-muted-foreground">-</span>;
   }
+
   const tone =
     value > 0
       ? "text-emerald-600 dark:text-emerald-400"
       : value < 0
         ? "text-rose-600 dark:text-rose-400"
         : "text-muted-foreground";
+
   return <span className={tone}>{formatPercent(value)}</span>;
 }
 
@@ -335,6 +337,7 @@ function StatusCell({ score }: { score: ScoredSignalOut | undefined }) {
       <span className="text-rose-600 dark:text-rose-400">loss</span>
     );
   }
+
   if (score?.entry_open != null) {
     return (
       <span
@@ -345,6 +348,7 @@ function StatusCell({ score }: { score: ScoredSignalOut | undefined }) {
       </span>
     );
   }
+
   return (
     <span
       className="text-muted-foreground"

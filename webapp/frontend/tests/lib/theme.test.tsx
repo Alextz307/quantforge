@@ -21,6 +21,7 @@ interface FakeMql {
 function makeMatchMedia(initialDark: boolean) {
   let currentDark = initialDark;
   const mqls: FakeMql[] = [];
+
   const factory = (query: string): FakeMql => {
     const mql: FakeMql = {
       matches: query.includes("dark") ? currentDark : !currentDark,
@@ -40,6 +41,7 @@ function makeMatchMedia(initialDark: boolean) {
     mqls.push(mql);
     return mql;
   };
+
   return {
     factory,
     setSystemDark(next: boolean) {

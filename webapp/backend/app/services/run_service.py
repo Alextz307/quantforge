@@ -113,6 +113,7 @@ def _lookup_run_dir(root: Path, experiment_id: str) -> Path:
     hit = id_index.get(experiment_id)
     if hit is not None and hit.is_dir():
         return hit
+
     resolved = find_run_dir(root, experiment_id)
     warm_index(root, _RUN_KIND, experiment_id, resolved)
     return resolved
@@ -152,6 +153,7 @@ def list_runs_page(
         user=user,
         all_users=all_users,
     )
+
     filtered = [r for r in visible if _matches_filters(r, strategy, ticker, since)]
     _sort_runs(filtered, sort_by, order)
 
@@ -196,10 +198,12 @@ def _ensure_plots(run_dir: Path) -> None:
     plots_dir = run_dir / PLOTS_DIRNAME
     if plots_dir.is_dir() and any(plots_dir.iterdir()):
         return
+
     try:
         result = load_experiment_result(run_dir)
     except FileNotFoundError:
         return
+
     from src.visualization.strategy_reporter import StrategyReporter
 
     StrategyReporter().generate_full_report(result, run_dir)
@@ -235,6 +239,7 @@ def get_run(
         metrics = _read_metrics(run_dir)
     except FileNotFoundError:
         metrics = {}
+
     usernames = resolve_owner_usernames(conn, experiment_ids=[experiment_id])
 
     return RunDetail(
@@ -310,6 +315,7 @@ def get_feature_importance(
 
     check_artifact_access(conn, experiment_id=experiment_id, user=user)
     run_dir = _lookup_run_dir(root, experiment_id)
+
     try:
         payload = json_io.read_dict(run_dir / FEATURE_IMPORTANCE_JSON)
     except FileNotFoundError:
@@ -323,6 +329,7 @@ def get_feature_importance(
             computable=strategy_supports_feature_importance(strategy_name),
             diverged_run_id=_read_diverged_run_id(run_dir),
         )
+
     # This panel is per-column. The per-asset (ASSET_*) entries a basket
     # strategy also emits are a study-report artifact, not surfaced here.
     entries = [
@@ -344,6 +351,7 @@ def _read_diverged_run_id(run_dir: Path) -> str | None:
         # Absent or malformed pointer: treat as "no divergence" rather than
         # 500ing the importance endpoint on a half-written / corrupt file.
         return None
+
     run_id = pointer.get("diverged_run_id")
     return run_id if isinstance(run_id, str) else None
 
@@ -387,6 +395,7 @@ def resolve_plot(
 
     check_artifact_access(conn, experiment_id=experiment_id, user=user)
     run_dir = _lookup_run_dir(root, experiment_id)
+
     try:
         return resolve_plot_path(run_dir, plot_name)
     except PlotNotFoundError:

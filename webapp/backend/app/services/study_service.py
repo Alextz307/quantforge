@@ -112,9 +112,11 @@ def list_studies_page(
         user=user,
         all_users=all_users,
     )
+
     specs = sorted({s.spec_name for s in visible})
     filtered = [s for s in visible if _matches(s, spec, since)]
     filtered.sort(key=lambda s: s.started_at, reverse=True)
+
     page, total = paginate(filtered, limit=limit, offset=offset)
     items = stamp_summaries(page, key_fn=lambda s: s.name, usernames=usernames)
     return StudiesPage(items=items, total=total, limit=limit, offset=offset, specs=specs)
@@ -157,6 +159,7 @@ def build_study_detail(study_dir: Path) -> StudyDetail:
 
     state = read_study_state(study_dir / STUDY_STATE_FILENAME)
     completed, total = _completion_counts(state)
+
     return StudyDetail(
         name=study_dir.name,
         spec_name=state.spec_name,
@@ -237,10 +240,12 @@ def generate_consolidated(
 
     check_artifact_access(conn, experiment_id=name, user=user)
     study_dir = find_study_dir(root, name)
+
     try:
         report = consolidate_study(study_dir)
     except (FileNotFoundError, ValueError) as exc:
         raise StudyConsolidationError(str(exc)) from exc
+
     StudyReportReporter().generate_full_report(report, study_dir)
     return get_consolidated(root, name, conn=conn, user=user)
 
@@ -316,6 +321,7 @@ def find_live_study_job_for(conn: sqlite3.Connection, output_dir_name: str) -> s
         f"ORDER BY id DESC LIMIT 1",
         (JobKind.STUDY.value, output_dir_name, *terminal),
     ).fetchone()
+
     if row is None:
         return None
     return str(row["id"])

@@ -31,6 +31,7 @@ function applyFilters(rows: readonly Row[], f: Filters): readonly Row[] {
 
 function Harness() {
   const [category, setCategory] = useState<string>(ALL);
+
   return (
     <FilterableTablePage<Row, Filters>
       rows={ROWS}
@@ -86,6 +87,7 @@ describe("FilterableTablePage", () => {
   it("filters via applyFilters when filter state changes", async () => {
     const user = userEvent.setup();
     renderWithProviders(<TreeWithDetail />);
+
     await user.selectOptions(screen.getByLabelText(/category/i), "y");
 
     const table = screen.getByTestId("rows-table");
@@ -111,6 +113,7 @@ describe("FilterableTablePage", () => {
         />
       );
     }
+
     renderWithProviders(
       <Routes>
         <Route path="/" element={<EmptyHarness />} />
@@ -123,12 +126,15 @@ describe("FilterableTablePage", () => {
   it("navigates to rowHref when the name link is clicked", async () => {
     const user = userEvent.setup();
     renderWithProviders(<TreeWithDetail />);
+
     await user.click(screen.getByRole("link", { name: "Alpha" }));
+
     expect(await screen.findByText("row detail")).toBeInTheDocument();
   });
 
   it("calls rowOnHover with the hovered row", async () => {
     const calls: Row[] = [];
+
     function HoverHarness() {
       return (
         <FilterableTablePage<Row, Filters>
@@ -146,13 +152,16 @@ describe("FilterableTablePage", () => {
         />
       );
     }
+
     const user = userEvent.setup();
     renderWithProviders(
       <Routes>
         <Route path="/" element={<HoverHarness />} />
       </Routes>,
     );
+
     await user.hover(screen.getByRole("link", { name: "Bravo" }));
+
     expect(calls.map((r) => r.id)).toContain("b");
   });
 });

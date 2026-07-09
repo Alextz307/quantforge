@@ -71,6 +71,7 @@ public:
         if (begin_it == end_it) {
             throw std::invalid_argument("TimeSeries: slice produced empty result");
         }
+
         const auto offset = static_cast<size_t>(begin_it - data_.begin());
         const auto count = static_cast<size_t>(end_it - begin_it);
         return std::span<const T>(data_.data() + offset, count);

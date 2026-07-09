@@ -7,6 +7,7 @@ export function PerStrategyStatsTable({ rows }: { rows: readonly PerStrategyStat
   if (rows.length === 0) {
     return <p className="text-sm text-muted-foreground">No per-strategy stats recorded.</p>;
   }
+
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-sm" data-testid="per-strategy-stats-table">

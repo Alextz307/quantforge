@@ -29,6 +29,7 @@ struct FillOutcome {
     if (std::abs(delta_shares) <= kMinOrderShares) {
         return FillOutcome{current_shares, 0.0, false};
     }
+
     const double fill_price = slippage.apply(price, delta_shares, volume);
     const double trade_notional = delta_shares * fill_price;
     const double commission = std::abs(trade_notional) * transaction_fee_rate;

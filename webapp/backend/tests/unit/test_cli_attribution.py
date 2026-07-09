@@ -59,6 +59,7 @@ def test_resolve_auto_creates_user_when_tty(
     """
 
     fresh_password = "newpass!secret"
+
     with (
         patch("scripts._attribution.stdin_is_tty", return_value=True),
         patch("scripts._attribution.click.confirm", return_value=True),
@@ -68,6 +69,7 @@ def test_resolve_auto_creates_user_when_tty(
         ),
     ):
         user_id = resolve_or_create_attributing_user(db_conn, "newcomer")
+
     row = db_conn.execute("SELECT id, role FROM users WHERE username = ?", ("newcomer",)).fetchone()
     assert row is not None
     assert int(row["id"]) == user_id
@@ -133,9 +135,11 @@ def test_attribute_via_username_swallows_user_vanished_mid_run(
 
 def test_attribute_artifact_inserts_jobs_row(db_conn: sqlite3.Connection) -> None:
     user_id = _seed(db_conn, "alex")
+
     attribute_artifact(
         db_conn, user_id=user_id, kind=JobKind.RUN, experiment_id=_EID, command="experiment run"
     )
+
     row = db_conn.execute(
         "SELECT user_id, kind, command, experiment_id FROM jobs WHERE experiment_id = ?",
         (_EID,),

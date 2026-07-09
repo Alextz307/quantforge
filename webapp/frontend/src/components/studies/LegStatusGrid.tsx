@@ -20,6 +20,7 @@ const STATUS_STYLES = {
 function StatusPill({ leg }: { leg: LegStateRow }) {
   const status = classifyLeg(leg);
   const className = `inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_STYLES[status]}`;
+
   if (status === "complete" && leg.run_experiment_id) {
     return (
       <Link
@@ -31,6 +32,7 @@ function StatusPill({ leg }: { leg: LegStateRow }) {
       </Link>
     );
   }
+
   return (
     <span className={className} data-testid={`leg-cell-${leg.leg_id}`}>
       {status}
@@ -55,6 +57,7 @@ function pivot(legs: readonly LegStateRow[]): { universes: string[]; rows: Pivot
     row.byUniverse.set(leg.universe, leg);
     universeSet.add(leg.universe);
   }
+
   const rows = [...rowMap.values()].sort((a, b) => a.strategy.localeCompare(b.strategy));
   const universes = [...universeSet].sort();
   return { universes, rows };

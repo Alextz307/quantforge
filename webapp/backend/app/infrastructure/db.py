@@ -138,6 +138,7 @@ def _ensure_column(conn: sqlite3.Connection, table: str, column: str, definition
         raise ValueError(f"invalid column name: {column!r}")
     if not _TYPE_DEFINITION_RE.match(definition):
         raise ValueError(f"invalid column definition: {definition!r}")
+
     cursor = conn.execute(f"PRAGMA table_info({table})")  # noqa: S608 - identifier validated above
     existing = {str(row["name"]) for row in cursor.fetchall()}
     if column in existing:
@@ -151,6 +152,7 @@ def bootstrap_schema(conn: sqlite3.Connection) -> None:
     conn.executescript(STUDY_SPEC_UPLOADS_SCHEMA)
     conn.executescript(UNIVERSE_SPEC_UPLOADS_SCHEMA)
     conn.executescript(DEPLOYMENTS_SCHEMA)
+
     # Migration: ``users.auto_created_at`` distinguishes CLI ``--user`` auto-
     # creates from deliberate ``scripts.create_user`` runs so an admin can find
     # typo-stub accounts. Pre-existing rows stay NULL - only new auto-creates

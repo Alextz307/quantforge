@@ -39,6 +39,7 @@ describe("HpoPage", () => {
 
     const link = await screen.findByRole("link", { name: HPO_DEMO_SUMMARY.name });
     await user.click(link);
+
     expect(await screen.findByText("hpo detail")).toBeInTheDocument();
   });
 

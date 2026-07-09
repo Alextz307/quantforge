@@ -163,12 +163,14 @@ async def stream_study(websocket: WebSocket, name: str) -> None:
     if user is None:
         await websocket.close(code=WS_CLOSE_UNAUTHORIZED)
         return
+
     settings = get_settings()
     try:
         study_dir = find_study_dir(settings.store_root, name)
     except StudyNotFoundError:
         await websocket.close(code=WS_CLOSE_NOT_FOUND)
         return
+
     await websocket.accept()
     stop = asyncio.Event()
     try:

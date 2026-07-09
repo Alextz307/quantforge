@@ -11,6 +11,7 @@ export function PickerTruncationNotice({
   limit?: number;
 }) {
   if (total <= limit) return null;
+
   return (
     <p className="text-xs text-amber-600 dark:text-amber-400">
       Showing the first {limit} of {total}. Entries beyond that are not selectable here — open the

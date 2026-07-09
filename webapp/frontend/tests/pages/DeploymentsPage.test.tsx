@@ -95,6 +95,7 @@ describe("DeploymentsPage", () => {
 
     await screen.findByRole("link", { name: DEPLOY_SPY.name });
     await user.click(screen.getByRole("button", { name: `Delete ${DEPLOY_SPY.name}` }));
+
     await waitFor(
       () => {
         expect(screen.queryByRole("link", { name: DEPLOY_SPY.name })).not.toBeInTheDocument();

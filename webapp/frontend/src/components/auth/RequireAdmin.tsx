@@ -9,6 +9,7 @@ interface RequireAdminProps {
 
 export function RequireAdmin({ children }: RequireAdminProps) {
   const { data: user } = useMe();
+
   if (user && user.role !== ROLE_ADMIN) {
     return (
       <div className="mx-auto max-w-lg p-8">
@@ -19,5 +20,6 @@ export function RequireAdmin({ children }: RequireAdminProps) {
       </div>
     );
   }
+
   return <>{children}</>;
 }

@@ -44,6 +44,7 @@ struct SlippageConfig {
                 break;
             }
         }
+
         const double fraction = effective_bps / kBpsPerUnit;
         return theoretical_price * (1.0 + sign * fraction);
     }

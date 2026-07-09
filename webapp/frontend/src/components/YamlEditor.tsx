@@ -68,6 +68,7 @@ export function YamlEditor({
     if (!editorInstance || !monaco) return;
     const model = editorInstance.getModel();
     if (!model) return;
+
     const markers: editor.IMarkerData[] = errors
       .filter((err) => locToLine(err.loc, value) !== null)
       .map((err) => {
@@ -125,11 +126,13 @@ export function YamlEditor({
 function locToLine(loc: readonly string[], text: string): number | null {
   const head = loc[0];
   if (head === undefined || head === "yaml") return 1;
+
   const lines = text.split("\n");
   if (loc.length === 1) {
     const idx = lines.findIndex((l) => new RegExp(`^${head}\\s*:`).test(l));
     return idx === -1 ? null : idx + 1;
   }
+
   const indexPart = loc[1];
   if (head === "legs" && indexPart !== undefined && /^\d+$/.test(indexPart)) {
     const legIndex = Number(indexPart);
@@ -142,5 +145,6 @@ function locToLine(loc: readonly string[], text: string): number | null {
       }
     }
   }
+
   return null;
 }

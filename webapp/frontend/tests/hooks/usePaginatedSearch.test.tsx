@@ -55,9 +55,11 @@ describe("usePaginatedSearch", () => {
     const { result } = renderHook(() => usePaginatedSearch(), {
       wrapper: wrapperFor("/?strategy=Foo"),
     });
+
     act(() => {
       result.current.setOffset(PAGE_THREE_OFFSET);
     });
+
     expect(result.current.offset).toBe(PAGE_THREE_OFFSET);
     expect(result.current.searchParams.get("strategy")).toBe("Foo");
   });
@@ -66,9 +68,11 @@ describe("usePaginatedSearch", () => {
     const { result } = renderHook(() => usePaginatedSearch(), {
       wrapper: wrapperFor(`/?offset=${String(PAGE_TWO_OFFSET)}`),
     });
+
     act(() => {
       result.current.setOffset(0);
     });
+
     expect(result.current.offset).toBe(0);
     expect(result.current.searchParams.has("offset")).toBe(false);
   });
@@ -77,9 +81,11 @@ describe("usePaginatedSearch", () => {
     const { result } = renderHook(() => usePaginatedSearch(), {
       wrapper: wrapperFor(`/?offset=${String(PAGE_TWO_OFFSET)}`),
     });
+
     act(() => {
       result.current.setParams({ strategy: "Bar" });
     });
+
     expect(result.current.searchParams.get("strategy")).toBe("Bar");
     expect(result.current.offset).toBe(0);
   });
@@ -88,9 +94,11 @@ describe("usePaginatedSearch", () => {
     const { result } = renderHook(() => usePaginatedSearch(), {
       wrapper: wrapperFor("/?strategy=Foo"),
     });
+
     act(() => {
       result.current.setParams({ strategy: "" });
     });
+
     expect(result.current.searchParams.has("strategy")).toBe(false);
   });
 });

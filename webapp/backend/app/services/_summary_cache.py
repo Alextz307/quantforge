@@ -75,14 +75,17 @@ def cached_summaries[T](
         if rev is None:
             logger.warning("skipping artifact with no readable source at %s", artifact_dir)
             return None
+
         hit = cache.get(key)
         if hit is not None and hit[0] == rev:
             return hit[1]
+
         try:
             summary: T | None = summarize(artifact_dir)
         except Exception as exc:  # noqa: BLE001 - one bad artifact must not 500 the listing
             logger.warning("skipping unreadable artifact at %s: %s", artifact_dir, exc)
             summary = None
+
         cache[key] = (rev, summary)
         return summary
 

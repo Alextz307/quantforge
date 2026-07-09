@@ -55,6 +55,7 @@ def validate_universe_spec_text(yaml_text: str) -> ValidateResponse:
     parsed, parse_errors = parse_yaml_mapping(yaml_text)
     if parsed is None:
         return ValidateResponse(valid=False, errors=parse_errors)
+
     schema_errors = validate_against_pydantic(parsed, UniverseProfile)
     return ValidateResponse(valid=not schema_errors, errors=schema_errors)
 

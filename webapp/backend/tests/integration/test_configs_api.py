@@ -38,6 +38,7 @@ def webapp_config_root(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
         ),
         encoding="utf-8",
     )
+
     monkeypatch.setenv("WEBAPP_CONFIG_ROOT", str(root))
     get_settings.cache_clear()
     return root

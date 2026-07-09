@@ -8,6 +8,7 @@ interface ServerErrorListProps {
 
 export function ServerErrorList({ errors }: ServerErrorListProps): ReactNode {
   if (errors.length === 0) return null;
+
   return (
     <Alert variant="destructive">
       <AlertTitle>Backend rejected the config</AlertTitle>

@@ -42,6 +42,7 @@ describe("AppShell", () => {
         </Routes>
       );
     }
+
     renderWithProviders(<RegularTree />, { initialEntries: [ROUTES.runs] });
 
     expect(screen.queryByRole("link", { name: /Admin/i })).not.toBeInTheDocument();

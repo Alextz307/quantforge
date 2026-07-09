@@ -81,6 +81,7 @@ def test_validate_missing_required_field() -> None:
 
 def test_save_persists_row_and_file(db_conn: sqlite3.Connection, tmp_path: Path) -> None:
     alice = _user(db_conn, "alice")
+
     detail = save_upload(
         db_conn,
         user=alice,
@@ -89,6 +90,7 @@ def test_save_persists_row_and_file(db_conn: sqlite3.Connection, tmp_path: Path)
         uploads_root=tmp_path,
         config_root=tmp_path / "config",
     )
+
     assert detail.slug == "my_universe"
     assert detail.owner_user_id == alice.id
     assert detail.owner_username == "alice"
@@ -113,6 +115,7 @@ def test_save_library_slug_collision(db_conn: sqlite3.Connection, tmp_path: Path
     alice = _user(db_conn, "alice")
     (tmp_path / "config" / "universes").mkdir(parents=True)
     (tmp_path / "config" / "universes" / "main.yaml").write_text("body\n")
+
     with pytest.raises(LibrarySlugCollisionError):
         save_upload(
             db_conn,
@@ -143,6 +146,7 @@ def test_list_uploads_scopes_to_caller(db_conn: sqlite3.Connection, tmp_path: Pa
         uploads_root=tmp_path,
         config_root=tmp_path / "config",
     )
+
     alice_view = list_uploads(db_conn, user=alice, all_users=False)
     assert [u.slug for u in alice_view] == ["alice_universe"]
 
@@ -167,6 +171,7 @@ def test_admin_all_users_lists_everything(db_conn: sqlite3.Connection, tmp_path:
         uploads_root=tmp_path,
         config_root=tmp_path / "config",
     )
+
     full = list_uploads(db_conn, user=admin, all_users=True)
     assert {u.slug for u in full} == {"alice_universe", "bob_universe"}
 
@@ -187,6 +192,7 @@ def test_get_upload_returns_own(db_conn: sqlite3.Connection, tmp_path: Path) -> 
         uploads_root=tmp_path,
         config_root=tmp_path / "config",
     )
+
     detail = get_upload(db_conn, user=alice, slug="u")
     assert detail.slug == "u"
     assert detail.yaml == VALID_UNIVERSE_YAML
@@ -205,6 +211,7 @@ def test_get_upload_other_users_returns_not_found(
         uploads_root=tmp_path,
         config_root=tmp_path / "config",
     )
+
     with pytest.raises(UniverseSpecUploadNotFoundError):
         get_upload(db_conn, user=bob, slug="u")
 
@@ -220,7 +227,9 @@ def test_soft_delete_removes_file_and_row(db_conn: sqlite3.Connection, tmp_path:
         config_root=tmp_path / "config",
     )
     assert find_upload_path(tmp_path, alice.id, "u") is not None
+
     soft_delete_upload(db_conn, user=alice, slug="u", uploads_root=tmp_path)
+
     assert find_upload_path(tmp_path, alice.id, "u") is None
     assert list_uploads(db_conn, user=alice) == []
 
@@ -243,6 +252,7 @@ def test_resave_after_soft_delete_reactivates_tombstone(
         config_root=tmp_path / "config",
     )
     soft_delete_upload(db_conn, user=alice, slug="u", uploads_root=tmp_path)
+
     refreshed_yaml = VALID_UNIVERSE_YAML.replace("SPY", "QQQ")
     detail = save_upload(
         db_conn,
@@ -252,5 +262,6 @@ def test_resave_after_soft_delete_reactivates_tombstone(
         uploads_root=tmp_path,
         config_root=tmp_path / "config",
     )
+
     assert detail.yaml == refreshed_yaml
     assert [u.slug for u in list_uploads(db_conn, user=alice)] == ["u"]

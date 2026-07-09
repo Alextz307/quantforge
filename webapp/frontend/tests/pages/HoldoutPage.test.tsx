@@ -44,6 +44,7 @@ describe("HoldoutPage", () => {
 
     const link = await screen.findByRole("link", { name: HOLDOUT_DEMO_SUMMARY.name });
     await user.click(link);
+
     expect(await screen.findByText("holdout detail")).toBeInTheDocument();
   });
 
@@ -62,6 +63,7 @@ describe("HoldoutPage", () => {
     renderWithProviders(<Tree />, { initialEntries: [ROUTES.holdout] });
 
     await user.click(await screen.findByTestId(`deploy-holdout-${HOLDOUT_DEMO_SUMMARY.name}`));
+
     expect(await screen.findByText("deployment detail")).toBeInTheDocument();
   });
 

@@ -66,6 +66,7 @@ def _get_or_refresh(
     hit = _CACHE.get(key)
     if hit is not None and now - hit[0] < _TTL_SECONDS:
         return hit[1], hit[2]
+
     paths = tuple(walker(root))
     id_index = {p.name: p for p in paths}
     _CACHE[key] = (now, paths, id_index)
